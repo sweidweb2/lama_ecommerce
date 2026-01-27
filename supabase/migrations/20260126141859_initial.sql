@@ -15,7 +15,7 @@ create table profiles (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null unique,
   full_name text,
-  role text not null default 'customer',
+  role text not null default 'user',
   created_at timestamptz default now(),
   deleted_at timestamptz
 );
@@ -29,8 +29,8 @@ create table user_addresses (
   country text not null,
   city text not null,
   address text not null,
-  postal_code text,
-  phone text,
+  postal_code text null,
+  phone text null,
   is_default boolean default false,
   created_at timestamptz default now(),
   deleted_at timestamptz
@@ -310,49 +310,83 @@ create table promo_codes (
 
 -- --------------------------------------------------
 
+-- Profile Indexes
 create index idx_profiles_user_id on profiles(user_id);
 create index idx_profiles_role on profiles(role);
+
+-- User Address Indexes
 create index idx_user_addresses_user_id on user_addresses(user_id);
 create index idx_user_addresses_is_default on user_addresses(user_id, is_default);
--- slug already unique → auto-indexed
+-- Categories Indexes
 create index idx_categories_parent_id on categories(parent_id);
 create index idx_categories_is_active on categories(is_active);
+
+-- Products Indexes
 create index idx_products_category_id on products(category_id);
 create index idx_products_brand_id on products(brand_id);
 create index idx_products_is_active on products(is_active);
 create index idx_products_is_featured on products(is_featured);
 create index idx_products_is_trending on products(is_trending);
 create index idx_products_price on products(price);
+
+-- Product Images Indexes
 create index idx_product_images_product_id on product_images(product_id);
 create index idx_product_images_primary on product_images(product_id, is_primary);
+
+-- Customised Products Indexes
 create index idx_variants_product_id on customised_products(product_id);
 create index idx_variants_stock on customised_products(quantity_stock);
 create index idx_variants_attributes on customised_products(color, size, material);
+
+-- Wishlist Indexes
 create index idx_wishlist_user_id on wishlists(user_id);
 create index idx_wishlist_variant_id on wishlists(customised_product_id);
+
+-- Carts Indexes
 create index idx_carts_user_id on carts(user_id);
 create index idx_carts_session_id on carts(session_id);
+
+-- Cart Items Indexes
 create index idx_cart_items_cart_id on cart_items(cart_id);
 create index idx_cart_items_variant_id on cart_items(customised_product_id);
+
+-- Reviews Indexes
 create index idx_reviews_product_id on reviews(product_id);
 create index idx_reviews_is_approved on reviews(is_approved);
+
+-- product questions & answers Indexes
 create index idx_questions_product_id on product_questions(product_id);
 create index idx_questions_is_approved on product_questions(is_approved);
+
+-- Orders Indexes
 create index idx_orders_user_id on orders(user_id);
 create index idx_orders_status on orders(status);
 create index idx_orders_created_at on orders(created_at desc);
+
+-- Order Items Indexes
 create index idx_order_items_order_id on order_items(order_id);
+
+-- Payments Indexes
 create index idx_payments_order_id on payments(order_id);
 create index idx_payments_status on payments(status);
 create index idx_payments_transaction on payments(transaction_id);
+
+-- Shipments Indexes
 create index idx_shipments_order_id on shipments(order_id);
 create index idx_shipments_tracking on shipments(tracking_number);
+
+-- Product Stats Indexes
 create index idx_product_views_product_id on product_views(product_id);
 create index idx_product_views_user_id on product_views(user_id);
 create index idx_product_views_viewed_at on product_views(viewed_at desc);
--- PK on product_id already indexed
+
+-- Promo Codes Indexes
 create index idx_promo_codes_active on promo_codes(is_active);
 create index idx_promo_codes_expires on promo_codes(expires_at);
+
+-- Leads
 create index idx_leads_email on leads(email);
+
+-- Contact Us Indexes
 create index idx_contact_status on contact_us(status);
 create index idx_contact_created_at on contact_us(created_at desc);
