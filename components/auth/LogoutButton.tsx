@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LogOutIcon, Loader2Icon } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
 import { ROUTES } from "@/lib/constants/routes";
+import { logoutService } from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -30,11 +30,11 @@ export function LogoutButton({
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signOut();
+      const result = await logoutService();
 
-      if (error) {
+      if (!result.success) {
         toast.error("Logout failed", {
-          description: error.message,
+          description: result.error,
         });
         return;
       }

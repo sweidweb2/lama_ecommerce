@@ -15,8 +15,8 @@ import {
   UserIcon,
   CheckCircle2Icon,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
 import { signupSchema, type SignupInput } from "@/lib/validators/auth/auth";
+import { signupService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,40 +85,23 @@ export function SignupForm() {
 
     setIsLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email.trim().toLowerCase(),
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.name.trim(),
-          },
-          emailRedirectTo: `${window.location.origin}${ROUTES.CALLBACK}`,
-        },
-      });
+      const result = await signupService(data);
 
-      if (error) {
-        // Better error messages
-        let errorMessage = error.message;
-        if (error.message.includes("User already registered")) {
-          errorMessage = "An account with this email already exists. Please sign in instead.";
-        } else if (error.message.includes("Password")) {
-          errorMessage = "Password does not meet requirements. Please choose a stronger password.";
-        }
-
+      if (!result.success) {
         toast.error("Registration failed", {
-          description: errorMessage,
+          description: result.error,
         });
-        form.setError("root", { message: errorMessage });
+        form.setError("root", { message: result.error });
         return;
       }
 
       // Check if email confirmation is required
-      if (authData.user && !authData.session) {
+      if (result.requiresEmailVerification) {
         setEmailSent(true);
         toast.success("Account created successfully!", {
           description: "Please check your email to verify your account.",
         });
-      } else if (authData.session) {
+      } else {
         // If session is created immediately (email confirmation disabled)
         toast.success("Welcome!", {
           description: "Your account has been created successfully.",

@@ -7,8 +7,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { EyeIcon, EyeOffIcon, Loader2Icon, MailIcon, LockIcon } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
 import { loginSchema, type LoginInput } from "@/lib/validators/auth/auth";
+import { loginService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,24 +41,13 @@ export function LoginForm() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email.trim().toLowerCase(),
-        password: data.password,
-      });
+      const result = await loginService(data);
 
-      if (error) {
-        // Better error messages
-        let errorMessage = error.message;
-        if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "Invalid email or password. Please try again.";
-        } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Please verify your email address before signing in.";
-        }
-
+      if (!result.success) {
         toast.error("Login failed", {
-          description: errorMessage,
+          description: result.error,
         });
-        form.setError("root", { message: errorMessage });
+        form.setError("root", { message: result.error });
         return;
       }
 
