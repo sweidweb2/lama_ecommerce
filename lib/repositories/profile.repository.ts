@@ -1,4 +1,4 @@
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseServerComponentClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/user";
 
 /**
@@ -6,11 +6,13 @@ import type { Profile } from "@/types/user";
  *
  * Uses the server Supabase client and queries `public.profiles`,
  * returning the first matching row (if any).
+ * 
+ * Note: Uses Server Component client (read-only cookies) to work in Server Components.
  */
 export async function getProfileByUserId(
   userId: string
 ): Promise<Profile | null> {
-  const supabase = (await createSupabaseServerActionClient()) as any;
+  const supabase = (await createSupabaseServerComponentClient()) as any;
 
   const { data, error } = await supabase
     .from("profiles")

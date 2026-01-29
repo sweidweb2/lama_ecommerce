@@ -1,4 +1,4 @@
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseServerComponentClient } from "@/lib/supabase/server";
 import type { Profile, ProfileRole } from "@/types/user";
 import { getProfileByUserId } from "@/lib/repositories/profile.repository";
 
@@ -8,9 +8,12 @@ import { getProfileByUserId } from "@/lib/repositories/profile.repository";
  * - Uses the server Supabase client to fetch the current auth user.
  * - If no user is authenticated, returns `null`.
  * - Otherwise loads the profile for `user.id` from `public.profiles`.
+ * 
+ * Note: Uses Server Component client (read-only cookies) to work in Server Components.
+ * For Server Actions/Route Handlers that need to modify cookies, use createSupabaseServerActionClient directly.
  */
 export async function getCurrentUserProfile(): Promise<Profile | null> {
-  const supabase = (await createSupabaseServerActionClient()) as any;
+  const supabase = (await createSupabaseServerComponentClient()) as any;
 
   const {
     data: { user },
