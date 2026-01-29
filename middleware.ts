@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 import { ROLES } from "@/lib/constants/roles";
+import { ROUTES } from "@/lib/constants/routes";
 import type { Profile } from "@/types/user";
 
 /**
@@ -64,7 +65,7 @@ export async function middleware(request: NextRequest) {
 
     if (!user || !profile) {
       // Redirect to login if not authenticated
-      const loginUrl = new URL("/auth/test-login", request.url);
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -79,7 +80,7 @@ export async function middleware(request: NextRequest) {
 
     if (!user || !profile) {
       // Not authenticated, redirect to login
-      const loginUrl = new URL("/auth/test-login", request.url);
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
