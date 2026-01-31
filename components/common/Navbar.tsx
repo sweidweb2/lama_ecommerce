@@ -103,10 +103,10 @@ export function Navbar() {
                                 </Button>
                             </SheetTrigger>
                             <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-                                <SheetHeader>
+                                <SheetHeader className="px-4">
                                     <SheetTitle className="text-left font-bold text-2xl">LAMA</SheetTitle>
                                 </SheetHeader>
-                                <nav className="flex flex-col gap-4 mt-8">
+                                <nav className="flex flex-col gap-4 mt-8 px-4">
                                     {NAV_LINKS.map((link) => (
                                         <Link
                                             key={link.href}
