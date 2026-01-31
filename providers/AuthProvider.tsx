@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import type { Profile, ProfileRole } from "@/types/user";
 
 type AuthContextValue = {
@@ -20,53 +21,54 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
   const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null);
-  const [user] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(!initialProfile);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // On the client, optionally refresh the profile once after mount.
-  // This is useful after login to ensure we have the latest profile/role.
   useEffect(() => {
-    let isMounted = true;
+    // 1. Initial user check
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      if (!initialProfile && session?.user) {
+        fetchProfile();
+      } else {
+        setLoading(false);
+      }
+    };
+
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
+
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        fetchProfile();
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setLoading(false);
+      }
+    });
 
     async function fetchProfile() {
       try {
         setLoading(true);
-
-        const res = await fetch("/api/auth/profile", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          // If unauthorized or error, just clear profile
-          if (!isMounted) return;
-          setProfile(null);
-          return;
-        }
-
-        const data: { profile: Profile | null } = await res.json();
-        if (!isMounted) return;
-
-        setProfile(data.profile ?? null);
-      } catch (error) {
-        console.error("Failed to fetch profile on client:", error);
-        if (isMounted) {
+        const res = await fetch("/api/auth/profile");
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.profile);
+        } else {
           setProfile(null);
         }
+      } catch (err) {
+        console.error("Auth: Failed to fetch profile", err);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    // If we don't have an initial profile from the server, try to fetch it.
-    if (!initialProfile) {
-      fetchProfile();
-    }
+    initializeAuth();
 
     return () => {
-      isMounted = false;
+      subscription.unsubscribe();
     };
   }, [initialProfile]);
 

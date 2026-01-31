@@ -26,9 +26,15 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
     } = await supabase.auth.getUser();
 
     if (error) {
-      // Silently return null for unauthenticated users (not an error)
-      // Only log actual errors (network issues, etc.)
-      if (error.message !== "Invalid JWT" && error.message !== "JWT expired") {
+      // Silently return null for common unauthenticated states
+      const silentErrors = [
+        "Invalid JWT", 
+        "JWT expired", 
+        "Refresh Token Not Found",
+        "refresh_token_not_found"
+      ];
+      
+      if (!silentErrors.some(msg => error.message.includes(msg))) {
         console.error("Failed to fetch current auth user:", error);
       }
       return null;
