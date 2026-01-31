@@ -73,3 +73,9 @@ npm install sonner
 ```bash
 npm install next-themes
 ```
+
+## Spinner
+
+```bash
+npm install react-loader-spinner
+```
