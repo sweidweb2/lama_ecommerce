@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ROUTES } from "@/lib/constants/routes";
-import { Button } from "@/components/ui/button";
+import { ROUTES } from "../../lib/constants/routes";
+import { Button } from "../ui/button";
 import {
     ShoppingCart,
     User,
@@ -17,9 +17,10 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from "@/components/ui/sheet";
+} from "../ui/sheet";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
+import React from "react";
 
 const NAV_LINKS = [
     { label: "Home", href: ROUTES.HOME },
