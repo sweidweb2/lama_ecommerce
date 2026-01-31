@@ -22,7 +22,7 @@ async function getProfileFromSession(request: NextRequest) {
 
   // Fetch profile from database
   const { data: profile, error: profileError } = await (supabase as any)
-    .from("profiles")
+    .from("profiles" as any)
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();

@@ -101,7 +101,7 @@ export async function signupService(
     }
 
     // Check if email verification is required
-    const requiresEmailVerification = authData.user && !authData.session;
+    const requiresEmailVerification = !!(authData.user && !authData.session);
 
     return {
       success: true,

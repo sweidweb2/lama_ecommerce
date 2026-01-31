@@ -11,7 +11,7 @@ export const orderBaseSchema = z.object({
   phone: z.string().min(5).max(30),
   email: z.string().email(),
   // Shape of address_snapshot is app-defined; treat as unknown but require object.
-  address_snapshot: z.record(z.any()),
+  address_snapshot: z.record(z.string(), z.any()),
 });
 
 export type OrderBaseInput = z.infer<typeof orderBaseSchema>;

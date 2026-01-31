@@ -58,7 +58,22 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
       role,
     };
   } catch (error) {
-    // Catch any unexpected errors and return null gracefully
+    // During static generation, Next.js throws errors when cookies are accessed
+    // This is expected behavior - the page will be dynamically rendered at runtime
+    const isDynamicRenderingError = 
+      error instanceof Error && 
+      (error.message.includes("Dynamic server usage") ||
+       error.message.includes("couldn't be rendered statically") ||
+       error.message.includes("used `cookies`") ||
+       (error as any).digest === 'DYNAMIC_SERVER_USAGE');
+    
+    if (isDynamicRenderingError) {
+      // Silently return null - this is expected during static generation
+      // The page will be dynamically rendered at runtime
+      return null;
+    }
+    
+    // Only log actual unexpected errors
     console.error("Unexpected error in getCurrentUserProfile:", error);
     return null;
   }
