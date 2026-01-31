@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { Navbar } from "@/components/common/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
+          <Navbar />
           <AuthProvider initialProfile={profile}>{children}</AuthProvider>
           <Toaster />
         </ThemeProvider>

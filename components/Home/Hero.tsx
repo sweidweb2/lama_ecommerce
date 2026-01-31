@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 export function Hero() {
     return (
         <section className="relative h-[600px] w-full bg-muted flex items-center justify-center overflow-hidden">
@@ -8,8 +10,8 @@ export function Hero() {
                     (Dynamic Carousel Coming Soon)
                 </p>
                 <div className="mt-8 flex gap-4 justify-center">
-                    <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium">Shop Now</button>
-                    <button className="px-6 py-3 bg-secondary text-secondary-foreground rounded-lg font-medium">View Collections</button>
+                    <Button size="lg" className="px-6 py-3">Shop Now</Button>
+                    <Button size="lg" variant="secondary" className="px-6 py-3">View Collections</Button>
                 </div>
             </div>
         </section>

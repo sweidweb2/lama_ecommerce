@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 export function FeaturedProducts() {
     return (
         <section className="py-16 container mx-auto px-4">
@@ -6,7 +8,7 @@ export function FeaturedProducts() {
                     <h2 className="text-3xl font-bold italic tracking-tight uppercase">Featured Products</h2>
                     <p className="text-muted-foreground mt-2">Our handpicked selection of top products.</p>
                 </div>
-                <button className="text-primary font-medium hover:underline">View All</button>
+                <Button variant="link" className="text-primary font-medium">View All</Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {[1, 2, 3, 4].map((i) => (
@@ -18,7 +20,7 @@ export function FeaturedProducts() {
                         <p className="text-muted-foreground text-sm">Category</p>
                         <div className="mt-4 flex justify-between items-center">
                             <span className="font-bold text-xl">$129.99</span>
-                            <button className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">+</button>
+                            <Button size="icon" className="h-8 w-8 rounded-full">+</Button>
                         </div>
                     </div>
                 ))}

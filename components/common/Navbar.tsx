@@ -21,6 +21,7 @@ import {
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
+import { ModeToggle } from "../theme/mode-toggle";
 
 const NAV_LINKS = [
     { label: "Home", href: ROUTES.HOME },
@@ -76,6 +77,8 @@ export function Navbar() {
                             </Button>
                         </Link>
 
+                        <ModeToggle />
+
                         <Link href={ROUTES.CART}>
                             <Button variant="ghost" size="icon" className="relative">
                                 <ShoppingCart className="h-5 w-5" />
@@ -117,6 +120,11 @@ export function Navbar() {
                                             {link.label}
                                         </Link>
                                     ))}
+                                    <hr className="my-2" />
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span className="text-sm font-medium">Theme</span>
+                                        <ModeToggle />
+                                    </div>
                                     <hr className="my-2" />
                                     <div className="flex flex-col gap-2">
                                         <Link href={ROUTES.LOGIN} onClick={() => setIsOpen(false)}>

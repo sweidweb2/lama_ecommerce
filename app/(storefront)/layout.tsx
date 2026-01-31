@@ -7,7 +7,7 @@ export default function StorefrontLayout({
 }) {
     return (
         <div className="relative flex min-h-screen flex-col">
-            <Navbar />
+            {/* <Navbar /> */}
             <main className="flex-1">{children}</main>
             {/* Footer can be added here later */}
         </div>

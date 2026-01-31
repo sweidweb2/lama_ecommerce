@@ -14,9 +14,9 @@ export function CategoryShowcase() {
                     {categories.map((cat) => (
                         <div key={cat.name} className="relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer">
                             <div className="absolute inset-0 bg-primary/20 group-hover:bg-primary/40 transition-colors" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-primary-foreground p-4">
                                 <h3 className="text-2xl font-bold">{cat.name}</h3>
-                                <p className="text-white/80 text-sm mt-1">{cat.count}</p>
+                                <p className="text-primary-foreground/80 text-sm mt-1">{cat.count}</p>
                             </div>
                         </div>
                     ))}
