@@ -14,48 +14,40 @@ export function ProductCard({ product }: ProductCardProps) {
     const imageUrl = primaryImage?.url_image || '/placeholder-product.webp'
 
     return (
-        <Link href={`/products/${product.slug}`}>
-            <Card className="h-full overflow-hidden transition-all hover:shadow-lg group">
-                <div className="relative aspect-square overflow-hidden bg-muted">
+        <Link href={`/products/${product.slug}`} className="block h-full group">
+            <Card className="h-full border-none shadow-none bg-transparent overflow-hidden transition-all duration-300">
+                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-muted border border-border/40">
                     <Image
                         src={imageUrl}
                         alt={product.name}
                         fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                     />
-                    {product.is_featured && (
-                        <Badge className="absolute top-2 left-2" variant="secondary">
-                            Featured
-                        </Badge>
-                    )}
-                    {product.is_trending && (
-                        <Badge className="absolute top-2 right-2" variant="destructive">
-                            Trending
-                        </Badge>
-                    )}
-                </div>
-                <CardHeader className="p-4 space-y-1">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                            {product.category?.name || 'Uncategorized'}
-                        </p>
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                        {product.is_featured && (
+                            <Badge className="bg-primary/90 backdrop-blur-sm text-[10px] px-1.5 py-0.5 border-none" variant="secondary">
+                                Featured
+                            </Badge>
+                        )}
+                        {product.is_trending && (
+                            <Badge className="bg-destructive/90 backdrop-blur-sm text-[10px] px-1.5 py-0.5 border-none">
+                                Hot
+                            </Badge>
+                        )}
                     </div>
-                    <CardTitle className="text-lg line-clamp-1 group-hover:text-primary transition-colors">
+                </div>
+                <div className="pt-3 pb-1 px-1 flex flex-col gap-0.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold truncate">
+                        {product.category?.name || 'Uncategorized'}
+                    </p>
+                    <h3 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                         {product.name}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 text-sm">
-                        {product.description}
-                    </CardDescription>
-                </CardHeader>
-                <CardFooter className="p-4 pt-0 flex justify-between items-center">
-                    <p className="text-xl font-bold">
+                    </h3>
+                    <p className="text-base font-bold text-primary">
                         {formatPrice(product.price)}
                     </p>
-                    <Badge variant="outline" className="font-normal">
-                        View Details
-                    </Badge>
-                </CardFooter>
+                </div>
             </Card>
         </Link>
     )
