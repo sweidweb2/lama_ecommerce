@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ROUTES } from "../../lib/constants/routes";
 import { ROLES } from "../../lib/constants/roles";
 import { Button } from "../ui/button";
@@ -11,7 +11,9 @@ import {
     Menu,
     Search,
     Heart,
-    LayoutDashboard
+    LayoutDashboard,
+    Settings,
+    LogOut
 } from "lucide-react";
 import {
     Sheet,
@@ -20,11 +22,21 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "../ui/sheet";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
 import { ModeToggle } from "../theme/mode-toggle";
 import { useAuth } from "@/providers/AuthProvider";
+import { logoutService } from "@/services/auth.service";
+import { toast } from "sonner";
 
 const NAV_LINKS = [
     { label: "Home", href: ROUTES.HOME },
@@ -36,8 +48,10 @@ const NAV_LINKS = [
 
 export function Navbar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
-    const { user, role, loading } = useAuth();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { user, profile, role, loading } = useAuth();
 
     // Hide navbar on admin routes
     if (pathname?.startsWith("/admin")) {
@@ -46,6 +60,52 @@ export function Navbar() {
 
     // Check if user is admin
     const isAdmin = role === ROLES.ADMIN && user !== null;
+    const isLoggedIn = user !== null && !loading;
+
+    const handleLogout = async () => {
+        if (isLoggingOut) return;
+
+        setIsLoggingOut(true);
+        try {
+            const result = await logoutService();
+
+            if (!result.success) {
+                toast.error("Logout failed", {
+                    description: result.error,
+                });
+                return;
+            }
+
+            toast.success("Logged out successfully");
+            router.push(ROUTES.HOME);
+            router.refresh();
+        } catch (error) {
+            toast.error("An unexpected error occurred", {
+                description: error instanceof Error ? error.message : "Please try again",
+            });
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
+
+    const getUserDisplayName = () => {
+        if (profile?.full_name) {
+            return profile.full_name;
+        }
+        if (user?.email) {
+            return user.email.split("@")[0];
+        }
+        return "User";
+    };
+
+    const getUserInitials = () => {
+        const name = getUserDisplayName();
+        const parts = name.split(" ");
+        if (parts.length >= 2) {
+            return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -112,12 +172,85 @@ export function Navbar() {
                             </Button>
                         </Link>
 
-                        <Link href={ROUTES.LOGIN}>
-                            <Button variant="ghost" size="icon">
-                                <User className="h-5 w-5" />
-                                <span className="sr-only">Account</span>
-                            </Button>
-                        </Link>
+                        {/* User Menu - Show when logged in */}
+                        {isLoggedIn ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-background hover:border-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    >
+                                        <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-xs font-semibold">
+                                            {getUserInitials()}
+                                        </div>
+                                        <span className="sr-only">Open user menu</span>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuLabel>
+                                        <div className="flex flex-col space-y-1">
+                                            <p className="text-sm font-medium leading-none">
+                                                {getUserDisplayName()}
+                                            </p>
+                                            {user?.email && (
+                                                <p className="text-xs leading-none text-muted-foreground">
+                                                    {user.email}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/account" className="flex items-center cursor-pointer">
+                                            <User className="mr-2 h-4 w-4" />
+                                            Profile
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/account/settings" className="flex items-center cursor-pointer">
+                                            <Settings className="mr-2 h-4 w-4" />
+                                            Settings
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    {isAdmin && (
+                                        <DropdownMenuItem asChild>
+                                            <Link href={ROUTES.ADMIN} className="flex items-center cursor-pointer">
+                                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                                Admin Panel
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="cursor-pointer"
+                                    >
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        {isLoggingOut ? "Logging out..." : "Logout"}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            /* Login/Signup buttons - Show when not logged in */
+                            <div className="flex items-center gap-2">
+                                <Link href={ROUTES.LOGIN}>
+                                    <Button variant="ghost" size="sm" className="hidden sm:flex">
+                                        Sign In
+                                    </Button>
+                                </Link>
+                                <Link href={ROUTES.SIGNUP}>
+                                    <Button size="sm" className="hidden sm:flex">
+                                        Sign Up
+                                    </Button>
+                                </Link>
+                                <Link href={ROUTES.LOGIN} className="sm:hidden">
+                                    <Button variant="ghost" size="icon">
+                                        <User className="h-5 w-5" />
+                                        <span className="sr-only">Account</span>
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
 
                         {/* Mobile Menu */}
                         <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -164,18 +297,63 @@ export function Navbar() {
                                         <ModeToggle />
                                     </div>
                                     <hr className="my-2" />
-                                    <div className="flex flex-col gap-2">
-                                        <Link href={ROUTES.LOGIN} onClick={() => setIsOpen(false)}>
-                                            <Button className="w-full justify-start" variant="ghost">
-                                                Sign In
+                                    {isLoggedIn ? (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="px-2 py-1.5">
+                                                <p className="text-sm font-medium">{getUserDisplayName()}</p>
+                                                {user?.email && (
+                                                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                                                )}
+                                            </div>
+                                            <hr className="my-2" />
+                                            <Link href="/account" onClick={() => setIsOpen(false)}>
+                                                <Button className="w-full justify-start" variant="ghost">
+                                                    <User className="mr-2 h-4 w-4" />
+                                                    Profile
+                                                </Button>
+                                            </Link>
+                                            <Link href="/account/settings" onClick={() => setIsOpen(false)}>
+                                                <Button className="w-full justify-start" variant="ghost">
+                                                    <Settings className="mr-2 h-4 w-4" />
+                                                    Settings
+                                                </Button>
+                                            </Link>
+                                            {isAdmin && (
+                                                <Link href={ROUTES.ADMIN} onClick={() => setIsOpen(false)}>
+                                                    <Button className="w-full justify-start" variant="ghost">
+                                                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                                                        Admin Panel
+                                                    </Button>
+                                                </Link>
+                                            )}
+                                            <hr className="my-2" />
+                                            <Button 
+                                                className="w-full justify-start" 
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    setIsOpen(false);
+                                                    handleLogout();
+                                                }}
+                                                disabled={isLoggingOut}
+                                            >
+                                                <LogOut className="mr-2 h-4 w-4" />
+                                                {isLoggingOut ? "Logging out..." : "Logout"}
                                             </Button>
-                                        </Link>
-                                        <Link href={ROUTES.SIGNUP} onClick={() => setIsOpen(false)}>
-                                            <Button className="w-full justify-start">
-                                                Sign Up
-                                            </Button>
-                                        </Link>
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-2">
+                                            <Link href={ROUTES.LOGIN} onClick={() => setIsOpen(false)}>
+                                                <Button className="w-full justify-start" variant="ghost">
+                                                    Sign In
+                                                </Button>
+                                            </Link>
+                                            <Link href={ROUTES.SIGNUP} onClick={() => setIsOpen(false)}>
+                                                <Button className="w-full justify-start">
+                                                    Sign Up
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    )}
                                 </nav>
                             </SheetContent>
                         </Sheet>

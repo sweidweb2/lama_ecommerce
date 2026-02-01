@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import type { Database } from "@/types/supabase";
 import { ROUTES } from "@/lib/constants/routes";
+import { ROLES } from "@/lib/constants/roles";
+import { getCurrentUserProfile } from "@/services/profile.service";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -31,6 +33,18 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // Check if user is admin and redirect accordingly
+      try {
+        const profile = await getCurrentUserProfile();
+        if (profile?.role === ROLES.ADMIN) {
+          const adminUrl = new URL(ROUTES.ADMIN, requestUrl.origin);
+          return NextResponse.redirect(adminUrl);
+        }
+      } catch (error) {
+        // If profile check fails, continue with normal redirect
+        console.error("Failed to check user role in callback:", error);
+      }
+      
       return response;
     }
   }

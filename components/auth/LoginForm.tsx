@@ -10,6 +10,7 @@ import { EyeIcon, EyeOffIcon, Loader2Icon, MailIcon, LockIcon } from "lucide-rea
 import { loginSchema, type LoginInput } from "@/lib/validators/auth/auth";
 import { loginService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
+import { ROLES } from "@/lib/constants/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,6 +55,24 @@ export function LoginForm() {
       toast.success("Welcome back!", {
         description: "You've been successfully logged in.",
       });
+
+      // Fetch user profile to check role
+      try {
+        const profileResponse = await fetch("/api/auth/profile");
+        if (profileResponse.ok) {
+          const { profile } = await profileResponse.json();
+          
+          // If user is admin, redirect to admin panel
+          if (profile?.role === ROLES.ADMIN) {
+            router.push(ROUTES.ADMIN);
+            router.refresh();
+            return;
+          }
+        }
+      } catch (error) {
+        // If profile fetch fails, continue with normal redirect
+        console.error("Failed to fetch profile:", error);
+      }
 
       // Redirect to the specified redirect URL or home
       const redirectTo = searchParams.get("redirect") || ROUTES.HOME;
