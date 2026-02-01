@@ -161,9 +161,11 @@ export function Navbar() {
                             </Button>
                         </Link>
 
-                        <ModeToggle />
+                        <div className="hidden md:flex items-center gap-2">
+                            <ModeToggle />
+                        </div>
 
-                        <Link href={ROUTES.CART}>
+                        <Link href={ROUTES.CART} className="hidden md:block">
                             <Button variant="ghost" size="icon" className="relative">
                                 <ShoppingCart className="h-5 w-5" />
                                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
@@ -176,7 +178,7 @@ export function Navbar() {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button
-                                        className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-background hover:border-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                        className="relative hidden md:flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-background hover:border-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-xs font-semibold">
                                             {getUserInitials()}
@@ -231,21 +233,15 @@ export function Navbar() {
                             </DropdownMenu>
                         ) : (
                             /* Login/Signup buttons - Show when not logged in */
-                            <div className="flex items-center gap-2">
+                            <div className="hidden md:flex items-center gap-2">
                                 <Link href={ROUTES.LOGIN}>
-                                    <Button variant="ghost" size="sm" className="hidden sm:flex">
+                                    <Button variant="ghost" size="sm">
                                         Sign In
                                     </Button>
                                 </Link>
                                 <Link href={ROUTES.SIGNUP}>
-                                    <Button size="sm" className="hidden sm:flex">
+                                    <Button size="sm">
                                         Sign Up
-                                    </Button>
-                                </Link>
-                                <Link href={ROUTES.LOGIN} className="sm:hidden">
-                                    <Button variant="ghost" size="icon">
-                                        <User className="h-5 w-5" />
-                                        <span className="sr-only">Account</span>
                                     </Button>
                                 </Link>
                             </div>
@@ -290,6 +286,30 @@ export function Navbar() {
                                             Dashboard
                                         </Link>
                                     )}
+                                    <hr className="my-2" />
+                                    <Link
+                                        href={ROUTES.CART}
+                                        onClick={() => setIsOpen(false)}
+                                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                                    >
+                                        <ShoppingCart className="h-5 w-5" />
+                                        Cart
+                                    </Link>
+                                    <Link
+                                        href="/wishlist"
+                                        onClick={() => setIsOpen(false)}
+                                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                                    >
+                                        <Heart className="h-5 w-5" />
+                                        Wishlist
+                                    </Link>
+                                    <div
+                                        onClick={() => setIsOpen(false)}
+                                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                                    >
+                                        <Search className="h-5 w-5" />
+                                        Search
+                                    </div>
                                     <hr className="my-2" />
                                     <div className="flex items-center justify-between gap-4">
                                         <span className="text-sm font-medium">Theme</span>

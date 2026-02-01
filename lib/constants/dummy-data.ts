@@ -149,7 +149,7 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
     {
         id: 'prod-5',
         name: 'Classic White Sneakers',
-        description: 'Versatile white sneakers for daily wear.',
+        description: 'Versatile white sneakers for daily wear. Made from high-quality synthetic leather with a durable rubber sole for maximum comfort and style.',
         slug: 'classic-white-sneakers',
         brand_id: null,
         category_id: 'cat-2',
@@ -164,13 +164,20 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         deleted_at: null,
         category: DUMMY_CATEGORIES[1],
         images: [
-            { id: 'img-5', product_id: 'prod-5', url_image: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+            { id: 'img-5', product_id: 'prod-5', url_image: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() },
+            { id: 'img-5-2', product_id: 'prod-5', url_image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=1000&auto=format&fit=crop', is_primary: false, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-1', product_id: 'prod-5', color: 'White', size: 'S', material: 'Synthetic', quantity_stock: 10, sku_variant: 'CS-005-W-S', price_override: null, created_at: new Date().toISOString(), deleted_at: null },
+            { id: 'v-2', product_id: 'prod-5', color: 'White', size: 'M', material: 'Synthetic', quantity_stock: 15, sku_variant: 'CS-005-W-M', price_override: null, created_at: new Date().toISOString(), deleted_at: null },
+            { id: 'v-3', product_id: 'prod-5', color: 'White', size: 'L', material: 'Synthetic', quantity_stock: 5, sku_variant: 'CS-005-W-L', price_override: null, created_at: new Date().toISOString(), deleted_at: null },
+            { id: 'v-4', product_id: 'prod-5', color: 'Black', size: 'M', material: 'Synthetic', quantity_stock: 8, sku_variant: 'CS-005-B-M', price_override: 90.00, created_at: new Date().toISOString(), deleted_at: null }
         ]
     },
     {
         id: 'prod-6',
         name: 'Yoga Mat Eco-Friendly',
-        description: 'Sustainable yoga mat with non-slip surface.',
+        description: 'Sustainable yoga mat with non-slip surface. Perfect for all types of yoga and fitness exercises. Easy to clean and carry.',
         slug: 'yoga-mat-eco-friendly',
         brand_id: null,
         category_id: 'cat-4',
@@ -186,6 +193,10 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         category: DUMMY_CATEGORIES[3],
         images: [
             { id: 'img-6', product_id: 'prod-6', url_image: 'https://images.unsplash.com/photo-1592432678016-e910b452f9a2?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-5', product_id: 'prod-6', color: 'Green', size: 'Standard', material: 'TPE', quantity_stock: 20, sku_variant: 'YM-006-G', price_override: null, created_at: new Date().toISOString(), deleted_at: null },
+            { id: 'v-6', product_id: 'prod-6', color: 'Blue', size: 'Standard', material: 'TPE', quantity_stock: 12, sku_variant: 'YM-006-B', price_override: null, created_at: new Date().toISOString(), deleted_at: null }
         ]
     }
 ];
