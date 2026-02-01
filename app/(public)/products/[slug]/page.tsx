@@ -10,6 +10,12 @@ import { formatPrice, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion"
 
 interface ProductPageProps {
     params: Promise<{
@@ -61,7 +67,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12">
                     {/* Left: Product Media & Core Info (Integrated for mobile) */}
-                    <div className="md:col-span-7 space-y-6">
+                    <div className="md:col-span-3 space-y-6">
                         <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[200px_1fr] md:block gap-6">
                             <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted shadow-md border border-border/40">
                                 <Image
@@ -114,7 +120,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                     </div>
 
                     {/* Right: Product Details & Options */}
-                    <div className="md:col-span-5 flex flex-col justify-between">
+                    <div className="md:col-span-9 flex flex-col justify-between">
                         <div className="space-y-6">
                             {/* Desktop-only Header */}
                             <div className="hidden md:block space-y-2">
@@ -128,45 +134,45 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                                         </Badge>
                                     )}
                                 </div>
-                                <h1 className="text-4xl font-bold tracking-tight text-foreground leading-tight">{product.name}</h1>
-                                <div className="flex items-center gap-4 text-sm mt-2">
+                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">{product.name}</h1>
+                                <div className="flex items-center gap-4 text-xs mt-2">
                                     <div className="flex items-center text-yellow-500">
-                                        <Star className="h-4 w-4 fill-current" />
-                                        <Star className="h-4 w-4 fill-current" />
-                                        <Star className="h-4 w-4 fill-current" />
-                                        <Star className="h-4 w-4 fill-current" />
-                                        <Star className="h-4 w-4 fill-current opacity-50" />
+                                        <Star className="h-3 w-3 fill-current" />
+                                        <Star className="h-3 w-3 fill-current" />
+                                        <Star className="h-3 w-3 fill-current" />
+                                        <Star className="h-3 w-3 fill-current" />
+                                        <Star className="h-3 w-3 fill-current opacity-50" />
                                         <span className="ml-2 text-muted-foreground font-medium">4.8 (124 reviews)</span>
                                     </div>
-                                    <Separator orientation="vertical" className="h-4" />
-                                    <p className="text-emerald-600 font-medium">In Stock</p>
+                                    <Separator orientation="vertical" className="h-3" />
+                                    <p className="text-emerald-600 font-medium italic">Available in store</p>
                                 </div>
                             </div>
 
                             <Separator className="opacity-50 hidden md:block" />
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="font-semibold text-lg">Description</h3>
+                                    <h3 className="font-semibold text-base">Product Description</h3>
                                     {/* Mobile Rating */}
-                                    <div className="md:hidden flex items-center text-yellow-500 text-sm">
+                                    <div className="md:hidden flex items-center text-yellow-500 text-xs">
                                         <Star className="h-3 w-3 fill-current" />
                                         <span className="ml-1 text-muted-foreground font-semibold">4.8</span>
                                     </div>
                                 </div>
-                                <p className="text-muted-foreground leading-relaxed text-base md:text-lg">
+                                <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
                                     {product.description || 'No description available for this product.'}
                                 </p>
                             </div>
 
                             {/* Desktop-only Price Section */}
-                            <div className="hidden md:block space-y-4 pt-4">
+                            <div className="hidden md:block space-y-2 pt-2">
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-sm text-muted-foreground font-medium">Price</span>
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Current Price</span>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-4xl font-bold text-primary">{formatPrice(product.price)}</span>
+                                        <span className="text-3xl font-bold text-primary">{formatPrice(product.price)}</span>
                                         {product.price > 100 && (
-                                            <span className="text-lg text-muted-foreground line-through opacity-60">
+                                            <span className="text-sm text-muted-foreground line-through opacity-60">
                                                 {formatPrice(product.price * 1.2)}
                                             </span>
                                         )}
@@ -243,6 +249,43 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Q&A Section at the bottom */}
+                <div className="mt-20 max-w-3xl border-t pt-16">
+                    <div className="space-y-4 mb-8">
+                        <h2 className="text-2xl font-bold tracking-tight">Questions & Answers</h2>
+                        <p className="text-muted-foreground font-medium text-sm">Everything you need to know about the {product.name}.</p>
+                    </div>
+
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="item-1" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
+                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                                What is the shipping time for this product?
+                            </AccordionTrigger>
+                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
+                                Standard shipping usually takes 3-5 business days. Express shipping options are available at checkout if you need it sooner.
+                            </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="item-2" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
+                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                                Is there a warranty included?
+                            </AccordionTrigger>
+                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
+                                Yes, every {product.name} comes with a 12-month manufacturer warranty covering any defects in materials or workmanship.
+                            </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="item-3" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
+                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                                What is the return policy?
+                            </AccordionTrigger>
+                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
+                                We offer a 30-day hassle-free return policy. If you're not completely satisfied, you can return the product in its original packaging for a full refund.
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
             </div>
         </div>
