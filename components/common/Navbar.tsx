@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ROUTES } from "../../lib/constants/routes";
+import { ROLES } from "../../lib/constants/roles";
 import { Button } from "../ui/button";
 import {
     ShoppingCart,
     User,
     Menu,
     Search,
-    Heart
+    Heart,
+    LayoutDashboard
 } from "lucide-react";
 import {
     Sheet,
@@ -22,6 +24,7 @@ import { useState } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
 import { ModeToggle } from "../theme/mode-toggle";
+import { useAuth } from "@/providers/AuthProvider";
 
 const NAV_LINKS = [
     { label: "Home", href: ROUTES.HOME },
@@ -33,6 +36,15 @@ const NAV_LINKS = [
 export function Navbar() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
+    const { user, role, loading } = useAuth();
+
+    // Hide navbar on admin routes
+    if (pathname?.startsWith("/admin")) {
+        return null;
+    }
+
+    // Check if user is admin
+    const isAdmin = role === ROLES.ADMIN && user !== null;
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -61,6 +73,18 @@ export function Navbar() {
                                 {link.label}
                             </Link>
                         ))}
+                        {isAdmin && (
+                            <Link
+                                href={ROUTES.ADMIN}
+                                className={cn(
+                                    "transition-colors hover:text-primary flex items-center gap-2",
+                                    pathname === ROUTES.ADMIN ? "text-primary font-semibold" : "text-muted-foreground"
+                                )}
+                            >
+                                <LayoutDashboard className="h-4 w-4" />
+                                Dashboard
+                            </Link>
+                        )}
                     </nav>
 
                     {/* Actions */}
@@ -120,6 +144,19 @@ export function Navbar() {
                                             {link.label}
                                         </Link>
                                     ))}
+                                    {isAdmin && (
+                                        <Link
+                                            href={ROUTES.ADMIN}
+                                            onClick={() => setIsOpen(false)}
+                                            className={cn(
+                                                "text-lg font-medium transition-colors hover:text-primary flex items-center gap-2",
+                                                pathname === ROUTES.ADMIN ? "text-primary" : "text-muted-foreground"
+                                            )}
+                                        >
+                                            <LayoutDashboard className="h-4 w-4" />
+                                            Dashboard
+                                        </Link>
+                                    )}
                                     <hr className="my-2" />
                                     <div className="flex items-center justify-between gap-4">
                                         <span className="text-sm font-medium">Theme</span>

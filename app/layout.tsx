@@ -38,8 +38,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
+          <AuthProvider initialProfile={profile}>
           <Navbar />
-          <AuthProvider initialProfile={profile}>{children}</AuthProvider>
+            {children}
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>
