@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronRight, ArrowLeft, Star, ShoppingCart, Heart, Share2 } from 'lucide-react'
+import { ChevronRight, ArrowLeft, Star, ShoppingCart, Heart, Share2, ShieldCheck, Truck, RotateCcw } from 'lucide-react'
 import { createSupabaseServerComponentClient } from '@/lib/supabase/server'
 import { getProductBySlug } from '@/services/products.service'
 import { DUMMY_PRODUCTS } from '@/lib/constants/dummy-data'
@@ -47,71 +47,53 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     const sizes = Array.from(new Set(product.variants?.map(v => v.size).filter(Boolean)))
 
     return (
-        <div className="min-h-screen bg-background pb-20">
-            {/* Breadcrumbs */}
-            <div className="border-b">
-                <div className="container mx-auto px-4 h-12 flex items-center gap-2 text-sm text-muted-foreground overflow-x-auto whitespace-nowrap">
-                    <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-                    <ChevronRight className="h-4 w-4 shrink-0" />
-                    <Link href="/products" className="hover:text-primary transition-colors">Products</Link>
-                    <ChevronRight className="h-4 w-4 shrink-0" />
-                    <span className="text-foreground font-medium truncate">{product.name}</span>
+        <div className="min-h-screen bg-white dark:bg-background pb-20">
+            {/* Simple Breadcrumbs */}
+            <div className="container mx-auto px-4 py-4 md:py-6">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest overflow-hidden">
+                    <Link href="/" className="hover:text-primary transition-colors shrink-0">Home</Link>
+                    <ChevronRight className="h-3 w-3 shrink-0" />
+                    <Link href="/products" className="hover:text-primary transition-colors shrink-0">Products</Link>
+                    <ChevronRight className="h-3 w-3 shrink-0" />
+                    <span className="text-foreground truncate opacity-50">{product.name}</span>
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 py-8">
-                <Link href="/products" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-8 group transition-colors">
-                    <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                    Back to products
-                </Link>
+            <div className="container mx-auto px-4">
+                {/* Main Product Section: Stacked on Mobile, Grid on Desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start">
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12">
-                    {/* Left: Product Media & Core Info (Integrated for mobile) */}
-                    <div className="md:col-span-3 space-y-6">
-                        <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[200px_1fr] md:block gap-6">
-                            <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted shadow-md border border-border/40">
-                                <Image
-                                    src={primaryImage?.url_image || '/placeholder-product.webp'}
-                                    alt={product.name}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                    sizes="(max-width: 768px) 140px, (max-width: 1200px) 50vw, 33vw"
-                                />
-                                {product.is_featured && (
-                                    <Badge className="absolute top-2 left-2 md:top-4 md:left-4 bg-primary text-primary-foreground shadow-lg px-2 py-0 md:px-3 md:py-1 scale-75 md:scale-100 origin-top-left text-[10px] md:text-xs">
-                                        Premium
+                    {/* Visual Section (Top on Mobile, Left on Desktop) */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="relative aspect-square bg-[#f9f9f9] dark:bg-card rounded-3xl md:rounded-[2rem] overflow-hidden group mx-auto w-full max-w-[320px] sm:max-w-[450px] lg:max-w-none shadow-sm border border-black/5">
+                            <Image
+                                src={primaryImage?.url_image || '/placeholder-product.webp'}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                                priority
+                                sizes="(max-width: 640px) 320px, (max-width: 1024px) 450px, 40vw"
+                            />
+                            {product.is_featured && (
+                                <div className="absolute top-4 left-4">
+                                    <Badge className="bg-primary text-white border-none text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-md">
+                                        Featured
                                     </Badge>
-                                )}
-                            </div>
-
-                            {/* This block only shows on mobile/tablet next to the image */}
-                            <div className="md:hidden flex flex-col justify-center gap-1 sm:gap-3">
-                                <Badge variant="outline" className="w-fit rounded-full text-[10px] sm:text-xs text-primary border-primary/20 bg-primary/5">
-                                    {product.category?.name || 'Uncategorized'}
-                                </Badge>
-                                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-tight line-clamp-2">
-                                    {product.name}
-                                </h1>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-2xl sm:text-3xl font-bold text-primary">
-                                        {formatPrice(product.price)}
-                                    </span>
                                 </div>
-                                <p className="text-emerald-600 text-xs font-semibold">In Stock</p>
-                            </div>
+                            )}
                         </div>
 
+                        {/* Thumbnails - Centered on Mobile */}
                         {otherImages.length > 0 && (
-                            <div className="grid grid-cols-4 gap-4 hidden md:grid">
+                            <div className="flex justify-center gap-3 overflow-x-auto py-2">
                                 {product.images?.map((image) => (
-                                    <div key={image.id} className="relative aspect-square rounded-xl overflow-hidden bg-muted border border-border/40 hover:border-primary/50 transition-colors cursor-pointer group">
+                                    <div key={image.id} className="relative h-14 w-14 md:h-16 md:w-16 shrink-0 rounded-xl md:rounded-2xl overflow-hidden bg-[#f9f9f9] border border-black/5 cursor-pointer hover:border-primary/20 transition-all">
                                         <Image
                                             src={image.url_image}
                                             alt={product.name}
                                             fill
-                                            className="object-cover transition-transform group-hover:scale-105"
-                                            sizes="20vw"
+                                            className="object-cover"
+                                            sizes="64px"
                                         />
                                     </div>
                                 ))}
@@ -119,169 +101,148 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                         )}
                     </div>
 
-                    {/* Right: Product Details & Options */}
-                    <div className="md:col-span-9 flex flex-col justify-between">
-                        <div className="space-y-6">
-                            {/* Desktop-only Header */}
-                            <div className="hidden md:block space-y-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="outline" className="rounded-full text-primary border-primary/20 bg-primary/5">
-                                        {product.category?.name || 'Uncategorized'}
-                                    </Badge>
-                                    {product.is_trending && (
-                                        <Badge className="rounded-full bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200">
-                                            Trending
-                                        </Badge>
-                                    )}
-                                </div>
-                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">{product.name}</h1>
-                                <div className="flex items-center gap-4 text-xs mt-2">
-                                    <div className="flex items-center text-yellow-500">
-                                        <Star className="h-3 w-3 fill-current" />
-                                        <Star className="h-3 w-3 fill-current" />
-                                        <Star className="h-3 w-3 fill-current" />
-                                        <Star className="h-3 w-3 fill-current" />
-                                        <Star className="h-3 w-3 fill-current opacity-50" />
-                                        <span className="ml-2 text-muted-foreground font-medium">4.8 (124 reviews)</span>
-                                    </div>
-                                    <Separator orientation="vertical" className="h-3" />
-                                    <p className="text-emerald-600 font-medium italic">Available in store</p>
-                                </div>
-                            </div>
-
-                            <Separator className="opacity-50 hidden md:block" />
-
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="font-semibold text-base">Product Description</h3>
-                                    {/* Mobile Rating */}
-                                    <div className="md:hidden flex items-center text-yellow-500 text-xs">
-                                        <Star className="h-3 w-3 fill-current" />
-                                        <span className="ml-1 text-muted-foreground font-semibold">4.8</span>
-                                    </div>
-                                </div>
-                                <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
-                                    {product.description || 'No description available for this product.'}
+                    {/* Content Section (Below on Mobile, Right on Desktop) */}
+                    <div className="lg:col-span-8 space-y-6 md:space-y-8 flex flex-col">
+                        {/* 1. Header Info */}
+                        <div className="space-y-2 md:space-y-4 text-center lg:text-left">
+                            <div className="space-y-1">
+                                <p className="text-primary font-bold text-[10px] uppercase tracking-widest opacity-70">
+                                    {product.category?.name || 'Collection'}
                                 </p>
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground leading-tight">
+                                    {product.name}
+                                </h1>
                             </div>
 
-                            {/* Desktop-only Price Section */}
-                            <div className="hidden md:block space-y-2 pt-2">
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Current Price</span>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold text-primary">{formatPrice(product.price)}</span>
-                                        {product.price > 100 && (
-                                            <span className="text-sm text-muted-foreground line-through opacity-60">
-                                                {formatPrice(product.price * 1.2)}
-                                            </span>
-                                        )}
+                            <div className="flex items-center justify-center lg:justify-start gap-4 font-bold">
+                                <div className="flex items-center gap-1">
+                                    <Star className="h-3 w-3 fill-orange-400 text-orange-400" />
+                                    <span className="text-xs">4.8</span>
+                                </div>
+                                <Separator orientation="vertical" className="h-3" />
+                                <span className="text-[10px] text-emerald-600 uppercase tracking-widest">In Stock</span>
+                            </div>
+                        </div>
+
+                        {/* 2. Description */}
+                        <div className="space-y-2 py-4 border-t border-black/5 text-center lg:text-left">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">About this product</h3>
+                            <p className="text-muted-foreground leading-relaxed text-sm md:text-base font-medium max-w-2xl mx-auto lg:mx-0">
+                                {product.description || 'Premium quality materials and contemporary design combine to create this essential piece for your collection.'}
+                            </p>
+                        </div>
+
+                        {/* 3. Price Area */}
+                        <div className="py-4 border-t border-black/5 text-center lg:text-left">
+                            <div className="flex items-baseline justify-center lg:justify-start gap-3">
+                                <span className="text-3xl sm:text-4xl font-black text-foreground">{formatPrice(product.price)}</span>
+                                {product.price > 100 && (
+                                    <span className="text-sm md:text-base text-muted-foreground line-through font-medium opacity-40">
+                                        {formatPrice(product.price * 1.2)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. Options */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 pt-4">
+                            {colors.length > 0 && (
+                                <div className="space-y-3 text-center lg:text-left">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Color</label>
+                                    <div className="flex flex-wrap justify-center lg:justify-start gap-2">
+                                        {colors.map((color) => (
+                                            <button
+                                                key={color}
+                                                className="px-4 py-2 border rounded-xl text-xs font-bold hover:border-primary transition-all active:scale-95 whitespace-nowrap"
+                                            >
+                                                {color}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Options Section */}
-                            <div className="space-y-8 pt-6">
-                                {colors.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Select Color</label>
-                                            <span className="text-xs text-primary font-medium">{colors.length} Available</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-3">
-                                            {colors.map((color) => (
-                                                <button
-                                                    key={color}
-                                                    className="px-4 py-2 border-2 rounded-xl text-sm font-semibold transition-all hover:bg-primary/5 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                >
-                                                    {color}
-                                                </button>
-                                            ))}
-                                        </div>
+                            {sizes.length > 0 && (
+                                <div className="space-y-3 text-center lg:text-left">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Size</label>
+                                    <div className="flex flex-wrap justify-center lg:justify-start gap-2">
+                                        {sizes.map((size) => (
+                                            <button
+                                                key={size}
+                                                className="w-10 h-10 flex items-center justify-center border rounded-xl text-xs font-bold hover:border-primary transition-all active:scale-95"
+                                            >
+                                                {size}
+                                            </button>
+                                        ))}
                                     </div>
-                                )}
+                                </div>
+                            )}
+                        </div>
 
-                                {sizes.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Select Size</label>
-                                            <Link href="#size-guide" className="text-xs text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">Size Guide</Link>
-                                        </div>
-                                        <div className="flex flex-wrap gap-3">
-                                            {sizes.map((size) => (
-                                                <button
-                                                    key={size}
-                                                    className="w-12 h-12 flex items-center justify-center border-2 rounded-xl text-sm font-bold transition-all hover:bg-primary/5 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                >
-                                                    {size}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-4 pt-10">
-                                <Button size="lg" className="flex-1 h-16 rounded-2xl text-lg font-bold gap-3 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30 active:scale-[0.98]">
-                                    <ShoppingCart className="h-6 w-6" />
+                        {/* 5. Add to Cart Area */}
+                        <div className="pt-6 pb-6 border-b border-black/5">
+                            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
+                                <Button size="lg" className="h-14 flex-1 rounded-2xl font-black text-sm gap-2 shadow-lg shadow-primary/10 transition-all active:scale-[0.98]">
+                                    <ShoppingCart className="h-4 w-4" />
                                     Add to Cart
                                 </Button>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="icon" className="h-16 w-16 rounded-2xl border-2 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors active:scale-[0.98]">
-                                        <Heart className="h-6 w-6" />
+                                <div className="flex gap-2 justify-center">
+                                    <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-black/5 hover:bg-red-50 hover:text-red-500 transition-colors">
+                                        <Heart className="h-5 w-5" />
                                     </Button>
-                                    <Button variant="outline" size="icon" className="h-16 w-16 rounded-2xl border-2 hover:bg-blue-50 hover:text-blue-500 hover:border-blue-200 transition-colors active:scale-[0.98]">
-                                        <Share2 className="h-6 w-6" />
+                                    <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-black/5 hover:bg-blue-50 hover:text-blue-500 transition-colors">
+                                        <Share2 className="h-5 w-5" />
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Additional Info Cards */}
-                        <div className="grid grid-cols-2 gap-4 mt-12 bg-muted/30 p-4 rounded-2xl border border-border/40">
-                            <div className="text-center p-2">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Free Shipping</p>
-                                <p className="text-xs font-semibold">Orders over $150</p>
+                        {/* 6. Trust Info */}
+                        <div className="grid grid-cols-3 gap-2 pt-6">
+                            <div className="bg-[#f9f9f9] p-3 rounded-2xl text-center space-y-1">
+                                <Truck className="h-4 w-4 mx-auto text-primary opacity-60" />
+                                <p className="text-[8px] font-black uppercase tracking-tighter leading-none">Fast Shipping</p>
                             </div>
-                            <div className="text-center p-2 border-l">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Easy Returns</p>
-                                <p className="text-xs font-semibold">30-day window</p>
+                            <div className="bg-[#f9f9f9] p-3 rounded-2xl text-center space-y-1">
+                                <ShieldCheck className="h-4 w-4 mx-auto text-primary opacity-60" />
+                                <p className="text-[8px] font-black uppercase tracking-tighter leading-none">Security Pay</p>
+                            </div>
+                            <div className="bg-[#f9f9f9] p-3 rounded-2xl text-center space-y-1">
+                                <RotateCcw className="h-4 w-4 mx-auto text-primary opacity-60" />
+                                <p className="text-[8px] font-black uppercase tracking-tighter leading-none">30-Day returns</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Q&A Section at the bottom */}
-                <div className="mt-20 max-w-3xl border-t pt-16">
-                    <div className="space-y-4 mb-8">
-                        <h2 className="text-2xl font-bold tracking-tight">Questions & Answers</h2>
-                        <p className="text-muted-foreground font-medium text-sm">Everything you need to know about the {product.name}.</p>
-                    </div>
+                {/* FAQ / Questions Section */}
+                <div className="mt-20 max-w-2xl mx-auto border-t pt-16">
+                    <h2 className="text-xl font-black tracking-tight mb-8 text-center uppercase tracking-widest">Questions & Answers</h2>
 
-                    <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="item-1" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
-                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                        <AccordionItem value="item-1" className="border-none bg-[#f9f9f9] rounded-2xl px-6">
+                            <AccordionTrigger className="hover:no-underline py-4 text-xs font-bold uppercase tracking-wider text-left">
                                 What is the shipping time for this product?
                             </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
+                            <AccordionContent className="pb-4 text-muted-foreground text-[10px] font-medium leading-loose">
                                 Standard shipping usually takes 3-5 business days. Express shipping options are available at checkout if you need it sooner.
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="item-2" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
-                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                        <AccordionItem value="item-2" className="border-none bg-[#f9f9f9] rounded-2xl px-6">
+                            <AccordionTrigger className="hover:no-underline py-4 text-xs font-bold uppercase tracking-wider text-left">
                                 Is there a warranty included?
                             </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
-                                Yes, every {product.name} comes with a 12-month manufacturer warranty covering any defects in materials or workmanship.
+                            <AccordionContent className="pb-4 text-muted-foreground text-[10px] font-medium leading-loose">
+                                Yes, every product comes with a 12-month manufacturer warranty covering any defects in materials or workmanship.
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="item-3" className="border-b-0 bg-muted/20 rounded-xl px-4 mb-3">
-                            <AccordionTrigger className="hover:no-underline font-semibold text-left text-sm">
+                        <AccordionItem value="item-3" className="border-none bg-[#f9f9f9] rounded-2xl px-6">
+                            <AccordionTrigger className="hover:no-underline py-4 text-xs font-bold uppercase tracking-wider text-left">
                                 What is the return policy?
                             </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground leading-relaxed text-xs">
+                            <AccordionContent className="pb-4 text-muted-foreground text-[10px] font-medium leading-loose">
                                 We offer a 30-day hassle-free return policy. If you're not completely satisfied, you can return the product in its original packaging for a full refund.
                             </AccordionContent>
                         </AccordionItem>
