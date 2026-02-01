@@ -236,7 +236,7 @@ export function Footer() {
                 Terms of Service
               </Link>
               <Link
-                href="/auth/privacy_policy"
+                href="/privacy-policy"
                 className="hover:text-primary transition-colors"
               >
                 Privacy Policy
