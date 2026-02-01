@@ -86,7 +86,7 @@ export function Footer() {
               <ul className="space-y-3">
                 <li>
                   <Link
-                    href="/contact"
+                    href="/contact-us"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Contact Us
@@ -151,7 +151,7 @@ export function Footer() {
                 </li>
                 <li>
                   <Link
-                    href="/about"
+                    href="/about-us"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     About Us

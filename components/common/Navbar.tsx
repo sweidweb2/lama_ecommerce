@@ -30,7 +30,8 @@ const NAV_LINKS = [
     { label: "Home", href: ROUTES.HOME },
     { label: "Products", href: "/products" },
     { label: "Categories", href: "/categories" },
-    { label: "About", href: "/about" },
+    { label: "About", href: "/about-us" },
+    { label: "Contact", href: "/contact-us" },
 ];
 
 export function Navbar() {
