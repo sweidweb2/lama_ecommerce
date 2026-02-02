@@ -12,7 +12,7 @@ export function FeaturedProducts() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="group relative rounded-xl border bg-card p-4 transition-all hover:shadow-lg">
+                    <div key={i} className="group relative rounded-xl border bg-card p-4 transition-all">
                         <div className="aspect-square rounded-lg bg-muted mb-4 overflow-hidden">
                             <div className="w-full h-full flex items-center justify-center text-muted-foreground italic">Product Image {i}</div>
                         </div>

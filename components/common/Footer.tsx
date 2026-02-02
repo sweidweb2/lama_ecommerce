@@ -17,8 +17,8 @@ import {
 export function Footer() {
   const pathname = usePathname()
 
-  // Hide footer on admin routes
-  if (pathname?.startsWith('/admin')) {
+  // Hide footer on admin routes and product detail pages
+  if (pathname?.startsWith('/admin') || pathname?.match(/^\/products\/[^/]+$/)) {
     return null
   }
 

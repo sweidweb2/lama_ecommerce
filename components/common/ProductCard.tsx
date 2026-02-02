@@ -43,7 +43,7 @@ export function ProductCard({ product }: ProductCardProps) {
                             productId={product.id}
                             variantId={product.variants?.[0]?.id}
                             size="icon"
-                            className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur-sm border-none shadow-sm"
+                            className="h-8 w-8 rounded-lg bg-background/80 border-none"
                         />
                     </div>
                 </div>
