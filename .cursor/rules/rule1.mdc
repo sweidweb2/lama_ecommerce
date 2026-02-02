@@ -1,0 +1,97 @@
+---
+name: rule1
+description: Core coding and architecture rules for the lama_ecommerce Next.js app
+---
+
+# Overview
+
+This rule file mirrors `docs/rules.txt` and defines how the agent should write and organize code in this project.
+
+You are an expert developer working on a **Next.js 16 + TypeScript + Tailwind CSS** ecommerce app that uses **Supabase**, **Zod**, **Zustand**, **TanStack React Query**, **Radix UI / shadcn-style components**, and a clear separation between **storefront**, **account**, **admin**, and **infrastructure** layers.
+
+Core goals:
+- **Correctness and safety first** (types, validation, RLS).
+- **Separation of concerns** (UI vs services vs infra).
+- **Production-ready** code (secure, maintainable, and performant).
+
+## Code Style and Structure
+
+- Write concise, technical **TypeScript** with clear, production-ready examples.
+- Use **functional and declarative React**; avoid classes.
+- Prefer small, focused modules over duplication and “god” files.
+- Use descriptive names with auxiliary verbs (e.g. `isLoading`, `hasError`, `canEdit`).
+- In components, keep the top-level structure: **props/types → hooks/state → derived values → handlers → JSX**.
+- Favor **named exports**; default exports only when clearly beneficial (e.g. Next.js `page.tsx`).
+
+## Architecture and Responsibilities
+
+- Follow the mental model from `docs/bedrock/project_structure.md`:
+  - `app/` → routing, layouts, server components.
+  - `components/` → UI only (no direct Supabase calls).
+  - `services/` → business logic + Supabase interaction.
+  - `lib/` → infra utilities (Supabase client, auth helpers, constants, validators).
+  - `stores/` (if present) → client-side state with Zustand.
+- **Never call Supabase directly from React components**; always go through `services/` or `lib/supabase/`.
+- Keep **admin** and **storefront** experiences separated (`components/admin`, `components/(storefront)` or similar).
+- Respect the 3 authorization layers (see bedrock docs):
+  - `middleware.ts` → route protection.
+  - Supabase **RLS** → data protection.
+  - UI layer → hide/disable disallowed actions.
+
+## TypeScript, Zod, and Validation
+
+- Use **TypeScript everywhere**; prefer `interface` for object shapes and `type` for unions/utility types.
+- Use **Zod** schemas in `lib/validators` (or equivalent) to validate:
+  - Inputs coming from forms and query params.
+  - Payloads going into or coming from Supabase.
+- Infer types from Zod with `z.infer` instead of duplicating types.
+- Avoid `enum`; use literal unions + mapped objects instead.
+
+## Data Fetching and State
+
+- Use **TanStack React Query** for async data fetching/caching on the client.
+- Use **Zustand** for client-only UI state (cart, wishlist, UI toggles, etc.).
+- Minimize `useEffect`; prefer:
+  - Derived state from props/query data.
+  - Memoization (`useMemo`, `useCallback`) where needed.
+- Co-locate React Query hooks and Zustand stores close to the feature they belong to, not in a global “dumping ground”.
+
+## UI, Styling, and Components
+
+- Use **Tailwind CSS** (v4) utilities; keep className strings readable and ordered logically (layout → spacing → typography → colors → effects).
+- Use **Radix UI / shadcn-derived components** from `components/ui` as building blocks; do not fork them casually.
+- Prefer **composition over configuration**: small composable components instead of a single over-configured one.
+- Make all public-facing UI responsive and accessible (keyboard focus, ARIA where needed).
+- Keep `components/common` generic and reusable; avoid leaking business logic into them.
+
+## Error Handling and Edge Cases
+
+- Handle invalid input and forbidden actions **as early as possible** (validators, services, middleware).
+- Use **early returns and guard clauses** instead of deep nesting.
+- Never trust client input; always validate before writing to the database.
+- In the UI, show clear, user-friendly errors and avoid silent failures.
+
+## Performance and DX
+
+- Use **Next.js App Router best practices**:
+  - Prefer **server components** by default; move to client components only when needed (state, effects, browser APIs).
+  - Use `async` server components for data fetching where appropriate.
+- Use **dynamic imports** and **lazy loading** for heavy, non-critical client components (e.g. charts, admin-only tables).
+- Avoid unnecessary re-renders by:
+  - Splitting components by responsibility.
+  - Hoisting state up or down appropriately.
+
+## Project Conventions
+
+- Follow the existing folder and naming conventions (see `docs/bedrock` and `docs/phases` where relevant).
+- Keep **admin**, **user account**, and **public storefront** flows conceptually and physically separated.
+- Keep **tables** and complex admin UIs under the expected admin/component folders and back them with TanStack Table when needed.
+- Use meaningful commit messages that describe *what* and *why*, not only *how*.
+
+## Documentation and Output Expectations
+
+- When adding or changing behavior, prefer to **update or add docs** under `docs/` alongside the feature if it affects flows or contracts.
+- Code examples in this repo should:
+  - Match the architecture rules above.
+  - Use the existing utilities and patterns instead of inventing new ones without reason.
+- Explanations should be short, technical, and focused on decisions, trade-offs, and how the code fits the existing system.
