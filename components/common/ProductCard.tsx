@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProductWithRelations } from '@/types/product'
-import { formatPrice } from '@/lib/utils' // I'll assume this exists or create it
+import { formatPrice } from '@/lib/utils'
+import { WishlistButton } from './WishlistButton'
 
 interface ProductCardProps {
     product: ProductWithRelations
@@ -35,6 +36,15 @@ export function ProductCard({ product }: ProductCardProps) {
                                 Hot
                             </Badge>
                         )}
+                    </div>
+
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <WishlistButton
+                            productId={product.id}
+                            variantId={product.variants?.[0]?.id}
+                            size="icon"
+                            className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur-sm border-none shadow-sm"
+                        />
                     </div>
                 </div>
                 <div className="pt-3 pb-1 px-1 flex flex-col gap-0.5">

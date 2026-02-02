@@ -79,6 +79,9 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         brand: DUMMY_BRANDS[0],
         images: [
             { id: 'img-1', product_id: 'prod-1', url_image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-prod-1', product_id: 'prod-1', color: 'Black', size: 'One Size', material: 'Plastic', quantity_stock: 50, sku_variant: 'HW-001-B', price_override: null, created_at: new Date().toISOString(), deleted_at: null }
         ]
     },
     {
@@ -101,6 +104,9 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         brand: DUMMY_BRANDS[1],
         images: [
             { id: 'img-2', product_id: 'prod-2', url_image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-prod-2', product_id: 'prod-2', color: 'Brown', size: 'One Size', material: 'Leather', quantity_stock: 30, sku_variant: 'LW-002-BR', price_override: null, created_at: new Date().toISOString(), deleted_at: null }
         ]
     },
     {
@@ -123,6 +129,9 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         brand: DUMMY_BRANDS[0],
         images: [
             { id: 'img-3', product_id: 'prod-3', url_image: 'https://images.unsplash.com/photo-1589492477829-5e65395b66cc?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-prod-3', product_id: 'prod-3', color: 'Charcoal', size: 'One Size', material: 'Fabric', quantity_stock: 100, sku_variant: 'SS-003-C', price_override: null, created_at: new Date().toISOString(), deleted_at: null }
         ]
     },
     {
@@ -144,6 +153,9 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         category: DUMMY_CATEGORIES[2],
         images: [
             { id: 'img-4', product_id: 'prod-4', url_image: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }
+        ],
+        variants: [
+            { id: 'v-prod-4', product_id: 'prod-4', color: 'White', size: 'One Size', material: 'Metal', quantity_stock: 25, sku_variant: 'ML-004-W', price_override: null, created_at: new Date().toISOString(), deleted_at: null }
         ]
     },
     {

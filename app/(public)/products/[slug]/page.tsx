@@ -10,6 +10,7 @@ import { formatPrice, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { WishlistButton } from '@/components/common/WishlistButton'
 import {
     Accordion,
     AccordionContent,
@@ -187,9 +188,11 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                                     Add to Cart
                                 </Button>
                                 <div className="flex gap-2 justify-center">
-                                    <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-black/5 hover:bg-red-50 hover:text-red-500 transition-colors">
-                                        <Heart className="h-5 w-5" />
-                                    </Button>
+                                    <WishlistButton
+                                        productId={product.id}
+                                        variantId={product.variants?.[0]?.id}
+                                        className="h-14 w-14 rounded-2xl border-black/5 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                    />
                                     <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-black/5 hover:bg-blue-50 hover:text-blue-500 transition-colors">
                                         <Share2 className="h-5 w-5" />
                                     </Button>
