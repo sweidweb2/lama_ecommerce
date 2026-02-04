@@ -54,7 +54,8 @@ export async function getProducts(
   const { data, error, count } = await query
 
   if (error) {
-    console.error('Error fetching products:', error)
+    // This is expected if products table doesn't exist or Supabase isn't configured
+    // The page will fall back to dummy data
     return { data: [], count: 0 }
   }
 

@@ -1,11 +1,13 @@
 import Image from "next/image";
 
+import Link from "next/link";
+
 export function CategoryShowcase() {
     const categories = [
-        { name: "Electronics", count: "1,200 Products", image: "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Fashion", count: "850 Products", image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Home & Garden", count: "430 Products", image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Beauty", count: "210 Products", image: "https://images.unsplash.com/photo-1612817288484-969160d071b5?q=80&w=1000&auto=format&fit=crop" },
+        { name: "Electronics", slug: "electronics", count: "1,200 Products", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1000&auto=format&fit=crop" },
+        { name: "Fashion", slug: "fashion", count: "850 Products", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=1000&auto=format&fit=crop" },
+        { name: "Home & Garden", slug: "home-garden", count: "430 Products", image: "https://images.unsplash.com/photo-1449247709967-d4461a6a6103?q=80&w=1000&auto=format&fit=crop" },
+        { name: "Beauty", slug: "beauty", count: "210 Products", image: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=1000&auto=format&fit=crop" },
     ];
 
     return (
@@ -14,7 +16,7 @@ export function CategoryShowcase() {
                 <h2 className="text-3xl font-bold tracking-tight mb-8 text-center uppercase italic">Shop by Category</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {categories.map((cat) => (
-                        <div key={cat.name} className="relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer">
+                        <Link key={cat.name} href={`/products?category=${cat.slug}`} className="block relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer">
                             <div className="absolute inset-0">
                                 <Image
                                     src={cat.image}
@@ -29,7 +31,7 @@ export function CategoryShowcase() {
                                 <h3 className="text-2xl font-bold">{cat.name}</h3>
                                 <p className="text-white/80 text-sm mt-1">{cat.count}</p>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </div>

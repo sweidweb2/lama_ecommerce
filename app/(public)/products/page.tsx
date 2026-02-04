@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DUMMY_PRODUCTS, DUMMY_CATEGORIES } from '@/lib/constants/dummy-data'
 
+
 interface ProductsPageProps {
     searchParams: Promise<{
         category?: string
@@ -29,6 +30,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     let categories = await getCategories(supabase)
     if (categories.length === 0) categories = DUMMY_CATEGORIES
 
+
     // Fetch products with filters
     let { data: products, count } = await getProducts(supabase, {
         categorySlug: params.category,
@@ -39,14 +41,21 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
     // Dummy data fallback for design visualization
     if (products.length === 0 && !params.search) {
-        products = DUMMY_PRODUCTS
-        count = DUMMY_PRODUCTS.length
+        let allProducts = DUMMY_PRODUCTS
 
         // Filter dummy data if category is selected
         if (params.category) {
-            products = products.filter(p => p.category?.slug === params.category)
-            count = products.length
+            allProducts = allProducts.filter(p => p.category?.slug === params.category)
         }
+
+        count = allProducts.length
+
+        // Apply pagination to dummy data
+        const currentPage = Number(params.page) || 1
+        const pageSize = 12
+        const startIndex = (currentPage - 1) * pageSize
+        const endIndex = startIndex + pageSize
+        products = allProducts.slice(startIndex, endIndex)
     }
 
     const pageSize = 12
