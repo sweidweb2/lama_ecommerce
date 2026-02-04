@@ -13,7 +13,7 @@ export function ProductScrollableGallery({ product, images }: ProductScrollableG
             {images.map((image, index) => (
                 <div
                     key={image.id ?? index}
-                    className="relative w-full aspect-square rounded-2xl overflow-hidden bg-[#f9f9f9] dark:bg-card border border-black/5 shrink-0"
+                    className="relative w-full aspect-square rounded-2xl overflow-hidden bg-[#f9f9f9] dark:bg-card border border-black/5 shrink-0 p-6"
                 >
                     <Image
                         src={image.url_image || '/placeholder-product.webp'}

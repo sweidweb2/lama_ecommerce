@@ -11,7 +11,7 @@ export function ProductImageCarousel({ product, images }: ProductImageCarouselPr
     const primaryImage = images.find(img => img.is_primary) || images[0]
 
     return (
-        <div className="relative w-full h-screen max-h-screen overflow-hidden">
+        <div className="relative w-full h-[50vh] overflow-hidden">
             <div className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth h-full hide-scrollbar">
                 {images.map((image, index) => (
                     <div
