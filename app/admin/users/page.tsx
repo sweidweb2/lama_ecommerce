@@ -9,7 +9,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { Edit, Ban } from "lucide-react"
+import { EditUserDialog } from "@/components/admin/user/edit_form"
+import { DeleteUserDialog } from "@/components/admin/user/delete_form"
 
 // Dummy data
 const users = [
@@ -90,12 +91,8 @@ export default function UsersPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Ban className="h-4 w-4" />
-                    </Button>
+                    <EditUserDialog user={user} />
+                    <DeleteUserDialog user={user} />
                   </div>
                 </TableCell>
               </TableRow>
