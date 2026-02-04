@@ -228,27 +228,6 @@ export const DUMMY_PRODUCTS: ProductWithRelations[] = [
         variants: []
     },
     {
-        id: 'prod-2-3',
-        name: 'Summer Dress',
-        description: 'Light and airy.',
-        slug: 'summer-dress',
-        brand_id: 'brand-2',
-        category_id: 'cat-2',
-        sku: 'FASH-003',
-        price: 59.99,
-        is_featured: false,
-        is_trending: false,
-        is_active: true,
-        owner_id: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        deleted_at: null,
-        category: DUMMY_CATEGORIES[1],
-        brand: DUMMY_BRANDS[1],
-        images: [{ id: 'img-2-3', product_id: 'prod-2-3', url_image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?q=80&w=1000&auto=format&fit=crop', is_primary: true, created_at: new Date().toISOString() }],
-        variants: []
-    },
-    {
         id: 'prod-2-4',
         name: 'Leather Boots',
         description: 'Rugged leather boots.',
