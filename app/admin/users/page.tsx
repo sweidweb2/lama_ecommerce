@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditUserDialog } from "@/components/admin/user/edit_form"
 import { DeleteUserDialog } from "@/components/admin/user/delete_form"
+import { CreateUserDialog } from "@/components/admin/user/create_from"
 
 // Dummy data
 const users = [
@@ -54,11 +55,16 @@ const users = [
 export default function UsersPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Users</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Manage all users and their permissions
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Users</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Manage all users and their permissions
+          </p>
+        </div>
+        <div className="mt-1">
+          <CreateUserDialog />
+        </div>
       </div>
 
       <TableWrapper>
