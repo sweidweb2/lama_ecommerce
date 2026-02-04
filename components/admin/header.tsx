@@ -89,7 +89,7 @@ export function Header() {
           <span className="sr-only">Notifications</span>
         </Button>
         <ModeToggle />
-        
+
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -117,13 +117,13 @@ export function Header() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href="/account" className="flex items-center cursor-pointer">
+              <a href="/profile" className="flex items-center cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href="/account/settings" className="flex items-center cursor-pointer">
+              <a href="/profile/settings" className="flex items-center cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </a>
