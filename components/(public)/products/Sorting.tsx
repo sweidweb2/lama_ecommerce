@@ -14,6 +14,7 @@ const sortOptions = [
     { label: 'Price: Low to High', value: 'price-asc' },
     { label: 'Price: High to Low', value: 'price-desc' },
     { label: 'Name: A-Z', value: 'name-asc' },
+    { label: 'Size: XS-XL', value: 'size-asc' },
 ]
 
 export function Sorting() {
@@ -31,7 +32,7 @@ export function Sorting() {
         <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
             <Select value={currentSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>

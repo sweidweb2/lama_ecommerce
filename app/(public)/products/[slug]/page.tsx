@@ -33,9 +33,38 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     const primaryImage = product.images?.find(img => img.is_primary) || product.images?.[0]
     const otherImages = product.images?.filter(img => img.id !== primaryImage?.id) || []
 
-    // Extract unique colors and sizes from variants
-    const colors = Array.from(new Set(product.variants?.map(v => v.color).filter((c): c is string => Boolean(c)))) || []
-    const sizes = Array.from(new Set(product.variants?.map(v => v.size).filter((s): s is string => Boolean(s)))) || []
+    // Extract unique colors and sizes from variants and sort them
+    const colors =
+        Array.from(
+            new Set(
+                product.variants
+                    ?.map(v => v.color)
+                    .filter((c): c is string => Boolean(c)),
+            ),
+        ).sort((a, b) => a.localeCompare(b)) || []
+
+    const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "3XL"]
+
+    const sizes =
+        Array.from(
+            new Set(
+                product.variants
+                    ?.map(v => v.size)
+                    .filter((s): s is string => Boolean(s)),
+            ),
+        ).sort((a, b) => {
+            const indexA = SIZE_ORDER.indexOf(a.toUpperCase())
+            const indexB = SIZE_ORDER.indexOf(b.toUpperCase())
+
+            if (indexA === -1 && indexB === -1) {
+                return a.localeCompare(b)
+            }
+
+            if (indexA === -1) return 1
+            if (indexB === -1) return -1
+
+            return indexA - indexB
+        }) || []
 
     const allImages = product.images || []
     const originalPrice = product.price > 100 ? product.price * 1.2 : undefined

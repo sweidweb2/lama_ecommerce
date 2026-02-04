@@ -5,12 +5,14 @@ import { getCategories } from '@/services/categories.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
+import { VariantFilterButton } from '@/components/(public)/products/VariantFilterButton'
 import { Pagination } from '@/components/(public)/products/Pagination'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
 import { MobileFilters } from '@/components/(public)/products/MobileFilters'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DUMMY_PRODUCTS, DUMMY_CATEGORIES } from '@/lib/constants/dummy-data'
+import type { ProductWithRelations } from '@/types/product'
 
 
 interface ProductsPageProps {
@@ -19,7 +21,70 @@ interface ProductsPageProps {
         sort?: string
         page?: string
         search?: string
+        colors?: string
+        sizes?: string
     }>
+}
+
+const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
+
+function getPrimaryVariantValue(product: ProductWithRelations, field: 'color' | 'size'): string {
+    const variant = product.variants?.[0]
+    const value = variant?.[field] ?? ''
+    return (value || '').toString()
+}
+
+function sortDummyProducts(products: ProductWithRelations[], sort?: string) {
+    if (!sort) {
+        // Default: newest first (we'll just keep original order since dummy dates are generated now)
+        return [...products]
+    }
+
+    const [field, order] = sort.split('-') as [string, 'asc' | 'desc' | undefined]
+    const ascending = order === 'asc'
+
+    const sorted = [...products].sort((a, b) => {
+        switch (field) {
+            case 'price': {
+                const aPrice = a.price
+                const bPrice = b.price
+                return ascending ? aPrice - bPrice : bPrice - aPrice
+            }
+            case 'name': {
+                const aName = a.name || ''
+                const bName = b.name || ''
+                return ascending ? aName.localeCompare(bName) : bName.localeCompare(aName)
+            }
+            case 'color': {
+                const aColor = getPrimaryVariantValue(a, 'color')
+                const bColor = getPrimaryVariantValue(b, 'color')
+                return ascending ? aColor.localeCompare(bColor) : bColor.localeCompare(aColor)
+            }
+            case 'size': {
+                const aSize = getPrimaryVariantValue(a, 'size').toUpperCase()
+                const bSize = getPrimaryVariantValue(b, 'size').toUpperCase()
+
+                const indexA = SIZE_ORDER.indexOf(aSize)
+                const indexB = SIZE_ORDER.indexOf(bSize)
+
+                if (indexA === -1 && indexB === -1) {
+                    return ascending ? aSize.localeCompare(bSize) : bSize.localeCompare(aSize)
+                }
+                if (indexA === -1) return 1
+                if (indexB === -1) return -1
+
+                return ascending ? indexA - indexB : indexB - indexA
+            }
+            case 'created_at':
+            default: {
+                const aCreated = new Date(a.created_at).getTime()
+                const bCreated = new Date(b.created_at).getTime()
+                return ascending ? aCreated - bCreated : bCreated - aCreated
+            }
+        }
+    })
+
+    return sorted
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
@@ -39,14 +104,83 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         search: params.search,
     })
 
+    // Apply color filtering for real products (requires variants)
+    if (params.colors && products.length > 0) {
+        const selectedColors = params.colors
+            .split(',')
+            .map(c => c.trim().toLowerCase())
+            .filter(Boolean)
+
+        if (selectedColors.length > 0) {
+            products = products.filter(product =>
+                product.variants?.some(variant =>
+                    variant.color && selectedColors.includes(variant.color.toLowerCase()),
+                ),
+            )
+            count = products.length
+        }
+    }
+
+    // Apply size filtering for real products (requires variants)
+    if (params.sizes && products.length > 0) {
+        const selectedSizes = params.sizes
+            .split(',')
+            .map(s => s.trim().toUpperCase())
+            .filter(Boolean)
+
+        if (selectedSizes.length > 0) {
+            products = products.filter(product =>
+                product.variants?.some(variant =>
+                    variant.size && selectedSizes.includes(variant.size.toUpperCase()),
+                ),
+            )
+            count = products.length
+        }
+    }
+
     // Dummy data fallback for design visualization
     if (products.length === 0 && !params.search) {
-        let allProducts = DUMMY_PRODUCTS
+        let allProducts: ProductWithRelations[] = DUMMY_PRODUCTS
 
         // Filter dummy data if category is selected
         if (params.category) {
             allProducts = allProducts.filter(p => p.category?.slug === params.category)
         }
+
+        // Apply color filtering to dummy data only if variants are present
+        if (params.colors && allProducts.some(p => p.variants && p.variants.length > 0)) {
+            const selectedColors = params.colors
+                .split(',')
+                .map(c => c.trim().toLowerCase())
+                .filter(Boolean)
+
+            if (selectedColors.length > 0) {
+                allProducts = allProducts.filter(product =>
+                    product.variants?.some(variant =>
+                        variant.color && selectedColors.includes(variant.color.toLowerCase()),
+                    ),
+                )
+            }
+        }
+
+        // Apply size filtering to dummy data only if variants are present
+        if (params.sizes && allProducts.some(p => p.variants && p.variants.length > 0)) {
+            const selectedSizes = params.sizes
+                .split(',')
+                .map(s => s.trim().toUpperCase())
+                .filter(Boolean)
+
+            if (selectedSizes.length > 0) {
+                allProducts = allProducts.filter(product =>
+                    product.variants?.some(variant =>
+                        variant.size && selectedSizes.includes(variant.size.toUpperCase()),
+                    ),
+                )
+            }
+        }
+
+        // Apply sorting for dummy data, including color and size
+        allProducts = sortDummyProducts(allProducts, params.sort)
 
         count = allProducts.length
 
@@ -93,8 +227,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                                     <MobileFilters categories={categories} />
                                 </div>
                                 <div className="h-6 w-px bg-border hidden md:block" />
-                                <div className="w-full sm:w-auto">
+                                <div className="w-full sm:w-auto flex flex-col gap-2 items-stretch sm:items-end">
                                     <Sorting />
+                                    <VariantFilterButton />
                                 </div>
                             </div>
                         </div>

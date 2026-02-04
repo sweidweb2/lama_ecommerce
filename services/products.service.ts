@@ -18,7 +18,7 @@ export async function getProducts(
 
   let query = supabase
     .from('products')
-    .select('*, brand:brands(*), category:categories(*), images:product_images(*)', { count: 'exact' })
+    .select('*, brand:brands(*), category:categories(*), images:product_images(*), variants:product_variants(*)', { count: 'exact' })
     .eq('is_active', true)
 
   if (categorySlug) {
