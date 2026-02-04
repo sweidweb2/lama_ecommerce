@@ -70,21 +70,17 @@ export function Hero() {
                                     <p className="text-lg md:text-xl text-gray-200 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
                                         {item.description}
                                     </p>
-                                    <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-                                        <Button
-                                            asChild
-                                            size="sm"
-                                            className="text-sm px-4 py-2 md:text-lg md:px-8 md:py-6 bg-white text-black hover:bg-gray-100 border-none"
-                                        >
+                                    <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
+                                        <Button asChild size="lg" className="text-lg px-8 py-6 bg-white text-black hover:bg-gray-100 border-none">
                                             <Link href={item.href}>
                                                 {item.cta}
                                             </Link>
                                         </Button>
                                         <Button
                                             asChild
-                                            size="sm"
+                                            size="lg"
                                             variant="outline"
-                                            className="text-sm px-4 py-2 md:text-lg md:px-8 md:py-6 text-white border-white hover:bg-white/20 hover:text-white bg-transparent"
+                                            className="text-lg px-8 py-6 text-white border-white hover:bg-white/20 hover:text-white bg-transparent"
                                         >
                                             <Link href="/products">
                                                 View Details
