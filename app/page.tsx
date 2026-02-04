@@ -1,7 +1,7 @@
-import { Hero } from "@/components/(storefront)/Home/Hero";
-import { FeaturedProducts } from "@/components/(storefront)/Home/FeaturedProducts";
-import { CategoryShowcase } from "@/components/(storefront)/Home/CategoryShowcase";
-import { PromotionalBanners } from "@/components/(storefront)/Home/PromotionalBanners";
+import { Hero } from "@/components/(public)/Home/Hero";
+import { FeaturedProducts } from "@/components/(public)/Home/FeaturedProducts";
+import { CategoryShowcase } from "@/components/(public)/Home/CategoryShowcase";
+import { PromotionalBanners } from "@/components/(public)/Home/PromotionalBanners";
 
 /**
  * Root page - home page for the storefront.
