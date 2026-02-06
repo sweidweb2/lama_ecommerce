@@ -1,38 +1,87 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { DUMMY_BRANDS, DUMMY_CATEGORIES } from "@/lib/constants/dummy-data"
 
-const productSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  price: z.string().min(1, "Price is required"),
-  stock: z.string().min(1, "Stock is required"),
-  description: z.string().optional(),
-})
-
-type ProductFormData = z.infer<typeof productSchema>
+const NONE_VALUE = "__none__"
 
 export default function CreateProductPage() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [slug, setSlug] = useState("")
+  const [brandId, setBrandId] = useState(NONE_VALUE)
+  const [categoryId, setCategoryId] = useState(NONE_VALUE)
+  const [sku, setSku] = useState("")
+  const [price, setPrice] = useState("")
+  const [isFeatured, setIsFeatured] = useState(false)
+  const [isTrending, setIsTrending] = useState(false)
+  const [isActive, setIsActive] = useState(true)
 
-  const onSubmit = async (data: ProductFormData) => {
-    // Dummy submit - just show toast
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    toast.success("Product created successfully!")
-    console.log("Product data:", data)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation
+    if (!name.trim()) {
+      toast.error("Product name is required")
+      return
+    }
+    if (!price || parseFloat(price) <= 0) {
+      toast.error("Valid price is required")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      // Prepare data - convert NONE_VALUE to null
+      const productData = {
+        name: name.trim(),
+        description: description.trim() || null,
+        slug: slug.trim() || null,
+        brand_id: brandId === NONE_VALUE ? null : brandId,
+        category_id: categoryId === NONE_VALUE ? null : categoryId,
+        sku: sku.trim() || null,
+        price: parseFloat(price),
+        is_featured: isFeatured,
+        is_trending: isTrending,
+        is_active: isActive,
+      }
+
+      // Dummy submit - just show toast
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      toast.success("Product created successfully!")
+      console.log("Product data:", productData)
+      
+      // Reset form
+      setName("")
+      setDescription("")
+      setSlug("")
+      setBrandId(NONE_VALUE)
+      setCategoryId(NONE_VALUE)
+      setSku("")
+      setPrice("")
+      setIsFeatured(false)
+      setIsTrending(false)
+      setIsActive(true)
+    } catch (error) {
+      toast.error("Failed to create product")
+      console.error("Error creating product:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -51,57 +100,144 @@ export default function CreateProductPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Product Name</Label>
+            <Label htmlFor="name">
+              Product Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="name"
-              {...register("name")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Enter product name"
+              required
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                {...register("price")}
-                placeholder="0.00"
-              />
-              {errors.price && (
-                <p className="text-sm text-destructive">{errors.price.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
-              <Input
-                id="stock"
-                type="number"
-                {...register("stock")}
-                placeholder="0"
-              />
-              {errors.stock && (
-                <p className="text-sm text-destructive">{errors.stock.message}</p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="slug">Slug</Label>
+            <Input
+              id="slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="product-slug"
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <textarea
               id="description"
-              {...register("description")}
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:border-[1.5px] disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Enter product description"
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Select value={brandId} onValueChange={setBrandId}>
+                <SelectTrigger id="brand" className="w-full">
+                  <SelectValue placeholder="Select brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
+                  {DUMMY_BRANDS.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger id="category" className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
+                  {DUMMY_CATEGORIES.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="sku">SKU</Label>
+              <Input
+                id="sku"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="PROD-001"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="price">
+                Price <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="featured"
+                checked={isFeatured}
+                onChange={(e) => setIsFeatured(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="featured" className="cursor-pointer">
+                Featured Product
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="trending"
+                checked={isTrending}
+                onChange={(e) => setIsTrending(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="trending" className="cursor-pointer">
+                Trending Product
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="active"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="active" className="cursor-pointer">
+                Active (Visible to customers)
+              </Label>
+            </div>
           </div>
         </div>
 

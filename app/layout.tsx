@@ -5,8 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { Navbar } from "@/components/common/Navbar";
-import { Footer } from "@/components/common/Footer";
+import { ConditionalLayout } from "@/components/layout/ConditionalMain";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,11 +42,7 @@ export default async function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider initialProfile={profile}>
-            <div className="flex min-h-screen flex-col">
-              <Navbar />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
+            <ConditionalLayout>{children}</ConditionalLayout>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>

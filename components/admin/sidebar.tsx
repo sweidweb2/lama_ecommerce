@@ -15,6 +15,7 @@ import {
   Ticket,
   Plus,
   List,
+  Grid3x3,
 } from "lucide-react"
 import { SidebarItem } from "./sidebar-item"
 import { cn } from "@/lib/utils"
@@ -40,6 +41,11 @@ const menuItems = [
         href: "/admin/products",
         label: "All Products",
         icon: List,
+      },
+      {
+        href: "/admin/products/grid",
+        label: "Grid Products",
+        icon: Grid3x3,
       },
       {
         href: "/admin/products/create",

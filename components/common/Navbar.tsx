@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Settings,
   LogOut,
+  Package,
 } from "lucide-react";
 import {
   Sheet,
@@ -42,6 +43,7 @@ import { toast } from "sonner";
 const NAV_LINKS = [
   { label: "Home", href: ROUTES.HOME },
   { label: "Products", href: "/products" },
+  { label: "Orders", href: "/orders" },
   { label: "About", href: "/about-us" },
   { label: "Contact", href: "/contact-us" },
 ];
@@ -217,6 +219,12 @@ export function Navbar() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href="/orders" className="flex items-center cursor-pointer">
+                      <Package className="mr-2 h-4 w-4" />
+                      Orders
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link
                       href="/account/settings"
                       className="flex items-center cursor-pointer"
@@ -359,6 +367,12 @@ export function Navbar() {
                         <Button className="w-full justify-start" variant="ghost">
                           <User className="mr-2 h-4 w-4" />
                           Profile
+                        </Button>
+                      </Link>
+                      <Link href="/orders" onClick={() => setIsOpen(false)}>
+                        <Button className="w-full justify-start" variant="ghost">
+                          <Package className="mr-2 h-4 w-4" />
+                          Orders
                         </Button>
                       </Link>
                       <Link
