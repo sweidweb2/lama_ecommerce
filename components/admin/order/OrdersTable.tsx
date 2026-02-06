@@ -26,6 +26,8 @@ import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { formatPrice, formatDate } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus } from "@/types/order"
 
+export type { AdminOrder }
+
 interface OrdersTableProps {
   orders: AdminOrder[]
 }

@@ -14,6 +14,8 @@ import { DeleteCartItemDialog } from "./DeleteCartItemDialog"
 import { CreateCartItemDialog } from "./CreateCartItemDialog"
 import { formatPrice } from "@/lib/utils"
 
+export type { CartItem }
+
 interface CartItemsTableProps {
   cartId: string
   items: CartItem[]
