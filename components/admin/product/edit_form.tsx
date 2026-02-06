@@ -32,11 +32,12 @@ export type AdminProduct = {
 
 interface EditProductDialogProps {
   product: AdminProduct
+  showText?: boolean
 }
 
 const NONE_VALUE = "__none__"
 
-export function EditProductDialog({ product }: EditProductDialogProps) {
+export function EditProductDialog({ product, showText = false }: EditProductDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description || "")
@@ -75,12 +76,13 @@ export function EditProductDialog({ product }: EditProductDialogProps) {
   return (
     <>
       <Button
-        variant="ghost"
-        size="icon"
+        variant={showText ? "outline" : "ghost"}
+        size={showText ? "default" : "icon"}
         onClick={() => setOpen(true)}
         aria-label={`Edit ${product.name}`}
       >
-        <Edit className="h-4 w-4" />
+        <Edit className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
+        {showText && "Edit"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

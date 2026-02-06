@@ -11,9 +11,10 @@ interface DeleteProductDialogProps {
     name: string
   }
   onDelete?: (productId: string) => void | Promise<void>
+  showText?: boolean
 }
 
-export function DeleteProductDialog({ product, onDelete }: DeleteProductDialogProps) {
+export function DeleteProductDialog({ product, onDelete, showText = false }: DeleteProductDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -38,12 +39,13 @@ export function DeleteProductDialog({ product, onDelete }: DeleteProductDialogPr
   return (
     <>
       <Button
-        variant="ghost"
-        size="icon"
+        variant={showText ? "destructive" : "ghost"}
+        size={showText ? "default" : "icon"}
         onClick={() => setOpen(true)}
         aria-label={`Delete ${product.name}`}
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
+        {showText && "Delete"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -70,18 +71,16 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
               <DeleteProductDialog product={adminProduct} />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={(e) => {
-                e.preventDefault()
-                // View action - do nothing for now
-              }}
-              aria-label={`View ${product.name}`}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            <Link href={`/admin/products/${product.id}`}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={`View ${product.name}`}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

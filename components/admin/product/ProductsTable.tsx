@@ -21,7 +21,8 @@ import {
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
-import { X, ChevronLeft, ChevronRight } from "lucide-react"
+import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
+import Link from "next/link"
 import { DUMMY_CATEGORIES, DUMMY_BRANDS } from "@/lib/constants/dummy-data"
 
 interface ProductsTableProps {
@@ -311,6 +312,11 @@ export function ProductsTable({ products }: ProductsTableProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Link href={`/admin/products/${product.id}`}>
+                        <Button variant="ghost" size="icon" aria-label={`View ${product.name}`}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
                       <EditProductDialog product={product} />
                       <DeleteProductDialog product={product} />
                     </div>
