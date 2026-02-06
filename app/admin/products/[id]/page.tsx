@@ -5,9 +5,12 @@ import { EditProductDialog, type AdminProduct } from '@/components/admin/product
 import { DeleteProductDialog } from '@/components/admin/product/delete_dialog'
 import { VariantsTable, type ProductVariant } from '@/components/admin/product/VariantsTable'
 import { CreateVariantForm } from '@/components/admin/product/CreateVariantForm'
+import { AddImageForm } from '@/components/admin/product/AddImageForm'
 import { ProductDetailsBreadcrumbs } from '@/components/admin/product/ProductDetailsBreadcrumbs'
+import { StatCard } from '@/components/admin/stat-card'
 import { DUMMY_PRODUCTS, DUMMY_CATEGORIES, DUMMY_BRANDS } from '@/lib/constants/dummy-data'
 import { formatPrice } from '@/lib/utils'
+import { Eye, ShoppingCart, ShoppingBag } from 'lucide-react'
 
 interface ProductDetailsPageProps {
   params: Promise<{
@@ -50,6 +53,13 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
   const imageUrl = primaryImage?.url_image || '/placeholder-product.webp'
   const category = DUMMY_CATEGORIES.find((c) => c.id === product.category_id)
   const brand = DUMMY_BRANDS.find((b) => b.id === product.brand_id)
+
+  // Dummy statistics data (in a real app, this would come from the database)
+  const productStats = {
+    views: Math.floor(Math.random() * 5000) + 1000, // Random between 1000-6000
+    orders: Math.floor(Math.random() * 500) + 50, // Random between 50-550
+    addedToCart: Math.floor(Math.random() * 800) + 100, // Random between 100-900
+  }
 
   // Generate dummy variants for the product
   const dummyVariants: ProductVariant[] = [
@@ -126,6 +136,28 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Main Info */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Statistics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              title="Product Views"
+              value={productStats.views.toLocaleString()}
+              description="Total views"
+              icon={Eye}
+            />
+            <StatCard
+              title="Product Orders"
+              value={productStats.orders.toLocaleString()}
+              description="Total orders"
+              icon={ShoppingCart}
+            />
+            <StatCard
+              title="Added to Cart"
+              value={productStats.addedToCart.toLocaleString()}
+              description="Total cart additions"
+              icon={ShoppingBag}
+            />
+          </div>
+
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -187,7 +219,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
             <CardHeader>
               <CardTitle>Product Image</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border">
                 <Image
                   src={imageUrl}
@@ -197,6 +229,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                   sizes="(max-width: 768px) 100vw, 320px"
                 />
               </div>
+              <AddImageForm productId={product.id} />
             </CardContent>
           </Card>
 
