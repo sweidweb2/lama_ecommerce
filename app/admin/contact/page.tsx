@@ -7,49 +7,74 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { Mail, Eye } from "lucide-react"
+import { CreateContactDialog, type AdminContact } from "@/components/admin/contact/create_form"
+import { EditContactDialog } from "@/components/admin/contact/edit_form"
+import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
+import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
 
-// Dummy data
-const messages = [
+// Dummy data matching the contact_us schema
+const contacts: AdminContact[] = [
   {
-    id: "1",
-    name: "John Doe",
+    id: "contact-1",
+    full_name: "John Doe",
     email: "john.doe@example.com",
+    phone: "+1234567890",
     subject: "Product Inquiry",
-    message: "I'm interested in your products...",
-    status: "Unread",
-    date: "2024-01-15",
+    message: "I'm interested in your products, can you provide more details about bulk pricing and shipping options?",
+    status: "new",
+    created_at: "2024-01-15T10:30:00Z",
   },
   {
-    id: "2",
-    name: "Jane Smith",
+    id: "contact-2",
+    full_name: "Jane Smith",
     email: "jane.smith@example.com",
+    phone: "+1234567891",
     subject: "Support Request",
-    message: "I need help with my order...",
-    status: "Read",
-    date: "2024-01-16",
+    message: "I need help with my recent order. The tracking number does not seem to be working.",
+    status: "read",
+    created_at: "2024-01-16T09:20:00Z",
   },
   {
-    id: "3",
-    name: "Bob Johnson",
+    id: "contact-3",
+    full_name: "Bob Johnson",
     email: "bob.johnson@example.com",
+    phone: null,
     subject: "Partnership Inquiry",
-    message: "I'd like to discuss a partnership...",
-    status: "Unread",
-    date: "2024-01-16",
+    message: "I'd like to discuss a potential partnership opportunity with your company.",
+    status: "replied",
+    created_at: "2024-01-16T14:45:00Z",
   },
 ]
+
+const getStatusVariant = (status: AdminContact["status"]) => {
+  switch (status) {
+    case "new":
+      return "secondary"
+    case "read":
+      return "default"
+    case "replied":
+      return "outline"
+    case "resolved":
+      return "default"
+    default:
+      return "secondary"
+  }
+}
 
 export default function ContactPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Contact Us</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Manage contact form submissions
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Contact Us</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Manage contact form submissions
+          </p>
+        </div>
+        <div className="mt-1">
+          <CreateContactDialog />
+        </div>
       </div>
 
       <TableWrapper>
@@ -65,23 +90,32 @@ export default function ContactPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {messages.map((message) => (
-              <TableRow key={message.id}>
-                <TableCell className="font-medium">{message.name}</TableCell>
-                <TableCell>{message.email}</TableCell>
-                <TableCell>{message.subject}</TableCell>
+            {contacts.map((contact) => (
+              <TableRow key={contact.id}>
+                <TableCell className="font-medium">{contact.full_name || "—"}</TableCell>
+                <TableCell>{contact.email || "—"}</TableCell>
+                <TableCell>{contact.subject || "—"}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={message.status === "Read" ? "default" : "secondary"}
-                  >
-                    {message.status}
+                  <Badge variant={getStatusVariant(contact.status)} className="capitalize">
+                    {contact.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{message.date}</TableCell>
+                <TableCell>
+                  {contact.created_at
+                    ? new Date(contact.created_at).toLocaleDateString()
+                    : "—"}
+                </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon">
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    <ViewContactDialog contact={contact} />
+                    <EditContactDialog contact={contact} />
+                    <DeleteContactDialog contact={{
+                      id: contact.id,
+                      full_name: contact.full_name,
+                      email: contact.email,
+                      subject: contact.subject,
+                    }} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -1,0 +1,1 @@
+1.add attribute to the cart called "moved_to_order" which is boolean that become true when cart is checked out
