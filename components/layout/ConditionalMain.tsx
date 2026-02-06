@@ -1,8 +1,13 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Navbar } from "@/components/common/Navbar"
+import dynamic from 'next/dynamic'
 import { Footer } from "@/components/common/Footer"
+
+const Navbar = dynamic(
+  () => import('@/components/common/Navbar').then((mod) => mod.Navbar),
+  { ssr: false }
+)
 
 interface ConditionalLayoutProps {
   children: React.ReactNode
@@ -27,3 +32,4 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     </div>
   )
 }
+
