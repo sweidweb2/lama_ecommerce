@@ -292,8 +292,8 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Breadcrumbs */}
-      <div className="border-b bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="bg-muted/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <ProductBreadcrumbs 
             categoryName={category?.name}
             productName={product.name}
@@ -302,7 +302,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 lg:pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 xl:gap-16">
           {/* Left Column: Media Gallery */}
           <div className="lg:sticky lg:top-24 lg:self-start">
