@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { LucideIcon } from "lucide-react"
 
@@ -27,6 +28,7 @@ export function SidebarItem({
   allChildHrefs = [],
 }: SidebarItemProps) {
   const pathname = usePathname()
+  const [isNavigating, setIsNavigating] = useState(false)
   
   // For nested items (children), check if this exact route is active
   // We need to be more precise to avoid matching parent routes when a more specific child is active
@@ -60,6 +62,13 @@ export function SidebarItem({
     }
   })()
 
+  // Reset navigating state when pathname changes to match href
+  useEffect(() => {
+    if (isNavigating && (pathname === href || pathname.startsWith(`${href}/`))) {
+      setIsNavigating(false)
+    }
+  }, [pathname, href, isNavigating])
+
   // Determine the styling based on state
   const getClassName = () => {
     if (isNested) {
@@ -82,17 +91,26 @@ export function SidebarItem({
     }
   }
 
+  const handleClick = () => {
+    // Only set navigating state if it's a different route
+    if (pathname !== href && !pathname.startsWith(`${href}/`)) {
+      setIsNavigating(true)
+    }
+    onLinkClick?.()
+  }
+
   return (
     <Link
       href={href}
-      onClick={onLinkClick}
+      onClick={handleClick}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         isNested && "ml-6",
+        isNavigating && "opacity-70 cursor-wait",
         getClassName()
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", isNavigating && "animate-pulse")} />
       <span>{label}</span>
     </Link>
   )

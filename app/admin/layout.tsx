@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/admin/sidebar"
 import { Header } from "@/components/admin/header"
+import { AdminNavigationLoader } from "@/components/admin/admin-navigation-loader"
 
 export default function AdminLayout({
   children,
@@ -8,6 +9,7 @@ export default function AdminLayout({
 }) {
   return (
     <div className="flex h-screen overflow-hidden">
+      <AdminNavigationLoader />
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 border-r bg-background">
         <Sidebar />
