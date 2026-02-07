@@ -295,7 +295,6 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
       <div className="bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <ProductBreadcrumbs 
-            categoryName={category?.name}
             productName={product.name}
           />
         </div>
@@ -354,7 +353,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
           <ProductReviews 
             productId={product.id}
-            stats={product.stats}
+            stats={product.stats || undefined}
           />
         </div>
 

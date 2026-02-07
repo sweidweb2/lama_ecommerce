@@ -26,12 +26,11 @@ export function FullPageLoader() {
             <div className="w-full h-full">
                 <DNA
                     visible={true}
-                    height="100%"
-                    width="100%"
+                    height="100"
+                    width="100"
                     ariaLabel="dna-loading"
                     wrapperStyle={{}}
-                    wrapperClass="w-full h-full"
-                    colors={loaderColors}
+                    wrapperClass="w-full h-full flex items-center justify-center"
                 />
             </div>
         </div>
