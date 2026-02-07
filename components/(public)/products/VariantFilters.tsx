@@ -46,26 +46,35 @@ function getColorValue(colorName: string): string {
     return colorMap[normalized] || '#6b7280'
 }
 
-export function VariantFilters() {
+interface VariantFiltersProps {
+    value?: string[]
+    onChange?: (colors: string[]) => void
+}
+
+export function VariantFilters({ value, onChange }: VariantFiltersProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
 
-    const [selectedColors, setSelectedColors] = useState<string[]>([])
+    const [localColors, setLocalColors] = useState<string[]>([])
 
-    // Sync from URL
+    // Sync from URL if not controlled
     useEffect(() => {
-        const colorsParam = searchParams.get('colors')
-        if (!colorsParam) {
-            setSelectedColors([])
-        } else {
-            setSelectedColors(
-                colorsParam
-                    .split(',')
-                    .map((c) => c.trim().toLowerCase())
-                    .filter(Boolean),
-            )
+        if (value === undefined) {
+            const colorsParam = searchParams.get('colors')
+            if (!colorsParam) {
+                setLocalColors([])
+            } else {
+                setLocalColors(
+                    colorsParam
+                        .split(',')
+                        .map((c) => c.trim().toLowerCase())
+                        .filter(Boolean),
+                )
+            }
         }
-    }, [searchParams])
+    }, [searchParams, value])
+
+    const selectedColors = value !== undefined ? value : localColors
 
     const toggleColor = (color: string) => {
         const normalized = color.toLowerCase()
@@ -73,8 +82,12 @@ export function VariantFilters() {
             ? selectedColors.filter((c) => c !== normalized)
             : [...selectedColors, normalized]
 
-        setSelectedColors(newColors)
-        updateURL(newColors)
+        if (onChange) {
+            onChange(newColors)
+        } else {
+            setLocalColors(newColors)
+            updateURL(newColors)
+        }
     }
 
     const updateURL = (colors: string[]) => {
@@ -92,12 +105,15 @@ export function VariantFilters() {
     }
 
     const handleClearAll = () => {
-        setSelectedColors([])
-
-        const params = new URLSearchParams(searchParams.toString())
-        params.delete('colors')
-        params.delete('page')
-        router.push(`/products?${params.toString()}`)
+        if (onChange) {
+            onChange([])
+        } else {
+            setLocalColors([])
+            const params = new URLSearchParams(searchParams.toString())
+            params.delete('colors')
+            params.delete('page')
+            router.push(`/products?${params.toString()}`)
+        }
     }
 
     const hasActive = selectedColors.length > 0

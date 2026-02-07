@@ -17,15 +17,25 @@ const sortOptions = [
     { label: 'Size: XS-XL', value: 'size-asc' },
 ]
 
-export function Sorting() {
+interface SortingProps {
+    value?: string
+    onChange?: (value: string) => void
+}
+
+export function Sorting({ value, onChange }: SortingProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const currentSort = searchParams.get('sort') || 'created_at-desc'
+    const currentSort = value !== undefined ? value : (searchParams.get('sort') || 'created_at-desc')
 
-    const handleSortChange = (value: string) => {
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('sort', value)
-        router.push(`/products?${params.toString()}`)
+    const handleSortChange = (newValue: string) => {
+        if (onChange) {
+            onChange(newValue)
+        } else {
+            // Fallback to immediate update if not controlled
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('sort', newValue)
+            router.push(`/products?${params.toString()}`)
+        }
     }
 
     return (

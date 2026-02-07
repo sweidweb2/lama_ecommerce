@@ -2,10 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { DUMMY_PRODUCTS } from "@/lib/constants/dummy-data";
 
-// Get featured products from dummy data
-const featuredProducts = DUMMY_PRODUCTS.filter(p => p.is_featured).slice(0, 4);
+// Get featured products from dummy data - show more products
+const featuredProducts = DUMMY_PRODUCTS.filter(p => p.is_featured).slice(0, 12);
 
 export function FeaturedProducts() {
     return (
@@ -19,10 +20,10 @@ export function FeaturedProducts() {
                     <Link href="/products">View All</Link>
                 </Button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                 {featuredProducts.map((product) => (
                     <Link key={product.id} href={`/products/${product.slug}`} className="block">
-                        <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300">
+                        <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 pt-0 gap-0 py-0">
                             <div className="relative aspect-square w-full bg-muted overflow-hidden">
                                 <Image
                                     src={product.images?.[0]?.url_image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop"}
@@ -31,14 +32,14 @@ export function FeaturedProducts() {
                                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                                 />
                             </div>
-                            <CardHeader className="p-4 pb-2">
-                                <CardTitle className="line-clamp-1 text-lg">{product.name}</CardTitle>
-                                <CardDescription>{product.category?.name || "Uncategorized"}</CardDescription>
+                            <CardHeader className="px-3 py-2 pb-1.5 pt-2.5">
+                                <CardTitle className="line-clamp-1 text-sm font-semibold leading-tight">{product.name}</CardTitle>
+                                <CardDescription className="text-xs leading-tight mt-1">{product.category?.name || "Uncategorized"}</CardDescription>
                             </CardHeader>
-                            <CardFooter className="p-4 pt-0 flex justify-between items-center">
-                                <span className="font-bold text-xl">${product.price.toFixed(2)}</span>
-                                <Button size="icon" className="h-8 w-8 rounded-full">
-                                    +
+                            <CardFooter className="px-3 py-2 pt-1.5 flex justify-between items-center">
+                                <span className="font-bold text-base leading-tight">${product.price.toFixed(2)}</span>
+                                <Button size="icon" className="h-8 w-8 rounded-full hover:scale-110 transition-transform">
+                                    <Eye className="h-4 w-4" />
                                 </Button>
                             </CardFooter>
                         </Card>

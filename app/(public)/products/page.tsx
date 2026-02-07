@@ -4,9 +4,7 @@ import { getProducts } from '@/services/products.service'
 import { getCategories } from '@/services/categories.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
-import { Sorting } from '@/components/(public)/products/Sorting'
-import { VariantFilterButton } from '@/components/(public)/products/VariantFilterButton'
-import { VariantFilters } from '@/components/(public)/products/VariantFilters'
+import { AdvancedFilters } from '@/components/(public)/products/AdvancedFilters'
 import { SizeFilter } from '@/components/(public)/products/SizeFilter'
 import { Pagination } from '@/components/(public)/products/Pagination'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
@@ -25,6 +23,8 @@ interface ProductsPageProps {
         search?: string
         colors?: string
         sizes?: string
+        minPrice?: string
+        maxPrice?: string
     }>
 }
 
@@ -140,6 +140,20 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         }
     }
 
+    // Apply price filtering for real products
+    if (params.minPrice || params.maxPrice) {
+        const minPrice = params.minPrice ? parseFloat(params.minPrice) : 0
+        const maxPrice = params.maxPrice ? parseFloat(params.maxPrice) : Infinity
+
+        if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+            products = products.filter(product => {
+                const price = product.price
+                return price >= minPrice && price <= maxPrice
+            })
+            count = products.length
+        }
+    }
+
     // Dummy data fallback for design visualization
     if (products.length === 0 && !params.search) {
         let allProducts: ProductWithRelations[] = DUMMY_PRODUCTS
@@ -181,6 +195,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             }
         }
 
+        // Apply price filtering to dummy data
+        if (params.minPrice || params.maxPrice) {
+            const minPrice = params.minPrice ? parseFloat(params.minPrice) : 0
+            const maxPrice = params.maxPrice ? parseFloat(params.maxPrice) : Infinity
+
+            if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+                allProducts = allProducts.filter(product => {
+                    const price = product.price
+                    return price >= minPrice && price <= maxPrice
+                })
+            }
+        }
+
         // Apply sorting for dummy data, including color and size
         allProducts = sortDummyProducts(allProducts, params.sort)
 
@@ -197,6 +224,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     const pageSize = 12
     const totalPages = Math.ceil(count / pageSize)
 
+    // Calculate price range from all available products (use dummy data for calculation)
+    // In a real app, you'd fetch all products without filters for this
+    const allProductsForPriceCalc = DUMMY_PRODUCTS
+    const prices = allProductsForPriceCalc.map(p => p.price)
+    const calculatedMinPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0
+    const calculatedMaxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row gap-8">
@@ -206,13 +240,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                         <div className="space-y-6 pb-4">
                             <CategoryFiltering categories={categories} />
                             <SizeFilter categorySlug={params.category} />
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold uppercase tracking-wider">Sort & Filter</h3>
-                                <div className="flex flex-col gap-3">
-                                    <Sorting />
-                                </div>
-                            </div>
-                            <VariantFilters />
+                            <AdvancedFilters 
+                                minPrice={calculatedMinPrice}
+                                maxPrice={calculatedMaxPrice}
+                            />
                         </div>
                     </div>
                 </aside>
