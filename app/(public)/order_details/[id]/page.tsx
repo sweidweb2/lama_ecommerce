@@ -190,7 +190,7 @@ export default function OrderDetailsPage({ params }: OrderDetailsPageProps) {
       {/* Breadcrumbs */}
       <OrderBreadcrumbs orderId={dummyOrder.id} />
       
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-16 lg:pb-20 xl:pb-24">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -215,7 +215,7 @@ export default function OrderDetailsPage({ params }: OrderDetailsPageProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Order Items */}

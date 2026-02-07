@@ -125,7 +125,7 @@ const dummyOrders: Order[] = [
 
 export default function OrdersPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 py-12 sm:py-16 lg:py-20 xl:py-24">
       <div className="mb-10">
         <h1 className="text-4xl font-black tracking-tight text-foreground">
           My Orders
