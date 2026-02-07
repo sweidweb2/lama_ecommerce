@@ -1,7 +1,6 @@
 'use client';
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { ROUTES } from "../../lib/constants/routes";
 import { ROLES } from "../../lib/constants/roles";
@@ -116,14 +115,9 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <Link href={ROUTES.HOME} className="flex items-center">
-              <Image
-                src="/lama_logo.jpg"
-                alt="Lama logo"
-                width={40}
-                height={40}
-                priority
-                className="h-8 w-auto rounded-md object-cover sm:h-9"
-              />
+              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                LAMA
+              </span>
             </Link>
           </div>
 
@@ -277,19 +271,17 @@ export function Navbar() {
                   <span className="sr-only">Toggle Menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-                <SheetHeader className="px-4">
+              <SheetContent side="left" className="w-[300px] sm:w-[400px] flex flex-col">
+                <SheetHeader className="px-4 shrink-0">
                   <SheetTitle className="flex justify-start">
-                    <Image
-                      src="/lama_logo.jpg"
-                      alt="Lama logo"
-                      width={36}
-                      height={36}
-                      className="h-8 w-auto rounded-md object-cover"
-                    />
+                    <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)}>
+                      <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                        LAMA
+                      </span>
+                    </Link>
                   </SheetTitle>
                 </SheetHeader>
-                <nav className="flex flex-col gap-4 mt-8 px-4">
+                <nav className="flex flex-col gap-4 mt-8 px-4 overflow-y-auto flex-1 pb-4 hide-scrollbar">
                   {NAV_LINKS.map((link) => (
                     <Link
                       key={link.href}

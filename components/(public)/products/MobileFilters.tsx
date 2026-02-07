@@ -10,6 +10,8 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet'
 import { CategoryFiltering } from './CategoryFiltering'
+import { Sorting } from './Sorting'
+import { VariantFilterButton } from './VariantFilterButton'
 import { Category } from '@/types/product'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -23,7 +25,7 @@ export function MobileFilters({ categories }: MobileFiltersProps) {
     const [open, setOpen] = useState(false)
     const searchParams = useSearchParams()
 
-    // Close sheet when category changes
+    // Close sheet when filters change
     useEffect(() => {
         setOpen(false)
     }, [searchParams])
@@ -36,12 +38,19 @@ export function MobileFilters({ categories }: MobileFiltersProps) {
                     Filters
                 </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="rounded-t-3xl h-[70vh] px-6">
+            <SheetContent side="bottom" className="rounded-t-3xl h-[80vh] px-6 overflow-y-auto">
                 <SheetHeader className="mb-6">
                     <SheetTitle className="text-left text-2xl font-bold">Refine Results</SheetTitle>
                 </SheetHeader>
-                <div className="pb-10">
+                <div className="pb-10 space-y-6">
                     <CategoryFiltering categories={categories} />
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider">Sort & Filter</h3>
+                        <div className="space-y-4">
+                            <Sorting />
+                            <VariantFilterButton />
+                        </div>
+                    </div>
                 </div>
             </SheetContent>
         </Sheet>

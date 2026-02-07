@@ -146,7 +146,7 @@ export function VariantFilterButton() {
                 type="button"
                 variant={hasActive ? 'default' : 'outline'}
                 size="sm"
-                className="w-full sm:w-auto justify-between sm:justify-center"
+                className="w-full justify-between"
                 onClick={() => setOpen(true)}
             >
                 Filters

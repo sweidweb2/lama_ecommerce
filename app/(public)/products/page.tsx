@@ -6,6 +6,7 @@ import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { VariantFilterButton } from '@/components/(public)/products/VariantFilterButton'
+import { VariantFilters } from '@/components/(public)/products/VariantFilters'
 import { Pagination } from '@/components/(public)/products/Pagination'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
 import { MobileFilters } from '@/components/(public)/products/MobileFilters'
@@ -200,8 +201,17 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             <div className="flex flex-col md:flex-row gap-8">
                 {/* Sidebar - Hidden on mobile, visible on desktop */}
                 <aside className="hidden md:block w-full md:w-64 shrink-0">
-                    <div className="sticky top-24">
-                        <CategoryFiltering categories={categories} />
+                    <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2 hide-scrollbar">
+                        <div className="space-y-6 pb-4">
+                            <CategoryFiltering categories={categories} />
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold uppercase tracking-wider">Sort & Filter</h3>
+                                <div className="flex flex-col gap-3">
+                                    <Sorting />
+                                </div>
+                            </div>
+                            <VariantFilters />
+                        </div>
                     </div>
                 </aside>
 
@@ -226,16 +236,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                                     </div>
                                     <MobileFilters categories={categories} />
                                 </div>
-                                <div className="h-6 w-px bg-border hidden md:block" />
-                                <div className="w-full sm:w-auto flex flex-col gap-2 items-stretch sm:items-end">
-                                    <Sorting />
-                                    <VariantFilterButton />
-                                </div>
                             </div>
                         </div>
 
                         <Separator className="opacity-50" />
                     </div>
+
+                    <Pagination totalPages={totalPages} />
 
                     <Suspense fallback={<ProductGridSkeleton />}>
                         <ProductGrid products={products} />

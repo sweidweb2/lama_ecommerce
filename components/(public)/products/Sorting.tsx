@@ -29,10 +29,10 @@ export function Sorting() {
     }
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
             <Select value={currentSort} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>

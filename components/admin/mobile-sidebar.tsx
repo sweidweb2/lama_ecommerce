@@ -17,11 +17,13 @@ export function MobileSidebar() {
           <span className="sr-only">Toggle menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0">
-        <SheetHeader className="sr-only">
+      <SheetContent side="left" className="w-64 p-0 flex flex-col">
+        <SheetHeader className="sr-only shrink-0">
           <SheetTitle>Admin Menu</SheetTitle>
         </SheetHeader>
-        <Sidebar onLinkClick={() => setOpen(false)} />
+        <div className="flex-1 overflow-hidden">
+          <Sidebar onLinkClick={() => setOpen(false)} />
+        </div>
       </SheetContent>
     </Sheet>
   )

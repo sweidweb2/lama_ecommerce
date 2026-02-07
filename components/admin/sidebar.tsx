@@ -119,7 +119,7 @@ export function Sidebar({ className, onLinkClick }: SidebarProps) {
       <div className="flex h-16 items-center border-b px-4 md:px-6">
         <h2 className="text-lg font-semibold">Admin Panel</h2>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4 hide-scrollbar">
         {menuItems.map((item) => {
           // Get all child hrefs for this parent
           const allChildHrefs = item.children?.map((child) => child.href) ?? []
