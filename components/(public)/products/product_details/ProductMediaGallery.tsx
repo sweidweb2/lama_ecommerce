@@ -99,7 +99,7 @@ export function ProductMediaGallery({
     <>
       <div className="space-y-4">
         {/* Main Image */}
-        <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border group">
+        <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-muted border group">
           <Image
             src={currentImageUrl}
             alt={productName}
@@ -136,7 +136,7 @@ export function ProductMediaGallery({
                   type="button"
                   onClick={() => setSelectedIndex(index)}
                   className={cn(
-                    "relative aspect-square w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
+                    "relative aspect-square w-24 h-24 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
                     isSelected
                       ? "border-primary ring-2 ring-primary/20"
                       : "border-border hover:border-primary/50"
@@ -148,7 +148,7 @@ export function ProductMediaGallery({
                     alt={`${productName} - Image ${index + 1}`}
                     fill
                     className="object-cover"
-                    sizes="64px"
+                    sizes="96px"
                   />
                 </button>
               )
@@ -182,7 +182,7 @@ export function ProductMediaGallery({
                     type="button"
                     onClick={() => setSelectedIndex(index)}
                     className={cn(
-                      "relative aspect-square w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
+                      "relative aspect-square w-24 h-24 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
                       isSelected
                         ? "border-primary ring-2 ring-primary/50"
                         : "border-border hover:border-primary/50"
@@ -194,7 +194,7 @@ export function ProductMediaGallery({
                       alt={`${productName} - Image ${index + 1}`}
                       fill
                       className="object-cover"
-                      sizes="64px"
+                      sizes="96px"
                     />
                   </button>
                 )

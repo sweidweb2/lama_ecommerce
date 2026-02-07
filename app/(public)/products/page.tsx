@@ -7,6 +7,7 @@ import { CategoryFiltering } from '@/components/(public)/products/CategoryFilter
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { VariantFilterButton } from '@/components/(public)/products/VariantFilterButton'
 import { VariantFilters } from '@/components/(public)/products/VariantFilters'
+import { SizeFilter } from '@/components/(public)/products/SizeFilter'
 import { Pagination } from '@/components/(public)/products/Pagination'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
 import { MobileFilters } from '@/components/(public)/products/MobileFilters'
@@ -204,6 +205,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2 hide-scrollbar">
                         <div className="space-y-6 pb-4">
                             <CategoryFiltering categories={categories} />
+                            <SizeFilter categorySlug={params.category} />
                             <div className="space-y-4">
                                 <h3 className="text-sm font-semibold uppercase tracking-wider">Sort & Filter</h3>
                                 <div className="flex flex-col gap-3">

@@ -12,6 +12,7 @@ import {
 import { CategoryFiltering } from './CategoryFiltering'
 import { Sorting } from './Sorting'
 import { VariantFilterButton } from './VariantFilterButton'
+import { SizeFilter } from './SizeFilter'
 import { Category } from '@/types/product'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -44,6 +45,7 @@ export function MobileFilters({ categories }: MobileFiltersProps) {
                 </SheetHeader>
                 <div className="pb-10 space-y-6">
                     <CategoryFiltering categories={categories} />
+                    <SizeFilter categorySlug={searchParams.get('category')} />
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold uppercase tracking-wider">Sort & Filter</h3>
                         <div className="space-y-4">

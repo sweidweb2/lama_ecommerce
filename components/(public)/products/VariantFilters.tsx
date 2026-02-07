@@ -22,7 +22,6 @@ const AVAILABLE_COLORS = [
     'Tan',
 ]
 
-const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
 
 function getColorValue(colorName: string): string {
     const colorMap: Record<string, string> = {
@@ -52,7 +51,6 @@ export function VariantFilters() {
     const searchParams = useSearchParams()
 
     const [selectedColors, setSelectedColors] = useState<string[]>([])
-    const [selectedSizes, setSelectedSizes] = useState<string[]>([])
 
     // Sync from URL
     useEffect(() => {
@@ -67,18 +65,6 @@ export function VariantFilters() {
                     .filter(Boolean),
             )
         }
-
-        const sizesParam = searchParams.get('sizes')
-        if (!sizesParam) {
-            setSelectedSizes([])
-        } else {
-            setSelectedSizes(
-                sizesParam
-                    .split(',')
-                    .map((s) => s.trim().toUpperCase())
-                    .filter(Boolean),
-            )
-        }
     }, [searchParams])
 
     const toggleColor = (color: string) => {
@@ -88,32 +74,16 @@ export function VariantFilters() {
             : [...selectedColors, normalized]
 
         setSelectedColors(newColors)
-        updateURL(newColors, selectedSizes)
+        updateURL(newColors)
     }
 
-    const toggleSize = (size: string) => {
-        const normalized = size.toUpperCase()
-        const newSizes = selectedSizes.includes(normalized)
-            ? selectedSizes.filter((s) => s !== normalized)
-            : [...selectedSizes, normalized]
-
-        setSelectedSizes(newSizes)
-        updateURL(selectedColors, newSizes)
-    }
-
-    const updateURL = (colors: string[], sizes: string[]) => {
+    const updateURL = (colors: string[]) => {
         const params = new URLSearchParams(searchParams.toString())
 
         if (colors.length === 0) {
             params.delete('colors')
         } else {
             params.set('colors', colors.join(','))
-        }
-
-        if (sizes.length === 0) {
-            params.delete('sizes')
-        } else {
-            params.set('sizes', sizes.join(','))
         }
 
         // Reset page when filtering
@@ -123,16 +93,14 @@ export function VariantFilters() {
 
     const handleClearAll = () => {
         setSelectedColors([])
-        setSelectedSizes([])
 
         const params = new URLSearchParams(searchParams.toString())
         params.delete('colors')
-        params.delete('sizes')
         params.delete('page')
         router.push(`/products?${params.toString()}`)
     }
 
-    const hasActive = selectedColors.length > 0 || selectedSizes.length > 0
+    const hasActive = selectedColors.length > 0
 
     return (
         <div className="space-y-4">
@@ -185,34 +153,6 @@ export function VariantFilters() {
                 </div>
             </div>
 
-            {/* Sizes */}
-            <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Sizes
-                </p>
-                <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_SIZES.map((size) => {
-                        const normalized = size.toUpperCase()
-                        const isSelected = selectedSizes.includes(normalized)
-
-                        return (
-                            <button
-                                key={size}
-                                type="button"
-                                onClick={() => toggleSize(size)}
-                                className={cn(
-                                    'w-10 h-8 flex items-center justify-center border rounded-lg text-xs font-semibold transition-all',
-                                    isSelected
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-border bg-background hover:border-primary/60',
-                                )}
-                            >
-                                {size}
-                            </button>
-                        )
-                    })}
-                </div>
-            </div>
         </div>
     )
 }
