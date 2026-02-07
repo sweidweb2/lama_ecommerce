@@ -1,3 +1,6 @@
+'use client'
+
+import { useState, useEffect } from "react"
 import {
   Table,
   TableBody,
@@ -6,48 +9,96 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { Plus, Edit } from "lucide-react"
+import { CreateShippingZoneDialog, type AdminShippingZone } from "@/components/admin/shipping/create_form"
+import { EditShippingZoneDialog } from "@/components/admin/shipping/edit_form"
+import { DeleteShippingZoneDialog } from "@/components/admin/shipping/delete_dialog"
 
-// Dummy data
-const shippingZones = [
+// Dummy data - will be replaced with API call
+const dummyShippingZones: AdminShippingZone[] = [
   {
     id: "1",
     name: "United States",
-    countries: ["US"],
+    estimated_time: "5-7 business days",
     fee: 5.99,
-    freeThreshold: 50,
-    status: "Active",
+    created_at: "2024-01-15T10:30:00Z",
   },
   {
     id: "2",
     name: "Canada",
-    countries: ["CA"],
+    estimated_time: "7-10 business days",
     fee: 8.99,
-    freeThreshold: 75,
-    status: "Active",
+    created_at: "2024-01-16T09:20:00Z",
   },
   {
     id: "3",
     name: "Europe",
-    countries: ["GB", "FR", "DE", "IT"],
+    estimated_time: "10-14 business days",
     fee: 12.99,
-    freeThreshold: 100,
-    status: "Active",
+    created_at: "2024-01-16T14:45:00Z",
   },
   {
     id: "4",
     name: "Asia",
-    countries: ["JP", "CN", "KR"],
+    estimated_time: "14-21 business days",
     fee: 15.99,
-    freeThreshold: 150,
-    status: "Active",
+    created_at: "2024-01-17T08:00:00Z",
   },
 ]
 
 export default function ShippingsPage() {
+  const [zones, setZones] = useState<AdminShippingZone[]>(dummyShippingZones)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchZones = async () => {
+    try {
+      setIsLoading(true)
+      // TODO: Replace with actual API call
+      // const response = await fetch("/api/admin/shipping-zones")
+      // if (response.ok) {
+      //   const data = await response.json()
+      //   setZones(data)
+      // }
+      
+      // For now, use dummy data
+      setZones(dummyShippingZones)
+    } catch (error) {
+      console.error("Error fetching shipping zones:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchZones()
+  }, [])
+
+  const handleZoneCreated = () => {
+    fetchZones()
+  }
+
+  const handleZoneUpdated = () => {
+    fetchZones()
+  }
+
+  const handleZoneDeleted = async (zoneId: string) => {
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch(`/api/admin/shipping-zones/${zoneId}`, {
+      //   method: "DELETE",
+      // })
+      // if (!response.ok) {
+      //   throw new Error("Failed to delete shipping zone")
+      // }
+      
+      // For now, just remove from local state
+      setZones(zones.filter((zone) => zone.id !== zoneId))
+    } catch (error) {
+      console.error("Error deleting shipping zone:", error)
+      throw error
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -57,47 +108,50 @@ export default function ShippingsPage() {
             Manage shipping zones and fees
           </p>
         </div>
-        <Button className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Shipping Zone
-        </Button>
+        <CreateShippingZoneDialog onCreated={handleZoneCreated} />
       </div>
 
-      <TableWrapper>
+      <TableWrapper isLoading={isLoading}>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Zone Name</TableHead>
-              <TableHead>Countries</TableHead>
+              <TableHead>Estimated Time</TableHead>
               <TableHead>Shipping Fee</TableHead>
-              <TableHead>Free Threshold</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shippingZones.map((zone) => (
-              <TableRow key={zone.id}>
-                <TableCell className="font-medium">{zone.name}</TableCell>
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {zone.countries.join(", ")}
-                  </span>
-                </TableCell>
-                <TableCell>${zone.fee.toFixed(2)}</TableCell>
-                <TableCell>${zone.freeThreshold.toFixed(2)}</TableCell>
-                <TableCell>
-                  <Badge variant={zone.status === "Active" ? "default" : "secondary"}>
-                    {zone.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+            {zones.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  No shipping zones found. Create one to get started.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              zones.map((zone) => (
+                <TableRow key={zone.id}>
+                  <TableCell className="font-medium">{zone.name}</TableCell>
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground">
+                      {zone.estimated_time || "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {zone.fee !== null ? `$${zone.fee.toFixed(2)}` : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <EditShippingZoneDialog zone={zone} onUpdated={handleZoneUpdated} />
+                      <DeleteShippingZoneDialog 
+                        zone={{ id: zone.id, name: zone.name }}
+                        onDelete={handleZoneDeleted}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableWrapper>
