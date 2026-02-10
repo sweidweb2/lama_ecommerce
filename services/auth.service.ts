@@ -9,7 +9,7 @@ import {
   signInWithPassword as repoSignIn,
   signUp as repoSignUp,
   signOut as repoSignOut,
-} from "@/repositories/auth.repository";
+} from "@/repositories/auth.client.repository";
 import type { LoginInput, SignupInput } from "@/lib/validators/auth/auth";
 import { ROUTES } from "@/lib/constants/routes";
 

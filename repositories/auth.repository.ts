@@ -2,7 +2,6 @@ import {
   createSupabaseServerComponentClient,
   createSupabaseServerActionClient,
 } from "@/lib/supabase/server";
-import { supabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 /**
@@ -41,35 +40,5 @@ export async function getCurrentAuthUserFromAction(): Promise<User | null> {
   }
 }
 
-/**
- * Sign in with email and password (client-side only).
- * Supabase must set cookies in the browser.
- */
-export async function signInWithPassword(credentials: {
-  email: string;
-  password: string;
-}) {
-  return supabase.auth.signInWithPassword(credentials);
-}
-
-/**
- * Sign up a new user (client-side only).
- */
-export async function signUp(options: {
-  email: string;
-  password: string;
-  options?: { data?: Record<string, unknown>; emailRedirectTo?: string };
-}) {
-  return supabase.auth.signUp({
-    email: options.email,
-    password: options.password,
-    options: options.options,
-  });
-}
-
-/**
- * Sign out the current user (client-side only).
- */
-export async function signOut() {
-  return supabase.auth.signOut();
-}
+// Note: client-side auth helpers (signIn, signUp, signOut) live in
+// `auth.client.repository.ts` to keep this file server-only.
