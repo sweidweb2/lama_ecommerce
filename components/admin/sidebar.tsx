@@ -16,6 +16,8 @@ import {
   Plus,
   List,
   Grid3x3,
+  Tag,
+  Tags,
 } from "lucide-react"
 import { SidebarItem } from "./sidebar-item"
 import { cn } from "@/lib/utils"
@@ -46,6 +48,16 @@ const menuItems = [
         href: "/admin/products/grid",
         label: "Grid Products",
         icon: Grid3x3,
+      },
+      {
+        href: "/admin/categories",
+        label: "Categories",
+        icon: Tag,
+      },
+      {
+        href: "/admin/brands",
+        label: "Brands",
+        icon: Tags,
       },
       {
         href: "/admin/products/create",
