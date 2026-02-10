@@ -1,22 +1,28 @@
 --------------------------------------------------
 -- RLS policies for contact_us (public contact form)
 --------------------------------------------------
--- Run this in Supabase SQL Editor if migrations aren't applied.
--- Drop first so re-running this script replaces existing policies.
---------------------------------------------------
 
+-- Always enable RLS explicitly (important for migrations)
+alter table contact_us enable row level security;
+
+--------------------------------------------------
+-- Drop existing policies (safe for re-runs)
+--------------------------------------------------
 drop policy if exists "Public can submit contact form" on contact_us;
 drop policy if exists "Admins can read contact messages" on contact_us;
 
--- Allow anonymous and authenticated users to submit the contact form.
--- Supabase uses roles 'anon' (anonymous) and 'authenticated' (logged in).
+--------------------------------------------------
+-- Allow anyone (anonymous + authenticated) to submit the form
+--------------------------------------------------
 create policy "Public can submit contact form"
 on contact_us
 for insert
-to anon, authenticated
-with check ( true );
+to public
+with check (true);
 
--- Allow admins to read all contact messages in the dashboard.
+--------------------------------------------------
+-- Allow admins to read all contact messages
+--------------------------------------------------
 create policy "Admins can read contact messages"
 on contact_us
 for select
