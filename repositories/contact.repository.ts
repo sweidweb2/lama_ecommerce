@@ -18,7 +18,7 @@ export async function createContactMessage(
     const supabase = await createSupabaseServerActionClient();
 
     const { data, error } = await supabase
-      .from("contact_messages") // ← your actual table name
+      .from("contact_us") // ← your actual table name
       .insert(input as any)
       .select()
       .single();
@@ -43,7 +43,7 @@ export async function getAllContactMessages(): Promise<ContactMessage[]> {
     const supabase = await createSupabaseServerComponentClient();
 
     const { data, error } = await supabase
-      .from("contact_messages")
+      .from("contact_us")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -69,7 +69,7 @@ export async function getContactMessageById(
     const supabase = await createSupabaseServerComponentClient();
 
     const { data, error } = await supabase
-      .from("contact_messages")
+      .from("contact_us")
       .select("*")
       .eq("id", id)
       .maybeSingle();
@@ -82,6 +82,61 @@ export async function getContactMessageById(
     return data as ContactMessage | null;
   } catch (error) {
     console.error("Unexpected error in getContactMessageById:", error);
+    return null;
+  }
+}
+
+/**
+ * Update a contact message by ID.
+ */
+export async function updateContactMessage(
+  id: string,
+  input: CreateContactUsInput,
+): Promise<ContactMessage | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data, error } = await supabase
+      .from("contact_us")
+      .update(input as never)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to update contact message:", error);
+      return null;
+    }
+
+    return data as ContactMessage;
+  } catch (error) {
+    console.error("Unexpected error in updateContactMessage:", error);
+    return null;
+  }
+}
+
+/**
+ * Delete a contact message by ID.
+ */
+export async function deleteContactMessage(
+  id: string,
+): Promise<ContactMessage | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data, error } = await supabase
+      .from("contact_us")
+      .delete()
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to delete contact message:", error);
+      return null;
+    }
+
+    return data as ContactMessage;
+  } catch (error) {
+    console.error("Unexpected error in deleteContactMessage:", error);
     return null;
   }
 }

@@ -1,69 +1,57 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
-import { CreateContactUsInput } from "@/lib/validators/contact_us/create";
-import { supabase } from "@/lib/supabase/client";
+import {
+  createContactUsSchema,
+  type CreateContactUsInput,
+} from "@/lib/validators/contact_us/create";
+import {
+  createContactMessage,
+  getAllContactMessages,
+  getContactMessageById,
+  updateContactMessage,
+  deleteContactMessage,
+} from "@/repositories/contact.repository";
 
-export async function createContactUs(
-  supabase: SupabaseClient<Database>,
-  input: CreateContactUsInput,
-) {
-  const { data, error } = await supabase
-    .from("contact_us")
-    .insert(input as any)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
+/**
+ * Create a contact-us submission (validates then persists).
+ */
+export async function createContactUs(input: unknown) {
+  const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
+  const data = await createContactMessage(parsed);
+  if (!data) throw new Error("Failed to create contact message");
   return data;
 }
 
+/**
+ * Get all contact-us submissions (admin).
+ */
 export async function getAllContactUs() {
-  const { data, error } = await supabase.from("contact_us").select("*");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  const data = await getAllContactMessages();
   return data;
 }
 
+/**
+ * Get a single contact-us submission by id (admin).
+ */
 export async function getContactUsById(id: string) {
-  const { data, error } = await supabase
-    .from("contact_us")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await getContactMessageById(id);
+  if (!data) throw new Error("Contact message not found");
   return data;
 }
 
-export async function updateContactUs(id: string, input: CreateContactUsInput) {
-  const { data, error } = await supabase
-    .from("contact_us")
-    .update(input as never)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) {
-    throw new Error(error.message);
-  }
+/**
+ * Update a contact-us submission (admin).
+ */
+export async function updateContactUs(id: string, input: unknown) {
+  const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
+  const data = await updateContactMessage(id, parsed);
+  if (!data) throw new Error("Failed to update contact message");
   return data;
 }
 
+/**
+ * Delete a contact-us submission (admin).
+ */
 export async function deleteContactUs(id: string) {
-  const { data, error } = await supabase
-    .from("contact_us")
-    .delete()
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await deleteContactMessage(id);
+  if (!data) throw new Error("Failed to delete contact message");
   return data;
 }

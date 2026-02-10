@@ -1,4 +1,4 @@
-import { createSupabaseServerComponentClient } from '@/lib/supabase/server'
+import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
 import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
@@ -27,13 +27,12 @@ interface WishlistPageProps {
 
 export default async function WishlistPage({ searchParams }: WishlistPageProps) {
     const params = await searchParams
-    const supabase = await createSupabaseServerComponentClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentAuthUserFromComponent()
 
     // Get real wishlist items if user is logged in
     let wishlistItems: any[] = []
     if (user) {
-        wishlistItems = await getWishlistItems(supabase, user.id)
+        wishlistItems = await getWishlistItems(user.id)
     }
 
     // Use dummy data if no wishlist items (for demonstration)

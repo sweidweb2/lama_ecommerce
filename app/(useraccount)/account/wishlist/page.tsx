@@ -1,4 +1,4 @@
-import { createSupabaseServerComponentClient } from '@/lib/supabase/server'
+import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
 import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
@@ -12,8 +12,7 @@ export const metadata = {
 }
 
 export default async function AccountWishlistPage() {
-    const supabase = await createSupabaseServerComponentClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentAuthUserFromComponent()
 
     if (!user) {
         return (
@@ -43,7 +42,7 @@ export default async function AccountWishlistPage() {
         )
     }
 
-    const wishlistItems = await getWishlistItems(supabase, user.id)
+    const wishlistItems = await getWishlistItems(user.id)
 
     return (
         <div className="container mx-auto px-4 py-12">

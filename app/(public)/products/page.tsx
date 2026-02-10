@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import { createSupabaseServerComponentClient } from '@/lib/supabase/server'
 import { getProducts } from '@/services/products.service'
 import { getCategories } from '@/services/categories.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
@@ -91,15 +90,13 @@ function sortDummyProducts(products: ProductWithRelations[], sort?: string) {
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
     const params = await searchParams
-    const supabase = await createSupabaseServerComponentClient()
 
     // Fetch categories for the sidebar
-    let categories = await getCategories(supabase)
+    let categories = await getCategories()
     if (categories.length === 0) categories = DUMMY_CATEGORIES
 
-
     // Fetch products with filters
-    let { data: products, count } = await getProducts(supabase, {
+    let { data: products, count } = await getProducts({
         categorySlug: params.category,
         sort: params.sort,
         page: Number(params.page) || 1,
