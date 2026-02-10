@@ -4,9 +4,10 @@ import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Footer } from "@/components/common/Footer"
 
-const Navbar = dynamic(() => import("@/components/common/Navbar"), {
-  ssr: false,
-})
+const Navbar = dynamic(
+  () => import("@/components/common/Navbar").then((mod) => mod.Navbar),
+  { ssr: false },
+)
 
 interface ConditionalLayoutProps {
   children: React.ReactNode
