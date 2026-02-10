@@ -12,40 +12,8 @@ import { CreateContactDialog, type AdminContact } from "@/components/admin/conta
 import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
-
-// Dummy data matching the contact_us schema
-const contacts: AdminContact[] = [
-  {
-    id: "contact-1",
-    full_name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1234567890",
-    subject: "Product Inquiry",
-    message: "I'm interested in your products, can you provide more details about bulk pricing and shipping options?",
-    status: "new",
-    created_at: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "contact-2",
-    full_name: "Jane Smith",
-    email: "jane.smith@example.com",
-    phone: "+1234567891",
-    subject: "Support Request",
-    message: "I need help with my recent order. The tracking number does not seem to be working.",
-    status: "read",
-    created_at: "2024-01-16T09:20:00Z",
-  },
-  {
-    id: "contact-3",
-    full_name: "Bob Johnson",
-    email: "bob.johnson@example.com",
-    phone: null,
-    subject: "Partnership Inquiry",
-    message: "I'd like to discuss a potential partnership opportunity with your company.",
-    status: "replied",
-    created_at: "2024-01-16T14:45:00Z",
-  },
-]
+import { getAllContactMessages } from "@/repositories/contact.repository"
+import type { ContactMessage } from "@/types/user"
 
 const getStatusVariant = (status: AdminContact["status"]) => {
   switch (status) {
@@ -62,7 +30,18 @@ const getStatusVariant = (status: AdminContact["status"]) => {
   }
 }
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  let contacts: ContactMessage[] = []
+  let error: string | null = null
+
+  try {
+    contacts = await getAllContactMessages()
+    console.log(contacts)
+  } catch (e) {
+    console.error("Failed to load contact messages:", e)
+    error = "Failed to load contact messages. Make sure you are signed in as an admin."
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -77,6 +56,12 @@ export default function ContactPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <TableWrapper>
         <Table>
           <TableHeader>
@@ -90,7 +75,14 @@ export default function ContactPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contacts.map((contact) => (
+            {contacts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  No contact submissions yet
+                </TableCell>
+              </TableRow>
+            ) : (
+              contacts.map((contact) => (
               <TableRow key={contact.id}>
                 <TableCell className="font-medium">{contact.full_name || "—"}</TableCell>
                 <TableCell>{contact.email || "—"}</TableCell>
@@ -118,7 +110,8 @@ export default function ContactPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </TableWrapper>
