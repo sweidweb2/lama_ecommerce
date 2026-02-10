@@ -13,25 +13,23 @@ import type { CreateContactUsInput } from "@/lib/validators/contact_us/create";
  */
 export async function createContactMessage(
   input: CreateContactUsInput,
-): Promise<ContactMessage | null> {
+): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("contact_us") // ← your actual table name
-      .insert(input as any)
-      .select()
-      .single();
+      .insert(input as any);
 
     if (error) {
       console.error("Failed to create contact message:", error);
-      return null;
+      return false;
     }
 
-    return data as ContactMessage;
+    return true;
   } catch (error) {
     console.error("Unexpected error in createContactMessage:", error);
-    return null;
+    return false;
   }
 }
 

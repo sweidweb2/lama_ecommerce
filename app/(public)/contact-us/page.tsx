@@ -14,13 +14,15 @@ import {
   Clock
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { createContactUsAction } from '@/actions/contact_us'
 
 export default function ContactUsPage() {
   const [formData, setFormData] = useState({
-    name: '',
+    full_name: '',
     email: '',
     subject: '',
-    message: ''
+    message: '',
+    phone: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -29,10 +31,15 @@ export default function ContactUsPage() {
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await createContactUsAction({
+        full_name: formData.full_name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        phone: formData.phone,
+      })
       toast.success('Thank you for your message! We\'ll get back to you soon.')
-      setFormData({ name: '', email: '', subject: '', message: '' })
+      setFormData({ full_name: '', email: '', subject: '', message: '', phone: '' })
     } catch (error) {
       toast.error('Failed to send message. Please try again.')
     } finally {
@@ -49,20 +56,6 @@ export default function ContactUsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="border-b bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6">
-              Get in Touch
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Have a question or need help? We're here to assist you. Reach out to us through any of the channels below.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Contact Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,13 +73,13 @@ export default function ContactUsPage() {
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Name *</Label>
+                        <Label htmlFor="full_name">Full name *</Label>
                         <Input
-                          id="name"
-                          name="name"
+                          id="full_name"
+                          name="full_name"
                           type="text"
                           placeholder="Your name"
-                          value={formData.name}
+                          value={formData.full_name}
                           onChange={handleChange}
                           required
                         />
@@ -103,6 +96,19 @@ export default function ContactUsPage() {
                           required
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone *</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="Your phone number"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
 
                     <div className="space-y-2">

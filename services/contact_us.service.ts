@@ -15,9 +15,9 @@ import {
  */
 export async function createContactUs(input: unknown) {
   const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
-  const data = await createContactMessage(parsed);
-  if (!data) throw new Error("Failed to create contact message");
-  return data;
+  const ok = await createContactMessage(parsed);
+  if (!ok) throw new Error("Failed to create contact message");
+  return { success: true };
 }
 
 /**
