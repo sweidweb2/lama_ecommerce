@@ -5,6 +5,13 @@ import {
 import type { ContactMessage } from "@/types/user";
 import type { CreateContactUsInput } from "@/lib/validators/contact_us/create";
 
+type ContactMessagesFilter = {
+  name?: string;
+  email?: string;
+  from?: string;
+  to?: string;
+};
+
 /**
  * Insert a new contact-us message into the database.
  *
@@ -36,14 +43,33 @@ export async function createContactMessage(
 /**
  * Fetch all contact messages (admin use).
  */
-export async function getAllContactMessages(): Promise<ContactMessage[]> {
+export async function getAllContactMessages(
+  filters?: ContactMessagesFilter,
+): Promise<ContactMessage[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
 
-    const { data, error } = await supabase
-      .from("contact_us")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let query = supabase.from("contact_us").select("*");
+
+    if (filters?.name) {
+      query = query.ilike("full_name", `%${filters.name}%`);
+    }
+
+    if (filters?.email) {
+      query = query.ilike("email", `%${filters.email}%`);
+    }
+
+    if (filters?.from) {
+      query = query.gte("created_at", filters.from);
+    }
+
+    if (filters?.to) {
+      query = query.lte("created_at", filters.to);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Failed to fetch contact messages:", error);

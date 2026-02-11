@@ -7,6 +7,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { CreateContactDialog, type AdminContact } from "@/components/admin/contact/create_form"
 import { EditContactDialog } from "@/components/admin/contact/edit_form"
@@ -30,13 +33,31 @@ const getStatusVariant = (status: AdminContact["status"]) => {
   }
 }
 
-export default async function ContactPage() {
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: {
+    name?: string
+    email?: string
+    from?: string
+    to?: string
+  }
+}) {
+  const name = searchParams?.name ?? ""
+  const email = searchParams?.email ?? ""
+  const from = searchParams?.from ?? ""
+  const to = searchParams?.to ?? ""
+
   let contacts: ContactMessage[] = []
   let error: string | null = null
 
   try {
-    contacts = await getAllContactMessages()
-    console.log(contacts)
+    contacts = await getAllContactMessages({
+      name: name || undefined,
+      email: email || undefined,
+      from: from ? `${from}T00:00:00.000Z` : undefined,
+      to: to ? `${to}T23:59:59.999Z` : undefined,
+    })
   } catch (e) {
     console.error("Failed to load contact messages:", e)
     error = "Failed to load contact messages. Make sure you are signed in as an admin."
@@ -55,6 +76,49 @@ export default async function ContactPage() {
           <CreateContactDialog />
         </div>
       </div>
+
+      <form className="grid gap-4 md:grid-cols-4 items-end" method="get">
+        <div className="space-y-1">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            name="name"
+            placeholder="Search name"
+            defaultValue={name}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Search email"
+            defaultValue={email}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="from">From date</Label>
+          <Input
+            id="from"
+            name="from"
+            type="date"
+            defaultValue={from}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="to">To date</Label>
+          <Input
+            id="to"
+            name="to"
+            type="date"
+            defaultValue={to}
+          />
+        </div>
+        <div className="md:col-span-4 flex gap-2">
+          <Button type="submit">Apply filters</Button>
+        </div>
+      </form>
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
