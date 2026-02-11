@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
+import { createContactUsAction } from "@/actions/contact_us"
 
 export type AdminContact = {
   id: string
@@ -20,35 +22,40 @@ export type AdminContact = {
 }
 
 export function CreateContactDialog() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const newContact: Omit<AdminContact, "id"> = {
-      subject: subject || null,
-      message: message || null,
-      full_name: fullName || null,
-      phone: phone || null,
-      email: email || null,
-      status: "new",
-      created_at: new Date().toISOString(),
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await createContactUsAction({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+        subject: subject.trim(),
+        message: message.trim(),
+      })
+      setFullName("")
+      setEmail("")
+      setPhone("")
+      setSubject("")
+      setMessage("")
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create contact")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // TODO: Wire this up to a real admin create action / API
-    console.log("Creating contact:", newContact)
-
-    setFullName("")
-    setEmail("")
-    setPhone("")
-    setSubject("")
-    setMessage("")
-    setOpen(false)
   }
 
   const handleCancel = () => {
@@ -74,6 +81,11 @@ export function CreateContactDialog() {
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
+                {error}
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="contact-full-name">
@@ -142,11 +154,12 @@ export function CreateContactDialog() {
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating…" : "Create"}
               </Button>
             </DialogFooter>
           </form>
