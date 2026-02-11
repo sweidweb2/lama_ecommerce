@@ -18,26 +18,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Edit } from "lucide-react"
 import type { Category } from "@/types/product"
 
-export type AdminCategory = Category
-
-interface CreateCategoryDialogProps {
-  parentOptions: AdminCategory[]
+interface EditCategoryDialogProps {
+  category: Category
+  allCategories: Category[]
   action: (formData: FormData) => void | Promise<void>
 }
 
-export function CreateCategoryDialog({
-  parentOptions,
+export function EditCategoryDialog({
+  category,
+  allCategories,
   action,
-}: CreateCategoryDialogProps) {
+}: EditCategoryDialogProps) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [parentId, setParentId] = useState<string | "none">("none")
-  const [isActive, setIsActive] = useState(true)
+  const [name, setName] = useState(category.name)
+  const [slug, setSlug] = useState(category.slug ?? "")
+  const [parentId, setParentId] = useState<string | "none">(
+    category.parent_id ?? "none",
+  )
+  const [isActive, setIsActive] = useState(category.is_active)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
+
+  const parentOptions = allCategories.filter((c) => c.id !== category.id)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -80,46 +85,47 @@ export function CreateCategoryDialog({
     setIsSubmitting(true)
     try {
       await action(formData)
-
-      setName("")
-      setSlug("")
-      setParentId("none")
-      setIsActive(true)
       setOpen(false)
     } catch (error) {
-      console.error("Error creating category:", error)
+      console.error("Error updating category:", error)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleCancel = () => {
-    setName("")
-    setSlug("")
-    setParentId("none")
-    setIsActive(true)
+    setName(category.name)
+    setSlug(category.slug ?? "")
+    setParentId(category.parent_id ?? "none")
+    setIsActive(category.is_active)
     setOpen(false)
   }
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
-        Add Category
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen(true)}
+        aria-label={`Edit category ${category.name}`}
+      >
+        <Edit className="h-4 w-4" />
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
+            <DialogTitle>Edit Category</DialogTitle>
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            <input type="hidden" name="id" value={category.id} />
             <div className="space-y-2">
-              <Label htmlFor="category-name">
+              <Label htmlFor={`category-name-${category.id}`}>
                 Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="category-name"
+                id={`category-name-${category.id}`}
                 name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -133,9 +139,9 @@ export function CreateCategoryDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category-slug">Slug</Label>
+              <Label htmlFor={`category-slug-${category.id}`}>Slug</Label>
               <Input
-                id="category-slug"
+                id={`category-slug-${category.id}`}
                 name="slug"
                 value={slug}
                 onChange={(e) =>
@@ -175,39 +181,25 @@ export function CreateCategoryDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Optional. Use this to build nested category trees.
-              </p>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  id="category-is-active"
+                  id={`category-is-active-${category.id}`}
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                   className="h-4 w-4 rounded border-input"
                 />
-                <Label htmlFor="category-is-active" className="cursor-pointer">
+                <Label
+                  htmlFor={`category-is-active-${category.id}`}
+                  className="cursor-pointer"
+                >
                   Active
                 </Label>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Inactive categories will not be shown in the storefront.
-              </p>
             </div>
-
-            <input
-              type="hidden"
-              name="parent_id"
-              value={parentId === "none" ? "" : parentId}
-            />
-            <input
-              type="hidden"
-              name="is_active"
-              value={isActive ? "true" : "false"}
-            />
 
             <DialogFooter className="mt-4 flex justify-end gap-2">
               <Button
@@ -217,8 +209,18 @@ export function CreateCategoryDialog({
               >
                 Cancel
               </Button>
+              <input
+                type="hidden"
+                name="parent_id"
+                value={parentId === "none" ? "" : parentId}
+              />
+              <input
+                type="hidden"
+                name="is_active"
+                value={isActive ? "true" : "false"}
+              />
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Category"}
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

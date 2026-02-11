@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from "react";
-import type { AdminCategory } from "@/components/admin/category/create_form";
+import type { AdminCategory } from "@/components/admin/category/forms/create_form";
 import { CategoriesHeader } from "@/components/admin/category/categories-header";
 import { CategoriesFilters } from "@/components/admin/category/categories-filters";
 import { CategoriesTable } from "@/components/admin/category/categories-table";

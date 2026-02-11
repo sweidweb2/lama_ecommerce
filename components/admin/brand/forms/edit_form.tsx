@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Edit } from "lucide-react"
-import type { AdminBrand } from "./create_form"
+import type { Brand } from "@/types/product"
 
 interface EditBrandDialogProps {
-  brand: AdminBrand
+  brand: Brand
   action: (formData: FormData) => void | Promise<void>
 }
 

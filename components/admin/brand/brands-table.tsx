@@ -9,8 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { EditBrandDialog } from "@/components/admin/brand/edit_form"
-import { DeleteBrandDialog } from "@/components/admin/brand/delete_dialog"
+import { EditBrandDialog } from "@/components/admin/brand/forms/edit_form"
+import { DeleteBrandDialog } from "@/components/admin/brand/forms/delete_dialog"
 import type { Brand } from "@/types/product"
 
 interface BrandsTableProps {

@@ -1,6 +1,6 @@
 'use client'
 
-import { CreateBrandDialog } from "@/components/admin/brand/create_form"
+import { CreateBrandDialog } from "@/components/admin/brand/forms/create_form"
 
 interface BrandsHeaderProps {
   createBrandAction: (formData: FormData) => void | Promise<void>

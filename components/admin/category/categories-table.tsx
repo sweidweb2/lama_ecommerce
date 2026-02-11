@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import type { AdminCategory } from "@/components/admin/category/create_form"
-import { EditCategoryDialog } from "@/components/admin/category/edit_form"
-import { DeleteCategoryDialog } from "@/components/admin/category/delete_dialog"
+import type { AdminCategory } from "@/components/admin/category/forms/create_form"
+import { EditCategoryDialog } from "@/components/admin/category/forms/edit_form"
+import { DeleteCategoryDialog } from "@/components/admin/category/forms/delete_dialog"
 
 interface CategoriesTableProps {
   categories: AdminCategory[]

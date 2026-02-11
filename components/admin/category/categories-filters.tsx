@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { AdminCategory } from "@/components/admin/category/create_form"
+import type { AdminCategory } from "@/components/admin/category/forms/create_form"
 
 interface CategoriesFiltersProps {
   nameFilter: string

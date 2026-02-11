@@ -10,25 +10,24 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
-import type { AdminCategory } from "./create_form"
+import type { Brand } from "@/types/product"
 
-interface DeleteCategoryDialogProps {
-  category: Pick<AdminCategory, "id" | "name">
+interface DeleteBrandDialogProps {
+  brand: Brand
   action: (formData: FormData) => void | Promise<void>
   showText?: boolean
 }
 
-export function DeleteCategoryDialog({
-  category,
+export function DeleteBrandDialog({
+  brand,
   action,
   showText = false,
-}: DeleteCategoryDialogProps) {
+}: DeleteBrandDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-
     const form = e.currentTarget
     const formData = new FormData(form)
 
@@ -37,8 +36,7 @@ export function DeleteCategoryDialog({
       await action(formData)
       setOpen(false)
     } catch (error) {
-      console.error("Error deleting category:", error)
-      // TODO: Show error toast
+      console.error("Error deleting brand:", error)
     } finally {
       setIsDeleting(false)
     }
@@ -50,7 +48,7 @@ export function DeleteCategoryDialog({
         variant={showText ? "destructive" : "ghost"}
         size={showText ? "default" : "icon"}
         onClick={() => setOpen(true)}
-        aria-label={`Delete category ${category.name}`}
+        aria-label={`Delete brand ${brand.name}`}
       >
         <Trash2 className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
         {showText && "Delete"}
@@ -59,18 +57,23 @@ export function DeleteCategoryDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle>Delete Brand</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleDelete}>
-            <input type="hidden" name="id" value={category.id} />
+            <input type="hidden" name="id" value={brand.id} />
+            <input
+              type="hidden"
+              name="logo_url"
+              value={brand.logo_image_url ?? ""}
+            />
             <div className="space-y-2 text-sm text-muted-foreground mt-2">
               <p>
-                Are you sure you want to delete the category{" "}
-                <span className="font-semibold text-foreground">{category.name}</span>?
+                Are you sure you want to delete the brand{" "}
+                <span className="font-semibold text-foreground">{brand.name}</span>?
               </p>
               <p>
-                Products that use this category will still exist but may show without a category
-                until reassigned. This action cannot be undone.
+                Products that reference this brand will still exist but may lose their
+                brand association. This action cannot be undone.
               </p>
             </div>
             <DialogFooter className="mt-4 flex justify-end gap-2">
@@ -87,7 +90,7 @@ export function DeleteCategoryDialog({
                 variant="destructive"
                 disabled={isDeleting}
               >
-                {isDeleting ? "Deleting..." : "Delete Category"}
+                {isDeleting ? "Deleting..." : "Delete Brand"}
               </Button>
             </DialogFooter>
           </form>

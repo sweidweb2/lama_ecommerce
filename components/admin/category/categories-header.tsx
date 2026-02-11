@@ -1,7 +1,7 @@
 'use client'
 
-import { CreateCategoryDialog } from "@/components/admin/category/create_form"
-import type { AdminCategory } from "@/components/admin/category/create_form"
+import { CreateCategoryDialog } from "@/components/admin/category/forms/create_form"
+import type { AdminCategory } from "@/components/admin/category/forms/create_form"
 
 interface CategoriesHeaderProps {
   categories: AdminCategory[]
