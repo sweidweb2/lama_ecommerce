@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { ROUTES } from "../../lib/constants/routes";
 import { ROLES } from "../../lib/constants/roles";
@@ -114,10 +115,15 @@ export function Navbar() {
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <Link href={ROUTES.HOME} className="flex items-center">
-              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                LAMA
-              </span>
+            <Link href={ROUTES.HOME} className="flex items-center focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
+              <Image
+                src="/logo.png"
+                alt="Aviora Wear - Home"
+                width={200}
+                height={64}
+                className="h-14 w-auto object-contain"
+                priority
+              />
             </Link>
           </div>
 
@@ -289,10 +295,14 @@ export function Navbar() {
               <SheetContent side="left" className="w-[300px] sm:w-[400px] flex flex-col">
                 <SheetHeader className="px-4 shrink-0">
                   <SheetTitle className="flex justify-start">
-                    <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)}>
-                      <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                        LAMA
-                      </span>
+                    <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)} className="block">
+                      <Image
+                        src="/logo.png"
+                        alt="Aviora Wear - Home"
+                        width={200}
+                        height={64}
+                        className="h-14 w-auto object-contain"
+                      />
                     </Link>
                   </SheetTitle>
                 </SheetHeader>

@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lama Ecommerce",
-  description: "Modern ecommerce experience powered by Lama.",
+  title: "Aviora Wear",
+  description: "Modern ecommerce experience by Aviora Wear.",
   icons: {
-    icon: "/lama_logo.jpg",
+    icon: "/logo.png",
   },
 };
 
