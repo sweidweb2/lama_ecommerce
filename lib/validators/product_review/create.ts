@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { reviewBaseSchema } from './review.base';
+import { z } from "zod";
+import { reviewBaseSchema } from "./base";
 
 // Create review: product_id + rating + optional title/comment.
 

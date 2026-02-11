@@ -16,33 +16,34 @@ import type { AdminBrand } from "./create_form"
 
 interface EditBrandDialogProps {
   brand: AdminBrand
-  onUpdated?: (brand: AdminBrand) => void
+  action: (formData: FormData) => void | Promise<void>
 }
 
-export function EditBrandDialog({ brand, onUpdated }: EditBrandDialogProps) {
+export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(brand.name)
   const [slug, setSlug] = useState(brand.slug ?? "")
-  const [logoUrl, setLogoUrl] = useState(brand.logo_image_url ?? "")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
 
-    const updatedBrand: AdminBrand = {
-      ...brand,
-      name: name.trim(),
-      slug: slug.trim() || null,
-      logo_image_url: logoUrl.trim() || null,
+    setIsSubmitting(true)
+    try {
+      await action(formData)
+      setOpen(false)
+    } catch (error) {
+      console.error("Failed to update brand:", error)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    onUpdated?.(updatedBrand)
-    setOpen(false)
   }
 
   const handleCancel = () => {
     setName(brand.name)
     setSlug(brand.slug ?? "")
-    setLogoUrl(brand.logo_image_url ?? "")
     setOpen(false)
   }
 
@@ -64,12 +65,19 @@ export function EditBrandDialog({ brand, onUpdated }: EditBrandDialogProps) {
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            <input type="hidden" name="id" value={brand.id} />
+            <input
+              type="hidden"
+              name="current_logo_url"
+              value={brand.logo_image_url ?? ""}
+            />
             <div className="space-y-2">
               <Label htmlFor={`brand-name-${brand.id}`}>
                 Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id={`brand-name-${brand.id}`}
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Lama Tech"
@@ -81,6 +89,7 @@ export function EditBrandDialog({ brand, onUpdated }: EditBrandDialogProps) {
               <Label htmlFor={`brand-slug-${brand.id}`}>Slug</Label>
               <Input
                 id={`brand-slug-${brand.id}`}
+                name="slug"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
                 placeholder="e.g., lama-tech"
@@ -91,15 +100,15 @@ export function EditBrandDialog({ brand, onUpdated }: EditBrandDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={`brand-logo-url-${brand.id}`}>Logo URL</Label>
+              <Label htmlFor={`brand-logo-file-${brand.id}`}>Logo Image</Label>
               <Input
-                id={`brand-logo-url-${brand.id}`}
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://..."
+                id={`brand-logo-file-${brand.id}`}
+                name="logo_file"
+                type="file"
+                accept="image/*"
               />
               <p className="text-xs text-muted-foreground">
-                Optional logo image URL for this brand.
+                Upload a new logo to replace the existing one (optional).
               </p>
             </div>
 
@@ -111,8 +120,8 @@ export function EditBrandDialog({ brand, onUpdated }: EditBrandDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { promoCodeBaseSchema } from './promo.base';
+import { z } from "zod";
+import { promoCodeBaseSchema } from "./base";
 
 // Create promo code (admin).
 

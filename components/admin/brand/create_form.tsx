@@ -12,46 +12,38 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
-import type { Brand } from "@/types/product"
-
-export type AdminBrand = Brand
-
 interface CreateBrandDialogProps {
-  onCreated?: (brand: AdminBrand) => void
+  action: (formData: FormData) => void | Promise<void>
 }
 
-export function CreateBrandDialog({ onCreated }: CreateBrandDialogProps) {
+export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
-  const [logoUrl, setLogoUrl] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
 
-    const now = new Date().toISOString()
-    const newBrand: AdminBrand = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      slug: slug.trim() || null,
-      logo_image_url: logoUrl.trim() || null,
-      created_at: now,
-      deleted_at: null,
+    setIsSubmitting(true)
+    try {
+      await action(formData)
+      // Reset and close on success
+      setName("")
+      setSlug("")
+      setOpen(false)
+    } catch (error) {
+      console.error("Failed to create brand:", error)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // For now we only update local state via callback; API wiring can be added later.
-    onCreated?.(newBrand)
-
-    setName("")
-    setSlug("")
-    setLogoUrl("")
-    setOpen(false)
   }
 
   const handleCancel = () => {
     setName("")
     setSlug("")
-    setLogoUrl("")
     setOpen(false)
   }
 
@@ -75,6 +67,7 @@ export function CreateBrandDialog({ onCreated }: CreateBrandDialogProps) {
               </Label>
               <Input
                 id="brand-name"
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Lama Tech"
@@ -86,6 +79,7 @@ export function CreateBrandDialog({ onCreated }: CreateBrandDialogProps) {
               <Label htmlFor="brand-slug">Slug</Label>
               <Input
                 id="brand-slug"
+                name="slug"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
                 placeholder="e.g., lama-tech"
@@ -96,15 +90,15 @@ export function CreateBrandDialog({ onCreated }: CreateBrandDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand-logo-url">Logo URL</Label>
+              <Label htmlFor="brand-logo-file">Logo Image</Label>
               <Input
-                id="brand-logo-url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://..."
+                id="brand-logo-file"
+                name="logo_file"
+                type="file"
+                accept="image/*"
               />
               <p className="text-xs text-muted-foreground">
-                Optional logo image URL for this brand.
+                Upload a logo image for this brand.
               </p>
             </div>
 
@@ -116,8 +110,8 @@ export function CreateBrandDialog({ onCreated }: CreateBrandDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Brand
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Brand"}
               </Button>
             </DialogFooter>
           </form>

@@ -13,29 +13,30 @@ import { Trash2 } from "lucide-react"
 import type { AdminBrand } from "./create_form"
 
 interface DeleteBrandDialogProps {
-  brand: Pick<AdminBrand, "id" | "name">
-  onDelete?: (brandId: string) => void | Promise<void>
+  brand: Pick<AdminBrand, "id" | "name" | "logo_image_url">
+  action: (formData: FormData) => void | Promise<void>
   showText?: boolean
 }
 
 export function DeleteBrandDialog({
   brand,
-  onDelete,
+  action,
   showText = false,
 }: DeleteBrandDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
     setIsDeleting(true)
     try {
-      if (onDelete) {
-        await onDelete(brand.id)
-      }
+      await action(formData)
       setOpen(false)
     } catch (error) {
       console.error("Error deleting brand:", error)
-      // TODO: Show error toast
     } finally {
       setIsDeleting(false)
     }
@@ -58,34 +59,41 @@ export function DeleteBrandDialog({
           <DialogHeader>
             <DialogTitle>Delete Brand</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground mt-2">
-            <p>
-              Are you sure you want to delete the brand{" "}
-              <span className="font-semibold text-foreground">{brand.name}</span>?
-            </p>
-            <p>
-              Products that reference this brand will still exist but may lose their
-              brand association. This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter className="mt-4 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete Brand"}
-            </Button>
-          </DialogFooter>
+          <form onSubmit={handleDelete}>
+            <input type="hidden" name="id" value={brand.id} />
+            <input
+              type="hidden"
+              name="logo_url"
+              value={brand.logo_image_url ?? ""}
+            />
+            <div className="space-y-2 text-sm text-muted-foreground mt-2">
+              <p>
+                Are you sure you want to delete the brand{" "}
+                <span className="font-semibold text-foreground">{brand.name}</span>?
+              </p>
+              <p>
+                Products that reference this brand will still exist but may lose their
+                brand association. This action cannot be undone.
+              </p>
+            </div>
+            <DialogFooter className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete Brand"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>

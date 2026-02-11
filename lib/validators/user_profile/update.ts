@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { profileBaseSchema } from './profile.base';
+import { z } from "zod";
+import { profileBaseSchema } from "./base";
 
 // User profile update (from account settings).
 

@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { contactBaseSchema } from './contact.base';
+import { z } from "zod";
+import { contactBaseSchema } from "./base";
 
 // Schema for creating a contact-us message.
 

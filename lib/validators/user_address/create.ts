@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { addressBaseSchema } from './address.base';
+import { z } from "zod";
+import { addressBaseSchema } from "./base";
 
 // Schema for creating a new user address.
 

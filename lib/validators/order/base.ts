@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Base schema for order data coming from checkout.
 // We only validate what the client sends; server sets status/payment_status.

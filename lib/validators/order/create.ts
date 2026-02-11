@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { orderBaseSchema } from './base';
+import { z } from "zod";
+import { orderBaseSchema } from "./base";
 
 // Schema for creating an order at checkout.
 // Client never sets status or payment_status directly.

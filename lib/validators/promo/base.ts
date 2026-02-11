@@ -1,10 +1,10 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Admin CRUD for promo codes.
 
 export const promoCodeBaseSchema = z.object({
   code: z.string().min(3).max(50),
-  discount_type: z.enum(['percentage', 'fixed']),
+  discount_type: z.enum(["percentage", "fixed"]),
   discount_value: z.number().nonnegative(),
   expires_at: z.string().datetime().nullable().optional(),
   max_uses: z.number().int().min(1).nullable().optional(),

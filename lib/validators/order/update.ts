@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { orderBaseSchema } from './base';
+import { z } from "zod";
+import { orderBaseSchema } from "./base";
 
 // Schema for updating an order from admin tools (e.g. editing contact info).
 // Does NOT cover status transitions; those can use a dedicated schema later.
