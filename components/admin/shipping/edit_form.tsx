@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Edit } from "lucide-react"
+import { updateShippingZoneAction } from "@/actions/shipping"
+import { toast } from "sonner"
 import type { AdminShippingZone } from "./create_form"
 
 interface EditShippingZoneDialogProps {
@@ -18,37 +20,31 @@ export function EditShippingZoneDialog({ zone, onUpdated }: EditShippingZoneDial
   const [name, setName] = useState(zone.name)
   const [estimatedTime, setEstimatedTime] = useState(zone.estimated_time || "")
   const [fee, setFee] = useState(zone.fee?.toString() || "")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const updatedZone = {
-      id: zone.id,
-      name: name.trim(),
-      estimated_time: estimatedTime.trim() || null,
-      fee: fee ? parseFloat(fee) : null,
-    }
-
+    setIsSubmitting(true)
     try {
-      // TODO: Wire this up to a real admin update action / API
-      // The backend should update both shipping_zone and shipping_fee entities
-      const response = await fetch(`/api/admin/shipping-zones/${zone.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedZone),
+      const result = await updateShippingZoneAction({
+        id: zone.id,
+        name: name.trim(),
+        estimated_time: estimatedTime.trim() || null,
+        fee: fee ? parseFloat(fee) : null,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to update shipping zone")
+      if (result.success) {
+        setOpen(false)
+        onUpdated?.()
+        toast.success("Shipping zone updated")
+      } else {
+        toast.error(result.error)
       }
-
-      setOpen(false)
-      onUpdated?.()
     } catch (error) {
       console.error("Error updating shipping zone:", error)
-      // TODO: Show error toast
+      toast.error("Failed to update shipping zone")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -127,8 +123,8 @@ export function EditShippingZoneDialog({ zone, onUpdated }: EditShippingZoneDial
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
