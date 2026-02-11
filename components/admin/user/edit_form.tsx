@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,9 +31,18 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(user.name)
   const [role, setRole] = useState(user.role)
-  const [status, setStatus] = useState(user.status)
+  const [status, setStatus] = useState(user.status === "Active" ? "active" : "inactive")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setName(user.name)
+      setRole(user.role)
+      setStatus(user.status === "Active" ? "active" : "inactive")
+      setError(null)
+    }
+  }, [open, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,7 +52,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       const result = await updateProfileAction(user.id, {
         full_name: name || undefined,
         role: role === "Admin" ? "admin" : "user",
-        status: status as "Active" | "Blocked",
+        status: status as "active" | "inactive",
       })
       if (result?.success) {
         setOpen(false)
@@ -58,7 +67,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
   const handleCancel = () => {
     setName(user.name)
     setRole(user.role)
-    setStatus(user.status)
+    setStatus(user.status === "Active" ? "active" : "inactive")
     setError(null)
     setOpen(false)
   }
@@ -105,38 +114,37 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
               <p className="text-xs text-muted-foreground">Email is managed by auth and cannot be changed here.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor={`user-role-${user.id}`}>Role</Label>
-                <Select
-                  value={role}
-                  onValueChange={(value) => setRole(value)}
-                >
-                  <SelectTrigger id={`user-role-${user.id}`} className="w-full">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Admin">Admin</SelectItem>
-                    <SelectItem value="Customer">Customer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor={`user-role-${user.id}`}>Role</Label>
+              <Select
+                value={role}
+                onValueChange={(value) => setRole(value)}
+              >
+                <SelectTrigger id={`user-role-${user.id}`} className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="Customer">Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor={`user-status-${user.id}`}>Status</Label>
-                <Select
-                  value={status}
-                  onValueChange={(value) => setStatus(value)}
-                >
-                  <SelectTrigger id={`user-status-${user.id}`} className="w-full">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Blocked">Blocked</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor={`user-status-${user.id}`}>Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as "active" | "inactive")}
+              >
+                <SelectTrigger id={`user-status-${user.id}`} className="w-full">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Inactive users cannot access their profile or account.</p>
             </div>
 
             <DialogFooter className="mt-4 flex justify-end gap-2">

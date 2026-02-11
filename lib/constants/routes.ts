@@ -10,5 +10,4 @@ export const ROUTES = {
 } as const;
 
 // Type export for TypeScript
-export type Route = typeof ROUTES[keyof typeof ROUTES];
-  
+export type Route = (typeof ROUTES)[keyof typeof ROUTES];

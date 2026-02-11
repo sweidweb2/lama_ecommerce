@@ -59,18 +59,43 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Account routes - require authenticated user (any role)
+  // Account routes - require authenticated user with active profile
   if (pathname.startsWith("/account")) {
     const { profile, user, response } = await getProfileFromSession(request);
 
     if (!user || !profile) {
-      // Redirect to login if not authenticated
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // User is authenticated, allow access
+    // Inactive (soft-deleted) users cannot access account
+    if (profile.deleted_at) {
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
+      loginUrl.searchParams.set("reason", "inactive");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return response;
+  }
+
+  // Profile routes - require authenticated user with active profile
+  if (pathname.startsWith("/profile")) {
+    const { profile, user, response } = await getProfileFromSession(request);
+
+    if (!user || !profile) {
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Inactive (soft-deleted) users cannot access profile
+    if (profile.deleted_at) {
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
+      loginUrl.searchParams.set("reason", "inactive");
+      return NextResponse.redirect(loginUrl);
+    }
+
     return response;
   }
 

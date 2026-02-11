@@ -5,10 +5,11 @@ import { getCurrentUserProfile } from "@/services/profile.service";
 import {
   getProfilesForAdmin,
   updateProfileAdmin,
-  deleteProfileAdmin,
+  createUserAdmin,
 } from "@/services/profile.service";
 import type { ProfileRole } from "@/types/user";
 import { profileAdminUpdateSchema } from "@/lib/validators/user_profile/base";
+import { createUserSchema } from "@/lib/validators/user_profile/create";
 
 /**
  * Server action to get the current user's profile.
@@ -27,14 +28,15 @@ export async function getAdminUsersAction() {
 
 /**
  * Update a user's profile (name, role, status) as admin. Revalidates /admin/users.
+ * status: active = clear deleted_at, inactive = set deleted_at (soft block).
  */
 export async function updateProfileAction(
   profileId: string,
   payload: {
     full_name?: string | null;
     role?: "user" | "admin";
-    status?: "Active" | "Blocked";
-  }
+    status?: "active" | "inactive";
+  },
 ) {
   const parsed = profileAdminUpdateSchema.safeParse(payload);
   if (!parsed.success) {
@@ -45,7 +47,7 @@ export async function updateProfileAction(
   if (full_name !== undefined) updates.full_name = full_name;
   if (role !== undefined) updates.role = role as ProfileRole;
   if (status !== undefined) {
-    updates.deleted_at = status === "Blocked" ? new Date().toISOString() : null;
+    updates.deleted_at = status === "inactive" ? new Date().toISOString() : null;
   }
   const updated = await updateProfileAdmin(profileId, updates);
   if (!updated) {
@@ -56,11 +58,39 @@ export async function updateProfileAction(
 }
 
 /**
- * Soft-delete a user (set profile deleted_at) as admin. Revalidates /admin/users.
+ * Create a new user (email, password, name, role, status) as admin.
+ * Revalidates /admin/users on success.
  */
-export async function deleteProfileAction(profileId: string) {
-  const ok = await deleteProfileAdmin(profileId);
-  if (!ok) return { success: false, error: "Forbidden or delete failed" };
+export async function createUserAction(payload: {
+  full_name: string;
+  email: string;
+  password: string;
+  role: "user" | "admin";
+  status: "active" | "inactive";
+}) {
+  const parsed = createUserSchema.safeParse(payload);
+  if (!parsed.success) {
+    const first = parsed.error.flatten().fieldErrors;
+    const msg =
+      first.full_name?.[0] ??
+      first.email?.[0] ??
+      first.password?.[0] ??
+      "Invalid input";
+    return { success: false, error: msg };
+  }
+
+  const result = await createUserAdmin({
+    full_name: parsed.data.full_name,
+    email: parsed.data.email,
+    password: parsed.data.password,
+    role: parsed.data.role,
+    status: parsed.data.status,
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
   revalidatePath("/admin/users");
-  return { success: true };
+  return { success: true, data: result.data };
 }
