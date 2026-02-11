@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import type { AdminCategory } from "@/components/admin/category/forms/create_form"
+import type { Category } from "@/types/product"
 import { EditCategoryDialog } from "@/components/admin/category/forms/edit_form"
 import { DeleteCategoryDialog } from "@/components/admin/category/forms/delete_dialog"
 
 interface CategoriesTableProps {
-  categories: AdminCategory[]
-  allCategories: AdminCategory[]
+  categories: Category[]
+  allCategories: Category[]
   updateCategoryAction: (formData: FormData) => void | Promise<void>
   deleteCategoryAction: (formData: FormData) => void | Promise<void>
 }
@@ -69,7 +69,7 @@ export function CategoriesTable({
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <Badge variant={productsCount > 0 ? "default" : "secondary"}>
-                    {productsCount} product{productsCount === 1 ? "" : "s"}
+                    {productsCount} product{productsCount > 1 ? "s" : ""}
                   </Badge>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
@@ -90,10 +90,7 @@ export function CategoriesTable({
                       action={updateCategoryAction}
                     />
                     <DeleteCategoryDialog
-                      category={{
-                        id: category.id,
-                        name: category.name,
-                      }}
+                      category={category}
                       action={deleteCategoryAction}
                     />
                   </div>

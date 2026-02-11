@@ -1,5 +1,5 @@
 import AdminCategoriesClient from "./admin-categories-client";
-import { getCategories } from "@/services/categories.service";
+import { getCategoriesService } from "@/services/categories.service";
 import {
   createCategoryAction,
   updateCategoryAction,
@@ -7,7 +7,8 @@ import {
 } from "@/actions/category";
 
 export default async function AdminCategoriesPage() {
-  const categories = await getCategories();
+  const categories = await getCategoriesService();
+  console.log(categories);
 
   return (
     <AdminCategoriesClient

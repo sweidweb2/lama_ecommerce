@@ -8,27 +8,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { AdminCategory } from "@/components/admin/category/forms/create_form"
+import type { Category as AdminCategory } from "@/types/product"
 
 interface CategoriesFiltersProps {
   nameFilter: string
   parentFilter: string | "all"
+  showDeleted: boolean
   rowsPerPage: number
   rowsPerPageOptions: number[]
   parentOptions: AdminCategory[]
   onNameFilterChange: (value: string) => void
   onParentFilterChange: (value: string | "all") => void
+  onShowDeletedChange: (value: boolean) => void
   onRowsPerPageChange: (value: number) => void
 }
 
 export function CategoriesFilters({
   nameFilter,
   parentFilter,
+  showDeleted,
   rowsPerPage,
   rowsPerPageOptions,
   parentOptions,
   onNameFilterChange,
   onParentFilterChange,
+  onShowDeletedChange,
   onRowsPerPageChange,
 }: CategoriesFiltersProps) {
   return (
@@ -44,6 +48,21 @@ export function CategoriesFilters({
             placeholder="Type to filter…"
             className="h-9"
           />
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              id="categories-show-deleted"
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => onShowDeletedChange(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-input"
+            />
+            <label
+              htmlFor="categories-show-deleted"
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              Show deleted
+            </label>
+          </div>
         </div>
 
         <div className="space-y-1 w-full sm:w-56">

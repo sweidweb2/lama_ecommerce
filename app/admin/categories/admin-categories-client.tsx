@@ -1,14 +1,14 @@
 'use client';
 
 import { useMemo, useState } from "react";
-import type { AdminCategory } from "@/components/admin/category/forms/create_form";
+import type { Category } from "@/types/product";
 import { CategoriesHeader } from "@/components/admin/category/categories-header";
 import { CategoriesFilters } from "@/components/admin/category/categories-filters";
 import { CategoriesTable } from "@/components/admin/category/categories-table";
 import { CategoriesPagination } from "@/components/admin/category/categories-pagination";
 
 interface AdminCategoriesClientProps {
-  categories: AdminCategory[];
+  categories: Category[];
   createCategoryAction: (formData: FormData) => void | Promise<void>;
   updateCategoryAction: (formData: FormData) => void | Promise<void>;
   deleteCategoryAction: (formData: FormData) => void | Promise<void>;
@@ -25,6 +25,7 @@ export default function AdminCategoriesClient({
 }: AdminCategoriesClientProps) {
   const [nameFilter, setNameFilter] = useState("");
   const [parentFilter, setParentFilter] = useState<string | "all">("all");
+  const [showDeleted, setShowDeleted] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState<number>(ROWS_PER_PAGE_OPTIONS[0]);
   const [page, setPage] = useState(1);
 
@@ -44,7 +45,7 @@ export default function AdminCategoriesClient({
     const nameQuery = nameFilter.trim().toLowerCase();
 
     return categories.filter((category) => {
-      if (category.deleted_at) return false;
+      if (!showDeleted && category.deleted_at) return false;
 
       if (nameQuery) {
         const matchesName =
@@ -63,7 +64,7 @@ export default function AdminCategoriesClient({
 
       return true;
     });
-  }, [categories, nameFilter, parentFilter]);
+  }, [categories, nameFilter, parentFilter, showDeleted]);
 
   const safeRowsPerPage = Math.min(rowsPerPage, MAX_ROWS_PER_PAGE);
   const pageCount = Math.max(1, Math.ceil(filteredCategories.length / safeRowsPerPage));
@@ -100,6 +101,7 @@ export default function AdminCategoriesClient({
       <CategoriesFilters
         nameFilter={nameFilter}
         parentFilter={parentFilter}
+        showDeleted={showDeleted}
         rowsPerPage={safeRowsPerPage}
         rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
         parentOptions={parentOptions}
@@ -109,6 +111,10 @@ export default function AdminCategoriesClient({
         }}
         onParentFilterChange={(value) => {
           setParentFilter(value);
+          setPage(1);
+        }}
+        onShowDeletedChange={(value) => {
+          setShowDeleted(value);
           setPage(1);
         }}
         onRowsPerPageChange={(value) => handleChangeRowsPerPage(String(value))}

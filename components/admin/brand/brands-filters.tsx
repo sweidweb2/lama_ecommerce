@@ -11,17 +11,21 @@ import {
 
 interface BrandsFiltersProps {
   nameFilter: string
+  showDeleted: boolean
   rowsPerPage: number
   rowsPerPageOptions: number[]
   onNameFilterChange: (value: string) => void
+  onShowDeletedChange: (value: boolean) => void
   onRowsPerPageChange: (value: number) => void
 }
 
 export function BrandsFilters({
   nameFilter,
+  showDeleted,
   rowsPerPage,
   rowsPerPageOptions,
   onNameFilterChange,
+  onShowDeletedChange,
   onRowsPerPageChange,
 }: BrandsFiltersProps) {
   return (
@@ -36,6 +40,21 @@ export function BrandsFilters({
           placeholder="Type to filter…"
           className="h-9"
         />
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            id="brands-show-deleted"
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => onShowDeletedChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-input"
+          />
+          <label
+            htmlFor="brands-show-deleted"
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
+            Show deleted
+          </label>
+        </div>
       </div>
 
       <div className="flex items-center justify-between sm:justify-end gap-3">

@@ -1,10 +1,10 @@
 'use client'
 
 import { CreateCategoryDialog } from "@/components/admin/category/forms/create_form"
-import type { AdminCategory } from "@/components/admin/category/forms/create_form"
+import type { Category } from "@/types/product"
 
 interface CategoriesHeaderProps {
-  categories: AdminCategory[]
+  categories: Category[]
   createCategoryAction: (formData: FormData) => void | Promise<void>
 }
 

@@ -11,13 +11,12 @@ import type {
 /**
  * Fetch all active categories, ordered by name.
  */
-export async function getActiveCategories(): Promise<Category[]> {
+export async function getCategories(): Promise<Category[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await supabase
       .from("categories")
       .select("*")
-      .eq("is_active", true)
       .order("name", { ascending: true });
 
     if (error) {
@@ -60,12 +59,12 @@ export async function createCategory(
   const supabase = await createSupabaseServerActionClient();
   const { data, error } = await supabase
     .from("categories")
-    .insert({
+    .insert([{
       name: input.name,
       slug: input.slug ?? null,
       parent_id: input.parent_id ?? null,
       is_active: input.is_active ?? true,
-    })
+    }] as any)
     .select("*")
     .maybeSingle();
 
@@ -94,7 +93,7 @@ export async function updateCategory(
 
   const { data, error } = await supabase
     .from("categories")
-    .update(patch)
+    .update([patch] as never)
     .eq("id", id)
     .select("*")
     .maybeSingle();
@@ -109,17 +108,47 @@ export async function updateCategory(
 
 /**
  * Soft-delete a category (admin).
+ * Also re-parent its children:
+ * - If the deleted category has a parent, children are moved to that parent.
+ * - If the deleted category is a root category, children become root (parent_id = null).
  */
 export async function deleteCategory(id: string): Promise<boolean> {
   const supabase = await createSupabaseServerActionClient();
 
-  const { error } = await supabase
+  // Fetch parent_id of the category being deleted
+  const { data: category, error: fetchError } = await supabase
     .from("categories")
-    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .select("parent_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("Error fetching category before delete:", fetchError);
+    return false;
+  }
+
+  const parentId =
+    (category as { parent_id: string | null } | null)?.parent_id ?? null;
+
+  // Re-parent children: move them to the deleted category's parent (or root)
+  const { error: childrenError } = await supabase
+    .from("categories")
+    .update([{ parent_id: parentId }] as never)
+    .eq("parent_id", id);
+
+  if (childrenError) {
+    console.error("Error re-parenting child categories:", childrenError);
+    return false;
+  }
+
+  // Soft-delete the category itself
+  const { error: deleteError } = await supabase
+    .from("categories")
+    .update([{ deleted_at: new Date().toISOString(), is_active: false }] as never)
     .eq("id", id);
 
-  if (error) {
-    console.error("Error deleting category:", error);
+  if (deleteError) {
+    console.error("Error deleting category:", deleteError);
     return false;
   }
 
