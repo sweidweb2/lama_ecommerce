@@ -42,8 +42,22 @@ export function CreatePromoCodeDialog({ onCreated }: CreatePromoCodeDialogProps)
   const [isActive, setIsActive] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const getMinExpiresAt = () => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, "0")
+    const d = String(now.getDate()).padStart(2, "0")
+    const h = String(now.getHours()).padStart(2, "0")
+    const min = String(now.getMinutes()).padStart(2, "0")
+    return `${y}-${m}-${d}T${h}:${min}`
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (expiresAt.trim() && new Date(expiresAt) <= new Date()) {
+      toast.error("Expiration date cannot be in the past")
+      return
+    }
     setIsSubmitting(true)
     try {
       const result = await createPromoCodeAction({
@@ -164,11 +178,12 @@ export function CreatePromoCodeDialog({ onCreated }: CreatePromoCodeDialogProps)
                 <Input
                   id="expires-at"
                   type="datetime-local"
+                  min={getMinExpiresAt()}
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty for no expiration
+                  Leave empty for no expiration. Cannot be in the past.
                 </p>
               </div>
 
