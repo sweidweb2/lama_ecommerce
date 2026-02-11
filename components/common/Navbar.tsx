@@ -39,13 +39,13 @@ import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
 
-const NAV_LINKS = [
+const NAV_LINKS_BASE = [
   { label: "Home", href: ROUTES.HOME },
   { label: "Products", href: "/products" },
-  { label: "Orders", href: "/orders" },
   { label: "About", href: "/about-us" },
   { label: "Contact", href: "/contact-us" },
 ];
+const ORDERS_LINK = { label: "Orders", href: "/orders" };
 
 export function Navbar() {
   const pathname = usePathname();
@@ -123,7 +123,7 @@ export function Navbar() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS_BASE.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -137,6 +137,19 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {isLoggedIn && (
+              <Link
+                href={ORDERS_LINK.href}
+                className={cn(
+                  "transition-colors hover:text-primary",
+                  pathname === ORDERS_LINK.href
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground",
+                )}
+              >
+                {ORDERS_LINK.label}
+              </Link>
+            )}
             {isAdmin && (
               <Link
                 href={ROUTES.ADMIN}
@@ -160,12 +173,14 @@ export function Navbar() {
               <span className="sr-only">Search</span>
             </Button>
 
-            <Link href="/wishlist">
-              <Button variant="ghost" size="icon" className="hidden sm:flex">
-                <Heart className="h-5 w-5" />
-                <span className="sr-only">Wishlist</span>
-              </Button>
-            </Link>
+            {isLoggedIn && (
+              <Link href="/wishlist">
+                <Button variant="ghost" size="icon" className="hidden sm:flex">
+                  <Heart className="h-5 w-5" />
+                  <span className="sr-only">Wishlist</span>
+                </Button>
+              </Link>
+            )}
 
             <div className="hidden md:flex items-center gap-2">
               <ModeToggle />
@@ -282,7 +297,7 @@ export function Navbar() {
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="flex flex-col gap-4 mt-8 px-4 overflow-y-auto flex-1 pb-4 hide-scrollbar">
-                  {NAV_LINKS.map((link) => (
+                  {NAV_LINKS_BASE.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
@@ -297,6 +312,20 @@ export function Navbar() {
                       {link.label}
                     </Link>
                   ))}
+                  {isLoggedIn && (
+                    <Link
+                      href={ORDERS_LINK.href}
+                      onClick={() => setIsOpen(false)}
+                      className={cn(
+                        "text-lg font-medium transition-colors hover:text-primary",
+                        pathname === ORDERS_LINK.href
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {ORDERS_LINK.label}
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link
                       href={ROUTES.ADMIN}
@@ -313,22 +342,26 @@ export function Navbar() {
                     </Link>
                   )}
                   <hr className="my-2" />
-                  <Link
-                    href={ROUTES.CART}
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    Cart
-                  </Link>
-                  <Link
-                    href="/wishlist"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Heart className="h-5 w-5" />
-                    Wishlist
-                  </Link>
+                  {isLoggedIn && (
+                    <>
+                      <Link
+                        href={ROUTES.CART}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <ShoppingCart className="h-5 w-5" />
+                        Cart
+                      </Link>
+                      <Link
+                        href="/wishlist"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Heart className="h-5 w-5" />
+                        Wishlist
+                      </Link>
+                    </>
+                  )}
                   <div
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"

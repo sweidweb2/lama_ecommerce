@@ -42,21 +42,35 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes - no protection needed (storefront, auth pages, etc.)
-  // These routes are accessible to everyone
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/products") ||
-    pathname.startsWith("/cart") ||
     pathname.startsWith("/checkout") ||
     pathname.startsWith("/search") ||
-    pathname.startsWith("/wishlist") ||
     pathname.startsWith("/api");
 
   if (isPublicRoute) {
-    // Storefront routes - public, no protection needed
-    // Only check session when needed (e.g., for cart/wishlist) - handled in components
     return NextResponse.next();
+  }
+
+  // Cart and wishlist - only the authenticated user can access their own
+  if (pathname.startsWith("/cart") || pathname.startsWith("/wishlist")) {
+    const { profile, user, response } = await getProfileFromSession(request);
+
+    if (!user || !profile) {
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (profile.deleted_at) {
+      const loginUrl = new URL(ROUTES.LOGIN, request.url);
+      loginUrl.searchParams.set("reason", "inactive");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return response;
   }
 
   // Account routes - require authenticated user with active profile
@@ -79,7 +93,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Profile routes - require authenticated user with active profile
+  // Profile routes - only the profile owner (logged-in user) or an admin may access
+  // /profile and /profile/setting always show the current user's own profile
   if (pathname.startsWith("/profile")) {
     const { profile, user, response } = await getProfileFromSession(request);
 
@@ -96,6 +111,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    // Authenticated user (owner) or admin - allow access to their own profile
     return response;
   }
 
