@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { deleteContactUsAction } from "@/actions/contact_us"
 import type { AdminContact } from "./create_form"
 
 interface DeleteContactDialogProps {
@@ -13,22 +15,24 @@ interface DeleteContactDialogProps {
 }
 
 export function DeleteContactDialog({ contact, onDelete, showText = false }: DeleteContactDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async () => {
+    setError(null)
     setIsDeleting(true)
     try {
       if (onDelete) {
         await onDelete(contact.id)
       } else {
-        // Default behavior - just log and close
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log(`Deleting contact: ${contact.id}`)
+        await deleteContactUsAction(contact.id)
       }
       setOpen(false)
-    } catch (error) {
-      console.error("Error deleting contact:", error)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete contact")
     } finally {
       setIsDeleting(false)
     }
@@ -54,6 +58,11 @@ export function DeleteContactDialog({ contact, onDelete, showText = false }: Del
             <DialogTitle>Delete Contact Message</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm text-muted-foreground mt-2">
+            {error && (
+              <p className="text-destructive rounded-md bg-destructive/10 px-3 py-2">
+                {error}
+              </p>
+            )}
             <p>
               Are you sure you want to delete the contact message from{" "}
               <span className="font-semibold text-foreground">{contactLabel}</span>?

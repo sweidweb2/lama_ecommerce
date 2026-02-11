@@ -2,7 +2,7 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
-import type { ContactMessage } from "@/types/user";
+import type { ContactMessage, ContactStatus } from "@/types/user";
 import type { CreateContactUsInput } from "@/lib/validators/contact_us/create";
 
 type ContactMessagesFilter = {
@@ -134,6 +134,34 @@ export async function updateContactMessage(
     return data as ContactMessage;
   } catch (error) {
     console.error("Unexpected error in updateContactMessage:", error);
+    return null;
+  }
+}
+
+/**
+ * Update only the status of a contact message (e.g. new ↔ read).
+ */
+export async function updateContactMessageStatus(
+  id: string,
+  status: ContactStatus,
+): Promise<ContactMessage | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data, error } = await supabase
+      .from("contact_us")
+      .update({ status } as never)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to update contact message status:", error);
+      return null;
+    }
+
+    return data as ContactMessage;
+  } catch (error) {
+    console.error("Unexpected error in updateContactMessageStatus:", error);
     return null;
   }
 }

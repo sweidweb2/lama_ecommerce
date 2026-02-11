@@ -1,6 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { ContactPagination } from "./contact-pagination"
+import { format } from "date-fns"
 import {
   Table,
   TableBody,
@@ -17,7 +19,10 @@ import { CreateContactDialog, type AdminContact } from "@/components/admin/conta
 import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
+import { ContactStatusToggle } from "./contact-status-toggle"
 import type { ContactMessage } from "@/types/user"
+
+const ROWS_PER_PAGE = 20
 
 const getStatusVariant = (status: AdminContact["status"]) => {
   switch (status) {
@@ -72,11 +77,29 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
   const [email, setEmail] = useState("")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
+  const [page, setPage] = useState(1)
 
   const filteredContacts = useMemo(
     () => filterContacts(contacts, name, email, from, to),
     [contacts, name, email, from, to],
   )
+
+  const pageCount = Math.max(1, Math.ceil(filteredContacts.length / ROWS_PER_PAGE))
+  const currentPage = Math.min(page, pageCount)
+
+  const paginatedContacts = useMemo(() => {
+    const start = (currentPage - 1) * ROWS_PER_PAGE
+    return filteredContacts.slice(start, start + ROWS_PER_PAGE)
+  }, [filteredContacts, currentPage])
+
+  const pageFrom =
+    filteredContacts.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1
+  const pageTo = Math.min(currentPage * ROWS_PER_PAGE, filteredContacts.length)
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > pageCount) return
+    setPage(nextPage)
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +122,10 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             id="contact-filter-name"
             placeholder="Search name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+            setName(e.target.value)
+            setPage(1)
+          }}
           />
         </div>
         <div className="space-y-1">
@@ -109,7 +135,10 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             type="email"
             placeholder="Search email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+            setEmail(e.target.value)
+            setPage(1)
+          }}
           />
         </div>
         <div className="space-y-1">
@@ -118,7 +147,10 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             id="contact-filter-from"
             type="date"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => {
+            setFrom(e.target.value)
+            setPage(1)
+          }}
           />
         </div>
         <div className="space-y-1">
@@ -127,7 +159,10 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             id="contact-filter-to"
             type="date"
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => {
+            setTo(e.target.value)
+            setPage(1)
+          }}
           />
         </div>
       </div>
@@ -151,7 +186,7 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredContacts.length === 0 ? (
+            {paginatedContacts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   {contacts.length === 0
@@ -160,19 +195,25 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
                 </TableCell>
               </TableRow>
             ) : (
-              filteredContacts.map((contact) => (
+              paginatedContacts.map((contact) => (
                 <TableRow key={contact.id}>
                   <TableCell className="font-medium">{contact.full_name || "—"}</TableCell>
                   <TableCell>{contact.email || "—"}</TableCell>
                   <TableCell>{contact.subject || "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(contact.status)} className="capitalize">
-                      {contact.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStatusVariant(contact.status)} className="capitalize">
+                        {contact.status}
+                      </Badge>
+                      <ContactStatusToggle
+                        contactId={contact.id}
+                        currentStatus={contact.status}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     {contact.created_at
-                      ? new Date(contact.created_at).toLocaleDateString()
+                      ? format(new Date(contact.created_at), "MMM d, yyyy")
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right">
@@ -195,6 +236,17 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
           </TableBody>
         </Table>
       </TableWrapper>
+
+      {filteredContacts.length > 0 && (
+        <ContactPagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          totalItems={filteredContacts.length}
+          pageFrom={pageFrom}
+          pageTo={pageTo}
+          onPageChange={handlePageChange}
+        />
+      )}
     </div>
   )
 }

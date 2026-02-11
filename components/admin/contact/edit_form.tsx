@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { updateContactUsAction, updateContactStatusAction } from "@/actions/contact_us"
 import type { AdminContact } from "./create_form"
 
 const CONTACT_STATUSES = ['new', 'read', 'replied', 'resolved'] as const
@@ -23,6 +25,7 @@ interface EditContactDialogProps {
 }
 
 export function EditContactDialog({ contact }: EditContactDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [fullName, setFullName] = useState(contact.full_name || "")
   const [email, setEmail] = useState(contact.email || "")
@@ -30,24 +33,31 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
   const [subject, setSubject] = useState(contact.subject || "")
   const [message, setMessage] = useState(contact.message || "")
   const [status, setStatus] = useState<AdminContact["status"]>(contact.status)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const updatedContact = {
-      id: contact.id,
-      subject: subject || null,
-      message: message || null,
-      full_name: fullName || null,
-      phone: phone || null,
-      email: email || null,
-      status,
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await updateContactUsAction(contact.id, {
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+        subject: subject.trim(),
+        message: message.trim(),
+      })
+      if (status !== contact.status) {
+        await updateContactStatusAction(contact.id, status)
+      }
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update contact")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // TODO: Wire this up to a real admin update action / API
-    console.log("Updating contact:", updatedContact)
-
-    setOpen(false)
   }
 
   const handleCancel = () => {
@@ -78,6 +88,11 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
+                {error}
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor={`contact-full-name-${contact.id}`}>Full Name</Label>
@@ -156,11 +171,12 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving…" : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

@@ -2,11 +2,13 @@ import {
   createContactUsSchema,
   type CreateContactUsInput,
 } from "@/lib/validators/contact_us/create";
+import type { ContactStatus } from "@/types/user";
 import {
   createContactMessage,
   getAllContactMessages,
   getContactMessageById,
   updateContactMessage,
+  updateContactMessageStatus,
   deleteContactMessage,
 } from "@/repositories/contact.repository";
 
@@ -44,6 +46,15 @@ export async function updateContactUs(id: string, input: unknown) {
   const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
   const data = await updateContactMessage(id, parsed);
   if (!data) throw new Error("Failed to update contact message");
+  return data;
+}
+
+/**
+ * Update only the status of a contact message (e.g. new ↔ read).
+ */
+export async function updateContactStatus(id: string, status: ContactStatus) {
+  const data = await updateContactMessageStatus(id, status);
+  if (!data) throw new Error("Failed to update contact status");
   return data;
 }
 
