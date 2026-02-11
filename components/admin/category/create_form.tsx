@@ -24,40 +24,73 @@ export type AdminCategory = Category
 
 interface CreateCategoryDialogProps {
   parentOptions: AdminCategory[]
-  onCreated?: (category: AdminCategory) => void
+  action: (formData: FormData) => void | Promise<void>
 }
 
 export function CreateCategoryDialog({
   parentOptions,
-  onCreated,
+  action,
 }: CreateCategoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [parentId, setParentId] = useState<string | "none">("none")
   const [isActive, setIsActive] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    const now = new Date().toISOString()
-    const newCategory: AdminCategory = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      slug: slug.trim() || null,
-      parent_id: parentId === "none" ? null : parentId,
-      is_active: isActive,
-      created_at: now,
-      deleted_at: null,
+    const trimmedName = name.trim()
+    const trimmedSlug = slug.trim()
+
+    const nextErrors: typeof errors = {}
+
+    if (!trimmedName) {
+      nextErrors.name = "Name is required."
+    } else if (trimmedName.length > 40) {
+      nextErrors.name = "Name must be at most 40 characters."
     }
 
-    onCreated?.(newCategory)
+    if (trimmedSlug.length > 0) {
+      if (trimmedSlug.length > 20) {
+        nextErrors.slug = "Slug must be at most 20 characters."
+      } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+        nextErrors.slug =
+          "Slug can only contain lowercase letters, numbers, and hyphens."
+      }
+    }
 
-    setName("")
-    setSlug("")
-    setParentId("none")
-    setIsActive(true)
-    setOpen(false)
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      return
+    }
+
+    setErrors({})
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    formData.set("name", trimmedName)
+    formData.set("slug", trimmedSlug)
+    formData.set("parent_id", parentId === "none" ? "" : parentId)
+    formData.set("is_active", isActive ? "true" : "false")
+
+    setIsSubmitting(true)
+    try {
+      await action(formData)
+
+      setName("")
+      setSlug("")
+      setParentId("none")
+      setIsActive(true)
+      setOpen(false)
+    } catch (error) {
+      console.error("Error creating category:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -87,24 +120,41 @@ export function CreateCategoryDialog({
               </Label>
               <Input
                 id="category-name"
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={40}
                 placeholder="e.g., Electronics"
                 required
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="category-slug">Slug</Label>
               <Input
                 id="category-slug"
+                name="slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "")
+                      .slice(0, 20),
+                  )
+                }
+                maxLength={20}
                 placeholder="e.g., electronics"
               />
               <p className="text-xs text-muted-foreground">
                 URL-friendly identifier. Leave empty to generate later.
               </p>
+              {errors.slug && (
+                <p className="text-xs text-destructive">{errors.slug}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -148,6 +198,17 @@ export function CreateCategoryDialog({
               </p>
             </div>
 
+            <input
+              type="hidden"
+              name="parent_id"
+              value={parentId === "none" ? "" : parentId}
+            />
+            <input
+              type="hidden"
+              name="is_active"
+              value={isActive ? "true" : "false"}
+            />
+
             <DialogFooter className="mt-4 flex justify-end gap-2">
               <Button
                 type="button"
@@ -156,8 +217,8 @@ export function CreateCategoryDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Category
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Category"}
               </Button>
             </DialogFooter>
           </form>

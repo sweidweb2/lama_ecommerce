@@ -24,13 +24,13 @@ import type { AdminCategory } from "./create_form"
 interface EditCategoryDialogProps {
   category: AdminCategory
   allCategories: AdminCategory[]
-  onUpdated?: (category: AdminCategory) => void
+  action: (formData: FormData) => void | Promise<void>
 }
 
 export function EditCategoryDialog({
   category,
   allCategories,
-  onUpdated,
+  action,
 }: EditCategoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(category.name)
@@ -39,22 +39,58 @@ export function EditCategoryDialog({
     category.parent_id ?? "none",
   )
   const [isActive, setIsActive] = useState(category.is_active)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
 
   const parentOptions = allCategories.filter((c) => c.id !== category.id)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    const updatedCategory: AdminCategory = {
-      ...category,
-      name: name.trim(),
-      slug: slug.trim() || null,
-      parent_id: parentId === "none" ? null : parentId,
-      is_active: isActive,
+    const trimmedName = name.trim()
+    const trimmedSlug = slug.trim()
+
+    const nextErrors: typeof errors = {}
+
+    if (!trimmedName) {
+      nextErrors.name = "Name is required."
+    } else if (trimmedName.length > 40) {
+      nextErrors.name = "Name must be at most 40 characters."
     }
 
-    onUpdated?.(updatedCategory)
-    setOpen(false)
+    if (trimmedSlug.length > 0) {
+      if (trimmedSlug.length > 20) {
+        nextErrors.slug = "Slug must be at most 20 characters."
+      } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+        nextErrors.slug =
+          "Slug can only contain lowercase letters, numbers, and hyphens."
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      return
+    }
+
+    setErrors({})
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    formData.set("name", trimmedName)
+    formData.set("slug", trimmedSlug)
+    formData.set("parent_id", parentId === "none" ? "" : parentId)
+    formData.set("is_active", isActive ? "true" : "false")
+
+    setIsSubmitting(true)
+    try {
+      await action(formData)
+      setOpen(false)
+    } catch (error) {
+      console.error("Error updating category:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -83,30 +119,48 @@ export function EditCategoryDialog({
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            <input type="hidden" name="id" value={category.id} />
             <div className="space-y-2">
               <Label htmlFor={`category-name-${category.id}`}>
                 Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id={`category-name-${category.id}`}
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={40}
                 placeholder="e.g., Electronics"
                 required
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor={`category-slug-${category.id}`}>Slug</Label>
               <Input
                 id={`category-slug-${category.id}`}
+                name="slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "")
+                      .slice(0, 20),
+                  )
+                }
+                maxLength={20}
                 placeholder="e.g., electronics"
               />
               <p className="text-xs text-muted-foreground">
                 URL-friendly identifier. Leave empty to generate later.
               </p>
+              {errors.slug && (
+                <p className="text-xs text-destructive">{errors.slug}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -155,8 +209,18 @@ export function EditCategoryDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <input
+                type="hidden"
+                name="parent_id"
+                value={parentId === "none" ? "" : parentId}
+              />
+              <input
+                type="hidden"
+                name="is_active"
+                value={isActive ? "true" : "false"}
+              />
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

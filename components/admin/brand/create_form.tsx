@@ -21,11 +21,42 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
+
+    const trimmedName = name.trim()
+    const trimmedSlug = slug.trim()
+
+    const nextErrors: typeof errors = {}
+
+    if (!trimmedName) {
+      nextErrors.name = "Name is required."
+    } else if (trimmedName.length > 100) {
+      nextErrors.name = "Name must be at most 100 characters."
+    }
+
+    if (trimmedSlug.length > 0) {
+      if (trimmedSlug.length > 50) {
+        nextErrors.slug = "Slug must be at most 50 characters."
+      } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+        nextErrors.slug =
+          "Slug can only contain lowercase letters, numbers, and hyphens."
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      return
+    }
+
+    setErrors({})
+
+    formData.set("name", trimmedName)
+    formData.set("slug", trimmedSlug)
 
     setIsSubmitting(true)
     try {
@@ -70,9 +101,13 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
                 name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={100}
                 placeholder="e.g., Lama Tech"
                 required
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -81,12 +116,23 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
                 id="brand-slug"
                 name="slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "")
+                      .slice(0, 50),
+                  )
+                }
+                maxLength={50}
                 placeholder="e.g., lama-tech"
               />
               <p className="text-xs text-muted-foreground">
                 URL-friendly identifier. Leave empty to generate later.
               </p>
+              {errors.slug && (
+                <p className="text-xs text-destructive">{errors.slug}</p>
+              )}
             </div>
 
             <div className="space-y-2">

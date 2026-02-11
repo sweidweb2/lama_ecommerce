@@ -14,24 +14,27 @@ import type { AdminCategory } from "./create_form"
 
 interface DeleteCategoryDialogProps {
   category: Pick<AdminCategory, "id" | "name">
-  onDelete?: (categoryId: string) => void | Promise<void>
+  action: (formData: FormData) => void | Promise<void>
   showText?: boolean
 }
 
 export function DeleteCategoryDialog({
   category,
-  onDelete,
+  action,
   showText = false,
 }: DeleteCategoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
     setIsDeleting(true)
     try {
-      if (onDelete) {
-        await onDelete(category.id)
-      }
+      await action(formData)
       setOpen(false)
     } catch (error) {
       console.error("Error deleting category:", error)
@@ -58,34 +61,36 @@ export function DeleteCategoryDialog({
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground mt-2">
-            <p>
-              Are you sure you want to delete the category{" "}
-              <span className="font-semibold text-foreground">{category.name}</span>?
-            </p>
-            <p>
-              Products that use this category will still exist but may show without a category
-              until reassigned. This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter className="mt-4 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete Category"}
-            </Button>
-          </DialogFooter>
+          <form onSubmit={handleDelete}>
+            <input type="hidden" name="id" value={category.id} />
+            <div className="space-y-2 text-sm text-muted-foreground mt-2">
+              <p>
+                Are you sure you want to delete the category{" "}
+                <span className="font-semibold text-foreground">{category.name}</span>?
+              </p>
+              <p>
+                Products that use this category will still exist but may show without a category
+                until reassigned. This action cannot be undone.
+              </p>
+            </div>
+            <DialogFooter className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete Category"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>
