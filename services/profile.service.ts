@@ -1,6 +1,13 @@
 import type { Profile, ProfileRole } from "@/types/user";
-import { getProfileByUserId } from "@/repositories/profile.repository";
+import {
+  getProfileByUserId,
+  getAllProfilesForAdmin,
+  updateProfileById,
+  softDeleteProfileById,
+  type AdminProfileRow,
+} from "@/repositories/profile.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
+import { ROLES } from "@/lib/constants/roles";
 
 /**
  * Get the current authenticated user's profile (including `role`).
@@ -31,4 +38,38 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
     console.error("Unexpected error in getCurrentUserProfile:", error);
     return null;
   }
+}
+
+/**
+ * Get all profiles with email for admin. Returns empty if caller is not admin.
+ */
+export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) return [];
+  return getAllProfilesForAdmin();
+}
+
+/**
+ * Update a profile (full_name, role, deleted_at) as admin. Fails if caller is not admin.
+ */
+export async function updateProfileAdmin(
+  profileId: string,
+  updates: {
+    full_name?: string | null;
+    role?: ProfileRole;
+    deleted_at?: string | null;
+  }
+): Promise<Profile | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) return null;
+  return updateProfileById(profileId, updates);
+}
+
+/**
+ * Soft-delete a profile (set deleted_at) as admin. Fails if caller is not admin.
+ */
+export async function deleteProfileAdmin(profileId: string): Promise<boolean> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) return false;
+  return softDeleteProfileById(profileId);
 }

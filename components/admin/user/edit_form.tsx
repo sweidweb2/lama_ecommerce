@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { updateProfileAction } from "@/actions/profile"
 
 export type AdminUser = {
   id: string
@@ -29,24 +30,36 @@ interface EditUserDialogProps {
 export function EditUserDialog({ user }: EditUserDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(user.name)
-  const [email, setEmail] = useState(user.email)
   const [role, setRole] = useState(user.role)
   const [status, setStatus] = useState(user.status)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // TODO: Wire this up to a real admin update action / API
-    // For now it's just a UI demo; we close the dialog after "saving".
-    setOpen(false)
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      const result = await updateProfileAction(user.id, {
+        full_name: name || undefined,
+        role: role === "Admin" ? "admin" : "user",
+        status: status as "Active" | "Blocked",
+      })
+      if (result?.success) {
+        setOpen(false)
+      } else {
+        setError(result?.error ?? "Update failed")
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
-    // Reset to original values on cancel
     setName(user.name)
-    setEmail(user.email)
     setRole(user.role)
     setStatus(user.status)
+    setError(null)
     setOpen(false)
   }
 
@@ -68,6 +81,9 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
             <div className="space-y-2">
               <Label htmlFor={`user-name-${user.id}`}>Name</Label>
               <Input
@@ -82,9 +98,11 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
               <Input
                 id={`user-email-${user.id}`}
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={user.email}
+                disabled
+                className="bg-muted"
               />
+              <p className="text-xs text-muted-foreground">Email is managed by auth and cannot be changed here.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -126,11 +144,12 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save changes"}
               </Button>
             </DialogFooter>
           </form>

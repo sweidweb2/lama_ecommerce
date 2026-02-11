@@ -7,52 +7,34 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditUserDialog } from "@/components/admin/user/edit_form"
 import { DeleteUserDialog } from "@/components/admin/user/delete_form"
 import { CreateUserDialog } from "@/components/admin/user/create_from"
+import { getAdminUsersAction } from "@/actions/profile"
+import type { AdminUser } from "@/components/admin/user/edit_form"
 
-// Dummy data
-const users = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    role: "Customer",
-    status: "Active",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    role: "Admin",
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Bob Johnson",
-    email: "bob.johnson@example.com",
-    role: "Customer",
-    status: "Blocked",
-  },
-  {
-    id: "4",
-    name: "Alice Williams",
-    email: "alice.williams@example.com",
-    role: "Customer",
-    status: "Active",
-  },
-  {
-    id: "5",
-    name: "Charlie Brown",
-    email: "charlie.brown@example.com",
-    role: "Customer",
-    status: "Active",
-  },
-]
+function toAdminUser(row: {
+  id: string
+  user_id: string
+  full_name: string | null
+  role: string
+  deleted_at: string | null
+  email: string | null
+}): AdminUser {
+  return {
+    id: row.id,
+    name: row.full_name ?? "—",
+    email: row.email ?? "—",
+    role: row.role === "admin" ? "Admin" : "Customer",
+    status: row.deleted_at ? "Blocked" : "Active",
+  }
+}
 
-export default function UsersPage() {
+export default async function UsersPage() {
+  const rows = await getAdminUsersAction()
+  const users: AdminUser[] = rows.map(toAdminUser)
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -79,30 +61,38 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  <Badge variant={user.role === "Admin" ? "default" : "secondary"}>
-                    {user.role}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={user.status === "Active" ? "default" : "destructive"}
-                  >
-                    {user.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <EditUserDialog user={user} />
-                    <DeleteUserDialog user={user} />
-                  </div>
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  No users found. Sign in as an admin to see all users.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <Badge variant={user.role === "Admin" ? "default" : "secondary"}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={user.status === "Active" ? "default" : "destructive"}
+                    >
+                      {user.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <EditUserDialog user={user} />
+                      <DeleteUserDialog user={user} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableWrapper>
