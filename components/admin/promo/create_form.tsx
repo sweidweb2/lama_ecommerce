@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import { createPromoCodeAction } from "@/actions/promo"
+import { toast } from "sonner"
 
 export type AdminPromoCode = {
   id: string
@@ -38,45 +40,39 @@ export function CreatePromoCodeDialog({ onCreated }: CreatePromoCodeDialogProps)
   const [expiresAt, setExpiresAt] = useState("")
   const [maxUses, setMaxUses] = useState("")
   const [isActive, setIsActive] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const newPromoCode = {
-      code: code.trim().toUpperCase(),
-      discount_type: discountType,
-      discount_value: discountValue ? parseFloat(discountValue) : null,
-      expires_at: expiresAt || null,
-      max_uses: maxUses ? parseInt(maxUses) : null,
-      is_active: isActive,
-    }
-
+    setIsSubmitting(true)
     try {
-      // TODO: Wire this up to a real admin create action / API
-      const response = await fetch("/api/admin/promo-codes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newPromoCode),
+      const result = await createPromoCodeAction({
+        code: code.trim().toUpperCase(),
+        discount_type: discountType,
+        discount_value: discountValue ? parseFloat(discountValue) : null,
+        expires_at: expiresAt || null,
+        max_uses: maxUses ? parseInt(maxUses, 10) : null,
+        is_active: isActive,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to create promo code")
+      if (result.success) {
+        setCode("")
+        setDiscountType('percentage')
+        setDiscountValue("")
+        setExpiresAt("")
+        setMaxUses("")
+        setIsActive(true)
+        setOpen(false)
+        onCreated?.()
+        toast.success("Promo code created")
+      } else {
+        toast.error(result.error)
       }
-
-      // Reset form
-      setCode("")
-      setDiscountType('percentage')
-      setDiscountValue("")
-      setExpiresAt("")
-      setMaxUses("")
-      setIsActive(true)
-      setOpen(false)
-      onCreated?.()
     } catch (error) {
       console.error("Error creating promo code:", error)
-      // TODO: Show error toast
+      toast.error("Failed to create promo code")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -218,8 +214,8 @@ export function CreatePromoCodeDialog({ onCreated }: CreatePromoCodeDialogProps)
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Promo Code
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Promo Code"}
               </Button>
             </DialogFooter>
           </form>
