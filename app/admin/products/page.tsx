@@ -1,85 +1,29 @@
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import Link from "next/link"
-import { ProductsTable } from "@/components/admin/product/ProductsTable"
-import { ProductStats } from "@/components/admin/product/ProductStats"
-import { type AdminProduct } from "@/components/admin/product/edit_form"
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import Link from "next/link";
+import { ProductsTable } from "@/components/admin/product/ProductsTable";
+import { ProductStats } from "@/components/admin/product/ProductStats";
+import { type AdminProduct } from "@/components/admin/product/edit_form";
+import { getAdminProductsService } from "@/services/product.service";
 
-// Dummy data
-const products: AdminProduct[] = [
-  {
-    id: "1",
-    name: "Wireless Headphones",
-    description: "Noise cancelling headphones with premium sound quality.",
-    slug: "wireless-headphones",
-    brand_id: "brand-1",
-    category_id: "cat-1",
-    sku: "ELEC-002",
-    price: 99.99,
-    is_featured: false,
-    is_trending: true,
-    is_active: true,
-    image: "/placeholder-product.jpg",
-  },
-  {
-    id: "2",
-    name: "Smart Watch",
-    description: "Keep track of your fitness and stay connected.",
-    slug: "smart-watch",
-    brand_id: "brand-1",
-    category_id: "cat-1",
-    sku: "ELEC-003",
-    price: 249.99,
-    is_featured: false,
-    is_trending: false,
-    is_active: true,
-    image: "/placeholder-product.jpg",
-  },
-  {
-    id: "3",
-    name: "Laptop Stand",
-    description: "Ergonomic laptop stand for better posture.",
-    slug: "laptop-stand",
-    brand_id: null,
-    category_id: "cat-1",
-    sku: "ELEC-006",
-    price: 49.99,
-    is_featured: false,
-    is_trending: false,
-    is_active: true,
-    image: "/placeholder-product.jpg",
-  },
-  {
-    id: "4",
-    name: "Mechanical Keyboard",
-    description: "Clicky mechanical keyboard for typing enthusiasts.",
-    slug: "mechanical-keyboard",
-    brand_id: "brand-1",
-    category_id: "cat-1",
-    sku: "ELEC-005",
-    price: 129.99,
-    is_featured: true,
-    is_trending: false,
-    is_active: true,
-    image: "/placeholder-product.jpg",
-  },
-  {
-    id: "5",
-    name: "USB-C Cable",
-    description: "High-speed USB-C charging cable.",
-    slug: "usb-c-cable",
-    brand_id: null,
-    category_id: "cat-1",
-    sku: "ELEC-007",
-    price: 19.99,
-    is_featured: false,
-    is_trending: true,
-    is_active: true,
-    image: "/placeholder-product.jpg",
-  },
-]
+export default async function ProductsPage() {
+  const productsFromDb = await getAdminProductsService();
 
-export default function ProductsPage() {
+  const adminProducts: AdminProduct[] = productsFromDb.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    slug: p.slug ?? undefined,
+    brand_id: p.brand_id ?? undefined,
+    category_id: p.category_id ?? undefined,
+    sku: p.sku ?? undefined,
+    price: p.price,
+    is_featured: p.is_featured,
+    is_trending: p.is_trending,
+    is_active: p.is_active,
+    image: undefined,
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -97,9 +41,9 @@ export default function ProductsPage() {
         </Link>
       </div>
 
-      <ProductStats products={products} />
+      <ProductStats products={adminProducts} />
 
-      <ProductsTable products={products} />
+      <ProductsTable products={adminProducts} />
     </div>
-  )
+  );
 }
