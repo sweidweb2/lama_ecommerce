@@ -117,11 +117,11 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             <Link href={ROUTES.HOME} className="flex items-center focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
               <Image
-                src="/logo.png"
+                src="/aviora-logo.png"
                 alt="Aviora Wear - Home"
                 width={200}
                 height={64}
-                className="h-14 w-auto object-contain"
+                className="h-10 w-auto object-contain"
                 priority
               />
             </Link>
@@ -297,11 +297,11 @@ export function Navbar() {
                   <SheetTitle className="flex justify-start">
                     <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)} className="block">
                       <Image
-                        src="/logo.png"
+                        src="/aviora-logo.png"
                         alt="Aviora Wear - Home"
                         width={200}
                         height={64}
-                        className="h-14 w-auto object-contain"
+                        className="h-10 w-auto object-contain"
                       />
                     </Link>
                   </SheetTitle>
