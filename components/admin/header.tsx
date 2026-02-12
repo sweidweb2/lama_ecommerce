@@ -37,6 +37,7 @@ const ADMIN_PAGES = [
   { href: "/admin/qa", label: "Q&A" },
   { href: "/admin/reviews", label: "Reviews" },
   { href: "/admin/contact", label: "Contact Us" },
+  { href: "/admin/leads", label: "Leads" },
   { href: "/admin/backups", label: "Backups" },
   { href: "/admin/shippings", label: "Shippings" },
   { href: "/admin/promocodes", label: "Promo Codes" },

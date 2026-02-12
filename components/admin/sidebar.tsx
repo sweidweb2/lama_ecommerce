@@ -18,6 +18,7 @@ import {
   Grid3x3,
   Tag,
   Tags,
+  UserPlus,
 } from "lucide-react"
 import { SidebarItem } from "./sidebar-item"
 import { cn } from "@/lib/utils"
@@ -100,6 +101,11 @@ const menuItems = [
     href: "/admin/contact",
     label: "Contact Us",
     icon: Mail,
+  },
+  {
+    href: "/admin/leads",
+    label: "Leads",
+    icon: UserPlus,
   },
   {
     href: "/admin/backups",

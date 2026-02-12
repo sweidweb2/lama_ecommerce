@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ROUTES } from '@/lib/constants/routes'
@@ -9,9 +10,15 @@ import {
   Instagram, 
   MessageCircle
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { createLeadAction } from '@/actions/lead'
+import { toast } from 'sonner'
 
 export function Footer() {
   const pathname = usePathname()
+  const [email, setEmail] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Hide footer on admin routes and product detail pages
   if (pathname?.startsWith('/admin') || pathname?.match(/^\/products\/[^/]+$/)) {
@@ -156,6 +163,45 @@ export function Footer() {
                   </a>
                 </li>
               </ul>
+            </div>
+
+            {/* Lead / Newsletter signup */}
+            <div className="lg:col-span-4 w-full pt-8 border-t border-border">
+              <h3 className="text-base font-semibold text-foreground mb-2">
+                Stay updated
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Enter your email to get news and offers.
+              </p>
+              <form
+                className="flex flex-col sm:flex-row gap-2 max-w-md"
+                action={async (formData) => {
+                  setIsSubmitting(true)
+                  const result = await createLeadAction(formData)
+                  setIsSubmitting(false)
+                  if (result.success) {
+                    setEmail('')
+                    toast.success('Thanks! We’ll keep you updated.')
+                  } else {
+                    toast.error(result.error)
+                  }
+                }}
+              >
+                <Input
+                  type="email"
+                  name="email"
+                  placeholder="Your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="flex-1 min-w-0"
+                  required
+                  disabled={isSubmitting}
+                  aria-label="Email for updates"
+                />
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting…' : 'Subscribe'}
+                </Button>
+              </form>
             </div>
           </div>
         </div>
