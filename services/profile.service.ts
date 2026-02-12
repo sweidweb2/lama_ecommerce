@@ -3,7 +3,7 @@ import {
   getProfileByUserId,
   getAllProfilesForAdmin,
   updateProfileById,
-  softDeleteProfileById,
+  createUserAndProfile,
   type AdminProfileRow,
 } from "@/repositories/profile.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
@@ -50,7 +50,7 @@ export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
 }
 
 /**
- * Update a profile (full_name, role, deleted_at) as admin. Fails if caller is not admin.
+ * Update a profile (full_name, role, deleted_at/status) as admin. Fails if caller is not admin.
  */
 export async function updateProfileAdmin(
   profileId: string,
@@ -58,18 +58,54 @@ export async function updateProfileAdmin(
     full_name?: string | null;
     role?: ProfileRole;
     deleted_at?: string | null;
-  }
+  },
 ): Promise<Profile | null> {
   const profile = await getCurrentUserProfile();
   if (!profile || profile.role !== ROLES.ADMIN) return null;
   return updateProfileById(profileId, updates);
 }
 
+export type CreateUserAdminResult =
+  | { ok: true; data: AdminProfileRow }
+  | { ok: false; error: string };
+
 /**
- * Soft-delete a profile (set deleted_at) as admin. Fails if caller is not admin.
+ * Create a new user (auth + profile) as admin. Fails if caller is not admin.
  */
-export async function deleteProfileAdmin(profileId: string): Promise<boolean> {
+export async function createUserAdmin(params: {
+  email: string;
+  password: string;
+  full_name: string;
+  role: ProfileRole;
+  status: "active" | "inactive";
+}): Promise<CreateUserAdminResult> {
   const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) return false;
-  return softDeleteProfileById(profileId);
+  if (!profile || profile.role !== ROLES.ADMIN) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const deleted_at =
+    params.status === "inactive" ? new Date().toISOString() : null;
+
+  const result = await createUserAndProfile({
+    email: params.email,
+    password: params.password,
+    full_name: params.full_name,
+    role: params.role,
+    deleted_at,
+  });
+
+  if (!result.ok) return { ok: false, error: result.error };
+  return {
+    ok: true,
+    data: {
+      id: result.profile.id,
+      user_id: result.user_id,
+      full_name: result.profile.full_name,
+      role: result.profile.role,
+      created_at: result.profile.created_at,
+      deleted_at: result.profile.deleted_at,
+      email: params.email.trim().toLowerCase(),
+    },
+  };
 }

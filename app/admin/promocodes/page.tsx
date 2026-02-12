@@ -14,43 +14,8 @@ import { TableWrapper } from "@/components/admin/table-wrapper"
 import { CreatePromoCodeDialog, type AdminPromoCode } from "@/components/admin/promo/create_form"
 import { EditPromoCodeDialog } from "@/components/admin/promo/edit_form"
 import { DeletePromoCodeDialog } from "@/components/admin/promo/delete_dialog"
-
-// Dummy data - will be replaced with API call
-const dummyPromoCodes: AdminPromoCode[] = [
-  {
-    id: "1",
-    code: "SAVE20",
-    discount_type: "percentage",
-    discount_value: 20,
-    max_uses: 100,
-    use_count: 45,
-    is_active: true,
-    expires_at: "2024-12-31T23:59:59Z",
-    created_at: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "2",
-    code: "FREESHIP",
-    discount_type: "fixed",
-    discount_value: 10,
-    max_uses: 50,
-    use_count: 12,
-    is_active: true,
-    expires_at: "2024-06-30T23:59:59Z",
-    created_at: "2024-01-16T09:20:00Z",
-  },
-  {
-    id: "3",
-    code: "WELCOME10",
-    discount_type: "percentage",
-    discount_value: 10,
-    max_uses: 100,
-    use_count: 100,
-    is_active: false,
-    expires_at: "2024-01-01T23:59:59Z",
-    created_at: "2024-01-10T08:00:00Z",
-  },
-]
+import { getPromoCodesAction, deletePromoCodeAction } from "@/actions/promo"
+import { toast } from "sonner"
 
 const formatDiscount = (promoCode: AdminPromoCode) => {
   if (promoCode.discount_type === 'percentage') {
@@ -73,23 +38,17 @@ const getStatusBadge = (promoCode: AdminPromoCode) => {
 }
 
 export default function PromoCodesPage() {
-  const [promoCodes, setPromoCodes] = useState<AdminPromoCode[]>(dummyPromoCodes)
+  const [promoCodes, setPromoCodes] = useState<AdminPromoCode[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchPromoCodes = async () => {
     try {
       setIsLoading(true)
-      // TODO: Replace with actual API call
-      // const response = await fetch("/api/admin/promo-codes")
-      // if (response.ok) {
-      //   const data = await response.json()
-      //   setPromoCodes(data)
-      // }
-      
-      // For now, use dummy data
-      setPromoCodes(dummyPromoCodes)
+      const data = await getPromoCodesAction()
+      setPromoCodes(data)
     } catch (error) {
       console.error("Error fetching promo codes:", error)
+      toast.error("Failed to load promo codes")
     } finally {
       setIsLoading(false)
     }
@@ -108,21 +67,13 @@ export default function PromoCodesPage() {
   }
 
   const handlePromoCodeDeleted = async (promoCodeId: string) => {
-    try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/admin/promo-codes/${promoCodeId}`, {
-      //   method: "DELETE",
-      // })
-      // if (!response.ok) {
-      //   throw new Error("Failed to delete promo code")
-      // }
-      
-      // For now, just remove from local state
-      setPromoCodes(promoCodes.filter((pc) => pc.id !== promoCodeId))
-    } catch (error) {
-      console.error("Error deleting promo code:", error)
-      throw error
+    const result = await deletePromoCodeAction(promoCodeId)
+    if (!result.success) {
+      toast.error(result.error)
+      throw new Error(result.error)
     }
+    setPromoCodes((prev) => prev.filter((pc) => pc.id !== promoCodeId))
+    toast.success("Promo code deleted")
   }
 
   return (

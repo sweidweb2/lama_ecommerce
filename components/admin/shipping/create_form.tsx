@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
+import { createShippingZoneAction } from "@/actions/shipping"
+import { toast } from "sonner"
 
 export type AdminShippingZone = {
   id: string
@@ -24,40 +26,30 @@ export function CreateShippingZoneDialog({ onCreated }: CreateShippingZoneDialog
   const [name, setName] = useState("")
   const [estimatedTime, setEstimatedTime] = useState("")
   const [fee, setFee] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const newZone = {
-      name: name.trim(),
-      estimated_time: estimatedTime.trim() || null,
-      fee: fee ? parseFloat(fee) : null,
-    }
-
+    setIsSubmitting(true)
     try {
-      // TODO: Wire this up to a real admin create action / API
-      // The backend should create both shipping_zone and shipping_fee entities
-      const response = await fetch("/api/admin/shipping-zones", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newZone),
+      const result = await createShippingZoneAction({
+        name: name.trim(),
+        estimated_time: estimatedTime.trim() || null,
+        fee: fee ? parseFloat(fee) : null,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to create shipping zone")
+      if (result.success) {
+        setName("")
+        setEstimatedTime("")
+        setFee("")
+        setOpen(false)
+        onCreated?.()
+        toast.success("Shipping zone created")
+      } else {
+        toast.error(result.error)
       }
-
-      // Reset form
-      setName("")
-      setEstimatedTime("")
-      setFee("")
-      setOpen(false)
-      onCreated?.()
-    } catch (error) {
-      console.error("Error creating shipping zone:", error)
-      // TODO: Show error toast
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -132,8 +124,8 @@ export function CreateShippingZoneDialog({ onCreated }: CreateShippingZoneDialog
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Zone
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Zone"}
               </Button>
             </DialogFooter>
           </form>

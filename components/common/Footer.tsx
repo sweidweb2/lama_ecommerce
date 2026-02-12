@@ -30,10 +30,14 @@ export function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
             {/* About Section */}
             <div className="lg:col-span-1">
-              <Link href={ROUTES.HOME} className="inline-block mb-4">
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  LAMA
-                </span>
+              <Link href={ROUTES.HOME} className="inline-block mb-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
+                <img
+                  src="/logo.png"
+                  alt="Aviora Wear"
+                  className="h-10 w-auto object-contain"
+                  width={140}
+                  height={44}
+                />
               </Link>
               <p className="text-sm text-muted-foreground mb-4">
                 Your trusted destination for quality products. Discover amazing deals and shop with confidence.
@@ -226,7 +230,7 @@ export function Footer() {
         <div className="border-t border-border py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <p>
-              © {new Date().getFullYear()} LAMA. All rights reserved.
+              © {new Date().getFullYear()} Aviora Wear. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <Link

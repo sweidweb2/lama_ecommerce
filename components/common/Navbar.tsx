@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { ROUTES } from "../../lib/constants/routes";
 import { ROLES } from "../../lib/constants/roles";
@@ -39,13 +40,13 @@ import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
 
-const NAV_LINKS = [
+const NAV_LINKS_BASE = [
   { label: "Home", href: ROUTES.HOME },
   { label: "Products", href: "/products" },
-  { label: "Orders", href: "/orders" },
   { label: "About", href: "/about-us" },
   { label: "Contact", href: "/contact-us" },
 ];
+const ORDERS_LINK = { label: "Orders", href: "/orders" };
 
 export function Navbar() {
   const pathname = usePathname();
@@ -114,16 +115,21 @@ export function Navbar() {
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <Link href={ROUTES.HOME} className="flex items-center">
-              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                LAMA
-              </span>
+            <Link href={ROUTES.HOME} className="flex items-center focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
+              <Image
+                src="/aviora-logo.png"
+                alt="Aviora Wear - Home"
+                width={200}
+                height={64}
+                className="h-10 w-auto object-contain"
+                priority
+              />
             </Link>
           </div>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS_BASE.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -137,6 +143,19 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {isLoggedIn && (
+              <Link
+                href={ORDERS_LINK.href}
+                className={cn(
+                  "transition-colors hover:text-primary",
+                  pathname === ORDERS_LINK.href
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground",
+                )}
+              >
+                {ORDERS_LINK.label}
+              </Link>
+            )}
             {isAdmin && (
               <Link
                 href={ROUTES.ADMIN}
@@ -160,12 +179,14 @@ export function Navbar() {
               <span className="sr-only">Search</span>
             </Button>
 
-            <Link href="/wishlist">
-              <Button variant="ghost" size="icon" className="hidden sm:flex">
-                <Heart className="h-5 w-5" />
-                <span className="sr-only">Wishlist</span>
-              </Button>
-            </Link>
+            {isLoggedIn && (
+              <Link href="/wishlist">
+                <Button variant="ghost" size="icon" className="hidden sm:flex">
+                  <Heart className="h-5 w-5" />
+                  <span className="sr-only">Wishlist</span>
+                </Button>
+              </Link>
+            )}
 
             <div className="hidden md:flex items-center gap-2">
               <ModeToggle />
@@ -274,15 +295,19 @@ export function Navbar() {
               <SheetContent side="left" className="w-[300px] sm:w-[400px] flex flex-col">
                 <SheetHeader className="px-4 shrink-0">
                   <SheetTitle className="flex justify-start">
-                    <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)}>
-                      <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                        LAMA
-                      </span>
+                    <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)} className="block">
+                      <Image
+                        src="/aviora-logo.png"
+                        alt="Aviora Wear - Home"
+                        width={200}
+                        height={64}
+                        className="h-10 w-auto object-contain"
+                      />
                     </Link>
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="flex flex-col gap-4 mt-8 px-4 overflow-y-auto flex-1 pb-4 hide-scrollbar">
-                  {NAV_LINKS.map((link) => (
+                  {NAV_LINKS_BASE.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
@@ -297,6 +322,20 @@ export function Navbar() {
                       {link.label}
                     </Link>
                   ))}
+                  {isLoggedIn && (
+                    <Link
+                      href={ORDERS_LINK.href}
+                      onClick={() => setIsOpen(false)}
+                      className={cn(
+                        "text-lg font-medium transition-colors hover:text-primary",
+                        pathname === ORDERS_LINK.href
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {ORDERS_LINK.label}
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link
                       href={ROUTES.ADMIN}
@@ -313,22 +352,26 @@ export function Navbar() {
                     </Link>
                   )}
                   <hr className="my-2" />
-                  <Link
-                    href={ROUTES.CART}
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    Cart
-                  </Link>
-                  <Link
-                    href="/wishlist"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Heart className="h-5 w-5" />
-                    Wishlist
-                  </Link>
+                  {isLoggedIn && (
+                    <>
+                      <Link
+                        href={ROUTES.CART}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <ShoppingCart className="h-5 w-5" />
+                        Cart
+                      </Link>
+                      <Link
+                        href="/wishlist"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Heart className="h-5 w-5" />
+                        Wishlist
+                      </Link>
+                    </>
+                  )}
                   <div
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"

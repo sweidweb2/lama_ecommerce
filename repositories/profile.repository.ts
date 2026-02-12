@@ -2,6 +2,7 @@ import {
   createSupabaseServerComponentClient,
   createSupabaseServerActionClient,
 } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile, ProfileRole } from "@/types/user";
 
 /** Profile row with email (from get_admin_profiles() RPC). */
@@ -24,7 +25,7 @@ export interface AdminProfileRow {
  * Note: Uses Server Component client (read-only cookies) to work in Server Components.
  */
 export async function getProfileByUserId(
-  userId: string
+  userId: string,
 ): Promise<Profile | null> {
   try {
     const supabase = await createSupabaseServerComponentClient();
@@ -94,7 +95,7 @@ export async function getAllProfilesForAdmin(): Promise<AdminProfileRow[]> {
  * Requires "Admins can read all profiles" RLS policy.
  */
 async function getAllProfilesForAdminFallback(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerComponentClient>>
+  supabase: Awaited<ReturnType<typeof createSupabaseServerComponentClient>>,
 ): Promise<AdminProfileRow[]> {
   const { data, error } = await (supabase as any)
     .from("profiles")
@@ -108,7 +109,7 @@ async function getAllProfilesForAdminFallback(
 }
 
 /**
- * Update a profile by id (admin use). Updates full_name, role, and/or deleted_at.
+ * Update a profile by id (admin use). Updates full_name, role, and/or deleted_at (status).
  * Caller must be admin (enforced by RLS).
  */
 export async function updateProfileById(
@@ -117,7 +118,7 @@ export async function updateProfileById(
     full_name?: string | null;
     role?: ProfileRole;
     deleted_at?: string | null;
-  }
+  },
 ): Promise<Profile | null> {
   try {
     const supabase = await createSupabaseServerActionClient();
@@ -144,28 +145,92 @@ export async function updateProfileById(
   }
 }
 
-/**
- * Soft-delete a profile by setting deleted_at (admin use).
- * Caller must be admin (enforced by RLS).
- */
-export async function softDeleteProfileById(
-  profileId: string
-): Promise<boolean> {
-  try {
-    const supabase = await createSupabaseServerActionClient();
-    const { error } = await (supabase as any)
-      .from("profiles")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", profileId);
+export type CreateUserAndProfileResult =
+  | { ok: true; profile: Profile; user_id: string }
+  | { ok: false; error: string };
 
-    if (error) {
-      console.error("Failed to soft-delete profile:", error);
-      return false;
+/**
+ * Create a new auth user and profile using the service role (admin only).
+ * Caller must have verified admin role before calling.
+ */
+export async function createUserAndProfile(params: {
+  email: string;
+  password: string;
+  full_name: string;
+  role: ProfileRole;
+  deleted_at: string | null;
+}): Promise<CreateUserAndProfileResult> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data: authData, error: authError } = await (supabase as any).auth.admin.createUser({
+      email: params.email.trim().toLowerCase(),
+      password: params.password,
+      email_confirm: true,
+      user_metadata: { full_name: params.full_name.trim() },
+    });
+
+    if (authError) {
+      console.error("Admin createUser failed:", authError);
+      const msg = authError.message ?? "User creation failed";
+      return { ok: false, error: msg };
     }
-    return true;
+
+    const userId = authData.user?.id;
+    if (!userId) {
+      console.error("Admin createUser returned no user id");
+      return { ok: false, error: "User creation failed" };
+    }
+
+    const adminSupabase = supabase as any;
+    const { data: existing } = await adminSupabase
+      .from("profiles")
+      .select("id, user_id, full_name, role, created_at, deleted_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    let profileRow: Profile;
+
+    if (existing) {
+      const { data: updated, error: updateError } = await adminSupabase
+        .from("profiles")
+        .update({
+          full_name: params.full_name.trim(),
+          role: params.role,
+          deleted_at: params.deleted_at,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (updateError) {
+        console.error("Update profile failed:", updateError);
+        return { ok: false, error: "Failed to update profile" };
+      }
+      profileRow = updated as Profile;
+    } else {
+      const { data: inserted, error: insertError } = await adminSupabase
+        .from("profiles")
+        .insert({
+          user_id: userId,
+          full_name: params.full_name.trim(),
+          role: params.role,
+          deleted_at: params.deleted_at,
+        })
+        .select()
+        .single();
+      if (insertError) {
+        console.error("Insert profile failed:", insertError);
+        return { ok: false, error: "Failed to create profile" };
+      }
+      profileRow = inserted as Profile;
+    }
+
+    return { ok: true, profile: profileRow, user_id: userId };
   } catch (error) {
-    console.error("Unexpected error in softDeleteProfileById:", error);
-    return false;
+    console.error("Unexpected error in createUserAndProfile:", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "User creation failed",
+    };
   }
 }
-

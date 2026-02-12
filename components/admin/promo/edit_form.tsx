@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { updatePromoCodeAction } from "@/actions/promo"
+import { toast } from "sonner"
 import type { AdminPromoCode } from "./create_form"
 
 interface EditPromoCodeDialogProps {
@@ -32,39 +34,48 @@ export function EditPromoCodeDialog({ promoCode, onUpdated }: EditPromoCodeDialo
   )
   const [maxUses, setMaxUses] = useState(promoCode.max_uses?.toString() || "")
   const [isActive, setIsActive] = useState(promoCode.is_active)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const getMinExpiresAt = () => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, "0")
+    const d = String(now.getDate()).padStart(2, "0")
+    const h = String(now.getHours()).padStart(2, "0")
+    const min = String(now.getMinutes()).padStart(2, "0")
+    return `${y}-${m}-${d}T${h}:${min}`
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const updatedPromoCode = {
-      id: promoCode.id,
-      code: code.trim().toUpperCase(),
-      discount_type: discountType,
-      discount_value: discountValue ? parseFloat(discountValue) : null,
-      expires_at: expiresAt || null,
-      max_uses: maxUses ? parseInt(maxUses) : null,
-      is_active: isActive,
+    if (expiresAt.trim() && new Date(expiresAt) <= new Date()) {
+      toast.error("Expiration date cannot be in the past")
+      return
     }
-
+    setIsSubmitting(true)
     try {
-      // TODO: Wire this up to a real admin update action / API
-      const response = await fetch(`/api/admin/promo-codes/${promoCode.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedPromoCode),
+      const result = await updatePromoCodeAction({
+        id: promoCode.id,
+        code: code.trim().toUpperCase(),
+        discount_type: discountType,
+        discount_value: discountValue ? parseFloat(discountValue) : null,
+        expires_at: expiresAt || null,
+        max_uses: maxUses ? parseInt(maxUses, 10) : null,
+        is_active: isActive,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to update promo code")
+      if (result.success) {
+        setOpen(false)
+        onUpdated?.()
+        toast.success("Promo code updated")
+      } else {
+        toast.error(result.error)
       }
-
-      setOpen(false)
-      onUpdated?.()
     } catch (error) {
       console.error("Error updating promo code:", error)
-      // TODO: Show error toast
+      toast.error("Failed to update promo code")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -164,11 +175,12 @@ export function EditPromoCodeDialog({ promoCode, onUpdated }: EditPromoCodeDialo
                 <Input
                   id={`expires-at-${promoCode.id}`}
                   type="datetime-local"
+                  min={getMinExpiresAt()}
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty for no expiration
+                  Leave empty for no expiration. Cannot be in the past.
                 </p>
               </div>
 
@@ -221,8 +233,8 @@ export function EditPromoCodeDialog({ promoCode, onUpdated }: EditPromoCodeDialo
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

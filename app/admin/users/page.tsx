@@ -9,7 +9,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditUserDialog } from "@/components/admin/user/edit_form"
-import { DeleteUserDialog } from "@/components/admin/user/delete_form"
 import { CreateUserDialog } from "@/components/admin/user/create_from"
 import { getAdminUsersAction } from "@/actions/profile"
 import type { AdminUser } from "@/components/admin/user/edit_form"
@@ -27,7 +26,7 @@ function toAdminUser(row: {
     name: row.full_name ?? "—",
     email: row.email ?? "—",
     role: row.role === "admin" ? "Admin" : "Customer",
-    status: row.deleted_at ? "Blocked" : "Active",
+    status: row.deleted_at ? "Inactive" : "Active",
   }
 }
 
@@ -79,16 +78,13 @@ export default async function UsersPage() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={user.status === "Active" ? "default" : "destructive"}
+                      variant={user.status === "Active" ? "default" : "secondary"}
                     >
                       {user.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <EditUserDialog user={user} />
-                      <DeleteUserDialog user={user} />
-                    </div>
+                    <EditUserDialog user={user} />
                   </TableCell>
                 </TableRow>
               ))

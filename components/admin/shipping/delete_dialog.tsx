@@ -21,20 +21,10 @@ export function DeleteShippingZoneDialog({ zone, onDelete, showText = false }: D
     try {
       if (onDelete) {
         await onDelete(zone.id)
-      } else {
-        // Default behavior - call API
-        const response = await fetch(`/api/admin/shipping-zones/${zone.id}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to delete shipping zone")
-        }
       }
       setOpen(false)
     } catch (error) {
       console.error("Error deleting shipping zone:", error)
-      // TODO: Show error toast
     } finally {
       setIsDeleting(false)
     }

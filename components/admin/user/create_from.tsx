@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -13,26 +14,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { createUserAction } from "@/actions/profile"
 import type { AdminUser } from "./edit_form"
 
 interface CreateUserDialogProps {
-  // Optional callback for when a user is created later
   onCreated?: (user: Partial<AdminUser>) => void
 }
 
 export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [role, setRole] = useState<AdminUser["role"]>("Customer")
-  const [status, setStatus] = useState<AdminUser["status"]>("Active")
+  const [status, setStatus] = useState<"Active" | "Inactive">("Active")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const resetForm = () => {
     setName("")
     setEmail("")
+    setPassword("")
     setRole("Customer")
     setStatus("Active")
+    setError(null)
   }
 
   const handleClose = () => {
@@ -42,17 +48,30 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setIsSubmitting(true)
 
     try {
-      // TODO: Wire this up to a real admin "create user" action.
-      onCreated?.({
-        name,
-        email,
-        role,
-        status,
+      const result = await createUserAction({
+        full_name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role: role === "Admin" ? "admin" : "user",
+        status: status === "Active" ? "active" : "inactive",
       })
-      handleClose()
+
+      if (result?.success && result.data) {
+        onCreated?.({
+          name: result.data.full_name ?? name,
+          email: result.data.email ?? email,
+          role: result.data.role === "admin" ? "Admin" : "Customer",
+          status: result.data.deleted_at ? "Inactive" : "Active",
+        })
+        handleClose()
+        router.refresh()
+      } else {
+        setError(result?.error ?? "Failed to create user")
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -70,13 +89,22 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
         Add user
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen)
+          if (!isOpen) resetForm()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create new user</DialogTitle>
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="create-user-name">Name</Label>
               <Input
@@ -96,6 +124,20 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-user-password">Password</Label>
+              <Input
+                id="create-user-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+              <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -122,7 +164,7 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
                 <Select
                   value={status}
                   onValueChange={(value) =>
-                    setStatus(value as AdminUser["status"])
+                    setStatus(value as "Active" | "Inactive")
                   }
                 >
                   <SelectTrigger id="create-user-status" className="w-full">
@@ -130,7 +172,7 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Blocked">Blocked</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

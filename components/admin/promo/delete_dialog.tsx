@@ -21,20 +21,10 @@ export function DeletePromoCodeDialog({ promoCode, onDelete, showText = false }:
     try {
       if (onDelete) {
         await onDelete(promoCode.id)
-      } else {
-        // Default behavior - call API
-        const response = await fetch(`/api/admin/promo-codes/${promoCode.id}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to delete promo code")
-        }
       }
       setOpen(false)
     } catch (error) {
       console.error("Error deleting promo code:", error)
-      // TODO: Show error toast
     } finally {
       setIsDeleting(false)
     }
