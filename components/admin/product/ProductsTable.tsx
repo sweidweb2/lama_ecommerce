@@ -288,9 +288,19 @@ export function ProductsTable({ products }: ProductsTableProps) {
               paginatedProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
-                    <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground">IMG</span>
-                    </div>
+                    {product.image ? (
+                      <div className="h-12 w-12 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">IMG</span>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>${product.price.toFixed(2)}</TableCell>

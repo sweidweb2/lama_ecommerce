@@ -30,15 +30,15 @@ export interface CreateProductRepoInput {
 }
 
 /**
- * Fetch all products for admin (no `is_active` filter).
+ * Fetch all products for admin (no `is_active` filter), including images.
  */
-export async function getAdminProducts(): Promise<Product[]> {
+export async function getAdminProducts(): Promise<ProductWithRelations[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
 
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select("*, images:product_images(*)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -46,7 +46,7 @@ export async function getAdminProducts(): Promise<Product[]> {
       return [];
     }
 
-    return (data ?? []) as Product[];
+    return (data ?? []) as ProductWithRelations[];
   } catch (error) {
     console.error("Unexpected error in getAdminProducts:", error);
     return [];

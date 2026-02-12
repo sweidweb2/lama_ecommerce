@@ -5,7 +5,7 @@ import {
   getAdminProducts,
   type CreateProductRepoInput,
 } from "@/repositories/product.repository";
-import type { Product } from "@/types/product";
+import type { Product, ProductWithRelations } from "@/types/product";
 
 /**
  * Create a new product as admin.
@@ -35,6 +35,6 @@ export async function createProductService(
 /**
  * Get all products for admin listing.
  */
-export async function getAdminProductsService(): Promise<Product[]> {
+export async function getAdminProductsService(): Promise<ProductWithRelations[]> {
   return getAdminProducts();
 }

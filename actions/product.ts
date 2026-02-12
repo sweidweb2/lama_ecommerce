@@ -6,6 +6,8 @@ import { getCurrentUserProfile } from "@/services/profile.service";
 import { ROLES } from "@/lib/constants/roles";
 import { createProductService } from "@/services/product.service";
 import { createProductSchema } from "@/lib/validators/product/create";
+import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createProductImage } from "@/repositories/product_images.repository";
 
 export async function createProductAction(formData: FormData): Promise<void> {
   try {
@@ -58,6 +60,39 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const created = await createProductService(parsed, profile.user_id);
     if (!created) {
       throw new Error("Failed to create product");
+    }
+
+    const imageFile = formData.get("images");
+
+    if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+      const supabase = await createSupabaseServerActionClient();
+      const mime = imageFile.type || "image/png";
+      const ext = mime.split("/")[1] || "png";
+      const filePath = `products/${created.id}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("products")
+        .upload(filePath, imageFile, {
+          contentType: mime,
+        });
+
+      if (uploadError) {
+        console.error("Error uploading product image:", uploadError);
+        // Do not fail the whole product creation if image upload fails
+      } else {
+        const { data } = supabase.storage
+          .from("products")
+          .getPublicUrl(filePath);
+
+        const publicUrl = data.publicUrl ?? null;
+        if (publicUrl) {
+          await createProductImage({
+            product_id: created.id,
+            url_image: publicUrl,
+            is_primary: true,
+          });
+        }
+      }
     }
 
     revalidatePath("/admin/products");

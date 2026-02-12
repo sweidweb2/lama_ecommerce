@@ -9,20 +9,25 @@ import { getAdminProductsService } from "@/services/product.service";
 export default async function ProductsPage() {
   const productsFromDb = await getAdminProductsService();
 
-  const adminProducts: AdminProduct[] = productsFromDb.map((p) => ({
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    slug: p.slug ?? undefined,
-    brand_id: p.brand_id ?? undefined,
-    category_id: p.category_id ?? undefined,
-    sku: p.sku ?? undefined,
-    price: p.price,
-    is_featured: p.is_featured,
-    is_trending: p.is_trending,
-    is_active: p.is_active,
-    image: undefined,
-  }));
+  const adminProducts: AdminProduct[] = productsFromDb.map((p) => {
+    const primaryImage =
+      p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
+
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      slug: p.slug ?? undefined,
+      brand_id: p.brand_id ?? undefined,
+      category_id: p.category_id ?? undefined,
+      sku: p.sku ?? undefined,
+      price: p.price,
+      is_featured: p.is_featured,
+      is_trending: p.is_trending,
+      is_active: p.is_active,
+      image: primaryImage ? primaryImage.url_image : undefined,
+    };
+  });
 
   return (
     <div className="space-y-6">
