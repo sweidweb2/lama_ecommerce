@@ -3,9 +3,12 @@ import { createProductSchema } from "@/lib/validators/product/create";
 import {
   createProduct,
   getAdminProducts,
+  getProducts as getProductsRepo,
   type CreateProductRepoInput,
+  type GetProductsRepoParams,
 } from "@/repositories/product.repository";
-import type { Product } from "@/types/product";
+import { getCategoryIdBySlug } from "@/repositories/categories.repository";
+import type { Product, ProductWithRelations } from "@/types/product";
 
 /**
  * Create a new product as admin.
@@ -35,6 +38,39 @@ export async function createProductService(
 /**
  * Get all products for admin listing.
  */
-export async function getAdminProductsService(): Promise<Product[]> {
+export async function getAdminProductsService(): Promise<ProductWithRelations[]> {
   return getAdminProducts();
+}
+
+export interface GetProductsServiceParams {
+  categorySlug?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+/**
+ * Public storefront products fetch.
+ */
+export async function getProducts(
+  params: GetProductsServiceParams = {},
+): Promise<{ data: ProductWithRelations[]; count: number }> {
+  const { categorySlug, sort, page = 1, pageSize = 12, search } = params;
+
+  let categoryId: string | null = null;
+
+  if (categorySlug) {
+    categoryId = await getCategoryIdBySlug(categorySlug);
+  }
+
+  const repoParams: GetProductsRepoParams = {
+    categoryId,
+    sort,
+    page,
+    pageSize,
+    search,
+  };
+
+  return getProductsRepo(repoParams);
 }

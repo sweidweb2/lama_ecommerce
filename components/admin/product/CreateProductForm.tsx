@@ -140,7 +140,7 @@ export function CreateProductForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" encType="multipart/form-data">
         <div className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">
@@ -229,6 +229,19 @@ export function CreateProductForm({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t">
+            <Label htmlFor="images">Product Image</Label>
+            <Input
+              id="images"
+              name="images"
+              type="file"
+              accept="image/*"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional. You can add more images later from the product details page.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
