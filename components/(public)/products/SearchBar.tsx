@@ -6,7 +6,12 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-export function SearchBar() {
+interface SearchBarProps {
+    /** Called after navigation (e.g. to close mobile nav sheet) */
+    onNavigate?: () => void
+}
+
+export function SearchBar({ onNavigate }: SearchBarProps = {}) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [query, setQuery] = useState(searchParams.get('search') || '')
@@ -42,6 +47,7 @@ export function SearchBar() {
         params.delete('page')
 
         router.push(`/products?${params.toString()}`)
+        onNavigate?.()
     }
 
     const clearSearch = () => {
@@ -50,6 +56,7 @@ export function SearchBar() {
         params.delete('search')
         params.delete('page')
         router.push(`/products?${params.toString()}`)
+        onNavigate?.()
     }
 
     return (

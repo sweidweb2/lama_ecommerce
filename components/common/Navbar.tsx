@@ -32,13 +32,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
 import { ModeToggle } from "../theme/mode-toggle";
 import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
+import { SearchBar } from "@/components/(public)/products/SearchBar";
 
 const NAV_LINKS_BASE = [
   { label: "Home", href: ROUTES.HOME },
@@ -53,7 +54,22 @@ export function Navbar() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const { user, profile, role, loading } = useAuth();
+
+  // Close desktop search when clicking outside
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [searchOpen]);
 
   // Hide navbar on admin routes
   if (pathname?.startsWith("/admin")) {
@@ -173,11 +189,23 @@ export function Navbar() {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-              <Search className="h-5 w-5" />
-              <span className="sr-only">Search</span>
-            </Button>
+          <div className="flex items-center gap-2 sm:gap-4" ref={searchRef}>
+            <div className="relative hidden sm:block">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchOpen((prev) => !prev)}
+                aria-expanded={searchOpen}
+                aria-label="Search products"
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+              {searchOpen && (
+                <div className="absolute right-0 top-full mt-1 w-[280px] rounded-md border bg-background p-2 shadow-lg z-50">
+                  <SearchBar onNavigate={() => setSearchOpen(false)} />
+                </div>
+              )}
+            </div>
 
             {isLoggedIn && (
               <Link href="/wishlist">
@@ -306,6 +334,16 @@ export function Navbar() {
                     </Link>
                   </SheetTitle>
                 </SheetHeader>
+                {mobileSearchOpen && (
+                  <div className="px-4 pt-4 border-b pb-4">
+                    <SearchBar
+                      onNavigate={() => {
+                        setMobileSearchOpen(false);
+                        setIsOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
                 <nav className="flex flex-col gap-4 mt-8 px-4 overflow-y-auto flex-1 pb-4 hide-scrollbar">
                   {NAV_LINKS_BASE.map((link) => (
                     <Link
@@ -373,11 +411,11 @@ export function Navbar() {
                     </>
                   )}
                   <div
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setMobileSearchOpen((prev) => !prev)}
                     className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                   >
                     <Search className="h-5 w-5" />
-                    Search
+                    {mobileSearchOpen ? "Close search" : "Search"}
                   </div>
                   <hr className="my-2" />
                   <div className="flex items-center justify-between gap-4">
