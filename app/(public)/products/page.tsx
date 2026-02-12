@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
-import { getProducts } from '@/services/products.service'
-import { getCategories } from '@/services/categories.service'
+import { getProducts } from '@/services/product.service'
+import { getCategoriesService } from '@/services/categories.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { AdvancedFilters } from '@/components/(public)/products/AdvancedFilters'
@@ -92,7 +92,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     const params = await searchParams
 
     // Fetch categories for the sidebar
-    let categories = await getCategories()
+    let categories = await getCategoriesService()
     if (categories.length === 0) categories = DUMMY_CATEGORIES
 
     // Fetch products with filters
