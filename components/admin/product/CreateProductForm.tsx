@@ -170,10 +170,11 @@ export function CreateProductForm({
                   e.target.value
                     .toLowerCase()
                     .replace(/[^a-z0-9-]/g, "")
-                    .slice(0, 60),
+                    .slice(0, 40),
                 )
               }
               placeholder="product-slug"
+              maxLength={40}
             />
             {errors.slug && (
               <p className="text-xs text-destructive">{errors.slug}</p>

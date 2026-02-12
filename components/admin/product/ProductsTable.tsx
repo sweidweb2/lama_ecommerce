@@ -23,16 +23,18 @@ import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import Link from "next/link"
-import { DUMMY_CATEGORIES, DUMMY_BRANDS } from "@/lib/constants/dummy-data"
+import type { Brand, Category } from "@/types/product"
 
 interface ProductsTableProps {
   products: AdminProduct[]
+  brands: Brand[]
+  categories: Category[]
 }
 
 const PRODUCTS_PER_PAGE = 25
 const MAX_PAGES = 60
 
-export function ProductsTable({ products }: ProductsTableProps) {
+export function ProductsTable({ products, brands, categories }: ProductsTableProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [featuredFilter, setFeaturedFilter] = useState<string>("all")
@@ -136,7 +138,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {DUMMY_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>
@@ -156,7 +158,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Brands</SelectItem>
-                {DUMMY_BRANDS.map((brand) => (
+                {brands.map((brand) => (
                   <SelectItem key={brand.id} value={brand.id}>
                     {brand.name}
                   </SelectItem>
@@ -327,7 +329,11 @@ export function ProductsTable({ products }: ProductsTableProps) {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
-                      <EditProductDialog product={product} />
+                      <EditProductDialog
+                        product={product}
+                        brands={brands}
+                        categories={categories}
+                      />
                       <DeleteProductDialog product={product} />
                     </div>
                   </TableCell>

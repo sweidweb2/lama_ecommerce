@@ -25,7 +25,7 @@ export const productBaseSchema = z.object({
   slug: z
     .string()
     .min(3, "Slug must be at least 3 characters")
-    .max(60, "Slug must be at most 60 characters")
+    .max(40, "Slug must be at most 40 characters")
     .regex(
       slugRegex,
       "Slug can only contain lowercase letters, numbers, and single hyphens between segments",

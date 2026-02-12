@@ -29,6 +29,19 @@ export interface CreateProductRepoInput {
   owner_id: string;
 }
 
+export interface UpdateProductRepoInput {
+  name?: string;
+  description?: string | null;
+  slug?: string | null;
+  brand_id?: string | null;
+  category_id?: string | null;
+  sku?: string | null;
+  price?: number;
+  is_featured?: boolean;
+  is_trending?: boolean;
+  is_active?: boolean;
+}
+
 /**
  * Fetch all products for admin (no `is_active` filter), including images.
  */
@@ -166,6 +179,54 @@ export async function createProduct(
     return (data ?? null) as Product | null;
   } catch (error) {
     console.error("Unexpected error in createProduct:", error);
+    return null;
+  }
+}
+
+/**
+ * Update an existing product by id (admin-only, called from services).
+ */
+export async function updateProduct(
+  id: string,
+  input: UpdateProductRepoInput,
+): Promise<Product | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const patch: Partial<Product> = {};
+
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.description !== undefined) patch.description = input.description;
+    if (input.slug !== undefined) patch.slug = input.slug;
+    if (input.brand_id !== undefined) patch.brand_id = input.brand_id;
+    if (input.category_id !== undefined) patch.category_id = input.category_id;
+    if (input.sku !== undefined) patch.sku = input.sku;
+    if (input.price !== undefined) patch.price = input.price;
+    if (input.is_featured !== undefined)
+      patch.is_featured = input.is_featured;
+    if (input.is_trending !== undefined)
+      patch.is_trending = input.is_trending;
+    if (input.is_active !== undefined) patch.is_active = input.is_active;
+
+    if (Object.keys(patch).length === 0) {
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("products")
+      .update([patch] as any)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Error updating product:", error);
+      return null;
+    }
+
+    return (data ?? null) as Product | null;
+  } catch (error) {
+    console.error("Unexpected error in updateProduct:", error);
     return null;
   }
 }

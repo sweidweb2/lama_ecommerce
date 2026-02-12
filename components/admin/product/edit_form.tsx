@@ -13,7 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
-import { DUMMY_BRANDS, DUMMY_CATEGORIES } from "@/lib/constants/dummy-data"
+import type { Brand, Category } from "@/types/product"
+import { z } from "zod"
+import { updateProductAction } from "@/actions/product";
+import { createProductSchema } from "@/lib/validators/product/create"
 
 export type AdminProduct = {
   id: string
@@ -33,12 +36,20 @@ export type AdminProduct = {
 interface EditProductDialogProps {
   product: AdminProduct
   showText?: boolean
+  brands: Brand[]
+  categories: Category[]
 }
 
 const NONE_VALUE = "__none__"
 
-export function EditProductDialog({ product, showText = false }: EditProductDialogProps) {
+export function EditProductDialog({
+  product,
+  showText = false,
+  brands,
+  categories,
+}: EditProductDialogProps) {
   const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description || "")
   const [slug, setSlug] = useState(product.slug || "")
@@ -49,13 +60,78 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
   const [isFeatured, setIsFeatured] = useState(product.is_featured ?? false)
   const [isTrending, setIsTrending] = useState(product.is_trending ?? false)
   const [isActive, setIsActive] = useState(product.is_active ?? true)
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof z.input<typeof createProductSchema>, string>>
+  >({})
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // TODO: Wire this up to a real admin update action / API
-    // For now we just simulate success and close the dialog after "saving".
-    setOpen(false)
+    const trimmedName = name.trim()
+    const trimmedDescription = description.trim()
+    const trimmedSlug = slug.trim()
+    const trimmedSku = sku.trim()
+
+    const candidate: z.input<typeof createProductSchema> = {
+      name: trimmedName,
+      description: trimmedDescription ? trimmedDescription : null,
+      slug: trimmedSlug
+        ? trimmedSlug
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "")
+            .slice(0, 40)
+        : null,
+      brand_id: brandId === NONE_VALUE ? null : brandId,
+      category_id: categoryId === NONE_VALUE ? null : categoryId,
+      sku: trimmedSku ? trimmedSku.toUpperCase().slice(0, 32) : null,
+      price: price ? Number(price) : NaN,
+      is_featured: isFeatured,
+      is_trending: isTrending,
+      is_active: isActive,
+    }
+
+    const parsed = createProductSchema.safeParse(candidate)
+
+    if (!parsed.success) {
+      const fieldErrors: Partial<
+        Record<keyof z.input<typeof createProductSchema>, string>
+      > = {}
+
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof z.input<typeof createProductSchema>
+        if (key && !fieldErrors[key]) {
+          fieldErrors[key] = issue.message
+        }
+      }
+
+      setErrors(fieldErrors)
+      return
+    }
+
+    setErrors({})
+
+    setIsSubmitting(true)
+    try {
+      const formData = new FormData()
+      formData.set("id", product.id)
+      formData.set("name", parsed.data.name)
+      formData.set("description", parsed.data.description ?? "")
+      formData.set("slug", parsed.data.slug ?? "")
+      formData.set("brand_id", parsed.data.brand_id ?? "")
+      formData.set("category_id", parsed.data.category_id ?? "")
+      formData.set("sku", parsed.data.sku ?? "")
+      formData.set("price", parsed.data.price.toString())
+      formData.set("is_featured", parsed.data.is_featured ? "true" : "false")
+      formData.set("is_trending", parsed.data.is_trending ? "true" : "false")
+      formData.set("is_active", parsed.data.is_active ? "true" : "false")
+
+      await updateProductAction(formData)
+      setOpen(false)
+    } catch (error) {
+      console.error("Error updating product:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -103,6 +179,9 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                 placeholder="Enter product name"
                 required
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -113,6 +192,9 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder="product-slug"
               />
+              {errors.slug && (
+                <p className="text-xs text-destructive">{errors.slug}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -124,6 +206,9 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:border-[1.5px] disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Enter product description"
               />
+              {errors.description && (
+                <p className="text-xs text-destructive">{errors.description}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -135,7 +220,7 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE_VALUE}>None</SelectItem>
-                    {DUMMY_BRANDS.map((brand) => (
+                    {brands.map((brand) => (
                       <SelectItem key={brand.id} value={brand.id}>
                         {brand.name}
                       </SelectItem>
@@ -152,7 +237,7 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE_VALUE}>None</SelectItem>
-                    {DUMMY_CATEGORIES.map((category) => (
+                    {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>
@@ -168,9 +253,12 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                 <Input
                   id={`product-sku-${product.id}`}
                   value={sku}
-                  onChange={(e) => setSku(e.target.value)}
+                onChange={(e) => setSku(e.target.value.toUpperCase().slice(0, 32))}
                   placeholder="PROD-001"
                 />
+              {errors.sku && (
+                <p className="text-xs text-destructive">{errors.sku}</p>
+              )}
               </div>
 
               <div className="space-y-2">
@@ -186,6 +274,9 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                   placeholder="0.00"
                   required
                 />
+              {errors.price && (
+                <p className="text-xs text-destructive">{errors.price}</p>
+              )}
               </div>
             </div>
 
@@ -239,7 +330,7 @@ export function EditProductDialog({ product, showText = false }: EditProductDial
                 Cancel
               </Button>
               <Button type="submit">
-                Save changes
+                {isSubmitting ? "Saving..." : "Save changes"}
               </Button>
             </DialogFooter>
           </form>

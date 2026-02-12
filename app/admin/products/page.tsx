@@ -5,9 +5,15 @@ import { ProductsTable } from "@/components/admin/product/ProductsTable";
 import { ProductStats } from "@/components/admin/product/ProductStats";
 import { type AdminProduct } from "@/components/admin/product/edit_form";
 import { getAdminProductsService } from "@/services/product.service";
+import { getBrandsService } from "@/services/brand.service";
+import { getCategoriesService } from "@/services/categories.service";
 
 export default async function ProductsPage() {
-  const productsFromDb = await getAdminProductsService();
+  const [productsFromDb, brands, categories] = await Promise.all([
+    getAdminProductsService(),
+    getBrandsService(),
+    getCategoriesService(),
+  ]);
 
   const adminProducts: AdminProduct[] = productsFromDb.map((p) => {
     const primaryImage =
@@ -48,7 +54,11 @@ export default async function ProductsPage() {
 
       <ProductStats products={adminProducts} />
 
-      <ProductsTable products={adminProducts} />
+      <ProductsTable
+        products={adminProducts}
+        brands={brands}
+        categories={categories}
+      />
     </div>
   );
 }
