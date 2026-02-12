@@ -6,11 +6,7 @@ import { ROUTES } from '@/lib/constants/routes'
 import { 
   Mail, 
   Phone, 
-  MapPin, 
-  Facebook, 
   Instagram, 
-  Twitter,
-  Youtube,
   MessageCircle
 } from 'lucide-react'
 
@@ -32,7 +28,7 @@ export function Footer() {
             <div className="lg:col-span-1">
               <Link href={ROUTES.HOME} className="inline-block mb-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
                 <img
-                  src="/logo.png"
+                  src="/aviora-logo.png"
                   alt="Aviora Wear"
                   className="h-10 w-auto object-contain"
                   width={140}
@@ -44,16 +40,7 @@ export function Footer() {
               </p>
               <div className="flex items-center gap-4 mt-6">
                 <a
-                  href="https://facebook.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="Facebook"
-                >
-                  <Facebook className="h-5 w-5" />
-                </a>
-                <a
-                  href="https://instagram.com"
+                  href="https://www.instagram.com/aviorawear?igsh=MWoweXB3NmZ3MGJ0dQ=="
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-muted-foreground hover:text-primary transition-colors"
@@ -62,22 +49,15 @@ export function Footer() {
                   <Instagram className="h-5 w-5" />
                 </a>
                 <a
-                  href="https://twitter.com"
+                  href="https://www.tiktok.com/@aviora.wear?_r=1&_t=ZS-93lOZe4HTLI"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="Twitter"
+                  aria-label="TikTok"
                 >
-                  <Twitter className="h-5 w-5" />
-                </a>
-                <a
-                  href="https://youtube.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="YouTube"
-                >
-                  <Youtube className="h-5 w-5" />
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                  </svg>
                 </a>
               </div>
             </div>
@@ -94,38 +74,6 @@ export function Footer() {
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Contact Us
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/faq"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    FAQ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/shipping"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Shipping Info
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/returns"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Returns
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/size-guide"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Size Guide
                   </Link>
                 </li>
               </ul>
@@ -163,14 +111,6 @@ export function Footer() {
                 </li>
                 <li>
                   <Link
-                    href="/blog"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link
                     href={ROUTES.CART}
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
@@ -186,12 +126,6 @@ export function Footer() {
                 Contact Us
               </h3>
               <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span className="text-sm text-muted-foreground">
-                    123 Main Street, City, State 12345
-                  </span>
-                </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-muted-foreground shrink-0" />
                   <a
@@ -204,10 +138,10 @@ export function Footer() {
                 <li className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
                   <a
-                    href="mailto:info@lama.com"
+                    href="mailto:info@aviorawear.com"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    info@lama.com
+                    info@aviorawear.com
                   </a>
                 </li>
                 <li className="flex items-center gap-3">

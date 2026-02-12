@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { 
   Mail, 
   Phone, 
-  MapPin, 
   MessageCircle,
   Send,
   Clock
@@ -174,10 +173,10 @@ export default function ContactUsPage() {
                     <div>
                       <h3 className="font-semibold text-foreground mb-1">Email</h3>
                       <a 
-                        href="mailto:info@lama.com" 
+                        href="mailto:info@aviorawear.com" 
                         className="text-muted-foreground hover:text-primary transition-colors"
                       >
-                        info@lama.com
+                        info@aviorawear.com
                       </a>
                     </div>
                   </div>
@@ -194,20 +193,6 @@ export default function ContactUsPage() {
                       >
                         +1 (234) 567-890
                       </a>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <MapPin className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">Address</h3>
-                      <p className="text-muted-foreground">
-                        123 Main Street<br />
-                        City, State 12345<br />
-                        Global
-                      </p>
                     </div>
                   </div>
 
