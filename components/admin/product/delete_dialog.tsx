@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { deleteProductAction } from "@/actions/product"
 
 interface DeleteProductDialogProps {
   product: {
@@ -24,9 +25,9 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
       if (onDelete) {
         await onDelete(product.id)
       } else {
-        // Default behavior - just log and close
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log(`Deleting product: ${product.name} (ID: ${product.id})`)
+        const formData = new FormData()
+        formData.set("id", product.id)
+        await deleteProductAction(formData)
       }
       setOpen(false)
     } catch (error) {

@@ -40,3 +40,28 @@ export async function createProductImage(
   }
 }
 
+/**
+ * Get product images for a given product (for cleanup / display).
+ */
+export async function getProductImagesByProductId(
+  productId: string,
+): Promise<ProductImage[]> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { data, error } = await supabase
+      .from("product_images")
+      .select("*")
+      .eq("product_id", productId);
+
+    if (error) {
+      console.error("Error fetching product images:", error);
+      return [];
+    }
+
+    return (data ?? []) as ProductImage[];
+  } catch (error) {
+    console.error("Unexpected error in getProductImagesByProductId:", error);
+    return [];
+  }
+}

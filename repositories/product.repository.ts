@@ -43,6 +43,42 @@ export interface UpdateProductRepoInput {
 }
 
 /**
+ * Check whether any rows in related tables reference this product.
+ *
+ * If true, we should hard-delete (cascade) instead of soft-deleting.
+ */
+export async function hasProductRelations(productId: string): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const relatedChecks: Array<{ table: string; column: string }> = [
+      { table: "product_images", column: "product_id" },
+      { table: "customised_products", column: "product_id" },
+      { table: "reviews", column: "product_id" },
+      { table: "product_questions", column: "product_id" },
+      { table: "product_views", column: "product_id" },
+      { table: "product_stats", column: "product_id" },
+    ];
+
+    for (const { table, column } of relatedChecks) {
+      const { count, error } = await supabase
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq(column, productId);
+
+      if (!error && (count ?? 0) > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Unexpected error in hasProductRelations:", error);
+    return true;
+  }
+}
+
+/**
  * Fetch all products for admin (no `is_active` filter), including images.
  */
 export async function getAdminProducts(): Promise<ProductWithRelations[]> {
@@ -214,7 +250,7 @@ export async function updateProduct(
 
     const { data, error } = await supabase
       .from("products")
-      .update([patch] as any)
+      .update([patch] as never)
       .eq("id", id)
       .select("*")
       .single();
@@ -228,5 +264,58 @@ export async function updateProduct(
   } catch (error) {
     console.error("Unexpected error in updateProduct:", error);
     return null;
+  }
+}
+
+/**
+ * Soft-delete a product by setting deleted_at and is_active = false.
+ */
+export async function softDeleteProduct(id: string): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        deleted_at: new Date().toISOString(),
+        is_active: false,
+          is_featured: false,
+          is_trending: false,
+        } as never)
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error soft-deleting product:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Unexpected error in softDeleteProduct:", error);
+    return false;
+  }
+}
+
+/**
+ * Hard-delete a product row (DB-level); relies on ON DELETE CASCADE for related tables.
+ */
+export async function hardDeleteProduct(id: string): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error hard-deleting product:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Unexpected error in hardDeleteProduct:", error);
+    return false;
   }
 }

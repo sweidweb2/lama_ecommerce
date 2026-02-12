@@ -5,11 +5,19 @@ import { z } from "zod";
 
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { ROLES } from "@/lib/constants/roles";
-import { createProductService, updateProductService } from "@/services/product.service";
+import {
+  createProductService,
+  updateProductService,
+  deleteProductService,
+  hardDeleteProductService,
+} from "@/services/product.service";
 import { createProductSchema } from "@/lib/validators/product/create";
 import { updateProductSchema } from "@/lib/validators/product/update";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
-import { createProductImage } from "@/repositories/product_images.repository";
+import {
+  createProductImage,
+  getProductImagesByProductId,
+} from "@/repositories/product_images.repository";
 
 const idSchema = z.string().uuid();
 
@@ -178,6 +186,65 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     revalidatePath(`/admin/products/${id}`);
   } catch (error) {
     console.error("Unexpected error in updateProductAction:", error);
+    throw error;
+  }
+}
+
+export async function deleteProductAction(formData: FormData): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const idRaw = formData.get("id")?.toString();
+    const id = idSchema.parse(idRaw);
+
+    const mode = await deleteProductService(id);
+    if (!mode) {
+      throw new Error("Failed to delete product");
+    }
+
+    if (mode === "hard") {
+      // 1) Clean up storage images for this product.
+      const supabase = await createSupabaseServerActionClient();
+      const images = await getProductImagesByProductId(id);
+
+      const paths: string[] = [];
+
+      for (const img of images) {
+        try {
+          const url = new URL(img.url_image);
+          const pathIndex = url.pathname.lastIndexOf("/products/");
+          if (pathIndex !== -1) {
+            const objectPath = url.pathname.substring(pathIndex + 1); // includes "products/..."
+            paths.push(objectPath);
+          }
+        } catch {
+          // Ignore invalid URLs
+        }
+      }
+
+      if (paths.length > 0) {
+        const { error: removeError } = await supabase.storage
+          .from("products")
+          .remove(paths);
+
+        if (removeError) {
+          console.error("Error deleting product images from storage:", removeError);
+        }
+      }
+
+      // 2) Then hard-delete the product row (DB cascades will clear related rows).
+      const ok = await hardDeleteProductService(id);
+      if (!ok) {
+        throw new Error("Failed to hard delete product after storage cleanup");
+      }
+    }
+
+    revalidatePath("/admin/products");
+  } catch (error) {
+    console.error("Unexpected error in deleteProductAction:", error);
     throw error;
   }
 }
