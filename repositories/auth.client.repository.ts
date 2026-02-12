@@ -33,3 +33,11 @@ export async function signOut() {
   return supabase.auth.signOut();
 }
 
+/**
+ * Update the current user's password (client-side only).
+ * User must be logged in. Supabase may require re-auth depending on config.
+ */
+export async function updatePassword(newPassword: string) {
+  return supabase.auth.updateUser({ password: newPassword });
+}
+

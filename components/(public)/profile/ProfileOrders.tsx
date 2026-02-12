@@ -123,7 +123,7 @@ export function ProfileOrders({ orders }: ProfileOrdersProps) {
                                         </span>
                                     </div>
                                 )}
-                                <Link href={`/orders/${order.id}`} className="block">
+                                <Link href={`/order_details/${order.id}`} className="block">
                                     <Button variant="outline" size="sm" className="w-full">
                                         View Details
                                         <ArrowRight className="h-3 w-3 ml-2" />
