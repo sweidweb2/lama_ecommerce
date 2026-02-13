@@ -10,7 +10,9 @@ import type { UpdateLeadInput } from "@/lib/validators/lead/update";
 export async function createLead(input: CreateLeadInput): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { error } = await supabase.from("leads").insert({ email: input.email });
+    const { error } = await (supabase as any)
+      .from("leads")
+      .insert({ email: input.email });
 
     if (error) {
       console.error("Failed to create lead:", error);
@@ -29,7 +31,7 @@ export async function createLead(input: CreateLeadInput): Promise<boolean> {
 export async function createLeadAdmin(input: CreateLeadInput): Promise<Lead | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("leads")
       .insert({ email: input.email })
       .select("id, email, created_at")
@@ -52,7 +54,7 @@ export async function createLeadAdmin(input: CreateLeadInput): Promise<Lead | nu
 export async function getAllLeads(): Promise<Lead[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("leads")
       .select("id, email, created_at")
       .order("created_at", { ascending: false });
@@ -74,7 +76,7 @@ export async function getAllLeads(): Promise<Lead[]> {
 export async function updateLead(input: UpdateLeadInput): Promise<boolean> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("leads")
       .update({ email: input.email })
       .eq("id", input.id);
@@ -96,7 +98,10 @@ export async function updateLead(input: UpdateLeadInput): Promise<boolean> {
 export async function deleteLead(id: string): Promise<boolean> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.from("leads").delete().eq("id", id);
+    const { error } = await (supabase as any)
+      .from("leads")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.error("Failed to delete lead:", error);

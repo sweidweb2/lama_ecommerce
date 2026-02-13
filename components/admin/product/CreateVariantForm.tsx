@@ -74,13 +74,13 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
     e.preventDefault()
     setErrors({})
 
-    const finalSize = customSize.trim() || size || null
-    const trimmedMaterial = material.trim() || null
-    const trimmedSkuVariant = skuVariant.trim() || null
+    const finalSize = customSize.trim() || size || ""
+    const trimmedMaterial = material.trim()
+    const trimmedSkuVariant = skuVariant.trim()
 
     const candidate: z.input<typeof createProductVariantSchema> = {
       product_id: productId,
-      color: customColorHex || colorHex || null,
+      color: customColorHex || colorHex || "",
       size: finalSize,
       material: trimmedMaterial,
       quantity_stock: quantityStock ? Number(quantityStock) : 0,
@@ -280,7 +280,8 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
                 >
                   <ChromePicker
                     color={customColorHex || "#000000"}
-                    onChange={(updated) => {
+                    // `updated` is from react-color (untyped here), treat as any to avoid implicit any error.
+                    onChange={(updated: any) => {
                       const hex = updated.hex.toUpperCase()
                       setCustomColorHex(hex)
                       setColorHex("") // Deselect palette color when using picker

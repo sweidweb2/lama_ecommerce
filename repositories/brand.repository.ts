@@ -69,13 +69,13 @@ export async function updateBrand(
 ): Promise<Brand | null> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("brands")
       .update({
         name: input.name,
         slug: input.slug ?? undefined,
         logo_image_url: input.logo_image_url ?? undefined,
-      } as any)
+      })
       .eq("id", input.id)
       .select()
       .single();

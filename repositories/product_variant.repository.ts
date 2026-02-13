@@ -80,7 +80,7 @@ export async function updateProductVariant(
     if (input.sku_variant !== undefined) updateData.sku_variant = input.sku_variant;
     if (input.price_override !== undefined) updateData.price_override = input.price_override;
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("customised_products")
       .update(updateData)
       .eq("id", id)
@@ -164,7 +164,7 @@ export async function softDeleteProductVariant(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("customised_products")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);

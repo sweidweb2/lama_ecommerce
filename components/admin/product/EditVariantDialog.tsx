@@ -297,7 +297,8 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                   >
                     <ChromePicker
                       color={customColorHex || "#000000"}
-                      onChange={(updated) => {
+                      // `updated` comes from react-color (untyped here), treat as any to avoid implicit any error.
+                      onChange={(updated: any) => {
                         const hex = updated.hex.toUpperCase()
                         setCustomColorHex(hex)
                         setColorHex("")
