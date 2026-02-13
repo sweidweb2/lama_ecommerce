@@ -5,6 +5,7 @@ import { DeleteProductDialog } from '@/components/admin/product/delete_dialog'
 import { VariantsTable, type ProductVariant } from '@/components/admin/product/VariantsTable'
 import { CreateVariantForm } from '@/components/admin/product/CreateVariantForm'
 import { AddImageForm } from '@/components/admin/product/AddImageForm'
+import { ChangePrimaryImageDialog } from '@/components/admin/product/ChangePrimaryImageDialog'
 import { ProductImageGallery } from '@/components/admin/product/ProductImageGallery'
 import { ProductDetailsBreadcrumbs } from '@/components/admin/product/ProductDetailsBreadcrumbs'
 import { StatCard } from '@/components/admin/stat-card'
@@ -252,6 +253,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
               <CardContent className="space-y-4">
                 <ProductImageGallery productName={product.name} images={productImages} />
                 <AddImageForm productId={product.id} />
+                <ChangePrimaryImageDialog productId={product.id} images={productImages} />
               </CardContent>
             </Card>
 

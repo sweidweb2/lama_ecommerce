@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Upload } from "lucide-react"
+import { addProductImageAction } from "@/actions/product"
 
 interface AddImageFormProps {
   productId: string
 }
 
 export function AddImageForm({ productId }: AddImageFormProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -39,16 +42,22 @@ export function AddImageForm({ productId }: AddImageFormProps) {
 
     setIsUploading(true)
     try {
-      // TODO: Wire this up to a real admin upload action / API
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      console.log("Uploading image for product:", productId, selectedFile.name)
+      const formData = new FormData()
+      formData.set("product_id", productId)
+      formData.set("image", selectedFile)
+
+      await addProductImageAction(formData)
       
       // Reset form
       setSelectedFile(null)
       setPreview(null)
       setOpen(false)
+      
+      // Refresh the page to show the new image
+      router.refresh()
     } catch (error) {
       console.error("Error uploading image:", error)
+      // You might want to show an error toast here
     } finally {
       setIsUploading(false)
     }

@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { Star } from 'lucide-react'
 
 interface ProductImage {
   id: string
@@ -33,6 +34,7 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
 
   const currentImage = allImages[selectedImageIndex] || allImages[0]
   const currentImageUrl = currentImage?.url_image || '/placeholder-product.webp'
+  const isCurrentPrimary = !!currentImage?.is_primary
 
   if (allImages.length === 0) {
     return (
@@ -63,6 +65,13 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 320px"
           />
+
+          {isCurrentPrimary && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-2 py-0.5 text-[10px] font-semibold shadow-sm">
+              <Star className="h-3 w-3 fill-primary-foreground" />
+              <span>Primary</span>
+            </div>
+          )}
         </div>
 
         {/* Thumbnails */}
@@ -89,6 +98,12 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
                     className="object-cover"
                     sizes="64px"
                   />
+                  {image.is_primary && (
+                    <div className="absolute top-1 left-1 rounded-full bg-primary/90 text-primary-foreground px-1.5 py-0.5 text-[9px] font-semibold flex items-center gap-1 shadow-sm">
+                      <Star className="h-2.5 w-2.5 fill-primary-foreground" />
+                      <span>Primary</span>
+                    </div>
+                  )}
                 </button>
               )
             })}
@@ -102,14 +117,20 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
           <DialogHeader className="sr-only">
             <DialogTitle>View {productName} Image</DialogTitle>
           </DialogHeader>
-          <div className="relative w-full h-[80vh] rounded-lg overflow-hidden bg-background">
+          <div className="relative w-full h-[80vh] rounded-lg overflow-hidden bg-background p-4">
             <Image
               src={currentImageUrl}
               alt={productName}
               fill
-              className="object-contain"
+              className="object-cover rounded-md"
               sizes="100vw"
             />
+            {isCurrentPrimary && (
+              <div className="absolute top-6 left-6 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-3 py-1 text-xs font-semibold shadow-sm">
+                <Star className="h-3.5 w-3.5 fill-primary-foreground" />
+                <span>Primary</span>
+              </div>
+            )}
           </div>
           {allImages.length > 1 && (
             <div className="flex gap-2 justify-center overflow-x-auto hide-scrollbar p-4 bg-background/95 backdrop-blur-sm">

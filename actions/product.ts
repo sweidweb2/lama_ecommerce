@@ -18,6 +18,11 @@ import {
   createProductImage,
   getProductImagesByProductId,
 } from "@/repositories/product_images.repository";
+import {
+  addProductImageService,
+  changePrimaryProductImageService,
+} from "@/services/product_image.service";
+import { addProductImageSchema } from "@/lib/validators/product_image/create";
 
 const idSchema = z.string().uuid();
 
@@ -246,6 +251,102 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
     revalidatePath("/admin/products");
   } catch (error) {
     console.error("Unexpected error in deleteProductAction:", error);
+    throw error;
+  }
+}
+
+export async function addProductImageAction(formData: FormData): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const productIdRaw = formData.get("product_id")?.toString();
+    const imageFile = formData.get("image");
+
+    if (!productIdRaw) {
+      throw new Error("Product ID is required");
+    }
+
+    if (!imageFile || !(imageFile instanceof File) || imageFile.size === 0) {
+      throw new Error("Image file is required");
+    }
+
+    // Validate product_id
+    const parsed = addProductImageSchema.parse({ product_id: productIdRaw });
+    const productId = parsed.product_id;
+
+    // Upload image to Supabase storage
+    const supabase = await createSupabaseServerActionClient();
+    const mime = imageFile.type || "image/png";
+    const ext = mime.split("/")[1] || "png";
+    const filePath = `products/${productId}/${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("products")
+      .upload(filePath, imageFile, {
+        contentType: mime,
+      });
+
+    if (uploadError) {
+      console.error("Error uploading product image:", uploadError);
+      throw new Error("Failed to upload image");
+    }
+
+    // Get public URL
+    const { data } = supabase.storage
+      .from("products")
+      .getPublicUrl(filePath);
+
+    const publicUrl = data.publicUrl ?? null;
+    if (!publicUrl) {
+      throw new Error("Failed to get public URL for uploaded image");
+    }
+
+    // Add product image (service handles primary image logic)
+    const success = await addProductImageService(productId, publicUrl);
+    if (!success) {
+      throw new Error("Failed to create product image record");
+    }
+
+    // Revalidate the products list and the specific product details page
+    revalidatePath("/admin/products");
+    revalidatePath(`/admin/products/${productId}`);
+  } catch (error) {
+    console.error("Unexpected error in addProductImageAction:", error);
+    throw error;
+  }
+}
+
+export async function changePrimaryProductImageAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const productIdRaw = formData.get("product_id")?.toString();
+    const imageIdRaw = formData.get("image_id")?.toString();
+
+    if (!productIdRaw || !imageIdRaw) {
+      throw new Error("Product ID and image ID are required");
+    }
+
+    const productId = idSchema.parse(productIdRaw);
+    const imageId = idSchema.parse(imageIdRaw);
+
+    const success = await changePrimaryProductImageService(productId, imageId);
+    if (!success) {
+      throw new Error("Failed to change primary product image");
+    }
+
+    revalidatePath("/admin/products");
+    revalidatePath(`/admin/products/${productId}`);
+  } catch (error) {
+    console.error("Unexpected error in changePrimaryProductImageAction:", error);
     throw error;
   }
 }
