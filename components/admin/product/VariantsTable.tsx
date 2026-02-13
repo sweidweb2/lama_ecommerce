@@ -41,8 +41,8 @@ interface VariantsTableProps {
   productPrice: number
 }
 
-const VARIANTS_PER_PAGE = 20
-const MAX_PAGES = 30
+const VARIANTS_PER_PAGE = 10
+const MAX_PAGES = 10
 
 export function VariantsTable({ variants, productPrice }: VariantsTableProps) {
   const [colorFilter, setColorFilter] = useState<string>("all")
