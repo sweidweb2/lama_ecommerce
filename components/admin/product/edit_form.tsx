@@ -45,8 +45,8 @@ const NONE_VALUE = "__none__"
 export function EditProductDialog({
   product,
   showText = false,
-  brands,
-  categories,
+  brands = [],
+  categories = [],
 }: EditProductDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
