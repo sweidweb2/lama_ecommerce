@@ -13,9 +13,7 @@ import {
   Search,
   Heart,
   LayoutDashboard,
-  Settings,
   LogOut,
-  Package,
 } from "lucide-react";
 import {
   Sheet,
@@ -261,21 +259,6 @@ export function Navbar() {
                       Profile
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/orders" className="flex items-center cursor-pointer">
-                      <Package className="mr-2 h-4 w-4" />
-                      Orders
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/account/settings"
-                      className="flex items-center cursor-pointer"
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
                   {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link
@@ -440,21 +423,6 @@ export function Navbar() {
                         <Button className="w-full justify-start" variant="ghost">
                           <User className="mr-2 h-4 w-4" />
                           Profile
-                        </Button>
-                      </Link>
-                      <Link href="/orders" onClick={() => setIsOpen(false)}>
-                        <Button className="w-full justify-start" variant="ghost">
-                          <Package className="mr-2 h-4 w-4" />
-                          Orders
-                        </Button>
-                      </Link>
-                      <Link
-                        href="/account/settings"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Button className="w-full justify-start" variant="ghost">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Settings
                         </Button>
                       </Link>
                       {isAdmin && (

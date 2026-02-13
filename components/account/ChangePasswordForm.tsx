@@ -18,7 +18,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-export function ChangePasswordForm() {
+interface ChangePasswordFormProps {
+  onSuccess?: () => void;
+}
+
+export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -42,6 +46,7 @@ export function ChangePasswordForm() {
       description: "Your password has been changed successfully.",
     });
     form.reset();
+    onSuccess?.();
   };
 
   return (
