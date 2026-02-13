@@ -265,7 +265,20 @@ export function VariantsTable({ variants, productPrice }: VariantsTableProps) {
             ) : (
               paginatedVariants.map((variant) => (
                 <TableRow key={variant.id}>
-                  <TableCell>{variant.color || "—"}</TableCell>
+                  <TableCell>
+                    {variant.color ? (
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full border border-border"
+                          style={{ backgroundColor: variant.color }}
+                          title={variant.color}
+                        />
+                        <span>{variant.color}</span>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
                   <TableCell>{variant.size || "—"}</TableCell>
                   <TableCell>{variant.material || "—"}</TableCell>
                   <TableCell>

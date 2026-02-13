@@ -1,12 +1,18 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
+import { createProductVariantAction } from "@/actions/product"
+import { z } from "zod"
+import { createProductVariantSchema } from "@/lib/validators/product_variant/create"
+import { ChromePicker } from "react-color"
 
 interface CreateVariantFormProps {
   productId: string
@@ -50,56 +56,104 @@ const NUMERIC_SIZES = ['28', '30', '32', '34', '36', '38', '40', '42', '44', '46
 const ALPHABETIC_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
 
 export function CreateVariantForm({ productId, productPrice, onVariantCreated }: CreateVariantFormProps) {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [color, setColor] = useState<string>("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const [colorHex, setColorHex] = useState<string>("")
+  const [customColorHex, setCustomColorHex] = useState<string>("")
   const [size, setSize] = useState<string>("")
   const [customSize, setCustomSize] = useState("")
   const [material, setMaterial] = useState("")
   const [quantityStock, setQuantityStock] = useState("")
   const [skuVariant, setSkuVariant] = useState("")
   const [priceOverride, setPriceOverride] = useState("")
+  const [errors, setErrors] = useState<Partial<Record<keyof z.input<typeof createProductVariantSchema>, string>>>({})
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrors({})
 
-    // TODO: Wire this up to a real admin create action / API
     const finalSize = customSize.trim() || size || null
+    const trimmedMaterial = material.trim() || null
+    const trimmedSkuVariant = skuVariant.trim() || null
 
-    const newVariant = {
+    const candidate: z.input<typeof createProductVariantSchema> = {
       product_id: productId,
-      color: color || null,
+      color: customColorHex || colorHex || null,
       size: finalSize,
-      material: material || null,
-      quantity_stock: parseInt(quantityStock) || 0,
-      sku_variant: skuVariant || null,
-      price_override: priceOverride ? parseFloat(priceOverride) : null,
+      material: trimmedMaterial,
+      quantity_stock: quantityStock ? Number(quantityStock) : 0,
+      sku_variant: trimmedSkuVariant,
+      price_override: priceOverride ? Number(priceOverride) : null,
     }
 
-    console.log("Creating variant:", newVariant)
-    
-    // Reset form
-    setColor("")
-    setSize("")
-    setCustomSize("")
-    setMaterial("")
-    setQuantityStock("")
-    setSkuVariant("")
-    setPriceOverride("")
-    setIsOpen(false)
-    
-    if (onVariantCreated) {
-      onVariantCreated()
+    const parsed = createProductVariantSchema.safeParse(candidate)
+
+    if (!parsed.success) {
+      const fieldErrors: Partial<
+        Record<keyof z.input<typeof createProductVariantSchema>, string>
+      > = {}
+
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof z.input<typeof createProductVariantSchema>
+        if (key && !fieldErrors[key]) {
+          fieldErrors[key] = issue.message
+        }
+      }
+
+      setErrors(fieldErrors)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const formData = new FormData()
+      formData.set("product_id", parsed.data.product_id)
+      formData.set("color", parsed.data.color ?? "")
+      formData.set("size", parsed.data.size ?? "")
+      formData.set("material", parsed.data.material ?? "")
+      formData.set("quantity_stock", parsed.data.quantity_stock.toString())
+      formData.set("sku_variant", parsed.data.sku_variant ?? "")
+      formData.set("price_override", parsed.data.price_override?.toString() ?? "")
+
+      await createProductVariantAction(formData)
+
+      // Reset form
+      setColorHex("")
+      setCustomColorHex("")
+      setSize("")
+      setCustomSize("")
+      setMaterial("")
+      setQuantityStock("")
+      setSkuVariant("")
+      setPriceOverride("")
+      setIsOpen(false)
+
+      // Refresh to show new variant
+      router.refresh()
+
+      if (onVariantCreated) {
+        onVariantCreated()
+      }
+    } catch (error) {
+      console.error("Error creating variant:", error)
+      setErrors({ quantity_stock: "Failed to create variant. Please try again." })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleCancel = () => {
-    setColor("")
+    setColorHex("")
+    setCustomColorHex("")
     setSize("")
     setCustomSize("")
     setMaterial("")
     setQuantityStock("")
     setSkuVariant("")
     setPriceOverride("")
+    setErrors({})
     setIsOpen(false)
   }
 
@@ -148,18 +202,21 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
                 <button
                   key={colorOption.value}
                   type="button"
-                  onClick={() => setColor(color === colorOption.value ? "" : colorOption.value)}
+                  onClick={() => {
+                    setColorHex(colorHex === colorOption.hex ? "" : colorOption.hex)
+                    setCustomColorHex("") // Clear custom input when selecting from palette
+                  }}
                   className={`
                     relative h-8 w-8 rounded-full border-2 transition-all shrink-0
-                    ${color === colorOption.value 
+                    ${colorHex === colorOption.hex && !customColorHex
                       ? 'border-primary ring-2 ring-primary ring-offset-1 scale-110' 
                       : 'border-border hover:border-primary/50 hover:scale-105'}
                   `}
                   style={{ backgroundColor: colorOption.hex }}
                   aria-label={colorOption.name}
-                  title={colorOption.name}
+                  title={`${colorOption.name} (${colorOption.hex})`}
                 >
-                  {color === colorOption.value && (
+                  {colorHex === colorOption.hex && !customColorHex && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="h-2 w-2 rounded-full bg-white shadow-sm" />
                     </div>
@@ -167,14 +224,89 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
                 </button>
               ))}
             </div>
-            {color && (
-              <p className="text-sm text-muted-foreground">Selected: <span className="font-medium">{color}</span></p>
+            
+            {/* Custom Hex Color Input */}
+            <div className="space-y-2">
+              <Label htmlFor="custom-color" className="text-xs text-muted-foreground">
+                Or enter custom hex color
+              </Label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setColorPickerOpen(true)}
+                  className="w-10 h-10 rounded-md border-2 border-border shrink-0 cursor-pointer hover:border-primary/50 transition-colors"
+                  style={{ backgroundColor: customColorHex || "#ffffff" }}
+                  title="Click to open color picker"
+                />
+                <Input
+                  id="custom-color"
+                  type="text"
+                  value={customColorHex}
+                  onChange={(e) => {
+                    let value = e.target.value.trim()
+                    // Add # if user types without it
+                    if (value && !value.startsWith("#")) {
+                      value = "#" + value
+                    }
+                    // Validate hex format (basic)
+                    if (value === "" || /^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                      setCustomColorHex(value.toUpperCase())
+                      if (value) {
+                        setColorHex("") // Deselect palette color when typing custom
+                      }
+                    }
+                  }}
+                  placeholder="#000000"
+                  className="font-mono"
+                  maxLength={7}
+                />
+              </div>
+              {customColorHex && (
+                <p className="text-xs text-muted-foreground">
+                  Custom color: <span className="font-medium font-mono">{customColorHex}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Color Picker Overlay */}
+            {colorPickerOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                onClick={() => setColorPickerOpen(false)}
+              >
+                <div
+                  className="relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ChromePicker
+                    color={customColorHex || "#000000"}
+                    onChange={(updated) => {
+                      const hex = updated.hex.toUpperCase()
+                      setCustomColorHex(hex)
+                      setColorHex("") // Deselect palette color when using picker
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {(colorHex || customColorHex) && (
+              <p className="text-sm text-muted-foreground">
+                Selected: <span className="font-medium font-mono" style={{ color: customColorHex || colorHex }}>
+                  {customColorHex || colorHex}
+                </span>
+              </p>
+            )}
+            {errors.color && (
+              <p className="text-xs text-destructive">{errors.color}</p>
             )}
           </div>
 
           {/* Size Selection */}
           <div className="space-y-4">
-            <Label>Size</Label>
+            <Label>
+              Size <span className="text-destructive">*</span>
+            </Label>
             
             {/* Clothing Sizes */}
             <div className="space-y-2">
@@ -256,6 +388,7 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
                 value={customSize}
                 onChange={(e) => handleCustomSizeChange(e.target.value)}
                 placeholder="Enter custom size (e.g., 2T, 4T, One Size)"
+                maxLength={20}
               />
             </div>
 
@@ -264,17 +397,26 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
                 Selected: <span className="font-medium">{customSize || size}</span>
               </p>
             )}
+            {errors.size && (
+              <p className="text-xs text-destructive">{errors.size}</p>
+            )}
           </div>
 
           {/* Material */}
           <div className="space-y-2">
-            <Label htmlFor="material">Material</Label>
+            <Label htmlFor="material">
+              Material <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="material"
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
               placeholder="e.g., Cotton, Polyester, Leather"
+              maxLength={100}
             />
+            {errors.material && (
+              <p className="text-xs text-destructive">{errors.material}</p>
+            )}
           </div>
 
           {/* Stock Quantity */}
@@ -286,11 +428,15 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
               id="quantity-stock"
               type="number"
               min="0"
+              max="100000"
               value={quantityStock}
               onChange={(e) => setQuantityStock(e.target.value)}
               placeholder="0"
               required
             />
+            {errors.quantity_stock && (
+              <p className="text-xs text-destructive">{errors.quantity_stock}</p>
+            )}
           </div>
 
           {/* SKU Variant */}
@@ -302,6 +448,9 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
               onChange={(e) => setSkuVariant(e.target.value)}
               placeholder="Variant SKU"
             />
+            {errors.sku_variant && (
+              <p className="text-xs text-destructive">{errors.sku_variant}</p>
+            )}
           </div>
 
           {/* Price Override */}
@@ -311,6 +460,7 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
               id="price-override"
               type="number"
               step="0.01"
+              min="0"
               value={priceOverride}
               onChange={(e) => setPriceOverride(e.target.value)}
               placeholder={`Base price: ${formatPrice(productPrice)}`}
@@ -318,14 +468,17 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
             <p className="text-xs text-muted-foreground">
               Leave empty to use base product price ({formatPrice(productPrice)})
             </p>
+            {errors.price_override && (
+              <p className="text-xs text-destructive">{errors.price_override}</p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">
-              Create Variant
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Variant"}
             </Button>
           </div>
         </form>

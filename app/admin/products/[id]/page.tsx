@@ -14,6 +14,7 @@ import { Eye, ShoppingCart, ShoppingBag } from 'lucide-react'
 import { getAdminProductByIdService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
 import { getCategoriesService } from '@/services/categories.service'
+import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
 import type { ProductWithRelations } from '@/types/product'
 
 interface ProductDetailsPageProps {
@@ -66,64 +67,29 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
   const category = product.category
   const brand = product.brand
 
+  // Fetch real variants for this product
+  const realVariants = await getProductVariantsByProductIdService(product.id)
+
+  // Convert ProductVariant from types to the format expected by VariantsTable
+  const variants: ProductVariant[] = realVariants.map((variant) => ({
+    id: variant.id,
+    product_id: variant.product_id,
+    color: variant.color,
+    size: variant.size,
+    material: variant.material,
+    quantity_stock: variant.quantity_stock,
+    sku_variant: variant.sku_variant,
+    price_override: variant.price_override,
+    created_at: variant.created_at,
+    deleted_at: variant.deleted_at,
+  }))
+
   // Dummy statistics data (in a real app, this would come from the database)
   const productStats = {
     views: Math.floor(Math.random() * 5000) + 1000, // Random between 1000-6000
     orders: Math.floor(Math.random() * 500) + 50, // Random between 50-550
     addedToCart: Math.floor(Math.random() * 800) + 100, // Random between 100-900
   }
-
-  // Generate dummy variants for the product
-  const dummyVariants: ProductVariant[] = [
-    {
-      id: 'variant-1',
-      product_id: product.id,
-      color: 'Black',
-      size: 'M',
-      material: 'Cotton',
-      quantity_stock: 50,
-      sku_variant: `${product.sku}-BLK-M`,
-      price_override: null,
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-    {
-      id: 'variant-2',
-      product_id: product.id,
-      color: 'White',
-      size: 'L',
-      material: 'Cotton',
-      quantity_stock: 30,
-      sku_variant: `${product.sku}-WHT-L`,
-      price_override: 109.99,
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-    {
-      id: 'variant-3',
-      product_id: product.id,
-      color: 'Red',
-      size: 'S',
-      material: 'Polyester',
-      quantity_stock: 0,
-      sku_variant: `${product.sku}-RED-S`,
-      price_override: null,
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-    {
-      id: 'variant-4',
-      product_id: product.id,
-      color: 'Blue',
-      size: 'XL',
-      material: 'Cotton',
-      quantity_stock: 25,
-      sku_variant: `${product.sku}-BLU-XL`,
-      price_override: 119.99,
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-  ]
 
   return (
     <div>
@@ -238,7 +204,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                 <CardTitle>Product Variants</CardTitle>
               </CardHeader>
               <CardContent>
-                <VariantsTable variants={dummyVariants} productPrice={product.price} />
+                <VariantsTable variants={variants} productPrice={product.price} />
               </CardContent>
             </Card>
           </div>

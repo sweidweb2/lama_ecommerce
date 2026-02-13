@@ -23,6 +23,12 @@ import {
   changePrimaryProductImageService,
 } from "@/services/product_image.service";
 import { addProductImageSchema } from "@/lib/validators/product_image/create";
+import { 
+  createProductVariantService,
+  updateProductVariantService,
+} from "@/services/product_variant.service";
+import { createProductVariantSchema } from "@/lib/validators/product_variant/create";
+import { updateProductVariantSchema } from "@/lib/validators/product_variant/update";
 
 const idSchema = z.string().uuid();
 
@@ -445,6 +451,119 @@ export async function deleteProductImageAction(
     revalidatePath(`/admin/products/${productId}`);
   } catch (error) {
     console.error("Unexpected error in deleteProductImageAction:", error);
+    throw error;
+  }
+}
+
+export async function createProductVariantAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const raw = {
+      product_id: formData.get("product_id")?.toString(),
+      color: formData.get("color")?.toString(),
+      size: formData.get("size")?.toString(),
+      material: formData.get("material")?.toString(),
+      quantity_stock: formData.get("quantity_stock")?.toString(),
+      sku_variant: formData.get("sku_variant")?.toString(),
+      price_override: formData.get("price_override")?.toString(),
+    };
+
+    const parsed = createProductVariantSchema.parse({
+      product_id: raw.product_id,
+      color: raw.color ? raw.color.trim() || null : null,
+      size: raw.size ? raw.size.trim() || null : null,
+      material: raw.material ? raw.material.trim() || null : null,
+      quantity_stock: raw.quantity_stock ? Number(raw.quantity_stock) : 0,
+      sku_variant: raw.sku_variant ? raw.sku_variant.trim() || null : null,
+      price_override: raw.price_override
+        ? Number(raw.price_override)
+        : null,
+    });
+
+    const created = await createProductVariantService(parsed);
+    if (!created) {
+      throw new Error("Failed to create product variant");
+    }
+
+    // Revalidate the products list and the specific product details page
+    revalidatePath("/admin/products");
+    revalidatePath(`/admin/products/${parsed.product_id}`);
+  } catch (error) {
+    console.error("Unexpected error in createProductVariantAction:", error);
+    throw error;
+  }
+}
+
+export async function updateProductVariantAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const variantIdRaw = formData.get("variant_id")?.toString();
+    if (!variantIdRaw) {
+      throw new Error("Variant ID is required");
+    }
+
+    const raw = {
+      product_id: formData.get("product_id")?.toString(),
+      color: formData.get("color")?.toString(),
+      size: formData.get("size")?.toString(),
+      material: formData.get("material")?.toString(),
+      quantity_stock: formData.get("quantity_stock")?.toString(),
+      sku_variant: formData.get("sku_variant")?.toString(),
+      price_override: formData.get("price_override")?.toString(),
+    };
+
+    // Build update object with only provided fields
+    const updateData: any = {};
+    if (raw.product_id !== undefined) updateData.product_id = raw.product_id;
+    if (raw.color !== undefined) {
+      updateData.color = raw.color ? raw.color.trim() || null : null;
+    }
+    if (raw.size !== undefined) {
+      updateData.size = raw.size ? raw.size.trim() || null : null;
+    }
+    if (raw.material !== undefined) {
+      updateData.material = raw.material ? raw.material.trim() || null : null;
+    }
+    if (raw.quantity_stock !== undefined) {
+      updateData.quantity_stock = raw.quantity_stock ? Number(raw.quantity_stock) : 0;
+    }
+    if (raw.sku_variant !== undefined) {
+      updateData.sku_variant = raw.sku_variant ? raw.sku_variant.trim() || null : null;
+    }
+    if (raw.price_override !== undefined) {
+      updateData.price_override = raw.price_override
+        ? Number(raw.price_override)
+        : null;
+    }
+
+    const parsed = updateProductVariantSchema.parse(updateData);
+
+    const updated = await updateProductVariantService(variantIdRaw, parsed);
+    if (!updated) {
+      throw new Error("Failed to update product variant");
+    }
+
+    // Revalidate the products list and the specific product details page
+    revalidatePath("/admin/products");
+    // Use the product_id from the variant (it should be in the update data or we can fetch it)
+    const productId = parsed.product_id || raw.product_id;
+    if (productId) {
+      revalidatePath(`/admin/products/${productId}`);
+    }
+  } catch (error) {
+    console.error("Unexpected error in updateProductVariantAction:", error);
     throw error;
   }
 }
