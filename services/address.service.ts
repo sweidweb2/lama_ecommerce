@@ -20,16 +20,26 @@ export async function getAddressesByUserId(
   return repoGetByUserId(userId);
 }
 
+export type CreateAddressResult =
+  | { ok: true; data: UserAddress }
+  | { ok: false; error: string };
+
 /**
  * Create an address for the given user. Validate with Zod. Call from server action after verifying user.
  */
 export async function createAddressForUser(
   userId: string,
   payload: Omit<CreateAddressPayload, "user_id">,
-): Promise<UserAddress | null> {
+): Promise<CreateAddressResult> {
   const parsed = createAddressSchema.safeParse({ ...payload, user_id: userId });
-  if (!parsed.success) return null;
-  return repoCreate({ ...parsed.data, user_id: userId });
+  if (!parsed.success) {
+    const first = parsed.error.flatten().fieldErrors;
+    const msg = Object.values(first).flat().find(Boolean) ?? "Invalid address data";
+    return { ok: false, error: String(msg) };
+  }
+  const created = await repoCreate({ ...parsed.data, user_id: userId });
+  if (!created) return { ok: false, error: "Failed to save address" };
+  return { ok: true, data: created };
 }
 
 /**

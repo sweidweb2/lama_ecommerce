@@ -21,11 +21,11 @@ export async function createAddressAction(payload: {
 }): Promise<Result> {
   const user = await getCurrentAuthUserFromAction();
   if (!user) return { success: false, error: "Not authenticated" };
-  const created = await createAddressForUser(user.id, payload);
-  if (!created) return { success: false, error: "Invalid input or create failed" };
+  const result = await createAddressForUser(user.id, payload);
+  if (!result.ok) return { success: false, error: result.error };
   revalidatePath("/account");
   revalidatePath("/account/addresses");
-  return { success: true, data: created };
+  return { success: true, data: result.data };
 }
 
 export async function updateAddressAction(
