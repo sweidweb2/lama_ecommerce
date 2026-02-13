@@ -11,9 +11,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { X } from 'lucide-react'
-import { DUMMY_CATEGORIES, DUMMY_BRANDS } from '@/lib/constants/dummy-data'
+import type { Brand, Category } from '@/types/product'
 
-export function GridFilters() {
+interface GridFiltersProps {
+  brands: Brand[]
+  categories: Category[]
+}
+
+export function GridFilters({ brands, categories }: GridFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -77,7 +82,7 @@ export function GridFilters() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {DUMMY_CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </SelectItem>
@@ -94,7 +99,7 @@ export function GridFilters() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Brands</SelectItem>
-              {DUMMY_BRANDS.map((br) => (
+              {brands.map((br) => (
                 <SelectItem key={br.id} value={br.id}>
                   {br.name}
                 </SelectItem>

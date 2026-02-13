@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { Star, Trash2 } from 'lucide-react'
+import { Star, Trash2, ImageIcon } from 'lucide-react'
 import { deleteProductImageAction } from '@/actions/product'
 
 interface ProductImage {
@@ -64,14 +65,10 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
 
   if (allImages.length === 0) {
     return (
-      <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border">
-        <Image
-          src="/placeholder-product.webp"
-          alt={productName}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 320px"
-        />
+      <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border flex items-center justify-center p-4">
+        <Skeleton className="w-24 h-24 rounded-md flex items-center justify-center bg-muted-foreground/15">
+          <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+        </Skeleton>
       </div>
     )
   }

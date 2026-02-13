@@ -2,8 +2,10 @@ import { AdminProductGrid } from '@/components/admin/product/AdminProductGrid'
 import { AdminPagination } from '@/components/admin/product/AdminPagination'
 import { GridFilters } from '@/components/admin/product/GridFilters'
 import { ProductStats } from '@/components/admin/product/ProductStats'
-import { DUMMY_PRODUCTS } from '@/lib/constants/dummy-data'
 import type { ProductWithRelations } from '@/types/product'
+import { getAdminProductsService } from '@/services/product.service'
+import { getBrandsService } from '@/services/brand.service'
+import { getCategoriesService } from '@/services/categories.service'
 
 interface GridProductsPageProps {
   searchParams: Promise<{
@@ -21,10 +23,15 @@ const MAX_PAGES = 60
 
 export default async function GridProductsPage({ searchParams }: GridProductsPageProps) {
   const params = await searchParams
+  const [productsFromDb, brands, categories] = await Promise.all([
+    getAdminProductsService(),
+    getBrandsService(),
+    getCategoriesService(),
+  ])
   const currentPage = Number(params.page) || 1
 
   // Apply filters to ALL products first
-  let filteredProducts: ProductWithRelations[] = [...DUMMY_PRODUCTS]
+  let filteredProducts: ProductWithRelations[] = [...productsFromDb]
 
   // Filter by category
   if (params.category && params.category !== 'all') {
@@ -91,9 +98,9 @@ export default async function GridProductsPage({ searchParams }: GridProductsPag
         </p>
       </div>
 
-      <ProductStats products={DUMMY_PRODUCTS} />
+      <ProductStats products={productsFromDb} />
 
-      <GridFilters />
+      <GridFilters brands={brands} categories={categories} />
 
       <div className="mb-4">
         <p className="text-sm text-muted-foreground">
@@ -112,7 +119,11 @@ export default async function GridProductsPage({ searchParams }: GridProductsPag
       {/* Pagination - Top */}
       {totalPages > 1 && <AdminPagination totalPages={totalPages} />}
 
-      <AdminProductGrid products={paginatedProducts} />
+      <AdminProductGrid 
+        products={paginatedProducts}
+        brands={brands}
+        categories={categories}
+      />
 
       {totalPages > 1 && <AdminPagination totalPages={totalPages} />}
     </div>

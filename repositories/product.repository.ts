@@ -82,7 +82,7 @@ export async function hasProductRelations(productId: string): Promise<boolean> {
 }
 
 /**
- * Fetch all products for admin (no `is_active` filter), including images.
+ * Fetch all products for admin (no `is_active` filter), including images and relations.
  */
 export async function getAdminProducts(): Promise<ProductWithRelations[]> {
   try {
@@ -90,7 +90,7 @@ export async function getAdminProducts(): Promise<ProductWithRelations[]> {
 
     const { data, error } = await supabase
       .from("products")
-      .select("*, images:product_images(*)")
+      .select(PRODUCT_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {

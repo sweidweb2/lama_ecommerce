@@ -267,26 +267,30 @@ export function VariantsTable({ variants, productPrice }: VariantsTableProps) {
                 <TableRow key={variant.id}>
                   <TableCell>
                     {variant.color ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 max-w-[200px]">
                         <div
-                          className="w-4 h-4 rounded-full border border-border"
+                          className="w-4 h-4 rounded-full border border-border shrink-0"
                           style={{ backgroundColor: variant.color }}
                           title={variant.color}
                         />
-                        <span>{variant.color}</span>
+                        <span className="truncate">{variant.color}</span>
                       </div>
                     ) : (
                       "—"
                     )}
                   </TableCell>
-                  <TableCell>{variant.size || "—"}</TableCell>
-                  <TableCell>{variant.material || "—"}</TableCell>
+                  <TableCell className="max-w-[140px] truncate">
+                    {variant.size || "—"}
+                  </TableCell>
+                  <TableCell className="max-w-[180px] truncate">
+                    {variant.material || "—"}
+                  </TableCell>
                   <TableCell>
                     <span className={variant.quantity_stock === 0 ? "text-destructive" : ""}>
                       {variant.quantity_stock}
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">
+                  <TableCell className="font-mono text-sm max-w-[200px] truncate">
                     {variant.sku_variant || "—"}
                   </TableCell>
                   <TableCell>

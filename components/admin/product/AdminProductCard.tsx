@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Edit, Trash2, Eye } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Edit, Trash2, Eye, ImageIcon } from 'lucide-react'
 import { ProductWithRelations } from '@/types/product'
+import type { Brand, Category } from '@/types/product'
 import { formatPrice } from '@/lib/utils'
 import { EditProductDialog } from './edit_form'
 import { DeleteProductDialog } from './delete_dialog'
@@ -14,6 +16,8 @@ import type { AdminProduct } from './edit_form'
 
 interface AdminProductCardProps {
   product: ProductWithRelations
+  brands: Brand[]
+  categories: Category[]
 }
 
 // Convert ProductWithRelations to AdminProduct format
@@ -34,21 +38,29 @@ function toAdminProduct(product: ProductWithRelations): AdminProduct {
   }
 }
 
-export function AdminProductCard({ product }: AdminProductCardProps) {
+export function AdminProductCard({ product, brands, categories }: AdminProductCardProps) {
   const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0]
-  const imageUrl = primaryImage?.url_image || '/placeholder-product.webp'
+  const hasImage = !!primaryImage?.url_image
   const adminProduct = toAdminProduct(product)
 
   return (
-    <Card className="h-full border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden p-0">
-      <div className="relative aspect-[4/5] overflow-hidden bg-muted">
-        <Image
-          src={imageUrl}
-          alt={product.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-        />
+    <Card className="h-full border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden p-0 flex flex-col gap-2">
+      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        {hasImage ? (
+          <Image
+            src={primaryImage.url_image}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center p-4">
+            <Skeleton className="w-16 h-16 rounded-md flex items-center justify-center bg-muted-foreground/15">
+              <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
+            </Skeleton>
+          </div>
+        )}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {product.is_featured && (
             <Badge className="bg-primary/90 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 border-none" variant="secondary">
@@ -66,7 +78,11 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
         <div className="absolute top-2 right-2">
           <div className="flex gap-1 bg-background/90 backdrop-blur-sm rounded-lg p-1 border border-border/40 shadow-sm">
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
-              <EditProductDialog product={adminProduct} />
+              <EditProductDialog 
+                product={adminProduct} 
+                brands={brands}
+                categories={categories}
+              />
             </div>
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
               <DeleteProductDialog product={adminProduct} />
@@ -84,9 +100,9 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
           </div>
         </div>
       </div>
-      <div className="pt-3 pb-3 px-3 flex flex-col gap-0.5">
+      <div className="pt-2 pb-2 px-3 flex flex-col gap-0.5">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold truncate">
-          {product.category?.name || 'Uncategorized'}
+          {[product.category?.name || 'Uncategorized', product.brand?.name].filter(Boolean).join(' - ')}
         </p>
         <h3 className="text-sm font-semibold text-foreground line-clamp-1">
           {product.name}

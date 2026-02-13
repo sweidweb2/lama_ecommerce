@@ -1,33 +1,37 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { deleteProductVariantAction } from "@/actions/product"
 import type { ProductVariant } from "./VariantsTable"
 
 interface DeleteVariantDialogProps {
   variant: ProductVariant
-  onDelete?: (variantId: string) => void | Promise<void>
 }
 
-export function DeleteVariantDialog({ variant, onDelete }: DeleteVariantDialogProps) {
+export function DeleteVariantDialog({ variant }: DeleteVariantDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      if (onDelete) {
-        await onDelete(variant.id)
-      } else {
-        // Default behavior - just log and close
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log(`Deleting variant: ${variant.id}`)
-      }
+      const formData = new FormData()
+      formData.set("variant_id", variant.id)
+      formData.set("product_id", variant.product_id)
+
+      await deleteProductVariantAction(formData)
+
+      // Refresh to show updated variant list
+      router.refresh()
       setOpen(false)
     } catch (error) {
       console.error("Error deleting variant:", error)
+      // Keep dialog open on error so user can try again
     } finally {
       setIsDeleting(false)
     }
@@ -76,6 +80,7 @@ export function DeleteVariantDialog({ variant, onDelete }: DeleteVariantDialogPr
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
+              className="!bg-red-600 !hover:bg-red-700 !text-white"
             >
               {isDeleting ? "Deleting..." : "Delete Variant"}
             </Button>

@@ -26,6 +26,7 @@ import { addProductImageSchema } from "@/lib/validators/product_image/create";
 import { 
   createProductVariantService,
   updateProductVariantService,
+  deleteProductVariantService,
 } from "@/services/product_variant.service";
 import { createProductVariantSchema } from "@/lib/validators/product_variant/create";
 import { updateProductVariantSchema } from "@/lib/validators/product_variant/update";
@@ -564,6 +565,38 @@ export async function updateProductVariantAction(
     }
   } catch (error) {
     console.error("Unexpected error in updateProductVariantAction:", error);
+    throw error;
+  }
+}
+
+export async function deleteProductVariantAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const variantIdRaw = formData.get("variant_id")?.toString();
+    const productIdRaw = formData.get("product_id")?.toString();
+
+    if (!variantIdRaw) {
+      throw new Error("Variant ID is required");
+    }
+
+    const deleted = await deleteProductVariantService(variantIdRaw);
+    if (!deleted) {
+      throw new Error("Failed to delete product variant");
+    }
+
+    // Revalidate the products list and the specific product details page
+    revalidatePath("/admin/products");
+    if (productIdRaw) {
+      revalidatePath(`/admin/products/${productIdRaw}`);
+    }
+  } catch (error) {
+    console.error("Unexpected error in deleteProductVariantAction:", error);
     throw error;
   }
 }

@@ -266,7 +266,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
 
       {/* Table */}
       <TableWrapper>
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
@@ -274,7 +274,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
               <TableHead>Price</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -304,9 +304,15 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
-                  <TableCell>{product.sku || "—"}</TableCell>
+                  <TableCell className="font-medium max-w-[220px] truncate">
+                    {product.name}
+                  </TableCell>
+                  <TableCell className="max-w-[140px] truncate">
+                    ${product.price.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="max-w-[160px] truncate">
+                    {product.sku || "—"}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {product.is_active ? (
