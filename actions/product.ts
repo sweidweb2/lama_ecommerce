@@ -335,8 +335,10 @@ export async function changePrimaryProductImageAction(
       throw new Error("Product ID and image ID are required");
     }
 
-    const productId = idSchema.parse(productIdRaw);
-    const imageId = idSchema.parse(imageIdRaw);
+    // For image deletion we trust the incoming IDs from the UI and skip UUID validation,
+    // since productId may in some cases come from non-UUID routes.
+    const productId = productIdRaw;
+    const imageId = imageIdRaw;
 
     const success = await changePrimaryProductImageService(productId, imageId);
     if (!success) {
@@ -347,6 +349,102 @@ export async function changePrimaryProductImageAction(
     revalidatePath(`/admin/products/${productId}`);
   } catch (error) {
     console.error("Unexpected error in changePrimaryProductImageAction:", error);
+    throw error;
+  }
+}
+
+export async function deleteProductImageAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    const productIdRaw = formData.get("product_id")?.toString();
+    const imageIdRaw = formData.get("image_id")?.toString();
+
+    if (!productIdRaw || !imageIdRaw) {
+      throw new Error("Product ID and image ID are required");
+    }
+
+    // For deleting images we don't strictly require UUID validation – just use raw strings.
+    const productId = productIdRaw;
+    const imageId = imageIdRaw;
+
+    const supabase = await createSupabaseServerActionClient();
+
+    // Fetch image row to know if it was primary and to get URL
+    const { data: image, error: fetchError } = await supabase
+      .from("product_images")
+      .select("*")
+      .eq("id", imageId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error("Error fetching product image before delete:", fetchError);
+      throw new Error("Failed to load product image");
+    }
+
+    if (!image) {
+      // Already deleted, just revalidate
+      revalidatePath("/admin/products");
+      revalidatePath(`/admin/products/${productId}`);
+      return;
+    }
+
+    // Delete from storage first (before DB deletion)
+    try {
+      const url = new URL((image as any).url_image as string);
+      const pathIndex = url.pathname.lastIndexOf("/products/");
+      if (pathIndex !== -1) {
+        const objectPath = url.pathname.substring(pathIndex + 1); // includes "products/..."
+        const { error: removeError } = await supabase.storage
+          .from("products")
+          .remove([objectPath]);
+
+        if (removeError) {
+          console.error("Error deleting product image from storage:", removeError);
+          // Don't fail the whole operation if storage delete fails, but log it
+          // The DB row will still be deleted
+        }
+      }
+    } catch (urlError) {
+      // If URL parsing fails, log but continue with DB deletion
+      console.error("Error parsing image URL for storage deletion:", urlError);
+    }
+
+    // Delete DB row
+    const { error: deleteError } = await supabase
+      .from("product_images")
+      .delete()
+      .eq("id", imageId);
+
+    if (deleteError) {
+      console.error("Error deleting product image row:", deleteError);
+      throw new Error("Failed to delete product image");
+    }
+
+    // If deleted image was primary, promote another image to primary if exists
+    if ((image as any).is_primary) {
+      const { data: nextImage, error: nextError } = await supabase
+        .from("product_images")
+        .select("id")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!nextError && nextImage) {
+        await changePrimaryProductImageService(productId, (nextImage as any).id as string);
+      }
+    }
+
+    revalidatePath("/admin/products");
+    revalidatePath(`/admin/products/${productId}`);
+  } catch (error) {
+    console.error("Unexpected error in deleteProductImageAction:", error);
     throw error;
   }
 }

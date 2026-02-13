@@ -44,8 +44,7 @@ export function ChangePrimaryImageDialog({
 
   const canSubmit =
     !!selectedImageId &&
-    !!currentPrimaryId &&
-    selectedImageId !== currentPrimaryId
+    (!currentPrimaryId || selectedImageId !== currentPrimaryId)
 
   const handleSubmit = async () => {
     if (!canSubmit || !selectedImageId) return

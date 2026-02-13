@@ -55,6 +55,7 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
       <Button
         variant={showText ? "destructive" : "ghost"}
         size={showText ? "default" : "icon"}
+        className={showText ? "!bg-red-600 !hover:bg-red-700 !text-white" : ""}
         onClick={() => setOpen(true)}
         aria-label={`Delete ${product.name}`}
       >
@@ -86,6 +87,7 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
             <Button
               type="button"
               variant="destructive"
+              className="!bg-red-600 !hover:bg-red-700 !text-white"
               onClick={handleDelete}
               disabled={isDeleting}
             >

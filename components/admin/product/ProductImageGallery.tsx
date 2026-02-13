@@ -2,9 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Image from 'next/image'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useRouter } from 'next/navigation'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Star } from 'lucide-react'
+import { Star, Trash2 } from 'lucide-react'
+import { deleteProductImageAction } from '@/actions/product'
 
 interface ProductImage {
   id: string
@@ -13,13 +16,17 @@ interface ProductImage {
 }
 
 interface ProductImageGalleryProps {
+  productId: string
   productName: string
   images: ProductImage[]
 }
 
-export function ProductImageGallery({ productName, images }: ProductImageGalleryProps) {
+export function ProductImageGallery({ productId, productName, images }: ProductImageGalleryProps) {
+  const router = useRouter()
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Get all images, with primary first
   const allImages = useMemo(() => {
@@ -35,6 +42,25 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
   const currentImage = allImages[selectedImageIndex] || allImages[0]
   const currentImageUrl = currentImage?.url_image || '/placeholder-product.webp'
   const isCurrentPrimary = !!currentImage?.is_primary
+
+  const handleConfirmDelete = async () => {
+    if (!currentImage) return
+
+    setIsDeleting(true)
+    try {
+      const formData = new FormData()
+      formData.set('product_id', productId)
+      formData.set('image_id', currentImage.id)
+
+      await deleteProductImageAction(formData)
+      setDeleteDialogOpen(false)
+      router.refresh()
+    } catch (error) {
+      console.error('Error deleting product image:', error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   if (allImages.length === 0) {
     return (
@@ -71,6 +97,21 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
               <Star className="h-3 w-3 fill-primary-foreground" />
               <span>Primary</span>
             </div>
+          )}
+
+          {currentImage && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-sm !bg-red-600 !hover:bg-red-700 !text-white"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteDialogOpen(true)
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           )}
         </div>
 
@@ -160,6 +201,46 @@ export function ProductImageGallery({ productName, images }: ProductImageGallery
               })}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Image Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove this product image?</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-3 text-sm text-muted-foreground">
+            <p>
+              Are you sure you want to delete this image for{' '}
+              <span className="font-semibold text-foreground">{productName}</span>?
+            </p>
+            {isCurrentPrimary && (
+              <p>
+                This is the current <span className="font-semibold text-foreground">primary</span> image.
+                If you delete it, another image (if available) will be promoted as primary automatically.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="mt-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="!bg-red-600 !hover:bg-red-700 !text-white"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Image'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
