@@ -307,7 +307,7 @@ export async function softDeleteProduct(id: string): Promise<boolean> {
       .from("products")
       .update({
         deleted_at: new Date().toISOString(),
-        is_active: false,
+          is_active: false,
           is_featured: false,
           is_trending: false,
         } as never)

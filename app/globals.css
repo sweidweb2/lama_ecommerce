@@ -137,6 +137,17 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+
+  /* Themed text selection color (no default blue) */
+  ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  .dark ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
 }
 
 @layer utilities {

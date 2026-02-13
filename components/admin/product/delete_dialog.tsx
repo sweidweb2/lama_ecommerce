@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
@@ -16,6 +17,8 @@ interface DeleteProductDialogProps {
 }
 
 export function DeleteProductDialog({ product, onDelete, showText = false }: DeleteProductDialogProps) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -29,6 +32,16 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
         formData.set("id", product.id)
         await deleteProductAction(formData)
       }
+
+      // If we're on a product details route (/admin/products/[id]),
+      // navigate back to the products list after delete.
+      if (pathname && pathname.startsWith("/admin/products/") && pathname.split("/").length === 4) {
+        router.push("/admin/products")
+      } else {
+        // Otherwise just refresh the current view (tables, cards, etc.).
+        router.refresh()
+      }
+
       setOpen(false)
     } catch (error) {
       console.error("Error deleting product:", error)
