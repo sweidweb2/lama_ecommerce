@@ -1,94 +1,106 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Plus } from "lucide-react"
+} from "@/components/ui/select";
+import { Plus } from "lucide-react";
+import { createQuestionAction } from "@/actions/product_question";
 
 export type AdminQuestion = {
-  id: string
-  product_id: string
-  product_name: string
-  user_id: string | null
-  user_name: string | null
-  question: string
-  answer: string | null
-  is_approved: boolean
-  created_at?: string
+  id: string;
+  product_id: string;
+  product_name: string;
+  user_id: string | null;
+  user_name: string | null;
+  question: string;
+  answer: string | null;
+  is_approved: boolean;
+  created_at?: string;
+};
+
+const NONE_VALUE = "__none__";
+
+export interface ProductOption {
+  id: string;
+  name: string;
+}
+export interface ProfileOption {
+  id: string;
+  name: string;
 }
 
-const DUMMY_PRODUCTS = [
-  { id: "prod-1", name: "Wireless Headphones" },
-  { id: "prod-2", name: "Smart Watch" },
-  { id: "prod-3", name: "Laptop Stand" },
-]
+interface CreateQuestionDialogProps {
+  products: ProductOption[];
+  profiles: ProfileOption[];
+}
 
-const DUMMY_USERS = [
-  { id: "user-1", name: "John Doe" },
-  { id: "user-2", name: "Jane Smith" },
-  { id: "user-3", name: "Bob Johnson" },
-]
+export function CreateQuestionDialog({ products, profiles }: CreateQuestionDialogProps) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [productId, setProductId] = useState<string>("");
+  const [userId, setUserId] = useState<string>(NONE_VALUE);
+  const [question, setQuestion] = useState<string>("");
+  const [answer, setAnswer] = useState<string>("");
+  const [isApproved, setIsApproved] = useState<string>("false");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-const NONE_VALUE = "__none__"
-
-export function CreateQuestionDialog() {
-  const [open, setOpen] = useState(false)
-  const [productId, setProductId] = useState<string>("")
-  const [userId, setUserId] = useState<string>(NONE_VALUE)
-  const [question, setQuestion] = useState<string>("")
-  const [answer, setAnswer] = useState<string>("")
-  const [isApproved, setIsApproved] = useState<string>("false")
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!productId || !question.trim()) {
-      return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productId || !question.trim()) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const result = await createQuestionAction({
+        product_id: productId,
+        user_id: userId !== NONE_VALUE ? userId : null,
+        question: question.trim(),
+        answer: answer.trim() || null,
+        is_approved: isApproved === "true",
+      });
+      if (!result.success) {
+        setError(result.error ?? "Failed to create question");
+        return;
+      }
+      setProductId("");
+      setUserId(NONE_VALUE);
+      setQuestion("");
+      setAnswer("");
+      setIsApproved("false");
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create question");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const product = DUMMY_PRODUCTS.find((p) => p.id === productId)
-    const user = userId !== NONE_VALUE ? DUMMY_USERS.find((u) => u.id === userId) : null
-
-    const newQuestion: Omit<AdminQuestion, "id"> = {
-      product_id: productId,
-      product_name: product?.name || "Unknown product",
-      user_id: user?.id || null,
-      user_name: user?.name || null,
-      question: question.trim(),
-      answer: answer.trim() || null,
-      is_approved: isApproved === "true",
-      created_at: new Date().toISOString(),
-    }
-
-    // TODO: Wire this up to a real admin create action / API
-    console.log("Creating question:", newQuestion)
-
-    setProductId("")
-    setUserId(NONE_VALUE)
-    setQuestion("")
-    setAnswer("")
-    setIsApproved("false")
-    setOpen(false)
-  }
+  };
 
   const handleCancel = () => {
-    setProductId("")
-    setUserId(NONE_VALUE)
-    setQuestion("")
-    setAnswer("")
-    setIsApproved("false")
-    setOpen(false)
-  }
+    setProductId("");
+    setUserId(NONE_VALUE);
+    setQuestion("");
+    setAnswer("");
+    setIsApproved("false");
+    setError(null);
+    setOpen(false);
+  };
 
   return (
     <>
@@ -104,6 +116,9 @@ export function CreateQuestionDialog() {
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="qa-product">
                 Product <span className="text-destructive">*</span>
@@ -113,7 +128,7 @@ export function CreateQuestionDialog() {
                   <SelectValue placeholder="Select a product" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUMMY_PRODUCTS.map((product) => (
+                  {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name}
                     </SelectItem>
@@ -130,9 +145,9 @@ export function CreateQuestionDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>Guest / Anonymous</SelectItem>
-                  {DUMMY_USERS.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
+                  {profiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -166,10 +181,7 @@ export function CreateQuestionDialog() {
 
             <div className="space-y-2">
               <Label htmlFor="qa-approved">Approved</Label>
-              <Select
-                value={isApproved}
-                onValueChange={setIsApproved}
-              >
+              <Select value={isApproved} onValueChange={setIsApproved}>
                 <SelectTrigger id="qa-approved">
                   <SelectValue />
                 </SelectTrigger>
@@ -185,17 +197,20 @@ export function CreateQuestionDialog() {
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!productId || !question.trim()}>
-                Create Question
+              <Button
+                type="submit"
+                disabled={!productId || !question.trim() || isSubmitting}
+              >
+                {isSubmitting ? "Creating..." : "Create Question"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
-
