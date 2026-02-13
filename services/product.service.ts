@@ -15,6 +15,7 @@ import {
   hasProductRelations,
   softDeleteProduct,
   hardDeleteProduct,
+  getProductById,
 } from "@/repositories/product.repository";
 import { getCategoryIdBySlug } from "@/repositories/categories.repository";
 import type { Product, ProductWithRelations } from "@/types/product";
@@ -76,6 +77,15 @@ export async function updateProductService(
  */
 export async function getAdminProductsService(): Promise<ProductWithRelations[]> {
   return getAdminProducts();
+}
+
+/**
+ * Get a single product (with relations) for the admin detail page by ID.
+ */
+export async function getAdminProductByIdService(
+  id: string,
+): Promise<ProductWithRelations | null> {
+  return getProductById(id);
 }
 
 /**

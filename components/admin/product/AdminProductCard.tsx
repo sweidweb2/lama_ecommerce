@@ -71,7 +71,7 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
               <DeleteProductDialog product={adminProduct} />
             </div>
-            <Link href={`/admin/products/${product.slug || product.id}`}>
+            <Link href={`/admin/products/${product.id}`}>
               <Button
                 variant="ghost"
                 size="icon"

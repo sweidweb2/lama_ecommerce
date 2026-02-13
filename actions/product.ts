@@ -182,6 +182,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       throw new Error("Failed to update product");
     }
 
+    // Revalidate the products list and the details page (route uses product ID).
     revalidatePath("/admin/products");
     revalidatePath(`/admin/products/${id}`);
   } catch (error) {

@@ -16,44 +16,17 @@ interface ProductImageGalleryProps {
   images: ProductImage[]
 }
 
-// Dummy images for demonstration
-const DUMMY_IMAGES = [
-  'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000&auto=format&fit=crop',
-]
-
 export function ProductImageGallery({ productName, images }: ProductImageGalleryProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
 
-  // Get all images, with primary first, and add dummy images if needed
+  // Get all images, with primary first
   const allImages = useMemo(() => {
     const sortedImages = [...images].sort((a, b) => {
       if (a.is_primary) return -1
       if (b.is_primary) return 1
       return 0
     })
-
-    // If there's only one image or no images, add dummy images for demonstration
-    if (sortedImages.length <= 1) {
-      const primaryImage = sortedImages[0] || { 
-        id: 'img-1', 
-        url_image: '/placeholder-product.webp', 
-        is_primary: true 
-      }
-      
-      // Add 3-4 dummy images
-      const dummyImages = DUMMY_IMAGES.slice(0, 4).map((url, index) => ({
-        id: `dummy-img-${index + 1}`,
-        url_image: url,
-        is_primary: index === 0,
-      }))
-      
-      return [primaryImage, ...dummyImages]
-    }
 
     return sortedImages
   }, [images])

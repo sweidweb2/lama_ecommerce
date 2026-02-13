@@ -8,18 +8,21 @@ import { AddImageForm } from '@/components/admin/product/AddImageForm'
 import { ProductImageGallery } from '@/components/admin/product/ProductImageGallery'
 import { ProductDetailsBreadcrumbs } from '@/components/admin/product/ProductDetailsBreadcrumbs'
 import { StatCard } from '@/components/admin/stat-card'
-import { DUMMY_PRODUCTS, DUMMY_CATEGORIES, DUMMY_BRANDS } from '@/lib/constants/dummy-data'
 import { formatPrice } from '@/lib/utils'
 import { Eye, ShoppingCart, ShoppingBag } from 'lucide-react'
+import { getAdminProductByIdService } from '@/services/product.service'
+import { getBrandsService } from '@/services/brand.service'
+import { getCategoriesService } from '@/services/categories.service'
+import type { ProductWithRelations } from '@/types/product'
 
 interface ProductDetailsPageProps {
   params: Promise<{
-    slug: string
+    id: string
   }>
 }
 
 // Convert ProductWithRelations to AdminProduct format
-function toAdminProduct(product: typeof DUMMY_PRODUCTS[0]): AdminProduct {
+function toAdminProduct(product: ProductWithRelations): AdminProduct {
   return {
     id: product.id,
     name: product.name,
@@ -37,22 +40,30 @@ function toAdminProduct(product: typeof DUMMY_PRODUCTS[0]): AdminProduct {
 }
 
 export default async function ProductDetailsPage({ params }: ProductDetailsPageProps) {
-  const { slug } = await params
+  const { id } = await params
 
-  // Find product in dummy data (for now, we'll search by slug or id as fallback)
-  // In a real app, you'd fetch from the database
-  let product =
-    DUMMY_PRODUCTS.find((p) => p.slug === slug) ?? DUMMY_PRODUCTS.find((p) => p.id === slug)
+  // Load product + supporting data (brands & categories) from the database.
+  const [product, brands, categories] = await Promise.all([
+    getAdminProductByIdService(id),
+    getBrandsService(),
+    getCategoriesService(),
+  ])
 
-  // If not found, use the first product as a fallback for demo purposes
   if (!product) {
-    product = DUMMY_PRODUCTS[0]
+    return (
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Product Details</h1>
+        <p className="text-muted-foreground text-sm sm:text-base mt-1">
+          This product does not exist yet, but the admin detail layout is ready.
+        </p>
+      </div>
+    )
   }
 
   const adminProduct = toAdminProduct(product)
   const productImages = product.images || []
-  const category = DUMMY_CATEGORIES.find((c) => c.id === product.category_id)
-  const brand = DUMMY_BRANDS.find((b) => b.id === product.brand_id)
+  const category = product.category
+  const brand = product.brand
 
   // Dummy statistics data (in a real app, this would come from the database)
   const productStats = {
@@ -128,7 +139,12 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
             </p>
           </div>
           <div className="flex gap-2">
-            <EditProductDialog product={adminProduct} showText />
+            <EditProductDialog
+              product={adminProduct}
+              showText
+              brands={brands}
+              categories={categories}
+            />
             <DeleteProductDialog product={adminProduct} showText />
           </div>
         </div>
@@ -163,32 +179,44 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
               <CardHeader>
                 <CardTitle>Basic Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Product Name</label>
-                  <p className="text-lg font-semibold mt-1">{product.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Description</label>
-                  <p className="text-sm mt-1 text-foreground">
-                    {product.description || 'No description available'}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">SKU</label>
-                    <p className="text-sm font-medium mt-1">{product.sku || '—'}</p>
+              <CardContent>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Left column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Product Name
+                      </label>
+                      <p className="text-lg font-semibold mt-1 truncate">{product.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">SKU</label>
+                      <p className="text-sm font-medium mt-1 truncate">{product.sku || '—'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Price</label>
+                      <p className="text-2xl font-bold text-primary mt-1">
+                        {formatPrice(product.price)}
+                      </p>
+                    </div>
+                    
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Slug</label>
-                    <p className="text-sm font-medium mt-1">{product.slug || '—'}</p>
+
+                  {/* Right column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Description
+                      </label>
+                      <p className="text-sm mt-1 text-foreground line-clamp-3">
+                        {product.description || 'No description available'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Slug</label>
+                      <p className="text-sm font-medium mt-1 truncate">{product.slug || '—'}</p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Price</label>
-                  <p className="text-2xl font-bold text-primary mt-1">
-                    {formatPrice(product.price)}
-                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -258,11 +286,15 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="text-sm font-medium mt-1">{category?.name || 'Uncategorized'}</p>
+                  <p className="text-sm font-medium mt-1 truncate">
+                    {category?.name || 'Uncategorized'}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Brand</label>
-                  <p className="text-sm font-medium mt-1">{brand?.name || 'No brand'}</p>
+                  <p className="text-sm font-medium mt-1 truncate">
+                    {brand?.name || 'No brand'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -275,7 +307,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Product ID</label>
-                  <p className="text-sm font-mono mt-1">{product.id}</p>
+                  <p className="text-sm font-mono mt-1 truncate break-all">{product.id}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
@@ -297,4 +329,3 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
     </div>
   )
 }
-

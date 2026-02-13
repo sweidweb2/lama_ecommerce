@@ -12,8 +12,11 @@ export interface GetProductsRepoParams {
   search?: string;
 }
 
+// Common select used for product detail / listing where we only need
+// the core product data plus brand, category, and images.
+// (Variants are currently handled as dummy data in the admin UI.)
 const PRODUCT_SELECT =
-  "*, brand:brands(*), category:categories(*), images:product_images(*), variants:product_variants(*)";
+  "*, brand:brands(*), category:categories(*), images:product_images(*)";
 
 export interface CreateProductRepoInput {
   name: string;
@@ -174,6 +177,32 @@ export async function getProductBySlug(
     return data as ProductWithRelations;
   } catch (error) {
     console.error("Unexpected error in getProductBySlug:", error);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single product by id with relations.
+ */
+export async function getProductById(
+  id: string,
+): Promise<ProductWithRelations | null> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching product by id:", error);
+      return null;
+    }
+
+    return data as ProductWithRelations;
+  } catch (error) {
+    console.error("Unexpected error in getProductById:", error);
     return null;
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +49,7 @@ export function EditProductDialog({
   brands = [],
   categories = [],
 }: EditProductDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [name, setName] = useState(product.name)
@@ -126,6 +128,11 @@ export function EditProductDialog({
       formData.set("is_active", parsed.data.is_active ? "true" : "false")
 
       await updateProductAction(formData)
+
+      // Refresh the current page to show updated data.
+      // The route uses the product ID which never changes.
+      router.refresh()
+
       setOpen(false)
     } catch (error) {
       console.error("Error updating product:", error)
