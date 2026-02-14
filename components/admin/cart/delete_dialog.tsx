@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { hardDeleteCartAction } from "@/actions/cart"
 
 interface DeleteCartDialogProps {
   cart: {
@@ -16,6 +19,8 @@ interface DeleteCartDialogProps {
 }
 
 export function DeleteCartDialog({ cart, onDelete, showText = false }: DeleteCartDialogProps) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -25,13 +30,33 @@ export function DeleteCartDialog({ cart, onDelete, showText = false }: DeleteCar
       if (onDelete) {
         await onDelete(cart.id)
       } else {
-        // Default behavior - just log and close
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log(`Deleting cart: ${cart.id}`)
+        // Use the hard delete cart action (deletes items first, then cart)
+        const result = await hardDeleteCartAction(cart.id)
+        
+        if (!result.success) {
+          toast.error("Error", {
+            description: result.error || "Failed to delete cart. Please try again.",
+          })
+          return
+        }
+
+        toast.success("Cart deleted", {
+          description: "The cart and all its items have been permanently deleted.",
+        })
       }
       setOpen(false)
+      
+      // If we're on the cart details page, redirect to carts list
+      if (pathname?.includes(`/admin/carts/${cart.id}`)) {
+        router.push("/admin/carts")
+      } else {
+        router.refresh()
+      }
     } catch (error) {
       console.error("Error deleting cart:", error)
+      toast.error("Error", {
+        description: "Failed to delete cart. Please try again.",
+      })
     } finally {
       setIsDeleting(false)
     }

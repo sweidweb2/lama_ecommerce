@@ -6,6 +6,8 @@ import {
   getUserCartService,
   getUserCartWithItemsService,
   deleteCartItemService,
+  deleteCartService,
+  hardDeleteCartService,
 } from "@/services/cart.service";
 import { revalidatePath } from "next/cache";
 
@@ -115,6 +117,63 @@ export async function deleteCartItemAction(
   // Revalidate cart page if successful
   if (result.success) {
     revalidatePath("/cart");
+  }
+
+  return result;
+}
+
+/**
+ * Delete cart action.
+ * This is the server action called from client components (admin panel).
+ * Soft-deletes a cart by setting deleted_at.
+ */
+export async function deleteCartAction(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  // Authorization check: User must be logged in (admin check should be done in UI)
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in to delete carts",
+    };
+  }
+
+  // Call service to delete cart
+  const result = await deleteCartService(cartId);
+
+  // Revalidate admin carts page if successful
+  if (result.success) {
+    revalidatePath("/admin/carts");
+  }
+
+  return result;
+}
+
+/**
+ * Hard delete cart action.
+ * This is the server action called from client components (admin panel).
+ * Hard deletes all cart items first, then hard deletes the cart itself.
+ */
+export async function hardDeleteCartAction(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  // Authorization check: User must be logged in (admin check should be done in UI)
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in to delete carts",
+    };
+  }
+
+  // Call service to hard delete cart (deletes items first, then cart)
+  const result = await hardDeleteCartService(cartId);
+
+  // Revalidate admin carts pages if successful
+  if (result.success) {
+    revalidatePath("/admin/carts");
+    revalidatePath(`/admin/carts/${cartId}`);
   }
 
   return result;

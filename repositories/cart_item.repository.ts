@@ -2,6 +2,7 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { CartItem } from "@/types/order";
 import type { CreateCartItemInput } from "@/lib/validators/cart-item/create";
 import type { UpdateCartItemInput } from "@/lib/validators/cart-item/update";
@@ -413,6 +414,43 @@ export async function hardDeleteCartItem(
     };
   } catch (error) {
     console.error("Unexpected error in hardDeleteCartItem:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Hard-delete all cart items for a specific cart (permanently remove from database).
+ * Used when deleting a cart - all its items must be deleted first.
+ * Uses admin client to bypass RLS for admin operations.
+ */
+export async function hardDeleteCartItemsByCartId(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await (supabase as any)
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cartId);
+
+    if (error) {
+      console.error("Error hard deleting cart items by cart ID:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete cart items",
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Unexpected error in hardDeleteCartItemsByCartId:", error);
     return {
       success: false,
       error:

@@ -89,9 +89,7 @@ export default async function CartsPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
-                      {/* Action buttons disabled for now */}
-                      {/* <EditCartDialog cart={cart} /> */}
-                      {/* <DeleteCartDialog cart={cart} /> */}
+                      <DeleteCartDialog cart={cart} />
                     </div>
                   </TableCell>
                 </TableRow>

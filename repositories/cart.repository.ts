@@ -361,6 +361,43 @@ export async function deleteCart(
 }
 
 /**
+ * Hard-delete a cart (permanently remove from database).
+ * Used for admin operations. All cart items must be deleted first.
+ * Uses admin client to bypass RLS for admin operations.
+ */
+export async function hardDeleteCart(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await (supabase as any)
+      .from("carts")
+      .delete()
+      .eq("id", cartId);
+
+    if (error) {
+      console.error("Error hard deleting cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete cart",
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Unexpected error in hardDeleteCart:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
  * Admin cart row interface for admin panel display.
  */
 export interface AdminCartRow {

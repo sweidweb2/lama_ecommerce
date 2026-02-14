@@ -3,6 +3,8 @@ import {
   hasActiveCart,
   getCartByUserId,
   getAllCartsForAdmin,
+  deleteCart,
+  hardDeleteCart,
   type Cart,
   type AdminCartRow,
 } from "@/repositories/cart.repository";
@@ -10,6 +12,7 @@ import {
   createCartItem,
   getCartItemsWithProductsByCartId,
   hardDeleteCartItem,
+  hardDeleteCartItemsByCartId,
   type CartItem,
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
@@ -171,4 +174,56 @@ export async function deleteCartItemService(
  */
 export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
   return await getAllCartsForAdmin();
+}
+
+/**
+ * Delete cart service.
+ * Soft-deletes a cart by setting deleted_at.
+ */
+export async function deleteCartService(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  return await deleteCart(cartId);
+}
+
+/**
+ * Hard delete cart service.
+ * First hard deletes all cart items, then hard deletes the cart itself.
+ * Used for admin operations.
+ */
+export async function hardDeleteCartService(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, hard delete all cart items
+    const deleteItemsResult = await hardDeleteCartItemsByCartId(cartId);
+    
+    if (!deleteItemsResult.success) {
+      return {
+        success: false,
+        error: deleteItemsResult.error || "Failed to delete cart items",
+      };
+    }
+
+    // Then, hard delete the cart
+    const deleteCartResult = await hardDeleteCart(cartId);
+    
+    if (!deleteCartResult.success) {
+      return {
+        success: false,
+        error: deleteCartResult.error || "Failed to delete cart",
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error in hardDeleteCartService:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to delete cart",
+    };
+  }
 }
