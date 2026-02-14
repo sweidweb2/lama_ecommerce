@@ -10,7 +10,6 @@ import { SearchBar } from '@/components/(public)/products/SearchBar'
 import { MobileFilters } from '@/components/(public)/products/MobileFilters'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DUMMY_PRODUCTS, DUMMY_CATEGORIES } from '@/lib/constants/dummy-data'
 import type { ProductWithRelations } from '@/types/product'
 
 
@@ -35,65 +34,17 @@ function getPrimaryVariantValue(product: ProductWithRelations, field: 'color' | 
     return (value || '').toString()
 }
 
-function sortDummyProducts(products: ProductWithRelations[], sort?: string) {
-    if (!sort) {
-        // Default: newest first (we'll just keep original order since dummy dates are generated now)
-        return [...products]
-    }
-
-    const [field, order] = sort.split('-') as [string, 'asc' | 'desc' | undefined]
-    const ascending = order === 'asc'
-
-    const sorted = [...products].sort((a, b) => {
-        switch (field) {
-            case 'price': {
-                const aPrice = a.price
-                const bPrice = b.price
-                return ascending ? aPrice - bPrice : bPrice - aPrice
-            }
-            case 'name': {
-                const aName = a.name || ''
-                const bName = b.name || ''
-                return ascending ? aName.localeCompare(bName) : bName.localeCompare(aName)
-            }
-            case 'color': {
-                const aColor = getPrimaryVariantValue(a, 'color')
-                const bColor = getPrimaryVariantValue(b, 'color')
-                return ascending ? aColor.localeCompare(bColor) : bColor.localeCompare(aColor)
-            }
-            case 'size': {
-                const aSize = getPrimaryVariantValue(a, 'size').toUpperCase()
-                const bSize = getPrimaryVariantValue(b, 'size').toUpperCase()
-
-                const indexA = SIZE_ORDER.indexOf(aSize)
-                const indexB = SIZE_ORDER.indexOf(bSize)
-
-                if (indexA === -1 && indexB === -1) {
-                    return ascending ? aSize.localeCompare(bSize) : bSize.localeCompare(aSize)
-                }
-                if (indexA === -1) return 1
-                if (indexB === -1) return -1
-
-                return ascending ? indexA - indexB : indexB - indexA
-            }
-            case 'created_at':
-            default: {
-                const aCreated = new Date(a.created_at).getTime()
-                const bCreated = new Date(b.created_at).getTime()
-                return ascending ? aCreated - bCreated : bCreated - aCreated
-            }
-        }
-    })
-
-    return sorted
-}
-
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
     const params = await searchParams
 
     // Fetch categories for the sidebar
-    let categories = await getCategoriesService()
-    if (categories.length === 0) categories = DUMMY_CATEGORIES
+    const categories = await getCategoriesService()
+
+    // Fetch all products for price calculation (without pagination)
+    const { data: allProductsForPriceCalc } = await getProducts({
+        page: 1,
+        pageSize: 10000, // Large number to get all products
+    })
 
     // Fetch products with filters
     let { data: products, count } = await getProducts({
@@ -151,79 +102,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         }
     }
 
-    // Dummy data fallback for design visualization
-    if (products.length === 0 && !params.search) {
-        let allProducts: ProductWithRelations[] = DUMMY_PRODUCTS
-
-        // Filter dummy data if category is selected
-        if (params.category) {
-            allProducts = allProducts.filter(p => p.category?.slug === params.category)
-        }
-
-        // Apply color filtering to dummy data only if variants are present
-        if (params.colors && allProducts.some(p => p.variants && p.variants.length > 0)) {
-            const selectedColors = params.colors
-                .split(',')
-                .map(c => c.trim().toLowerCase())
-                .filter(Boolean)
-
-            if (selectedColors.length > 0) {
-                allProducts = allProducts.filter(product =>
-                    product.variants?.some(variant =>
-                        variant.color && selectedColors.includes(variant.color.toLowerCase()),
-                    ),
-                )
-            }
-        }
-
-        // Apply size filtering to dummy data only if variants are present
-        if (params.sizes && allProducts.some(p => p.variants && p.variants.length > 0)) {
-            const selectedSizes = params.sizes
-                .split(',')
-                .map(s => s.trim().toUpperCase())
-                .filter(Boolean)
-
-            if (selectedSizes.length > 0) {
-                allProducts = allProducts.filter(product =>
-                    product.variants?.some(variant =>
-                        variant.size && selectedSizes.includes(variant.size.toUpperCase()),
-                    ),
-                )
-            }
-        }
-
-        // Apply price filtering to dummy data
-        if (params.minPrice || params.maxPrice) {
-            const minPrice = params.minPrice ? parseFloat(params.minPrice) : 0
-            const maxPrice = params.maxPrice ? parseFloat(params.maxPrice) : Infinity
-
-            if (!isNaN(minPrice) && !isNaN(maxPrice)) {
-                allProducts = allProducts.filter(product => {
-                    const price = product.price
-                    return price >= minPrice && price <= maxPrice
-                })
-            }
-        }
-
-        // Apply sorting for dummy data, including color and size
-        allProducts = sortDummyProducts(allProducts, params.sort)
-
-        count = allProducts.length
-
-        // Apply pagination to dummy data
-        const currentPage = Number(params.page) || 1
-        const pageSize = 12
-        const startIndex = (currentPage - 1) * pageSize
-        const endIndex = startIndex + pageSize
-        products = allProducts.slice(startIndex, endIndex)
-    }
-
     const pageSize = 12
     const totalPages = Math.ceil(count / pageSize)
 
-    // Calculate price range from all available products (use dummy data for calculation)
-    // In a real app, you'd fetch all products without filters for this
-    const allProductsForPriceCalc = DUMMY_PRODUCTS
+    // Calculate price range from all available real products
     const prices = allProductsForPriceCalc.map(p => p.price)
     const calculatedMinPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0
     const calculatedMaxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000

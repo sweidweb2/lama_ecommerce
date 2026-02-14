@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductImage as ProductImageType } from '@/types/product_utf8'
 
@@ -13,15 +14,6 @@ interface ProductMediaGalleryProps {
   isFeatured?: boolean
   isTrending?: boolean
 }
-
-// Dummy images for demonstration
-const DUMMY_IMAGES = [
-  'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop',
-]
 
 /**
  * ProductMediaGallery Component
@@ -46,51 +38,25 @@ export function ProductMediaGallery({
 
   // Sort images: primary first, then by creation date
   const sortedImages = useMemo(() => {
-    const sorted = [...images].sort((a, b) => {
+    const sorted = [...images].filter(img => img.url_image).sort((a, b) => {
       if (a.is_primary && !b.is_primary) return -1
       if (!a.is_primary && b.is_primary) return 1
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     })
 
-    // If there's only one image or no images, add dummy images for demonstration
-    if (sorted.length <= 1) {
-      const primaryImage = sorted[0] || { 
-        id: 'img-1', 
-        url_image: '/placeholder-product.webp', 
-        is_primary: true,
-        product_id: '',
-        created_at: new Date().toISOString()
-      }
-      
-      // Add 3-4 dummy images
-      const dummyImages = DUMMY_IMAGES.slice(0, 4).map((url, index) => ({
-        id: `dummy-img-${index + 1}`,
-        url_image: url,
-        is_primary: false,
-        product_id: primaryImage.product_id || '',
-        created_at: new Date().toISOString()
-      }))
-      
-      return [primaryImage, ...dummyImages]
-    }
-
     return sorted
   }, [images])
 
   const currentImage = sortedImages[selectedIndex] || sortedImages[0]
-  const currentImageUrl = currentImage?.url_image || '/placeholder-product.webp'
+  const hasImage = currentImage?.url_image
 
-  if (sortedImages.length === 0) {
+  if (sortedImages.length === 0 || !hasImage) {
     return (
-      <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border">
-        <Image
-          src="/placeholder-product.webp"
-          alt={productName}
-          fill
-          className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 50vw"
-          priority
-        />
+      <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-muted border flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+          <ImageIcon className="h-16 w-16 opacity-50" />
+          <span className="text-sm opacity-75">No Image Available</span>
+        </div>
       </div>
     )
   }
@@ -100,15 +66,24 @@ export function ProductMediaGallery({
       <div className="space-y-4">
         {/* Main Image */}
         <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-muted border group">
-          <Image
-            src={currentImageUrl}
-            alt={productName}
-            fill
-            className="object-cover cursor-pointer transition-transform group-hover:scale-105"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            priority
-            onClick={() => setViewerOpen(true)}
-          />
+          {hasImage ? (
+            <Image
+              src={currentImage.url_image}
+              alt={productName}
+              fill
+              className="object-cover cursor-pointer transition-transform group-hover:scale-105"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              priority
+              onClick={() => setViewerOpen(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <ImageIcon className="h-16 w-16 opacity-50" />
+                <span className="text-sm opacity-75">No Image Available</span>
+              </div>
+            </div>
+          )}
           
           {/* Badges */}
           <div className="absolute top-4 left-4 flex flex-col gap-2">
@@ -164,13 +139,22 @@ export function ProductMediaGallery({
             <DialogTitle>View {productName} Image</DialogTitle>
           </DialogHeader>
           <div className="relative w-full h-[80vh] rounded-lg overflow-hidden bg-background p-4">
-            <Image
-              src={currentImageUrl}
-              alt={productName}
-              fill
-              className="object-contain"
-              sizes="100vw"
-            />
+            {hasImage ? (
+              <Image
+                src={currentImage.url_image}
+                alt={productName}
+                fill
+                className="object-contain"
+                sizes="100vw"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-muted">
+                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <ImageIcon className="h-16 w-16 opacity-50" />
+                  <span className="text-sm opacity-75">No Image Available</span>
+                </div>
+              </div>
+            )}
           </div>
           {sortedImages.length > 1 && (
             <div className="flex gap-2 justify-center overflow-x-auto hide-scrollbar p-4 bg-background/95 backdrop-blur-sm">

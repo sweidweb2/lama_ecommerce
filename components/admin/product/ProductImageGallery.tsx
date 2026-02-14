@@ -41,8 +41,9 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
   }, [images])
 
   const currentImage = allImages[selectedImageIndex] || allImages[0]
-  const currentImageUrl = currentImage?.url_image || '/placeholder-product.webp'
+  const currentImageUrl = currentImage?.url_image
   const isCurrentPrimary = !!currentImage?.is_primary
+  const hasImage = !!currentImageUrl
 
   const handleConfirmDelete = async () => {
     if (!currentImage) return
@@ -81,13 +82,22 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
           className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => setViewDialogOpen(true)}
         >
-          <Image
-            src={currentImageUrl}
-            alt={productName}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 320px"
-          />
+          {hasImage ? (
+            <Image
+              src={currentImageUrl}
+              alt={productName}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 320px"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <ImageIcon className="h-16 w-16 opacity-50" />
+                <span className="text-sm opacity-75">No Image Available</span>
+              </div>
+            </div>
+          )}
 
           {isCurrentPrimary && (
             <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-2 py-0.5 text-[10px] font-semibold shadow-sm">
@@ -156,13 +166,22 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
             <DialogTitle>View {productName} Image</DialogTitle>
           </DialogHeader>
           <div className="relative w-full h-[80vh] rounded-lg overflow-hidden bg-background p-4">
-            <Image
-              src={currentImageUrl}
-              alt={productName}
-              fill
-              className="object-cover rounded-md"
-              sizes="100vw"
-            />
+            {hasImage ? (
+              <Image
+                src={currentImageUrl}
+                alt={productName}
+                fill
+                className="object-cover rounded-md"
+                sizes="100vw"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-muted">
+                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <ImageIcon className="h-16 w-16 opacity-50" />
+                  <span className="text-sm opacity-75">No Image Available</span>
+                </div>
+              </div>
+            )}
             {isCurrentPrimary && (
               <div className="absolute top-6 left-6 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-3 py-1 text-xs font-semibold shadow-sm">
                 <Star className="h-3.5 w-3.5 fill-primary-foreground" />

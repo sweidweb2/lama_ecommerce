@@ -2,13 +2,33 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
-import { Eye } from "lucide-react";
-import { DUMMY_PRODUCTS } from "@/lib/constants/dummy-data";
+import { Eye, ImageIcon } from "lucide-react";
+import { getProducts } from "@/services/product.service";
+import { formatPrice } from "@/lib/utils";
 
-// Get featured products from dummy data - show more products
-const featuredProducts = DUMMY_PRODUCTS.filter(p => p.is_featured).slice(0, 12);
+async function getFeaturedProducts() {
+    try {
+        // Fetch all products and filter for featured ones
+        const { data: allProducts } = await getProducts({
+            page: 1,
+            pageSize: 10000, // Large number to get all products
+        });
+        
+        const featured = allProducts.filter(p => p.is_featured).slice(0, 12);
+        return featured;
+    } catch (error) {
+        console.error("Error fetching featured products:", error);
+        return [];
+    }
+}
 
-export function FeaturedProducts() {
+export async function FeaturedProducts() {
+    const featuredProducts = await getFeaturedProducts();
+
+    if (featuredProducts.length === 0) {
+        return null;
+    }
+
     return (
         <section className="py-16 container mx-auto px-4">
             <div className="flex justify-between items-end mb-8">
@@ -21,30 +41,44 @@ export function FeaturedProducts() {
                 </Button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                {featuredProducts.map((product) => (
-                    <Link key={product.id} href={`/products/${product.slug}`} className="block">
-                        <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 pt-0 gap-0 py-0">
-                            <div className="relative aspect-square w-full bg-muted overflow-hidden">
-                                <Image
-                                    src={product.images?.[0]?.url_image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop"}
-                                    alt={product.name}
-                                    fill
-                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
-                            </div>
-                            <CardHeader className="px-3 py-2 pb-1.5 pt-2.5">
-                                <CardTitle className="line-clamp-1 text-sm font-semibold leading-tight">{product.name}</CardTitle>
-                                <CardDescription className="text-xs leading-tight mt-1">{product.category?.name || "Uncategorized"}</CardDescription>
-                            </CardHeader>
-                            <CardFooter className="px-3 py-2 pt-1.5 flex justify-between items-center">
-                                <span className="font-bold text-base leading-tight">${product.price.toFixed(2)}</span>
-                                <Button size="icon" className="h-8 w-8 rounded-full hover:scale-110 transition-transform">
-                                    <Eye className="h-4 w-4" />
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    </Link>
-                ))}
+                {featuredProducts.map((product) => {
+                    const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0];
+                    const hasImage = primaryImage?.url_image;
+
+                    return (
+                        <Link key={product.id} href={`/products/${product.slug}`} className="block">
+                            <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 pt-0 gap-0 py-0">
+                                <div className="relative aspect-square w-full bg-muted overflow-hidden">
+                                    {hasImage ? (
+                                        <Image
+                                            src={primaryImage.url_image}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                                            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                <ImageIcon className="h-12 w-12 opacity-50" />
+                                                <span className="text-xs opacity-75">No Image</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <CardHeader className="px-3 py-2 pb-1.5 -mt-2">
+                                    <CardTitle className="line-clamp-1 text-sm font-semibold leading-tight">{product.name}</CardTitle>
+                                    <CardDescription className="text-xs leading-tight mt-1">{product.category?.name || "Uncategorized"}</CardDescription>
+                                </CardHeader>
+                                <CardFooter className="px-3 py-2 pt-1.5 flex justify-between items-center">
+                                    <span className="font-bold text-base leading-tight">{formatPrice(product.price)}</span>
+                                    <Button size="icon" className="h-8 w-8 rounded-full hover:scale-110 transition-transform">
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        </Link>
+                    );
+                })}
             </div>
         </section>
     );

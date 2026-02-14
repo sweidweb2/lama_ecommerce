@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
-import { DUMMY_PRODUCTS, DUMMY_CATEGORIES, DUMMY_BRANDS } from '@/lib/constants/dummy-data'
+import { getProductBySlug } from '@/repositories/product.repository'
+import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
+import { getProducts } from '@/services/product.service'
 import { ProductBreadcrumbs } from '@/components/(public)/products/ProductBreadcrumbs'
 import { ProductMediaGallery } from '@/components/(public)/products/product_details/ProductMediaGallery'
 import { ProductCoreInfo } from '@/components/(public)/products/product_details/ProductCoreInfo'
@@ -10,6 +12,7 @@ import { ProductReviews } from '@/components/(public)/products/product_details/P
 import { ProductComments } from '@/components/(public)/products/product_details/ProductComments'
 import { ProductRelated } from '@/components/(public)/products/product_details/ProductRelated'
 import { ProductMetadata } from '@/components/(public)/products/product_details/ProductMetadata'
+import type { ProductVariant } from '@/types/product'
 
 interface ProductPageProps {
   params: Promise<{
@@ -40,242 +43,48 @@ interface ProductPageProps {
 export default async function ProductDetailsPage({ params }: ProductPageProps) {
   const { slug } = await params
 
-  // Find product by slug
-  // In production, this would be a Supabase query:
-  // const { data: product } = await supabase
-  //   .from('products')
-  //   .select('*, brand:brands(*), category:categories(*), images:product_images(*), variants:customised_products(*)')
-  //   .eq('slug', slug)
-  //   .eq('is_active', true)
-  //   .single()
-  
-  const product = DUMMY_PRODUCTS.find((p) => p.slug === slug && p.is_active)
+  // Fetch product by slug from database
+  const product = await getProductBySlug(slug)
   
   if (!product) {
     notFound()
   }
 
-  // Extract related data
-  const category = DUMMY_CATEGORIES.find((c) => c.id === product.category_id)
-  const brand = DUMMY_BRANDS.find((b) => b.id === product.brand_id)
+  // Extract related data from product relations
+  const category = product.category ?? undefined
+  const brand = product.brand ?? undefined
   const images = product.images || []
   
-  // Generate dummy variants if product doesn't have any
-  const variants = product.variants && product.variants.length > 0 
-    ? product.variants 
-    : [
-        // Color: Black, Sizes: S, M, L
-        {
-          id: `variant-${product.id}-1`,
-          product_id: product.id,
-          color: 'Black',
-          size: 'S',
-          material: null,
-          quantity_stock: 25,
-          sku_variant: `${product.sku}-BLK-S`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-2`,
-          product_id: product.id,
-          color: 'Black',
-          size: 'M',
-          material: null,
-          quantity_stock: 50,
-          sku_variant: `${product.sku}-BLK-M`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-3`,
-          product_id: product.id,
-          color: 'Black',
-          size: 'L',
-          material: null,
-          quantity_stock: 30,
-          sku_variant: `${product.sku}-BLK-L`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-4`,
-          product_id: product.id,
-          color: 'Black',
-          size: 'XL',
-          material: null,
-          quantity_stock: 15,
-          sku_variant: `${product.sku}-BLK-XL`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        // Color: White, Sizes: S, M, L
-        {
-          id: `variant-${product.id}-5`,
-          product_id: product.id,
-          color: 'White',
-          size: 'S',
-          material: null,
-          quantity_stock: 20,
-          sku_variant: `${product.sku}-WHT-S`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-6`,
-          product_id: product.id,
-          color: 'White',
-          size: 'M',
-          material: null,
-          quantity_stock: 45,
-          sku_variant: `${product.sku}-WHT-M`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-7`,
-          product_id: product.id,
-          color: 'White',
-          size: 'L',
-          material: null,
-          quantity_stock: 35,
-          sku_variant: `${product.sku}-WHT-L`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-8`,
-          product_id: product.id,
-          color: 'White',
-          size: 'XL',
-          material: null,
-          quantity_stock: 10,
-          sku_variant: `${product.sku}-WHT-XL`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        // Color: Red, Sizes: S, M, L
-        {
-          id: `variant-${product.id}-9`,
-          product_id: product.id,
-          color: 'Red',
-          size: 'S',
-          material: null,
-          quantity_stock: 18,
-          sku_variant: `${product.sku}-RED-S`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-10`,
-          product_id: product.id,
-          color: 'Red',
-          size: 'M',
-          material: null,
-          quantity_stock: 40,
-          sku_variant: `${product.sku}-RED-M`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-11`,
-          product_id: product.id,
-          color: 'Red',
-          size: 'L',
-          material: null,
-          quantity_stock: 28,
-          sku_variant: `${product.sku}-RED-L`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        // Color: Blue, Sizes: M, L, XL
-        {
-          id: `variant-${product.id}-12`,
-          product_id: product.id,
-          color: 'Blue',
-          size: 'M',
-          material: null,
-          quantity_stock: 32,
-          sku_variant: `${product.sku}-BLU-M`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-13`,
-          product_id: product.id,
-          color: 'Blue',
-          size: 'L',
-          material: null,
-          quantity_stock: 42,
-          sku_variant: `${product.sku}-BLU-L`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        {
-          id: `variant-${product.id}-14`,
-          product_id: product.id,
-          color: 'Blue',
-          size: 'XL',
-          material: null,
-          quantity_stock: 22,
-          sku_variant: `${product.sku}-BLU-XL`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        // Color: Gray, Size: M (low stock)
-        {
-          id: `variant-${product.id}-15`,
-          product_id: product.id,
-          color: 'Gray',
-          size: 'M',
-          material: null,
-          quantity_stock: 5,
-          sku_variant: `${product.sku}-GRY-M`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-        // Color: Green, Size: L (out of stock)
-        {
-          id: `variant-${product.id}-16`,
-          product_id: product.id,
-          color: 'Green',
-          size: 'L',
-          material: null,
-          quantity_stock: 0,
-          sku_variant: `${product.sku}-GRN-L`,
-          price_override: null,
-          created_at: new Date().toISOString(),
-          deleted_at: null,
-        },
-      ]
+  // Fetch real variants from database
+  const realVariants = await getProductVariantsByProductIdService(product.id)
+  const variants: ProductVariant[] = realVariants.map((variant) => ({
+    id: variant.id,
+    product_id: variant.product_id,
+    color: variant.color,
+    size: variant.size,
+    material: variant.material,
+    quantity_stock: variant.quantity_stock,
+    sku_variant: variant.sku_variant,
+    price_override: variant.price_override,
+    created_at: variant.created_at,
+    deleted_at: variant.deleted_at,
+  }))
 
   // Get related products (same category, excluding current)
-  // If not enough in same category, include products from other categories
-  let relatedProducts = DUMMY_PRODUCTS
-    .filter((p) => 
-      p.id !== product.id && 
-      p.category_id === product.category_id && 
-      p.is_active
-    )
+  const { data: allProducts } = await getProducts({
+    page: 1,
+    pageSize: 10000, // Large number to get all products
+  })
+
+  let relatedProducts = allProducts.filter((p) => 
+    p.id !== product.id && 
+    p.category_id === product.category_id && 
+    p.is_active
+  )
   
   // If not enough products in same category, add from other categories
   if (relatedProducts.length < 12) {
-    const additionalProducts = DUMMY_PRODUCTS
+    const additionalProducts = allProducts
       .filter((p) => 
         p.id !== product.id && 
         p.category_id !== product.category_id && 

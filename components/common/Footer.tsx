@@ -8,7 +8,8 @@ import {
   Mail, 
   Phone, 
   Instagram, 
-  MessageCircle
+  MessageCircle,
+  Send
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -67,23 +68,6 @@ export function Footer() {
                   </svg>
                 </a>
               </div>
-            </div>
-
-            {/* Customer Service Section */}
-            <div>
-              <h3 className="text-base font-semibold text-foreground mb-4">
-                Customer Service
-              </h3>
-              <ul className="space-y-3">
-                <li>
-                  <Link
-                    href="/contact-us"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Contact Us
-                  </Link>
-                </li>
-              </ul>
             </div>
 
             {/* Quick Links Section */}
@@ -166,22 +150,22 @@ export function Footer() {
             </div>
 
             {/* Lead / Newsletter signup */}
-            <div className="lg:col-span-4 w-full pt-8 border-t border-border">
-              <h3 className="text-base font-semibold text-foreground mb-2">
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-4">
                 Stay updated
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Enter your email to get news and offers.
               </p>
               <form
-                className="flex flex-col sm:flex-row gap-2 max-w-md"
+                className="flex gap-2"
                 action={async (formData) => {
                   setIsSubmitting(true)
                   const result = await createLeadAction(formData)
                   setIsSubmitting(false)
                   if (result.success) {
                     setEmail('')
-                    toast.success('Thanks! We’ll keep you updated.')
+                    toast.success("Thanks! We'll keep you updated.")
                   } else {
                     toast.error(result.error)
                   }
@@ -193,13 +177,19 @@ export function Footer() {
                   placeholder="Your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 min-w-0"
+                  className="h-8 text-sm flex-1 min-w-0"
                   required
                   disabled={isSubmitting}
                   aria-label="Email for updates"
                 />
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Submitting…' : 'Subscribe'}
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span className="sr-only">Subscribe</span>
                 </Button>
               </form>
             </div>
