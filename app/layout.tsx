@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   title: "Aviora Wear",
   description: "Modern ecommerce experience by Aviora Wear.",
   icons: {
-    icon: "/logo.png",
+    icon: "/aviora-logo.png",
   },
 };
 
