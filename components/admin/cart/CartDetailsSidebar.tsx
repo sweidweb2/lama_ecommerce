@@ -189,7 +189,7 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0, onSubmit }: CartDe
         <Button
           type="submit"
           size="lg"
-          className="w-full rounded-2xl font-black text-sm"
+          className="w-full rounded-2xl text-sm"
           disabled={isCheckoutDisabled || isSubmitting}
         >
           {isSubmitting

@@ -145,7 +145,7 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
 
       <Button
         size="lg"
-        className="w-full rounded-2xl font-black text-sm"
+        className="w-full rounded-2xl text-sm"
         disabled={isCheckoutDisabled}
       >
         {isCheckoutDisabled
