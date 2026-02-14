@@ -1,41 +1,51 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { MessageSquare } from "lucide-react"
-import type { AdminQuestion } from "./create_form"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageSquare } from "lucide-react";
+import { submitAnswerAction } from "@/actions/product_question";
+import type { AdminQuestion } from "./create_form";
 
 interface ViewQuestionDialogProps {
-  question: AdminQuestion
+  question: AdminQuestion;
 }
 
 export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [answer, setAnswer] = useState<string>(question.answer || "")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [answer, setAnswer] = useState<string>(question.answer || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const hasAnswer = Boolean(question.answer)
+  const hasAnswer = Boolean(question.answer);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!answer.trim()) return
-
-    setIsSubmitting(true)
+    e.preventDefault();
+    if (!answer.trim()) return;
+    setError(null);
+    setIsSubmitting(true);
     try {
-      const payload = {
-        question_id: question.id,
-        answer: answer.trim(),
+      const result = await submitAnswerAction(question.id, answer.trim());
+      if (!result.success) {
+        setError(result.error ?? "Failed to submit answer");
+        return;
       }
-      // TODO: Wire this up to a real admin answer action / API
-      console.log("Submitting answer:", payload)
-    } catch (error) {
-      console.error("Error submitting answer:", error)
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit answer");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <>
@@ -83,6 +93,7 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
+                  {error && <p className="text-sm text-destructive">{error}</p>}
                   <Textarea
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
@@ -90,7 +101,10 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
                     rows={4}
                   />
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={isSubmitting || !answer.trim()}>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !answer.trim()}
+                    >
                       {isSubmitting ? "Submitting..." : "Submit Answer"}
                     </Button>
                   </div>
@@ -101,7 +115,5 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
-
-

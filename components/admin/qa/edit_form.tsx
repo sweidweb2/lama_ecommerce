@@ -1,59 +1,77 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Edit } from "lucide-react"
-import type { AdminQuestion } from "./create_form"
+} from "@/components/ui/select";
+import { Edit } from "lucide-react";
+import { updateQuestionAction } from "@/actions/product_question";
+import type { AdminQuestion } from "./create_form";
 
 const APPROVAL_OPTIONS = [
   { value: "false", label: "Pending" },
   { value: "true", label: "Approved" },
-]
+];
 
 interface EditQuestionDialogProps {
-  question: AdminQuestion
-  showText?: boolean
+  question: AdminQuestion;
+  showText?: boolean;
 }
 
 export function EditQuestionDialog({ question, showText = false }: EditQuestionDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [questionText, setQuestionText] = useState<string>(question.question)
-  const [answerText, setAnswerText] = useState<string>(question.answer || "")
-  const [isApproved, setIsApproved] = useState<string>(question.is_approved ? "true" : "false")
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [questionText, setQuestionText] = useState<string>(question.question);
+  const [answerText, setAnswerText] = useState<string>(question.answer || "");
+  const [isApproved, setIsApproved] = useState<string>(question.is_approved ? "true" : "false");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const updatedQuestion = {
-      id: question.id,
-      question: questionText.trim(),
-      answer: answerText.trim() || null,
-      is_approved: isApproved === "true",
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const result = await updateQuestionAction(question.id, {
+        question: questionText.trim(),
+        answer: answerText.trim() || null,
+        is_approved: isApproved === "true",
+      });
+      if (!result.success) {
+        setError(result.error ?? "Failed to update question");
+        return;
+      }
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update question");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // TODO: Wire this up to a real admin update action / API
-    console.log("Updating question:", updatedQuestion)
-
-    setOpen(false)
-  }
+  };
 
   const handleCancel = () => {
-    setQuestionText(question.question)
-    setAnswerText(question.answer || "")
-    setIsApproved(question.is_approved ? "true" : "false")
-    setOpen(false)
-  }
+    setQuestionText(question.question);
+    setAnswerText(question.answer || "");
+    setIsApproved(question.is_approved ? "true" : "false");
+    setError(null);
+    setOpen(false);
+  };
 
   return (
     <>
@@ -74,6 +92,7 @@ export function EditQuestionDialog({ question, showText = false }: EditQuestionD
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Product</Label>
@@ -114,10 +133,7 @@ export function EditQuestionDialog({ question, showText = false }: EditQuestionD
 
             <div className="space-y-2">
               <Label htmlFor={`qa-approved-${question.id}`}>Approved</Label>
-              <Select
-                value={isApproved}
-                onValueChange={setIsApproved}
-              >
+              <Select value={isApproved} onValueChange={setIsApproved}>
                 <SelectTrigger id={`qa-approved-${question.id}`}>
                   <SelectValue />
                 </SelectTrigger>
@@ -136,17 +152,17 @@ export function EditQuestionDialog({ question, showText = false }: EditQuestionD
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!questionText.trim()}>
-                Save Changes
+              <Button type="submit" disabled={!questionText.trim() || isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
-
