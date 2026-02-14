@@ -34,6 +34,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
 import { ModeToggle } from "../theme/mode-toggle";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
@@ -47,10 +48,18 @@ const NAV_LINKS_BASE = [
 ];
 const ORDERS_LINK = { label: "Orders", href: "/orders" };
 
+const LOGO_LIGHT = "/aviora-logo.png";
+const LOGO_DARK = "/aviora-logo-white.png";
+
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { theme, resolvedTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted && ((resolvedTheme ?? theme) === "dark");
+  const logoSrc = isDark ? LOGO_DARK : LOGO_LIGHT;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -131,7 +140,8 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             <Link href={ROUTES.HOME} className="flex items-center focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
               <Image
-                src="/aviora-logo.png"
+                key={logoSrc}
+                src={logoSrc}
                 alt="Aviora Wear - Home"
                 width={200}
                 height={64}
@@ -308,7 +318,8 @@ export function Navbar() {
                   <SheetTitle className="flex justify-start">
                     <Link href={ROUTES.HOME} onClick={() => setIsOpen(false)} className="block">
                       <Image
-                        src="/aviora-logo.png"
+                        key={logoSrc}
+                        src={logoSrc}
                         alt="Aviora Wear - Home"
                         width={200}
                         height={64}
