@@ -27,11 +27,25 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
   useEffect(() => {
     // 1. Initial user check
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (!initialProfile && session?.user) {
-        fetchProfile();
-      } else {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        // Invalid/expired refresh token - clear stale session
+        if (error?.message?.includes("Refresh Token") || error?.message?.includes("refresh_token")) {
+          await supabase.auth.signOut({ scope: "local" });
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        setUser(session?.user ?? null);
+        if (!initialProfile && session?.user) {
+          fetchProfile();
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        setUser(null);
+        setProfile(null);
         setLoading(false);
       }
     };
