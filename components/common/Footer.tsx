@@ -102,10 +102,10 @@ export function Footer() {
                 </li>
                 <li>
                   <Link
-                    href={ROUTES.CART}
+                    href="/shipping-terms"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    Shopping Cart
+                    Shipping Terms
                   </Link>
                 </li>
               </ul>
