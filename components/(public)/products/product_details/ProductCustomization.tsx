@@ -7,6 +7,8 @@ import { ShoppingCart, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useProductVariant } from './ProductVariantProvider'
+import { useAuth } from '@/providers/AuthProvider'
+import { addItemToCartAction } from '@/actions/cart'
 import type { ProductVariant } from '@/types/product_utf8'
 
 interface ProductCustomizationProps {
@@ -50,10 +52,13 @@ export function ProductCustomization({
   variants,
 }: ProductCustomizationProps) {
   const { setSelectedVariantId } = useProductVariant()
+  const { user, loading: authLoading } = useAuth()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  
+  const isLoggedIn = user !== null && !authLoading
 
   // Extract unique attribute values
   const colors = useMemo(() => {
@@ -133,6 +138,14 @@ export function ProductCustomization({
   const maxQuantity = selectedVariant?.quantity_stock || 0
 
   const handleAddToCart = async () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      toast.error('Login required', {
+        description: 'Please log in to add items to your cart.',
+      })
+      return
+    }
+
     if (!selectedVariant) {
       toast.error('Please select options', {
         description: 'Choose a color and size to continue.',
@@ -157,19 +170,28 @@ export function ProductCustomization({
     setIsAddingToCart(true)
 
     try {
-      // TODO: Implement actual cart API call
-      // await addToCart({
-      //   customised_product_id: selectedVariant.id,
-      //   quantity,
-      // })
+      const result = await addItemToCartAction({
+        customised_product_id: selectedVariant.id,
+        quantity,
+      })
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      if (!result.success) {
+        toast.error('Error', {
+          description: result.error || 'Failed to add item to cart. Please try again.',
+        })
+        return
+      }
 
       toast.success('Added to cart', {
         description: `${quantity} item(s) added successfully.`,
       })
+
+      // Dispatch event to update floating cart button
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cart-updated'))
+      }
     } catch (error) {
+      console.error('Error adding to cart:', error)
       toast.error('Error', {
         description: 'Failed to add item to cart. Please try again.',
       })
@@ -330,11 +352,13 @@ export function ProductCustomization({
         size="lg"
         className="w-full h-12"
         onClick={handleAddToCart}
-        disabled={!isAvailable || isAddingToCart || !hasRequiredSelections}
+        disabled={!isLoggedIn || !isAvailable || isAddingToCart || !hasRequiredSelections}
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
         {isAddingToCart
           ? 'Adding...'
+          : !isLoggedIn
+          ? 'Login to Add to Cart'
           : !hasRequiredSelections
           ? 'Select Options'
           : !isAvailable

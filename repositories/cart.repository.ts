@@ -1,0 +1,359 @@
+import {
+  createSupabaseServerActionClient,
+  createSupabaseServerComponentClient,
+} from "@/lib/supabase/server";
+import type { Cart } from "@/types/order";
+import type { CreateCartInput } from "@/lib/validators/cart/create";
+import type { UpdateCartInput } from "@/lib/validators/cart/update";
+
+/**
+ * Create a new cart.
+ * For authenticated users, user_id is set automatically.
+ * For guests, session_id should be provided.
+ */
+export async function createCart(
+  userId: string | null,
+  input: CreateCartInput,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    // Build insert payload
+    const insertPayload: Record<string, unknown> = {};
+    
+    // Set user_id if authenticated, otherwise use provided user_id or null
+    if (userId) {
+      insertPayload.user_id = userId;
+    } else if (input.user_id) {
+      insertPayload.user_id = input.user_id;
+    } else {
+      insertPayload.user_id = null;
+    }
+
+    // Set session_id if provided (for guests)
+    if (input.session_id) {
+      insertPayload.session_id = input.session_id;
+    } else {
+      insertPayload.session_id = null;
+    }
+
+    // Ensure at least one of user_id or session_id is present
+    if (!insertPayload.user_id && !insertPayload.session_id) {
+      return {
+        success: false,
+        error: "Either user_id or session_id must be provided",
+      };
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to create cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart,
+    };
+  } catch (error) {
+    console.error("Unexpected error in createCart:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Get a cart by ID.
+ * RLS policy ensures users can only access their own carts.
+ */
+export async function getCartById(
+  cartId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("id", cartId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to fetch cart",
+      };
+    }
+
+    if (!data) {
+      return {
+        success: false,
+        error: "Cart not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getCartById:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Check if a user has an active cart (deleted_at is null).
+ * Returns true if the user has at least one active cart, false otherwise.
+ */
+export async function hasActiveCart(
+  userId: string,
+): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error checking active cart:", error);
+      return {
+        success: false,
+        hasActiveCart: false,
+        error: error.message || "Failed to check active cart",
+      };
+    }
+
+    const hasActive = !!data;
+    return {
+      success: true,
+      hasActiveCart: hasActive,
+      data: data as Cart | undefined,
+    };
+  } catch (error) {
+    console.error("Unexpected error in hasActiveCart:", error);
+    return {
+      success: false,
+      hasActiveCart: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Get a cart for an authenticated user.
+ * Returns the most recent active cart for the user.
+ */
+export async function getCartByUserId(
+  userId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching user cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to fetch cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart | undefined,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getCartByUserId:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Get a cart for a guest by session_id.
+ * Returns the most recent active cart for the session.
+ */
+export async function getCartBySessionId(
+  sessionId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("session_id", sessionId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching session cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to fetch cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart | undefined,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getCartBySessionId:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Update a cart.
+ * Typically used to migrate a guest cart to a user cart (set user_id, clear session_id).
+ */
+export async function updateCart(
+  cartId: string,
+  input: UpdateCartInput,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    // Build update payload with only provided fields
+    const updatePayload: Record<string, unknown> = {};
+    if (input.user_id !== undefined) {
+      updatePayload.user_id = input.user_id;
+    }
+    if (input.session_id !== undefined) {
+      updatePayload.session_id = input.session_id;
+    }
+
+    // If no fields to update, return early
+    if (Object.keys(updatePayload).length === 0) {
+      return {
+        success: false,
+        error: "No fields to update",
+      };
+    }
+
+    // Ensure at least one of user_id or session_id is present after update
+    const { data: currentCart } = await (supabase as any)
+      .from("carts")
+      .select("user_id, session_id")
+      .eq("id", cartId)
+      .single();
+
+    if (currentCart) {
+      const finalUserId = updatePayload.user_id !== undefined 
+        ? updatePayload.user_id 
+        : currentCart.user_id;
+      const finalSessionId = updatePayload.session_id !== undefined 
+        ? updatePayload.session_id 
+        : currentCart.session_id;
+
+      if (!finalUserId && !finalSessionId) {
+        return {
+          success: false,
+          error: "Either user_id or session_id must be present",
+        };
+      }
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .update(updatePayload)
+      .eq("id", cartId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to update cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart,
+    };
+  } catch (error) {
+    console.error("Unexpected error in updateCart:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Soft-delete a cart by setting deleted_at.
+ * RLS policy ensures users can only delete their own carts.
+ */
+export async function deleteCart(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { error } = await (supabase as any)
+      .from("carts")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", cartId);
+
+    if (error) {
+      console.error("Error deleting cart:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete cart",
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Unexpected error in deleteCart:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}

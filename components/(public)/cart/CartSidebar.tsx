@@ -68,10 +68,10 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
   const isCheckoutDisabled = !selectedZoneId;
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-6 space-y-4">
+    <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4 space-y-3">
       <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
 
-      <div className="space-y-2 text-sm">
+      <div className="space-y-1.5 text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Subtotal</span>
           <span className="font-medium">{formatPrice(subtotal)}</span>
@@ -79,7 +79,7 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
       </div>
 
       {/* Shipping Zone Selection */}
-      <div className="space-y-3 pt-2 border-t border-black/5">
+      <div className="space-y-2 pt-1.5 border-t border-black/5">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
             Shipping Zone <span className="text-destructive">*</span>
@@ -125,7 +125,7 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
         )}
       </div>
 
-      <div className="space-y-2 text-sm pt-2">
+      <div className="space-y-1.5 text-sm pt-1.5">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Shipping</span>
           <span className="font-medium">
@@ -138,7 +138,7 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
         </div>
       </div>
 
-      <div className="border-t border-black/5 pt-3 flex justify-between items-center text-sm font-bold">
+      <div className="border-t border-black/5 pt-2 flex justify-between items-center text-sm font-bold">
         <span>Total</span>
         <span className="text-lg">{formatPrice(total)}</span>
       </div>
@@ -158,14 +158,6 @@ export function CartSidebar({ subtotal }: CartSidebarProps) {
           Please select a shipping zone to proceed with checkout
         </p>
       )}
-
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
-        This cart is using dummy products from{" "}
-        <code className="text-[10px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/5">
-          DUMMY_PRODUCTS
-        </code>{" "}
-        so you can design and test the UI before wiring up real cart logic.
-      </p>
     </div>
   );
 }

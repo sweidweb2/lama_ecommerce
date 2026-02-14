@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Trash2 } from "lucide-react";
 import {
@@ -12,15 +13,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
+import { toast } from "sonner";
+import { deleteCartItemAction } from "@/actions/cart";
 import type { ProductWithRelations } from "@/types/product";
 
 interface CartItemProps {
   id: string;
   product: ProductWithRelations;
   quantity: number;
+  stock: number;
 }
 
-export function CartItem({ id, product, quantity }: CartItemProps) {
+export function CartItem({ id, product, quantity, stock }: CartItemProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -32,12 +37,33 @@ export function CartItem({ id, product, quantity }: CartItemProps) {
     setIsDeleting(true);
 
     try {
-      // TODO: Call a real cart item delete action here.
-      // For now we just simulate success and close the dialog.
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      const result = await deleteCartItemAction(id);
+
+      if (!result.success) {
+        toast.error("Error", {
+          description: result.error || "Failed to remove item from cart. Please try again.",
+        });
+        return;
+      }
+
+      toast.success("Item removed", {
+        description: `${product.name} has been removed from your cart.`,
+      });
+
       setOpen(false);
-      // In a real implementation, you would call a function to remove the item from cart
-      // e.g., removeFromCart(id)
+      
+      // Dispatch event to update floating cart button
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cart-updated'))
+      }
+      
+      // Refresh the page to update the cart
+      router.refresh();
+    } catch (error) {
+      console.error("Error deleting cart item:", error);
+      toast.error("Error", {
+        description: "Failed to remove item from cart. Please try again.",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -67,8 +93,17 @@ export function CartItem({ id, product, quantity }: CartItemProps) {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center rounded-full border border-black/10 px-2 py-1 text-[11px] font-medium">
-              Qty: {quantity}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-[11px] font-medium">
+                Qty: {quantity}
+              </div>
+              {/* Stock Information Card */}
+              <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  stock > 0 ? 'bg-primary' : 'bg-destructive'
+                }`}></span>
+                {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+              </div>
             </div>
             <p className="text-sm font-bold">
               {formatPrice(product.price * quantity)}

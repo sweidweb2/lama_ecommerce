@@ -2,34 +2,66 @@ import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/routes";
-import { DUMMY_PRODUCTS } from "@/lib/constants/dummy-data";
 import { CartSidebar } from "@/components/(public)/cart/CartSidebar";
 import { CartItem } from "@/components/(public)/cart/CartItem";
+import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
+import { getUserCartWithItemsService } from "@/services/cart.service";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Cart | LAMA",
   description: "View the items in your shopping cart.",
 };
 
-export default function CartPage() {
-  // Frontend-only dummy cart using a few products
-  const cartItems = DUMMY_PRODUCTS.slice(0, 3).map((product, index) => ({
-    id: `${product.id}-cart-${index}`,
-    product,
-    quantity: index + 1,
-  }));
+export default async function CartPage() {
+  // Check if user is authenticated
+  const user = await getCurrentAuthUserFromComponent();
+  
+  if (!user) {
+    redirect(ROUTES.LOGIN);
+  }
 
-  const subtotal = cartItems.reduce(
+  // Fetch user's cart with items
+  const cartResult = await getUserCartWithItemsService(user.id);
+
+  // If no cart or error, show empty state
+  if (!cartResult.success || !cartResult.data) {
+    return (
+      <div className="container mx-auto px-4 pt-6 lg:pt-8 pb-0">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/5 mb-4">
+            <ShoppingCart className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight mb-2">
+            Your Cart is Empty
+          </h1>
+          <p className="text-muted-foreground text-sm mb-6">
+            {cartResult.error || "Add some items to your cart to get started."}
+          </p>
+          <Link href={ROUTES.HOME}>
+            <Button size="lg" className="rounded-xl">
+              Continue Shopping
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { cart, items } = cartResult.data;
+
+  // Calculate subtotal
+  const subtotal = items.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0
   );
 
   return (
-    <div className="container mx-auto px-4 py-10 lg:py-16">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12 items-start">
+    <div className="container mx-auto px-4 pt-6 lg:pt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start mb-16">
         {/* Left: Cart items */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center gap-3 mb-1">
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/5">
               <ShoppingCart className="h-5 w-5 text-primary" />
             </div>
@@ -37,23 +69,32 @@ export default function CartPage() {
               Your Cart
             </h1>
           </div>
-          <p className="text-muted-foreground text-sm mb-4">
-            Dummy cart filled with products from the storefront while you build
-            the real cart logic.
-          </p>
+          {items.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground text-sm mb-4">
+                Your cart is empty. Start adding items to your cart!
+              </p>
+              <Link href={ROUTES.HOME}>
+                <Button variant="outline" size="sm" className="rounded-xl text-xs">
+                  Continue Shopping
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item) => (
+                <CartItem
+                  key={item.id}
+                  id={item.id}
+                  product={item.product}
+                  quantity={item.quantity}
+                  stock={item.stock}
+                />
+              ))}
+            </div>
+          )}
 
-          <div className="space-y-4">
-            {cartItems.map((item) => (
-              <CartItem
-                key={item.id}
-                id={item.id}
-                product={item.product}
-                quantity={item.quantity}
-              />
-            ))}
-          </div>
-
-          <div className="pt-4">
+          <div className="pt-2">
             <Link href={ROUTES.HOME}>
               <Button variant="outline" size="sm" className="rounded-xl text-xs">
                 Continue Shopping
