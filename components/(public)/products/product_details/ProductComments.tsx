@@ -9,6 +9,7 @@ import { Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Review } from '@/types/product_utf8'
+import { createReviewAction } from '@/actions/review'
 
 interface ProductCommentsProps {
   productId: string
@@ -141,25 +142,27 @@ export function ProductComments({ productId, reviews = [] }: ProductCommentsProp
     setIsSubmitting(true)
 
     try {
-      // TODO: Implement actual review submission API call
-      // await submitReview({
-      //   product_id: productId,
-      //   rating,
-      //   title: title.trim() || null,
-      //   comment: comment.trim(),
-      // })
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      toast.success('Review submitted', {
-        description: 'Your review has been submitted and is pending approval.',
+      const result = await createReviewAction({
+        product_id: productId,
+        rating,
+        title: title.trim() || null,
+        comment: comment.trim(),
       })
 
-      // Reset form
-      setRating(0)
-      setTitle('')
-      setComment('')
+      if (result.success) {
+        toast.success('Review submitted', {
+          description: 'Your review has been submitted and is pending approval.',
+        })
+
+        // Reset form
+        setRating(0)
+        setTitle('')
+        setComment('')
+      } else {
+        toast.error('Error', {
+          description: result.error || 'Failed to submit review. Please try again.',
+        })
+      }
     } catch (error) {
       toast.error('Error', {
         description: 'Failed to submit review. Please try again.',

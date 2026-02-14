@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { toast } from "sonner"
+import { updateReviewAction } from "@/actions/review"
 import type { AdminReview } from "./create_form"
 
 const REVIEW_STATUSES: AdminReview["review_status"][] = ["pending", "approved", "rejected"]
@@ -24,27 +27,51 @@ interface EditReviewDialogProps {
 }
 
 export function EditReviewDialog({ review, showText = false }: EditReviewDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [rating, setRating] = useState<string>(review.rating.toString())
   const [title, setTitle] = useState<string>(review.title || "")
   const [comment, setComment] = useState<string>(review.comment || "")
   const [status, setStatus] = useState<AdminReview["review_status"]>(review.review_status)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
 
-    const updatedReview = {
-      id: review.id,
-      rating: Math.min(5, Math.max(1, parseInt(rating) || 1)),
-      title: title || null,
-      comment: comment || null,
-      review_status: status,
+    try {
+      const result = await updateReviewAction(review.id, {
+        rating: Math.min(5, Math.max(1, parseInt(rating) || 1)),
+        title: title.trim() || null,
+        comment: comment.trim() || null,
+        review_status: status,
+      })
+
+      if (!result.success) {
+        setError(result.error || "Failed to update review")
+        toast.error("Error", {
+          description: result.error || "Failed to update review",
+        })
+        return
+      }
+
+      toast.success("Review updated", {
+        description: "The review has been successfully updated.",
+      })
+
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update review"
+      setError(errorMessage)
+      toast.error("Error", {
+        description: errorMessage,
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // TODO: Wire this up to a real admin update action / API
-    console.log("Updating review:", updatedReview)
-
-    setOpen(false)
   }
 
   const handleCancel = () => {
@@ -52,6 +79,7 @@ export function EditReviewDialog({ review, showText = false }: EditReviewDialogP
     setTitle(review.title || "")
     setComment(review.comment || "")
     setStatus(review.review_status)
+    setError(null)
     setOpen(false)
   }
 
@@ -146,16 +174,23 @@ export function EditReviewDialog({ review, showText = false }: EditReviewDialogP
               />
             </div>
 
+            {error && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
             <DialogFooter className="mt-4 flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

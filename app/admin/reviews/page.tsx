@@ -2,60 +2,32 @@ import { Star, MessageSquare, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { CreateReviewDialog, type AdminReview } from "@/components/admin/review/create_form"
 import { ReviewsTable } from "@/components/admin/review/ReviewsTable"
 import { StatCard } from "@/components/admin/stat-card"
+import { getAllReviewsForAdminService } from "@/services/review.service"
 
-// Dummy data matching the reviews schema + display fields
-const reviews: AdminReview[] = [
-  {
-    id: "review-1",
-    product_id: "prod-1",
-    product_name: "Wireless Headphones",
-    user_id: "user-1",
-    user_name: "John Doe",
-    rating: 5,
-    title: "Amazing sound",
-    comment: "Great product, highly recommend!",
-    review_status: "approved",
-    created_at: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "review-2",
-    product_id: "prod-2",
-    product_name: "Smart Watch",
-    user_id: "user-2",
-    user_name: "Jane Smith",
-    rating: 4,
-    title: "Good but battery could be better",
-    comment: "Good quality, but battery could be better.",
-    review_status: "approved",
-    created_at: "2024-01-16T09:20:00Z",
-  },
-  {
-    id: "review-3",
-    product_id: "prod-3",
-    product_name: "Laptop Stand",
-    user_id: "user-3",
-    user_name: "Bob Johnson",
-    rating: 3,
-    title: "Average",
-    comment: "It's okay, nothing special.",
-    review_status: "pending",
-    created_at: "2024-01-16T14:45:00Z",
-  },
-  {
-    id: "review-4",
-    product_id: "prod-1",
-    product_name: "Wireless Headphones",
-    user_id: null,
-    user_name: null,
-    rating: 5,
-    title: "Love it",
-    comment: "Amazing quality, would buy again.",
-    review_status: "approved",
-    created_at: "2024-01-17T11:15:00Z",
-  },
-]
+export default async function ReviewsPage() {
+  let reviews: AdminReview[] = []
+  let error: string | null = null
 
-export default function ReviewsPage() {
+  try {
+    const reviewsData = await getAllReviewsForAdminService()
+    // Map AdminReviewRow to AdminReview format
+    reviews = reviewsData.map((r) => ({
+      id: r.id,
+      product_id: r.product_id,
+      product_name: r.product_name,
+      user_id: r.user_id,
+      user_name: r.user_name,
+      rating: r.rating,
+      title: r.title,
+      comment: r.comment,
+      review_status: r.review_status,
+      created_at: r.created_at,
+    }))
+  } catch (e) {
+    console.error("Failed to load reviews:", e)
+    error = "Failed to load reviews. Make sure you are signed in as an admin."
+  }
+
   const totalReviews = reviews.length
   const pendingReviews = reviews.filter((r) => r.review_status === "pending").length
   const approvedReviews = reviews.filter((r) => r.review_status === "approved").length
@@ -107,7 +79,14 @@ export default function ReviewsPage() {
         />
       </div>
 
-      <ReviewsTable reviews={reviews} />
+      {error ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <p className="font-medium">Error loading reviews</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      ) : (
+        <ReviewsTable reviews={reviews} />
+      )}
     </div>
   )
 }

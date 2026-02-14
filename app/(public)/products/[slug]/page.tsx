@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getProductBySlug } from '@/repositories/product.repository'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
 import { getProducts } from '@/services/product.service'
+import { getProductReviewsService } from '@/services/review.service'
 import { ProductBreadcrumbs } from '@/components/(public)/products/ProductBreadcrumbs'
 import { ProductMediaGallery } from '@/components/(public)/products/product_details/ProductMediaGallery'
 import { ProductCoreInfo } from '@/components/(public)/products/product_details/ProductCoreInfo'
@@ -98,6 +99,9 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
   // Limit to 12 products
   relatedProducts = relatedProducts.slice(0, 12)
 
+  // Fetch reviews for this product
+  const reviews = await getProductReviewsService(product.id)
+
   return (
     <div className="min-h-screen bg-background">
       {/* Breadcrumbs */}
@@ -162,13 +166,14 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
           <ProductReviews 
             productId={product.id}
+            reviews={reviews}
             stats={product.stats || undefined}
           />
         </div>
 
         {/* Comments Section */}
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
-          <ProductComments productId={product.id} />
+          <ProductComments productId={product.id} reviews={reviews} />
         </div>
 
         {/* Related Products */}
