@@ -3,6 +3,7 @@ import {
   hasActiveCart,
   getCartByUserId,
   getAllCartsForAdmin,
+  getCartByIdForAdmin,
   deleteCart,
   hardDeleteCart,
   type Cart,
@@ -11,6 +12,7 @@ import {
 import {
   createCartItem,
   getCartItemsWithProductsByCartId,
+  getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
   hardDeleteCartItemsByCartId,
   type CartItem,
@@ -174,6 +176,50 @@ export async function deleteCartItemService(
  */
 export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
   return await getAllCartsForAdmin();
+}
+
+/**
+ * Get cart with items for admin panel.
+ * Returns cart with all its items and product details.
+ */
+export async function getCartWithItemsForAdminService(
+  cartId: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  data?: { cart: Cart; items: CartItemWithProduct[] };
+}> {
+  try {
+    // Get cart by ID (admin access)
+    const cartResult = await getCartByIdForAdmin(cartId);
+
+    if (!cartResult.success || !cartResult.data) {
+      return {
+        success: false,
+        error: cartResult.error || "Cart not found",
+      };
+    }
+
+    const cart = cartResult.data;
+
+    // Get cart items with product details (admin version)
+    const items = await getCartItemsWithProductsByCartIdForAdmin(cart.id);
+
+    return {
+      success: true,
+      data: {
+        cart,
+        items,
+      },
+    };
+  } catch (error) {
+    console.error("Error in getCartWithItemsForAdminService:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch cart with items",
+    };
+  }
 }
 
 /**

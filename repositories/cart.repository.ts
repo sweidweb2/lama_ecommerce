@@ -121,6 +121,50 @@ export async function getCartById(
 }
 
 /**
+ * Get a cart by ID for admin (bypasses RLS).
+ * Uses admin client to access any cart.
+ */
+export async function getCartByIdForAdmin(
+  cartId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("id", cartId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching cart for admin:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to fetch cart",
+      };
+    }
+
+    if (!data) {
+      return {
+        success: false,
+        error: "Cart not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getCartByIdForAdmin:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
  * Check if a user has an active cart (deleted_at is null).
  * Returns true if the user has at least one active cart, false otherwise.
  */

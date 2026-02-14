@@ -288,6 +288,115 @@ export async function getCartItemsWithProductsByCartId(
 }
 
 /**
+ * Get cart items with full product details for a specific cart (admin version).
+ * Uses admin client to bypass RLS for admin access.
+ */
+export async function getCartItemsWithProductsByCartIdForAdmin(
+  cartId: string,
+): Promise<CartItemWithProduct[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    
+    // Fetch cart items with nested product data
+    const { data: cartItems, error: cartItemsError } = await (supabase as any)
+      .from("cart_items")
+      .select(`
+        id,
+        cart_id,
+        customised_product_id,
+        quantity,
+        created_at,
+        customised_products (
+          id,
+          product_id,
+          color,
+          size,
+          material,
+          quantity_stock,
+          products (
+            id,
+            name,
+            description,
+            slug,
+            price,
+            is_featured,
+            is_trending,
+            is_active,
+            brand_id,
+            category_id,
+            brands (
+              id,
+              name,
+              slug
+            ),
+            categories (
+              id,
+              name,
+              slug
+            ),
+            product_images (
+              id,
+              url_image,
+              is_primary
+            )
+          )
+        )
+      `)
+      .eq("cart_id", cartId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (cartItemsError) {
+      console.error("Error fetching cart items with products (admin):", cartItemsError);
+      return [];
+    }
+
+    if (!cartItems || cartItems.length === 0) {
+      return [];
+    }
+
+    // Transform the data to match CartItemWithProduct interface
+    const transformedItems: CartItemWithProduct[] = cartItems
+      .filter((item: any) => item.customised_products?.products)
+      .map((item: any) => {
+        const productData = item.customised_products.products;
+        const product: ProductWithRelations = {
+          id: productData.id,
+          name: productData.name,
+          description: productData.description,
+          slug: productData.slug,
+          price: parseFloat(productData.price),
+          is_featured: productData.is_featured,
+          is_trending: productData.is_trending,
+          is_active: productData.is_active,
+          brand_id: productData.brand_id,
+          category_id: productData.category_id,
+          brand: productData.brands || null,
+          category: productData.categories || null,
+          images: productData.product_images || [],
+          variants: undefined, // Not needed for cart display
+          stats: null, // Not needed for cart display
+        };
+
+        return {
+          id: item.id,
+          cart_id: item.cart_id,
+          customised_product_id: item.customised_product_id,
+          quantity: item.quantity,
+          created_at: item.created_at,
+          product,
+          stock: item.customised_products?.quantity_stock || 0,
+        };
+      });
+
+    return transformedItems;
+  } catch (error) {
+    console.error("Unexpected error in getCartItemsWithProductsByCartIdForAdmin:", error);
+    return [];
+  }
+}
+
+/**
  * Update a cart item (typically quantity).
  * RLS policy ensures users can only update items from their own carts.
  */

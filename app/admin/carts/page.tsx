@@ -14,6 +14,7 @@ import { EditCartDialog, type AdminCart } from "@/components/admin/cart/edit_for
 import { DeleteCartDialog } from "@/components/admin/cart/delete_dialog"
 import { Eye } from "lucide-react"
 import { getAllCartsForAdminService } from "@/services/cart.service"
+import { SubmitCartButton } from "@/components/admin/cart/submit_cart_button"
 
 export default async function CartsPage() {
   // Fetch real cart data
@@ -89,6 +90,9 @@ export default async function CartsPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
+                      {cart.deleted_at === null && (
+                        <SubmitCartButton cartId={cart.id} />
+                      )}
                       <DeleteCartDialog cart={cart} />
                     </div>
                   </TableCell>
