@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,44 +13,83 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
-
-// Dummy users for selection
-const DUMMY_USERS = [
-  { id: "1", name: "John Doe", email: "john.doe@example.com" },
-  { id: "2", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "3", name: "Bob Johnson", email: "bob.johnson@example.com" },
-  { id: "4", name: "Alice Williams", email: "alice.williams@example.com" },
-  { id: "5", name: "Charlie Brown", email: "charlie.brown@example.com" },
-]
+import { getUsersWithoutActiveCartsAction } from "@/actions/profile"
+import { createCartAction } from "@/actions/cart"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import type { AdminProfileRow } from "@/repositories/profile.repository"
 
 const NONE_VALUE = "__none__"
 
 export function CreateCartDialog() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [userId, setUserId] = useState<string>(NONE_VALUE)
   const [sessionId, setSessionId] = useState<string>("")
+  const [users, setUsers] = useState<AdminProfileRow[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch users without active carts when dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsLoadingUsers(true)
+      getUsersWithoutActiveCartsAction()
+        .then((fetchedUsers) => {
+          setUsers(fetchedUsers || [])
+        })
+        .catch((error) => {
+          console.error("Error fetching users:", error)
+          setUsers([])
+        })
+        .finally(() => {
+          setIsLoadingUsers(false)
+        })
+    }
+  }, [open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validation: user_id or session_id must be provided
     if (userId === NONE_VALUE && !sessionId.trim()) {
-      alert("Please provide either a user or a session ID")
+      toast.error("Error", {
+        description: "Please provide either a user or a session ID",
+      })
       return
     }
 
-    // TODO: Wire this up to a real admin create action / API
-    const newCart = {
-      user_id: userId !== NONE_VALUE ? userId : null,
-      session_id: sessionId.trim() || null,
+    setIsSubmitting(true)
+
+    try {
+      const result = await createCartAction({
+        user_id: userId !== NONE_VALUE ? userId : null,
+        session_id: sessionId.trim() || null,
+      })
+
+      if (result.success) {
+        toast.success("Success", {
+          description: "Cart created successfully",
+        })
+        // Reset form
+        setUserId(NONE_VALUE)
+        setSessionId("")
+        setOpen(false)
+        // Refresh the page to show the new cart
+        router.refresh()
+      } else {
+        toast.error("Error", {
+          description: result.error || "Failed to create cart",
+        })
+      }
+    } catch (error) {
+      console.error("Error creating cart:", error)
+      toast.error("Error", {
+        description: "An unexpected error occurred",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    console.log("Creating cart:", newCart)
-
-    // Reset form
-    setUserId(NONE_VALUE)
-    setSessionId("")
-    setOpen(false)
   }
 
   const handleCancel = () => {
@@ -77,19 +116,30 @@ export function CreateCartDialog() {
               <Label htmlFor="user-id">
                 User <span className="text-xs text-muted-foreground">(Optional)</span>
               </Label>
-              <Select value={userId} onValueChange={setUserId}>
+              <Select value={userId} onValueChange={setUserId} disabled={isLoadingUsers}>
                 <SelectTrigger id="user-id">
-                  <SelectValue placeholder="Select a user" />
+                  <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a user"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>None</SelectItem>
-                  {DUMMY_USERS.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
+                  {users.length === 0 && !isLoadingUsers ? (
+                    <SelectItem value="__no_users__" disabled>
+                      No users available (all users have active carts)
                     </SelectItem>
-                  ))}
+                  ) : (
+                    users.map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.full_name || "Unknown"} ({user.email || "No email"})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {!isLoadingUsers && users.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Showing {users.length} user{users.length !== 1 ? 's' : ''} without active carts
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -118,9 +168,9 @@ export function CreateCartDialog() {
               </Button>
               <Button
                 type="submit"
-                disabled={userId === NONE_VALUE && !sessionId.trim()}
+                disabled={(userId === NONE_VALUE && !sessionId.trim()) || isSubmitting}
               >
-                Create Cart
+                {isSubmitting ? "Creating..." : "Create Cart"}
               </Button>
             </DialogFooter>
           </form>

@@ -1,5 +1,6 @@
 import {
   createCart,
+  createCartForAdmin,
   hasActiveCart,
   getCartByUserId,
   getAllCartsForAdmin,
@@ -284,6 +285,16 @@ export async function hardDeleteCartService(
         error instanceof Error ? error.message : "Failed to delete cart",
     };
   }
+}
+
+/**
+ * Create a cart for admin use.
+ * Creates a cart for a specific user or with a session ID.
+ */
+export async function createCartForAdminService(
+  input: { user_id?: string | null; session_id?: string | null },
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  return await createCartForAdmin(input);
 }
 
 /**

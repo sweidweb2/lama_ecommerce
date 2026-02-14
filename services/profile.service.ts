@@ -6,6 +6,7 @@ import {
   createUserAndProfile,
   type AdminProfileRow,
 } from "@/repositories/profile.repository";
+import { getUserIdsWithActiveCarts } from "@/repositories/cart.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { ROLES } from "@/lib/constants/roles";
 
@@ -47,6 +48,29 @@ export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
   const profile = await getCurrentUserProfile();
   if (!profile || profile.role !== ROLES.ADMIN) return [];
   return getAllProfilesForAdmin();
+}
+
+/**
+ * Get users (profiles) without active carts for admin.
+ * Returns empty if caller is not admin.
+ */
+export async function getUsersWithoutActiveCarts(): Promise<AdminProfileRow[]> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) return [];
+  
+  // Get all profiles
+  const allProfiles = await getAllProfilesForAdmin();
+  
+  // Get user IDs with active carts
+  const userIdsWithActiveCarts = await getUserIdsWithActiveCarts();
+  
+  // Filter out users with active carts and inactive users
+  return allProfiles.filter(
+    (profile) =>
+      profile.user_id &&
+      !userIdsWithActiveCarts.includes(profile.user_id) &&
+      !profile.deleted_at // Only include active users
+  );
 }
 
 /**

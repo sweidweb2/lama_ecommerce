@@ -548,3 +548,95 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
     return [];
   }
 }
+
+/**
+ * Get user IDs that have active carts (deleted_at is null).
+ * Uses admin client to bypass RLS for admin access.
+ */
+export async function getUserIdsWithActiveCarts(): Promise<string[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("user_id")
+      .not("user_id", "is", null)
+      .is("deleted_at", null);
+
+    if (error) {
+      console.error("Error fetching user IDs with active carts:", error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Return unique user IDs
+    return [...new Set(data.map((cart: any) => cart.user_id as string).filter(Boolean) as string[])];
+  } catch (error) {
+    console.error("Unexpected error in getUserIdsWithActiveCarts:", error);
+    return [];
+  }
+}
+
+/**
+ * Create a cart for admin use.
+ * Uses admin client to bypass RLS for admin access.
+ */
+export async function createCartForAdmin(
+  input: { user_id?: string | null; session_id?: string | null },
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    // Build insert payload
+    const insertPayload: Record<string, unknown> = {};
+    
+    if (input.user_id) {
+      insertPayload.user_id = input.user_id;
+    } else {
+      insertPayload.user_id = null;
+    }
+
+    if (input.session_id) {
+      insertPayload.session_id = input.session_id;
+    } else {
+      insertPayload.session_id = null;
+    }
+
+    // Ensure at least one of user_id or session_id is present
+    if (!insertPayload.user_id && !insertPayload.session_id) {
+      return {
+        success: false,
+        error: "Either user_id or session_id must be provided",
+      };
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating cart (admin):", error);
+      return {
+        success: false,
+        error: error.message || "Failed to create cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as Cart,
+    };
+  } catch (error) {
+    console.error("Unexpected error in createCartForAdmin:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}

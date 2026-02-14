@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import {
   getProfilesForAdmin,
+  getUsersWithoutActiveCarts,
   updateProfileAdmin,
   createUserAdmin,
 } from "@/services/profile.service";
@@ -24,6 +25,13 @@ export async function getProfile() {
  */
 export async function getAdminUsersAction() {
   return await getProfilesForAdmin();
+}
+
+/**
+ * Get users without active carts for admin. Returns empty if not admin.
+ */
+export async function getUsersWithoutActiveCartsAction() {
+  return await getUsersWithoutActiveCarts();
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   deleteCartService,
   hardDeleteCartService,
   updateCartItemService,
+  createCartForAdminService,
 } from "@/services/cart.service";
 import { revalidatePath } from "next/cache";
 
@@ -238,6 +239,37 @@ export async function updateCartItemAction(
   // Revalidate admin cart details page if successful
   if (result.success) {
     revalidatePath(`/admin/carts/${cartId}`);
+    revalidatePath("/admin/carts");
+  }
+
+  return result;
+}
+
+/**
+ * Create cart action (admin use).
+ * This is the server action called from client components (admin panel).
+ * Creates a cart for a specific user or with a session ID.
+ */
+export async function createCartAction(
+  input: {
+    user_id?: string | null;
+    session_id?: string | null;
+  },
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  // Authorization check: User must be logged in (admin check should be done in UI)
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in to create carts",
+    };
+  }
+
+  // Call service to create cart
+  const result = await createCartForAdminService(input);
+
+  // Revalidate admin carts pages if successful
+  if (result.success) {
     revalidatePath("/admin/carts");
   }
 
