@@ -7,7 +7,6 @@ import {
   getCartByIdForAdmin,
   deleteCart,
   hardDeleteCart,
-  type Cart,
   type AdminCartRow,
 } from "@/repositories/cart.repository";
 import {
@@ -17,9 +16,9 @@ import {
   hardDeleteCartItem,
   hardDeleteCartItemsByCartId,
   updateCartItemForAdmin,
-  type CartItem,
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
+import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
 
 /**

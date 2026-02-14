@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { getUserCartWithItemsAction } from "@/actions/cart";
 import { useAuth } from "@/providers/AuthProvider";
+import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
 
 export function FloatingCartButton() {
@@ -37,9 +38,9 @@ export function FloatingCartButton() {
         const result = await getUserCartWithItemsAction();
         if (result.success && result.data) {
           const { items } = result.data;
-          const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+          const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
           const total = items.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
+            (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
             0
           );
           setCartData({ itemCount, total });
@@ -66,9 +67,9 @@ export function FloatingCartButton() {
         const result = await getUserCartWithItemsAction();
         if (result.success && result.data) {
           const { items } = result.data;
-          const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+          const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
           const total = items.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
+            (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
             0
           );
           setCartData({ itemCount, total });
