@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { ROUTES } from '@/lib/constants/routes'
 import { 
   Mail, 
@@ -16,10 +18,17 @@ import { Button } from '@/components/ui/button'
 import { createLeadAction } from '@/actions/lead'
 import { toast } from 'sonner'
 
+const LOGO_LIGHT = '/aviora-logo.png'
+const LOGO_DARK = '/aviora-logo-white.png'
+
 export function Footer() {
   const pathname = usePathname()
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const logoSrc = mounted && resolvedTheme === 'dark' ? LOGO_DARK : LOGO_LIGHT
 
   // Hide footer on admin routes and product detail pages
   if (pathname?.startsWith('/admin') || pathname?.match(/^\/products\/[^/]+$/)) {
@@ -35,8 +44,8 @@ export function Footer() {
             {/* About Section */}
             <div className="lg:col-span-1">
               <Link href={ROUTES.HOME} className="inline-block mb-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
-                <img
-                  src="/aviora-logo.png"
+                <Image
+                  src={logoSrc}
                   alt="Aviora Wear"
                   className="h-10 w-auto object-contain"
                   width={140}
