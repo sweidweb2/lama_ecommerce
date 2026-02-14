@@ -65,32 +65,53 @@ export function ProductCustomization({
   }, [variants])
 
   // Find matching variant based on selections
+  // Require color selection if colors exist, require size selection if sizes exist
   const selectedVariant = useMemo(() => {
+    // Check if all required selections are made
+    const hasRequiredColor = colors.length === 0 || selectedColor !== null
+    const hasRequiredSize = sizes.length === 0 || selectedSize !== null
+    
+    if (!hasRequiredColor || !hasRequiredSize) {
+      return undefined
+    }
+
     return variants.find((v) => {
-      const colorMatch = !selectedColor || v.color === selectedColor
-      const sizeMatch = !selectedSize || v.size === selectedSize
+      const colorMatch = colors.length === 0 || v.color === selectedColor
+      const sizeMatch = sizes.length === 0 || v.size === selectedSize
       return colorMatch && sizeMatch && v.quantity_stock > 0
     })
-  }, [variants, selectedColor, selectedSize])
+  }, [variants, selectedColor, selectedSize, colors.length, sizes.length])
 
-  // Check if a variant option is available
+  // Check if a variant option is available (for enabling/disabling options)
   const isOptionAvailable = (type: 'color' | 'size', value: string) => {
     return variants.some((v) => {
       const matchesType = v[type] === value
       const matchesOtherSelections =
-        (!selectedColor || v.color === selectedColor || type === 'color') &&
-        (!selectedSize || v.size === selectedSize || type === 'size')
+        (colors.length === 0 || !selectedColor || v.color === selectedColor || type === 'color') &&
+        (sizes.length === 0 || !selectedSize || v.size === selectedSize || type === 'size')
       return matchesType && matchesOtherSelections && v.quantity_stock > 0
     })
   }
 
+  // Allow users to change color - clicking a different color will update selection
   const handleColorChange = (color: string) => {
-    setSelectedColor(color)
+    // If clicking the same color, allow deselecting (toggle)
+    if (selectedColor === color) {
+      setSelectedColor(null)
+    } else {
+      setSelectedColor(color)
+    }
     setQuantity(1) // Reset quantity when color changes
   }
 
+  // Allow users to change size - clicking a different size will update selection
   const handleSizeChange = (size: string) => {
-    setSelectedSize(size)
+    // If clicking the same size, allow deselecting (toggle)
+    if (selectedSize === size) {
+      setSelectedSize(null)
+    } else {
+      setSelectedSize(size)
+    }
     setQuantity(1) // Reset quantity when size changes
   }
 
@@ -101,7 +122,14 @@ export function ProductCustomization({
     }
   }, [selectedVariant, setSelectedVariantId])
 
-  const isAvailable = selectedVariant && selectedVariant.quantity_stock > 0
+  // Check if all required selections are made
+  const hasRequiredSelections = useMemo(() => {
+    const hasColor = colors.length === 0 || selectedColor !== null
+    const hasSize = sizes.length === 0 || selectedSize !== null
+    return hasColor && hasSize
+  }, [colors.length, sizes.length, selectedColor, selectedSize])
+
+  const isAvailable = hasRequiredSelections && selectedVariant && selectedVariant.quantity_stock > 0
   const maxQuantity = selectedVariant?.quantity_stock || 0
 
   const handleAddToCart = async () => {
@@ -251,8 +279,8 @@ export function ProductCustomization({
         </div>
       )}
 
-      {/* Quantity Selector */}
-      {isAvailable && (
+      {/* Quantity Selector - Show when variant is selected */}
+      {selectedVariant && (
         <div className="space-y-3">
           <Label className="text-base font-semibold">Quantity</Label>
           <div className="flex items-center gap-3">
@@ -302,11 +330,13 @@ export function ProductCustomization({
         size="lg"
         className="w-full h-12"
         onClick={handleAddToCart}
-        disabled={!isAvailable || isAddingToCart}
+        disabled={!isAvailable || isAddingToCart || !hasRequiredSelections}
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
         {isAddingToCart
           ? 'Adding...'
+          : !hasRequiredSelections
+          ? 'Select Options'
           : !isAvailable
           ? 'Out of Stock'
           : 'Add to Cart'}
