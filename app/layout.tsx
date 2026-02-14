@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { getCurrentUserProfile } from "@/services/profile.service";
@@ -38,7 +39,9 @@ export default async function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider initialProfile={profile}>
-            <ConditionalLayout>{children}</ConditionalLayout>
+            <Suspense fallback={<div className="flex min-h-screen flex-col"><main className="flex-1">{children}</main></div>}>
+              <ConditionalLayout>{children}</ConditionalLayout>
+            </Suspense>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>
