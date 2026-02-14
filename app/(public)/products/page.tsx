@@ -1,15 +1,10 @@
-import { Suspense } from 'react'
 import { getProducts } from '@/services/product.service'
 import { getCategoriesService } from '@/services/categories.service'
-import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { AdvancedFilters } from '@/components/(public)/products/AdvancedFilters'
 import { SizeFilter } from '@/components/(public)/products/SizeFilter'
-import { Pagination } from '@/components/(public)/products/Pagination'
-import { SearchBar } from '@/components/(public)/products/SearchBar'
-import { MobileFilters } from '@/components/(public)/products/MobileFilters'
+import { ClientProductFilter } from '@/components/(public)/products/ClientProductFilter'
 import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { ProductWithRelations } from '@/types/product'
 
 
@@ -40,19 +35,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     // Fetch categories for the sidebar
     const categories = await getCategoriesService()
 
-    // Fetch all products for price calculation (without pagination)
-    const { data: allProductsForPriceCalc } = await getProducts({
-        page: 1,
-        pageSize: 10000, // Large number to get all products
-    })
-
-    // Fetch products with filters
-    let { data: products, count } = await getProducts({
+    // Fetch all products for client-side filtering (without pagination)
+    const { data: allProducts } = await getProducts({
         categorySlug: params.category,
         sort: params.sort,
-        page: Number(params.page) || 1,
-        search: params.search,
+        page: 1,
+        pageSize: 10000, // Large number to get all products for client-side filtering
     })
+
+    // Use all products for client-side filtering
+    let products = allProducts
 
     // Apply color filtering for real products (requires variants)
     if (params.colors && products.length > 0) {
@@ -67,7 +59,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     variant.color && selectedColors.includes(variant.color.toLowerCase()),
                 ),
             )
-            count = products.length
         }
     }
 
@@ -84,7 +75,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     variant.size && selectedSizes.includes(variant.size.toUpperCase()),
                 ),
             )
-            count = products.length
         }
     }
 
@@ -98,15 +88,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 const price = product.price
                 return price >= minPrice && price <= maxPrice
             })
-            count = products.length
         }
     }
 
-    const pageSize = 12
-    const totalPages = Math.ceil(count / pageSize)
-
     // Calculate price range from all available real products
-    const prices = allProductsForPriceCalc.map(p => p.price)
+    const prices = allProducts.map(p => p.price)
     const calculatedMinPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0
     const calculatedMaxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000
 
@@ -136,49 +122,20 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                                     {params.category ? categories.find(c => c.slug === params.category)?.name : 'All Products'}
                                 </h1>
                                 <p className="text-muted-foreground mt-2">
-                                    Showing <span className="text-foreground font-medium">{products.length}</span> of <span className="text-foreground font-medium">{count}</span> products
+                                    Browse our collection of products
                                 </p>
-                            </div>
-
-                            {/* The "Screen Bar" / Tools Bar */}
-                            <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-4 bg-muted/30 p-2 rounded-xl border border-border/50 backdrop-blur-sm">
-                                <div className="w-full flex items-center gap-2 md:gap-4">
-                                    <div className="flex-1">
-                                        <SearchBar />
-                                    </div>
-                                    <MobileFilters categories={categories} />
-                                </div>
                             </div>
                         </div>
 
                         <Separator className="opacity-50" />
                     </div>
 
-                    <Pagination totalPages={totalPages} />
-
-                    <Suspense fallback={<ProductGridSkeleton />}>
-                        <ProductGrid products={products} />
-                    </Suspense>
-
-                    <Pagination totalPages={totalPages} />
+                    <ClientProductFilter 
+                        initialProducts={products}
+                        categories={categories}
+                    />
                 </main>
             </div>
-        </div>
-    )
-}
-function ProductGridSkeleton() {
-    return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-3">
-                    <Skeleton className="aspect-[4/5] w-full rounded-xl" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-3 w-1/3" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-1/4" />
-                    </div>
-                </div>
-            ))}
         </div>
     )
 }

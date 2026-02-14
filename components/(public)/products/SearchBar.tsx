@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/button'
 interface SearchBarProps {
     /** Called after navigation (e.g. to close mobile nav sheet) */
     onNavigate?: () => void
+    /** Called when search query changes (for client-side filtering) */
+    onSearchChange?: (query: string) => void
 }
 
-export function SearchBar({ onNavigate }: SearchBarProps = {}) {
+export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [query, setQuery] = useState(searchParams.get('search') || '')
@@ -30,11 +32,28 @@ export function SearchBar({ onNavigate }: SearchBarProps = {}) {
 
     // Update query when URL search param changes
     useEffect(() => {
-        setQuery(searchParams.get('search') || '')
-    }, [searchParams])
+        const urlQuery = searchParams.get('search') || ''
+        setQuery(urlQuery)
+        onSearchChange?.(urlQuery)
+    }, [searchParams, onSearchChange])
+
+    // If onSearchChange is provided, use client-side filtering
+    const isClientSide = !!onSearchChange
+
+    const handleChange = (value: string) => {
+        setQuery(value)
+        if (isClientSide) {
+            onSearchChange?.(value)
+        }
+    }
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
+        if (isClientSide) {
+            // Client-side filtering, no need to navigate
+            return
+        }
+
         const params = new URLSearchParams(searchParams.toString())
 
         if (query) {
@@ -52,11 +71,15 @@ export function SearchBar({ onNavigate }: SearchBarProps = {}) {
 
     const clearSearch = () => {
         setQuery('')
-        const params = new URLSearchParams(searchParams.toString())
-        params.delete('search')
-        params.delete('page')
-        router.push(`/products?${params.toString()}`)
-        onNavigate?.()
+        if (isClientSide) {
+            onSearchChange?.('')
+        } else {
+            const params = new URLSearchParams(searchParams.toString())
+            params.delete('search')
+            params.delete('page')
+            router.push(`/products?${params.toString()}`)
+            onNavigate?.()
+        }
     }
 
     return (
@@ -68,7 +91,7 @@ export function SearchBar({ onNavigate }: SearchBarProps = {}) {
                     type="text"
                     placeholder="Search products... (Press / to focus)"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => handleChange(e.target.value)}
                     className="pl-9 pr-10 h-10 w-full bg-background border-border focus-visible:ring-primary/20 focus-visible:border-primary transition-all duration-200"
                 />
                 {query && (

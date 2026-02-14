@@ -86,7 +86,7 @@ export function WishlistButton({
         >
             <Heart
                 className={cn(
-                    'h-5 w-5 transition-all duration-300',
+                    'h-5 w-5 transition-all duration-300 text-white',
                     isInWishlist ? 'fill-current' : 'fill-transparent',
                     isPending && 'scale-90 opacity-50'
                 )}
