@@ -15,6 +15,7 @@ import {
   getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
   hardDeleteCartItemsByCartId,
+  updateCartItemForAdmin,
   type CartItem,
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
@@ -223,6 +224,17 @@ export async function getCartWithItemsForAdminService(
 }
 
 /**
+ * Update cart item service (admin use).
+ * Updates a cart item, typically the quantity.
+ */
+export async function updateCartItemService(
+  cartItemId: string,
+  input: { quantity: number },
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return await updateCartItemForAdmin(cartItemId, { quantity: input.quantity });
+}
+
+/**
  * Delete cart service.
  * Soft-deletes a cart by setting deleted_at.
  */
@@ -270,6 +282,62 @@ export async function hardDeleteCartService(
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to delete cart",
+    };
+  }
+}
+
+/**
+ * Add item to a specific cart by cart ID (admin use).
+ * Directly adds the item to the specified cart without checking for user's active cart.
+ */
+export async function addItemToCartByIdService(
+  cartId: string,
+  input: {
+    customised_product_id: string;
+    quantity: number;
+  },
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  try {
+    // Validate input using Zod schema
+    const validated = createCartItemSchema.parse({
+      customised_product_id: input.customised_product_id,
+      quantity: input.quantity,
+    });
+
+    // Add item directly to the specified cart
+    const cartItemResult = await createCartItem({
+      cart_id: cartId,
+      customised_product_id: validated.customised_product_id,
+      quantity: validated.quantity,
+    });
+
+    if (!cartItemResult.success || !cartItemResult.data) {
+      return {
+        success: false,
+        error: cartItemResult.error || "Failed to add item to cart",
+      };
+    }
+
+    return {
+      success: true,
+      data: cartItemResult.data,
+    };
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof Error && error.name === "ZodError") {
+      const zodError = error as any;
+      const firstError = zodError.errors?.[0];
+      return {
+        success: false,
+        error: firstError?.message || "Invalid cart item data",
+      };
+    }
+
+    console.error("Error in addItemToCartByIdService:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to add item to cart",
     };
   }
 }

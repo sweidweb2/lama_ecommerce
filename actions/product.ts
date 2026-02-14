@@ -23,13 +23,17 @@ import {
   changePrimaryProductImageService,
 } from "@/services/product_image.service";
 import { addProductImageSchema } from "@/lib/validators/product_image/create";
-import { 
+import {
   createProductVariantService,
   updateProductVariantService,
   deleteProductVariantService,
+  getProductVariantsByProductIdService,
 } from "@/services/product_variant.service";
+import { getAdminProductsService } from "@/services/product.service";
 import { createProductVariantSchema } from "@/lib/validators/product_variant/create";
 import { updateProductVariantSchema } from "@/lib/validators/product_variant/update";
+import type { ProductWithRelations } from "@/types/product";
+import type { ProductVariant } from "@/types/product";
 
 const idSchema = z.string().uuid();
 
@@ -598,5 +602,41 @@ export async function deleteProductVariantAction(
   } catch (error) {
     console.error("Unexpected error in deleteProductVariantAction:", error);
     throw error;
+  }
+}
+
+/**
+ * Get all products for admin (for dropdowns, etc.).
+ */
+export async function getAdminProductsAction(): Promise<ProductWithRelations[]> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    return await getAdminProductsService();
+  } catch (error) {
+    console.error("Unexpected error in getAdminProductsAction:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all variants for a product.
+ */
+export async function getProductVariantsAction(
+  productId: string,
+): Promise<ProductVariant[]> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || profile.role !== ROLES.ADMIN) {
+      throw new Error("Unauthorized");
+    }
+
+    return await getProductVariantsByProductIdService(productId);
+  } catch (error) {
+    console.error("Unexpected error in getProductVariantsAction:", error);
+    return [];
   }
 }

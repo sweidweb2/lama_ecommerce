@@ -19,9 +19,10 @@ export type { CartItem }
 interface CartItemsTableProps {
   cartId: string
   items: CartItem[]
+  showHeader?: boolean
 }
 
-export function CartItemsTable({ cartId, items }: CartItemsTableProps) {
+export function CartItemsTable({ cartId, items, showHeader = true }: CartItemsTableProps) {
   const calculateItemTotal = (item: CartItem) => {
     const price = item.price || 0
     return price * item.quantity
@@ -33,10 +34,12 @@ export function CartItemsTable({ cartId, items }: CartItemsTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Cart Items</h3>
-        <CreateCartItemDialog cartId={cartId} />
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Cart Items</h3>
+          <CreateCartItemDialog cartId={cartId} />
+        </div>
+      )}
 
       <TableWrapper>
         <Table>

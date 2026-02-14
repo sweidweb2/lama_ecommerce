@@ -3,11 +3,13 @@
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
   addItemToCartService,
+  addItemToCartByIdService,
   getUserCartService,
   getUserCartWithItemsService,
   deleteCartItemService,
   deleteCartService,
   hardDeleteCartService,
+  updateCartItemService,
 } from "@/services/cart.service";
 import { revalidatePath } from "next/cache";
 
@@ -174,6 +176,69 @@ export async function hardDeleteCartAction(
   if (result.success) {
     revalidatePath("/admin/carts");
     revalidatePath(`/admin/carts/${cartId}`);
+  }
+
+  return result;
+}
+
+/**
+ * Add item to a specific cart by cart ID (admin use).
+ * This is the server action called from client components (admin panel).
+ */
+export async function addItemToCartByIdAction(
+  cartId: string,
+  input: {
+    customised_product_id: string;
+    quantity: number;
+  },
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  // Authorization check: User must be logged in (admin check should be done in UI)
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in to add items to cart",
+    };
+  }
+
+  // Call service to add item to the specified cart
+  const result = await addItemToCartByIdService(cartId, input);
+
+  // Revalidate admin cart details page if successful
+  if (result.success) {
+    revalidatePath(`/admin/carts/${cartId}`);
+    revalidatePath("/admin/carts");
+  }
+
+  return result;
+}
+
+/**
+ * Update cart item action (admin use).
+ * This is the server action called from client components (admin panel).
+ * Updates the quantity of a cart item.
+ */
+export async function updateCartItemAction(
+  cartItemId: string,
+  quantity: number,
+  cartId: string,
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  // Authorization check: User must be logged in (admin check should be done in UI)
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in to update cart items",
+    };
+  }
+
+  // Call service to update cart item
+  const result = await updateCartItemService(cartItemId, { quantity });
+
+  // Revalidate admin cart details page if successful
+  if (result.success) {
+    revalidatePath(`/admin/carts/${cartId}`);
+    revalidatePath("/admin/carts");
   }
 
   return result;

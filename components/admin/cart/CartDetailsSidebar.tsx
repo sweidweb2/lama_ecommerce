@@ -26,6 +26,7 @@ interface ShippingFee {
 
 interface CartDetailsSidebarProps {
   subtotal: number;
+  itemCount?: number;
   onSubmit?: (data: { shippingFee: number; total: number; zoneId: string }) => void | Promise<void>;
 }
 
@@ -47,7 +48,7 @@ const dummyShippingFees: ShippingFee[] = [
   { id: "fee-5", zone_id: "zone-5", fee: 50.0 },
 ];
 
-export function CartDetailsSidebar({ subtotal, onSubmit }: CartDetailsSidebarProps) {
+export function CartDetailsSidebar({ subtotal, itemCount = 0, onSubmit }: CartDetailsSidebarProps) {
   const [selectedZoneId, setSelectedZoneId] = useState<string>("");
   const [selectedFeeId, setSelectedFeeId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -176,6 +177,13 @@ export function CartDetailsSidebar({ subtotal, onSubmit }: CartDetailsSidebarPro
         <span>Total</span>
         <span className="text-lg">{formatPrice(total)}</span>
       </div>
+      
+      {/* Show item count summary */}
+      {itemCount > 0 && (
+        <div className="text-xs text-muted-foreground text-center pt-1">
+          <span>{itemCount} {itemCount === 1 ? 'item' : 'items'} in cart</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <Button

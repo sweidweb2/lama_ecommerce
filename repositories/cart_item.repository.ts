@@ -180,6 +180,9 @@ export interface CartItemWithProduct {
   created_at: string;
   product: ProductWithRelations;
   stock: number; // Available stock for the customized product variant
+  color?: string | null;
+  size?: string | null;
+  material?: string | null;
 }
 
 export async function getCartItemsWithProductsByCartId(
@@ -277,6 +280,9 @@ export async function getCartItemsWithProductsByCartId(
           created_at: item.created_at,
           product,
           stock: item.customised_products?.quantity_stock || 0,
+          color: item.customised_products?.color || null,
+          size: item.customised_products?.size || null,
+          material: item.customised_products?.material || null,
         };
       });
 
@@ -386,6 +392,9 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
           created_at: item.created_at,
           product,
           stock: item.customised_products?.quantity_stock || 0,
+          color: item.customised_products?.color || null,
+          size: item.customised_products?.size || null,
+          material: item.customised_products?.material || null,
         };
       });
 
@@ -451,6 +460,70 @@ export async function updateCartItem(
     };
   } catch (error) {
     console.error("Unexpected error in updateCartItem:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Update a cart item (admin version).
+ * Uses admin client to bypass RLS for admin access.
+ * Typically used for updating quantity.
+ */
+export async function updateCartItemForAdmin(
+  cartItemId: string,
+  input: UpdateCartItemInput,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    // Build update payload with only provided fields
+    const updatePayload: Record<string, unknown> = {};
+    if (input.quantity !== undefined) {
+      if (input.quantity < 1) {
+        return {
+          success: false,
+          error: "Quantity must be at least 1",
+        };
+      }
+      updatePayload.quantity = input.quantity;
+    }
+    if (input.customised_product_id !== undefined) {
+      updatePayload.customised_product_id = input.customised_product_id;
+    }
+
+    // If no fields to update, return early
+    if (Object.keys(updatePayload).length === 0) {
+      return {
+        success: false,
+        error: "No fields to update",
+      };
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("cart_items")
+      .update(updatePayload)
+      .eq("id", cartItemId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating cart item (admin):", error);
+      return {
+        success: false,
+        error: error.message || "Failed to update cart item",
+      };
+    }
+
+    return {
+      success: true,
+      data: data as CartItem,
+    };
+  } catch (error) {
+    console.error("Unexpected error in updateCartItemForAdmin:", error);
     return {
       success: false,
       error:
