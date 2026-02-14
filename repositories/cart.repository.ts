@@ -2,9 +2,11 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
+import { getCartItemsWithProductsByCartId } from "@/repositories/cart_item.repository";
 
 /**
  * Create a new cart.
@@ -355,5 +357,113 @@ export async function deleteCart(
       error:
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
+  }
+}
+
+/**
+ * Admin cart row interface for admin panel display.
+ */
+export interface AdminCartRow {
+  id: string;
+  user_id: string | null;
+  session_id: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  userName: string | null;
+  items: number;
+  total: number;
+  status: string;
+}
+
+/**
+ * Get all carts for admin panel with user information, item counts, and totals.
+ * Uses admin client to bypass RLS for full access.
+ */
+export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    // Fetch all carts (including deleted ones for admin view)
+    const { data: carts, error: cartsError } = await (supabase as any)
+      .from("carts")
+      .select(`
+        id,
+        user_id,
+        session_id,
+        created_at,
+        updated_at,
+        deleted_at
+      `)
+      .order("created_at", { ascending: false });
+
+    if (cartsError) {
+      console.error("Error fetching carts for admin:", cartsError);
+      return [];
+    }
+
+    if (!carts || carts.length === 0) {
+      return [];
+    }
+
+    // Get unique user IDs
+    const userIds = [
+      ...new Set(carts.map((c: any) => c.user_id).filter(Boolean)),
+    ];
+
+    // Fetch profiles for user names
+    const { data: profiles } = userIds.length
+      ? await (supabase as any)
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", userIds)
+      : { data: [] };
+
+    // Create map for quick lookup
+    const profileMap = new Map<string, string>();
+    (profiles ?? []).forEach((p: { user_id: string; full_name: string | null }) => {
+      profileMap.set(p.user_id, p.full_name || "Unknown");
+    });
+
+    // For each cart, get items and calculate totals
+    const adminCarts: AdminCartRow[] = await Promise.all(
+      carts.map(async (cart: any) => {
+        // Get cart items with products to calculate totals
+        const items = await getCartItemsWithProductsByCartId(cart.id);
+
+        // Calculate item count and total
+        const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+        const total = items.reduce(
+          (sum, item) => sum + item.product.price * item.quantity,
+          0,
+        );
+
+        // Determine status
+        const status = cart.deleted_at ? "Deleted" : "Active";
+
+        // Get user name
+        const userName = cart.user_id
+          ? profileMap.get(cart.user_id) || `User ${cart.user_id}`
+          : "Guest";
+
+        return {
+          id: cart.id,
+          user_id: cart.user_id,
+          session_id: cart.session_id,
+          created_at: cart.created_at,
+          updated_at: cart.updated_at,
+          deleted_at: cart.deleted_at,
+          userName,
+          items: itemCount,
+          total,
+          status,
+        };
+      }),
+    );
+
+    return adminCarts;
+  } catch (error) {
+    console.error("Unexpected error in getAllCartsForAdmin:", error);
+    return [];
   }
 }

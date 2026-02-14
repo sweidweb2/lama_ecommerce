@@ -2,7 +2,9 @@ import {
   createCart,
   hasActiveCart,
   getCartByUserId,
+  getAllCartsForAdmin,
   type Cart,
+  type AdminCartRow,
 } from "@/repositories/cart.repository";
 import {
   createCartItem,
@@ -161,4 +163,12 @@ export async function deleteCartItemService(
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
   return await hardDeleteCartItem(cartItemId);
+}
+
+/**
+ * Get all carts for admin panel.
+ * Returns carts with user information, item counts, and totals.
+ */
+export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
+  return await getAllCartsForAdmin();
 }
