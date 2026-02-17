@@ -1,11 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
   addItemToCartService,
+  addItemToGuestCartService,
   addItemToCartByIdService,
   getUserCartService,
   getUserCartWithItemsService,
+  getGuestCartWithItemsService,
+  mergeGuestCartToUserService,
   deleteCartItemService,
   deleteCartService,
   hardDeleteCartService,
@@ -14,33 +18,81 @@ import {
 } from "@/services/cart.service";
 import { revalidatePath } from "next/cache";
 
+/** Cookie name for guest session identification. */
+const GUEST_SESSION_COOKIE = "guest_session_id";
+
+/** Guest session cookie lifetime: 14 days in seconds. */
+const GUEST_SESSION_MAX_AGE = 14 * 24 * 60 * 60; // 14 days
+
 /**
- * Add item to cart action.
- * This is the server action called from client components.
- * 
- * Flow:
- * 1. Check if user is authenticated
- * 2. Check if user has an active cart
- * 3. If not, create a new cart
- * 4. Add the cart item to the cart (new or existing)
+ * Read the guest_session_id cookie.
+ * Returns the value or null if missing / expired.
  */
-export async function addItemToCartAction(input: {
-  customised_product_id: string;
-  quantity: number;
-}): Promise<{ success: boolean; error?: string; data?: any }> {
-  // Authorization check: User must be logged in
+async function getGuestSessionId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(GUEST_SESSION_COOKIE)?.value ?? null;
+}
+
+/**
+ * Set (or refresh) the guest_session_id cookie.
+ * HttpOnly, Secure, SameSite=Lax, 14-day expiry.
+ */
+async function setGuestSessionCookie(sessionId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(GUEST_SESSION_COOKIE, sessionId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: GUEST_SESSION_MAX_AGE,
+    path: "/",
+  });
+}
+
+/**
+ * Delete the guest_session_id cookie (e.g. after merging cart on login).
+ */
+async function clearGuestSessionCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(GUEST_SESSION_COOKIE);
+}
+
+/**
+ * Merge guest cart into the authenticated user's cart.
+ * Called right after login so the user keeps the items they added as a guest.
+ *
+ * Flow:
+ * 1. Verify the caller is authenticated.
+ * 2. Read the guest_session_id cookie.
+ * 3. If no session cookie → nothing to merge, return early.
+ * 4. Delegate to mergeGuestCartToUserService which handles all four scenarios.
+ * 5. Clean up the guest_session_id cookie.
+ * 6. Revalidate /cart so the UI shows the merged cart.
+ */
+export async function mergeGuestCartOnLoginAction(): Promise<{
+  success: boolean;
+  error?: string;
+  merged: boolean;
+}> {
   const user = await getCurrentAuthUserFromAction();
+
   if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to add items to your cart",
-    };
+    return { success: false, error: "Not authenticated", merged: false };
   }
 
-  // Call service to add item to cart
-  const result = await addItemToCartService(user.id, input);
+  // Read the guest session cookie
+  const sessionId = await getGuestSessionId();
 
-  // Revalidate cart-related pages if successful
+  if (!sessionId) {
+    // No guest session – nothing to merge
+    return { success: true, merged: false };
+  }
+
+  // Merge the guest cart into the user's cart
+  const result = await mergeGuestCartToUserService(user.id, sessionId);
+
+  // Always clean up the guest cookie after login, regardless of merge outcome
+  await clearGuestSessionCookie();
+
   if (result.success) {
     revalidatePath("/cart");
     revalidatePath("/checkout");
@@ -50,7 +102,65 @@ export async function addItemToCartAction(input: {
 }
 
 /**
- * Get user's cart action.
+ * Add item to cart action.
+ * This is the server action called from client components.
+ *
+ * Flow:
+ * 1. Check if user is authenticated
+ * 2a. Authenticated → use existing addItemToCartService (user_id based)
+ * 2b. Guest →
+ *     - Read guest_session_id cookie
+ *     - If missing → generate new session ID (crypto.randomUUID())
+ *     - Set / refresh the cookie (14 days, HttpOnly, Secure, SameSite=Lax)
+ *     - Check if an active cart exists for that session_id
+ *     - If not → create a new guest cart (user_id=null, session_id)
+ *     - Add cart item under that cart
+ */
+export async function addItemToCartAction(input: {
+  customised_product_id: string;
+  quantity: number;
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  // Check if user is authenticated
+  const user = await getCurrentAuthUserFromAction();
+
+  if (user) {
+    // ── Authenticated user flow ──
+    const result = await addItemToCartService(user.id, input);
+
+    if (result.success) {
+      revalidatePath("/cart");
+      revalidatePath("/checkout");
+    }
+
+    return result;
+  }
+
+  // ── Guest user flow ──
+
+  // Read existing session cookie (null when missing or expired)
+  let sessionId = await getGuestSessionId();
+
+  if (!sessionId) {
+    // Generate a fresh session ID – never reuse old / deleted sessions
+    sessionId = crypto.randomUUID();
+  }
+
+  // Always set / refresh the cookie so expiry slides forward
+  await setGuestSessionCookie(sessionId);
+
+  // Delegate to guest cart service (creates cart if needed, adds item)
+  const result = await addItemToGuestCartService(sessionId, input);
+
+  if (result.success) {
+    revalidatePath("/cart");
+    revalidatePath("/checkout");
+  }
+
+  return result;
+}
+
+/**
+ * Get user's (or guest's) cart action.
  * This is the server action called from client components.
  */
 export async function getUserCartAction(): Promise<{
@@ -58,43 +168,59 @@ export async function getUserCartAction(): Promise<{
   error?: string;
   data?: any;
 }> {
-  // Authorization check: User must be logged in
   const user = await getCurrentAuthUserFromAction();
-  if (!user) {
+
+  if (user) {
+    return await getUserCartService(user.id);
+  }
+
+  // Guest flow – use session cookie
+  const sessionId = await getGuestSessionId();
+  if (!sessionId) {
     return {
       success: false,
-      error: "You must be logged in to view your cart",
+      error: "No active cart found",
     };
   }
 
-  // Call service to get user's cart
-  const result = await getUserCartService(user.id);
-
-  return result;
+  // Re-use getGuestCartWithItemsService to find the cart
+  const result = await getGuestCartWithItemsService(sessionId);
+  if (result.success && result.data) {
+    return { success: true, data: result.data.cart };
+  }
+  return { success: false, error: result.error || "No active cart found" };
 }
 
 /**
- * Get user's cart with items action.
- * This is the server action called from server components.
+ * Get user's (or guest's) cart with items action.
+ * This is the server action called from client and server components.
+ *
+ * Flow:
+ * - Authenticated → fetch cart by user_id
+ * - Guest → read guest_session_id cookie → fetch cart by session_id
+ * - No session / no cart → returns { success: false }
  */
 export async function getUserCartWithItemsAction(): Promise<{
   success: boolean;
   error?: string;
   data?: any;
 }> {
-  // Authorization check: User must be logged in
   const user = await getCurrentAuthUserFromAction();
-  if (!user) {
+
+  if (user) {
+    return await getUserCartWithItemsService(user.id);
+  }
+
+  // Guest flow – use session cookie
+  const sessionId = await getGuestSessionId();
+  if (!sessionId) {
     return {
       success: false,
-      error: "You must be logged in to view your cart",
+      error: "No active cart found",
     };
   }
 
-  // Call service to get user's cart with items
-  const result = await getUserCartWithItemsService(user.id);
-
-  return result;
+  return await getGuestCartWithItemsService(sessionId);
 }
 
 /**

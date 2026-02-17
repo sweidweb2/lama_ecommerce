@@ -1,85 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { getUserCartWithItemsAction } from "@/actions/cart";
-import { useAuth } from "@/providers/AuthProvider";
 import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
 
 export function FloatingCartButton() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading: authLoading } = useAuth();
   const [cartData, setCartData] = useState<{
     itemCount: number;
     total: number;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (authLoading) {
+  const fetchCart = useCallback(async () => {
+    try {
       setIsLoading(true);
-      return;
-    }
-    
-    if (!user) {
-      setCartData(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchCart = async () => {
-      try {
-        setIsLoading(true);
-        const result = await getUserCartWithItemsAction();
-        if (result.success && result.data) {
-          const { items } = result.data;
-          const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
-          const total = items.reduce(
-            (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
-            0
-          );
-          setCartData({ itemCount, total });
-        } else {
-          setCartData(null);
-        }
-      } catch (error) {
-        console.error("Error fetching cart:", error);
+      const result = await getUserCartWithItemsAction();
+      if (result.success && result.data) {
+        const { items } = result.data;
+        const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
+        const total = items.reduce(
+          (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
+          0
+        );
+        setCartData({ itemCount, total });
+      } else {
         setCartData(null);
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      setCartData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
+  // Initial fetch
+  useEffect(() => {
     fetchCart();
-  }, [user, authLoading]);
+  }, [fetchCart]);
 
   // Refresh cart when pathname changes or when cart is updated
   useEffect(() => {
-    if (authLoading || !user || pathname === "/cart") return;
-
-    const fetchCart = async () => {
-      try {
-        const result = await getUserCartWithItemsAction();
-        if (result.success && result.data) {
-          const { items } = result.data;
-          const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
-          const total = items.reduce(
-            (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
-            0
-          );
-          setCartData({ itemCount, total });
-        } else {
-          setCartData(null);
-        }
-      } catch (error) {
-        console.error("Error fetching cart:", error);
-      }
-    };
+    if (pathname === "/cart") return;
 
     fetchCart();
 
@@ -92,25 +61,21 @@ export function FloatingCartButton() {
     return () => {
       window.removeEventListener("cart-updated", handleCartUpdate);
     };
-  }, [pathname, user, authLoading]);
+  }, [pathname, fetchCart]);
 
   // Don't show if on cart page
   if (pathname === "/cart") {
     return null;
   }
 
-  // Don't show if loading or not logged in
-  if (isLoading || !user) {
+  // Don't show while loading
+  if (isLoading) {
     return null;
   }
 
-  // Show button even if no cart data (will show 0 items)
-  // This helps with debugging and ensures button appears when cart is created
   const itemCount = cartData?.itemCount || 0;
-  const total = cartData?.total || 0;
 
-  // Only hide if explicitly no items (but still show if cart exists with 0 items for now)
-  // Actually, let's show it only when there are items
+  // Only show when there are items
   if (!cartData || itemCount === 0) {
     return null;
   }

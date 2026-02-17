@@ -9,9 +9,12 @@ import type { UpdateCartItemInput } from "@/lib/validators/cart-item/update";
 import type { ProductWithRelations } from "@/types/product";
 
 /**
- * Create a new cart item.
+ * Create or update a cart item (UPSERT) - Double-click safe.
+ * Uses database function for atomic operation with stock validation.
  * If an item with the same customised_product_id already exists in the cart,
- * the quantity will be updated instead of creating a duplicate.
+ * the quantity will be added to the existing quantity.
+ * 
+ * This function is transaction-safe and handles race conditions from double-clicks.
  */
 export async function createCartItem(
   input: CreateCartItemInput & { cart_id: string },
@@ -19,70 +22,47 @@ export async function createCartItem(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    // Check if item already exists in cart
-    const { data: existingItem, error: checkError } = await (supabase as any)
-      .from("cart_items")
-      .select("id, quantity")
-      .eq("cart_id", input.cart_id)
-      .eq("customised_product_id", input.customised_product_id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 is "not found" which is expected if item doesn't exist
-      console.error("Error checking existing cart item:", checkError);
-      return {
-        success: false,
-        error: "Failed to check for existing cart item",
-      };
-    }
-
-    // If item exists, update quantity instead of creating duplicate
-    if (existingItem) {
-      const newQuantity = (existingItem.quantity || 0) + input.quantity;
-      const { data, error } = await (supabase as any)
-        .from("cart_items")
-        .update({ quantity: newQuantity })
-        .eq("id", existingItem.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Error updating cart item quantity:", error);
-        return {
-          success: false,
-          error: error.message || "Failed to update cart item",
-        };
-      }
-
-      return {
-        success: true,
-        data: data as CartItem,
-      };
-    }
-
-    // Insert new cart item
-    const { data, error } = await (supabase as any)
-      .from("cart_items")
-      .insert({
-        cart_id: input.cart_id,
-        customised_product_id: input.customised_product_id,
-        quantity: input.quantity,
-      })
-      .select()
-      .single();
+    // Call the database UPSERT function (atomic, double-click safe)
+    const { data, error } = await (supabase as any).rpc("upsert_cart_item", {
+      p_cart_id: input.cart_id,
+      p_customised_product_id: input.customised_product_id,
+      p_quantity: input.quantity,
+    });
 
     if (error) {
-      console.error("Error creating cart item:", error);
+      console.error("Error upserting cart item:", error);
+      
+      // Parse database error messages for better user feedback
+      let errorMessage = error.message || "Failed to add item to cart";
+      
+      if (error.message?.includes("not found or deleted")) {
+        errorMessage = "Product variant not found or no longer available";
+      } else if (error.message?.includes("out of stock")) {
+        errorMessage = "This product variant is out of stock";
+      } else if (error.message?.includes("Insufficient stock")) {
+        // Extract available stock from error message if possible
+        errorMessage = error.message;
+      }
+      
       return {
         success: false,
-        error: error.message || "Failed to create cart item",
+        error: errorMessage,
       };
     }
+
+    if (!data || data.length === 0) {
+      return {
+        success: false,
+        error: "Failed to add item to cart - no data returned",
+      };
+    }
+
+    // The RPC function returns an array, get the first (and only) result
+    const cartItem = data[0] as CartItem;
 
     return {
       success: true,
-      data: data as CartItem,
+      data: cartItem,
     };
   } catch (error) {
     console.error("Unexpected error in createCartItem:", error);
@@ -610,6 +590,116 @@ export async function hardDeleteCartItem(
       success: false,
       error:
         error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Move all cart items from one cart to another, merging duplicates.
+ *
+ * For each item in the source cart:
+ * - If the destination cart already has the same customised_product_id → add quantities, then hard-delete the source item.
+ * - Otherwise → update the item's cart_id to the destination cart.
+ *
+ * Uses admin client to bypass RLS since this crosses cart ownership boundaries.
+ */
+export async function moveCartItemsToCart(
+  fromCartId: string,
+  toCartId: string,
+): Promise<{ success: boolean; error?: string; movedCount: number }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    // 1. Get all active items in the source (guest) cart
+    const { data: sourceItems, error: srcError } = await (supabase as any)
+      .from("cart_items")
+      .select("id, customised_product_id, quantity")
+      .eq("cart_id", fromCartId)
+      .is("deleted_at", null);
+
+    if (srcError) {
+      console.error("Error fetching source cart items:", srcError);
+      return { success: false, error: srcError.message, movedCount: 0 };
+    }
+
+    if (!sourceItems || sourceItems.length === 0) {
+      return { success: true, movedCount: 0 };
+    }
+
+    // 2. Get all active items in the destination (user) cart
+    const { data: destItems, error: dstError } = await (supabase as any)
+      .from("cart_items")
+      .select("id, customised_product_id, quantity")
+      .eq("cart_id", toCartId)
+      .is("deleted_at", null);
+
+    if (dstError) {
+      console.error("Error fetching destination cart items:", dstError);
+      return { success: false, error: dstError.message, movedCount: 0 };
+    }
+
+    // Build lookup map: customised_product_id → dest item
+    const destMap = new Map<string, { id: string; quantity: number }>();
+    (destItems ?? []).forEach((item: any) => {
+      destMap.set(item.customised_product_id, {
+        id: item.id,
+        quantity: item.quantity,
+      });
+    });
+
+    let movedCount = 0;
+
+    // 3. Process each source item
+    for (const srcItem of sourceItems as {
+      id: string;
+      customised_product_id: string;
+      quantity: number;
+    }[]) {
+      const existing = destMap.get(srcItem.customised_product_id);
+
+      if (existing) {
+        // Duplicate: merge quantities into the destination item, then hard-delete source item
+        const newQty = existing.quantity + srcItem.quantity;
+
+        const { error: updateErr } = await (supabase as any)
+          .from("cart_items")
+          .update({ quantity: newQty })
+          .eq("id", existing.id);
+
+        if (updateErr) {
+          console.error("Error merging cart item quantity:", updateErr);
+          continue; // skip this item but keep going
+        }
+
+        // Hard-delete the source item
+        await (supabase as any)
+          .from("cart_items")
+          .delete()
+          .eq("id", srcItem.id);
+      } else {
+        // No duplicate: move item to destination cart
+        const { error: moveErr } = await (supabase as any)
+          .from("cart_items")
+          .update({ cart_id: toCartId })
+          .eq("id", srcItem.id);
+
+        if (moveErr) {
+          console.error("Error moving cart item:", moveErr);
+          continue;
+        }
+      }
+
+      movedCount++;
+    }
+
+    return { success: true, movedCount };
+  } catch (error) {
+    console.error("Unexpected error in moveCartItemsToCart:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+      movedCount: 0,
     };
   }
 }

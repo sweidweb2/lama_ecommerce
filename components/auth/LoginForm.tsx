@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { EyeIcon, EyeOffIcon, Loader2Icon, MailIcon, LockIcon } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/lib/validators/auth/auth";
 import { loginService } from "@/services/auth.service";
+import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import { ROUTES } from "@/lib/constants/routes";
 import { ROLES } from "@/lib/constants/roles";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,14 @@ export function LoginForm() {
       toast.success("Welcome back!", {
         description: "You've been successfully logged in.",
       });
+
+      // Merge any guest cart into the authenticated user's cart
+      try {
+        await mergeGuestCartOnLoginAction();
+      } catch (mergeError) {
+        // Don't block login if cart merge fails – log and move on
+        console.error("Guest cart merge failed:", mergeError);
+      }
 
       // Fetch user profile to check role
       try {

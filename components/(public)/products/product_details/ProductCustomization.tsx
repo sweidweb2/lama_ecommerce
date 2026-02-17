@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { ShoppingCart, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useProductVariant } from './ProductVariantProvider'
-import { useAuth } from '@/providers/AuthProvider'
 import { addItemToCartAction } from '@/actions/cart'
 import type { ProductVariant } from '@/types/product_utf8'
 
@@ -52,13 +51,12 @@ export function ProductCustomization({
   variants,
 }: ProductCustomizationProps) {
   const { setSelectedVariantId } = useProductVariant()
-  const { user, loading: authLoading } = useAuth()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
-  
-  const isLoggedIn = user !== null && !authLoading
+  // Ref to prevent double-click - faster than state updates
+  const isProcessingRef = useRef(false)
 
   // Extract unique attribute values
   const colors = useMemo(() => {
@@ -138,12 +136,9 @@ export function ProductCustomization({
   const maxQuantity = selectedVariant?.quantity_stock || 0
 
   const handleAddToCart = async () => {
-    // Check if user is logged in
-    if (!isLoggedIn) {
-      toast.error('Login required', {
-        description: 'Please log in to add items to your cart.',
-      })
-      return
+    // Double-click protection: check ref immediately (faster than state)
+    if (isProcessingRef.current) {
+      return // Already processing, ignore this click
     }
 
     if (!selectedVariant) {
@@ -167,6 +162,8 @@ export function ProductCustomization({
       return
     }
 
+    // Set both ref and state immediately to prevent double-clicks
+    isProcessingRef.current = true
     setIsAddingToCart(true)
 
     try {
@@ -196,6 +193,8 @@ export function ProductCustomization({
         description: 'Failed to add item to cart. Please try again.',
       })
     } finally {
+      // Reset both ref and state
+      isProcessingRef.current = false
       setIsAddingToCart(false)
     }
   }
@@ -352,13 +351,11 @@ export function ProductCustomization({
         size="lg"
         className="w-full h-12"
         onClick={handleAddToCart}
-        disabled={!isLoggedIn || !isAvailable || isAddingToCart || !hasRequiredSelections}
+        disabled={!isAvailable || isAddingToCart || !hasRequiredSelections}
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
         {isAddingToCart
           ? 'Adding...'
-          : !isLoggedIn
-          ? 'Login to Add to Cart'
           : !hasRequiredSelections
           ? 'Select Options'
           : !isAvailable

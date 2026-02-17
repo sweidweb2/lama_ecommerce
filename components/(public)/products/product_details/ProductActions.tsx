@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { ShoppingCart, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -32,6 +32,8 @@ export function ProductActions({
   const { selectedVariantId } = useProductVariant()
   const [quantity, setQuantity] = useState(1)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  // Ref to prevent double-click - faster than state updates
+  const isProcessingRef = useRef(false)
 
   const selectedVariant = selectedVariantId
     ? variants.find((v) => v.id === selectedVariantId)
@@ -41,6 +43,11 @@ export function ProductActions({
   const maxQuantity = selectedVariant?.quantity_stock || 0
 
   const handleAddToCart = async () => {
+    // Double-click protection: check ref immediately (faster than state)
+    if (isProcessingRef.current) {
+      return // Already processing, ignore this click
+    }
+
     if (!selectedVariant) {
       toast.error('Please select a variant', {
         description: 'Choose a color, size, and material to continue.',
@@ -62,6 +69,8 @@ export function ProductActions({
       return
     }
 
+    // Set both ref and state immediately to prevent double-clicks
+    isProcessingRef.current = true
     setIsAddingToCart(true)
 
     try {
@@ -82,6 +91,8 @@ export function ProductActions({
         description: 'Failed to add item to cart. Please try again.',
       })
     } finally {
+      // Reset both ref and state
+      isProcessingRef.current = false
       setIsAddingToCart(false)
     }
   }

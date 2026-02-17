@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/routes";
 import { CartSidebar } from "@/components/(public)/cart/CartSidebar";
 import { CartItem } from "@/components/(public)/cart/CartItem";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
-import { getUserCartWithItemsService } from "@/services/cart.service";
-import { redirect } from "next/navigation";
+import {
+  getUserCartWithItemsService,
+  getGuestCartWithItemsService,
+} from "@/services/cart.service";
 
 export const metadata = {
   title: "Cart | LAMA",
@@ -16,13 +19,25 @@ export const metadata = {
 export default async function CartPage() {
   // Check if user is authenticated
   const user = await getCurrentAuthUserFromComponent();
-  
-  if (!user) {
-    redirect(ROUTES.LOGIN);
-  }
 
-  // Fetch user's cart with items
-  const cartResult = await getUserCartWithItemsService(user.id);
+  // Determine cart result based on auth state
+  let cartResult: Awaited<ReturnType<typeof getUserCartWithItemsService>>;
+
+  if (user) {
+    // Authenticated user → fetch cart by user_id
+    cartResult = await getUserCartWithItemsService(user.id);
+  } else {
+    // Guest → read session cookie and fetch cart by session_id
+    const cookieStore = await cookies();
+    const sessionId = cookieStore.get("guest_session_id")?.value;
+
+    if (sessionId) {
+      cartResult = await getGuestCartWithItemsService(sessionId);
+    } else {
+      // No session at all → show empty cart
+      cartResult = { success: false, error: "No active cart found" };
+    }
+  }
 
   // If no cart or error, show empty state
   if (!cartResult.success || !cartResult.data) {

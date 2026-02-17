@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import type { Profile, ProfileRole } from "@/types/user";
 
 type AuthContextValue = {
@@ -56,6 +57,13 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
 
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchProfile();
+
+        // On sign-in, try to merge any guest cart (idempotent – cookie cleared after first merge)
+        if (event === "SIGNED_IN") {
+          mergeGuestCartOnLoginAction().catch((err) =>
+            console.error("Guest cart merge failed:", err),
+          );
+        }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
         setLoading(false);

@@ -54,8 +54,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Cart and wishlist - only the authenticated user can access their own
-  if (pathname.startsWith("/cart") || pathname.startsWith("/wishlist")) {
+  // Cart - accessible by both authenticated users and guests
+  if (pathname.startsWith("/cart")) {
+    return NextResponse.next();
+  }
+
+  // Wishlist - only the authenticated user can access their own
+  if (pathname.startsWith("/wishlist")) {
     const { profile, user, response } = await getProfileFromSession(request);
 
     if (!user || !profile) {

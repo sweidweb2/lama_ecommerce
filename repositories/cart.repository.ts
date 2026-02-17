@@ -249,6 +249,51 @@ export async function getCartByUserId(
 }
 
 /**
+ * Check if a guest session has an active cart (deleted_at is null).
+ * Returns true if the session has at least one active cart, false otherwise.
+ * Filters by user_id IS NULL to ensure we only match guest carts.
+ */
+export async function hasActiveCartBySessionId(
+  sessionId: string,
+): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await (supabase as any)
+      .from("carts")
+      .select("*")
+      .eq("session_id", sessionId)
+      .is("user_id", null)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error checking active cart by session:", error);
+      return {
+        success: false,
+        hasActiveCart: false,
+        error: error.message || "Failed to check active cart",
+      };
+    }
+
+    return {
+      success: true,
+      hasActiveCart: !!data,
+      data: data as Cart | undefined,
+    };
+  } catch (error) {
+    console.error("Unexpected error in hasActiveCartBySessionId:", error);
+    return {
+      success: false,
+      hasActiveCart: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
  * Get a cart for a guest by session_id.
  * Returns the most recent active cart for the session.
  */
@@ -633,6 +678,75 @@ export async function createCartForAdmin(
     };
   } catch (error) {
     console.error("Unexpected error in createCartForAdmin:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Assign a user to a cart (set user_id).
+ * Uses admin client to bypass RLS since guest carts have user_id = null.
+ */
+export async function updateCartUserId(
+  cartId: string,
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await (supabase as any)
+      .from("carts")
+      .update({ user_id: userId })
+      .eq("id", cartId);
+
+    if (error) {
+      console.error("Error updating cart user_id:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to update cart user",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error in updateCartUserId:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Soft-delete a cart using admin client (bypass RLS).
+ * Used for guest carts after merging, where the user_id may not match.
+ */
+export async function softDeleteCartAdmin(
+  cartId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await (supabase as any)
+      .from("carts")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", cartId);
+
+    if (error) {
+      console.error("Error soft-deleting cart (admin):", error);
+      return {
+        success: false,
+        error: error.message || "Failed to soft-delete cart",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error in softDeleteCartAdmin:", error);
     return {
       success: false,
       error:
