@@ -197,3 +197,16 @@
     opacity: 1;
   }
 }
+
+@keyframes heroZoom {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
+.hero-zoom-animate {
+  animation: heroZoom 12s ease-in-out forwards;
+}

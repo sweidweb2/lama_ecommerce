@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Carousel,
@@ -5,6 +8,7 @@ import {
     CarouselItem,
     CarouselNext,
     CarouselPrevious,
+    type CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,19 +41,65 @@ const heroData = [
 ];
 
 export function Hero() {
+    const [api, setApi] = useState<CarouselApi>();
+    const [current, setCurrent] = useState(0);
+    const imageRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+
+    useEffect(() => {
+        if (!api) {
+            return;
+        }
+
+        setCurrent(api.selectedScrollSnap());
+
+        api.on("select", () => {
+            setCurrent(api.selectedScrollSnap());
+        });
+    }, [api]);
+
+    // Trigger zoom animation when slide changes
+    useEffect(() => {
+        // Reset all slides first
+        Object.values(imageRefs.current).forEach((ref) => {
+            if (ref) {
+                ref.classList.remove("hero-zoom-animate");
+            }
+        });
+
+        // Small delay to ensure reset is applied, then trigger animation for current slide
+        const timeoutId = setTimeout(() => {
+            const currentImageRef = imageRefs.current[current];
+            if (currentImageRef) {
+                // Force reflow to ensure the reset is applied
+                void currentImageRef.offsetWidth;
+                
+                // Add animation class to trigger zoom
+                currentImageRef.classList.add("hero-zoom-animate");
+            }
+        }, 50);
+
+        return () => clearTimeout(timeoutId);
+    }, [current]);
+
     return (
         <section className="relative w-full">
             <Carousel
+                setApi={setApi}
                 opts={{
                     loop: true,
                 }}
                 className="w-full"
             >
                 <CarouselContent>
-                    {heroData.map((item) => (
+                    {heroData.map((item, index) => (
                         <CarouselItem key={item.id} className="relative h-[600px] w-full">
                             {/* Background Image */}
-                            <div className="absolute inset-0 h-full w-full">
+                            <div 
+                                ref={(el) => {
+                                    imageRefs.current[index] = el;
+                                }}
+                                className="absolute inset-0 h-full w-full overflow-hidden"
+                            >
                                 <Image
                                     src={item.image}
                                     alt={item.title}
@@ -58,7 +108,7 @@ export function Hero() {
                                     priority={item.id === 1}
                                 />
                                 {/* Overlay Gradient */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent z-10" />
                             </div>
 
                             {/* Content */}
