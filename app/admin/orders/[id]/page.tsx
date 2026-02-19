@@ -7,6 +7,7 @@ import { OrderDetailsBreadcrumbs } from '@/components/admin/order/OrderDetailsBr
 import { EditOrderDialog, type AdminOrder } from '@/components/admin/order/edit_form'
 import { DeleteOrderDialog } from '@/components/admin/order/delete_dialog'
 import { OrderItemsTable } from '@/components/admin/order/OrderItemsTable'
+import { OrderStatusStepper } from '@/components/admin/order/OrderStatusStepper'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { decryptOrderId, encryptOrderId } from '@/lib/utils/encryption'
 import type { OrderItem, Payment, Shipment } from '@/types/order'
@@ -112,6 +113,20 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
           </div>
           )}
         </div>
+
+        {/* Order Status Stepper */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Order Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OrderStatusStepper
+              orderId={order.id}
+              currentStatus={order.status}
+              isDeleted={isDeleted}
+            />
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Info */}

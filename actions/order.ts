@@ -47,6 +47,38 @@ export async function updateOrderAction(
 }
 
 /**
+ * Server action to update only the order status.
+ * Used by the OrderStatusStepper component.
+ */
+export async function updateOrderStatusAction(
+  orderId: string,
+  status: OrderStatus,
+): Promise<{ success: boolean; error?: string }> {
+  const validStatuses: OrderStatus[] = [
+    "pending",
+    "processing",
+    "packed",
+    "shipped",
+    "delivered",
+    "returned",
+    "cancelled",
+  ];
+
+  if (!validStatuses.includes(status)) {
+    return { success: false, error: "Invalid order status" };
+  }
+
+  const result = await updateOrderService(orderId, { status });
+
+  if (result.success) {
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/orders/[id]", "page");
+  }
+
+  return { success: result.success, error: result.error };
+}
+
+/**
  * Server action to delete an order (soft delete).
  * Deletes the order and all its order items.
  */

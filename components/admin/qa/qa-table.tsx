@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,6 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TableWrapper } from "@/components/admin/table-wrapper";
 import { CreateQuestionDialog, type AdminQuestion } from "@/components/admin/qa/create_form";
 import { EditQuestionDialog } from "@/components/admin/qa/edit_form";
@@ -43,17 +46,35 @@ interface QATableProps {
 }
 
 export function QATable({ questions, products, profiles }: QATableProps) {
-  const items: AdminQuestion[] = questions.map((q) => ({
-    id: q.id,
-    product_id: q.product_id,
-    product_name: q.product_name,
-    user_id: q.user_id,
-    user_name: q.user_name,
-    question: q.question,
-    answer: q.answer,
-    is_approved: q.is_approved,
-    created_at: q.created_at,
-  }));
+  const [nameFilter, setNameFilter] = useState("");
+
+  const items: AdminQuestion[] = useMemo(
+    () =>
+      questions.map((q) => ({
+        id: q.id,
+        product_id: q.product_id,
+        product_name: q.product_name,
+        user_id: q.user_id,
+        user_name: q.user_name,
+        question: q.question,
+        answer: q.answer,
+        is_approved: q.is_approved,
+        created_at: q.created_at,
+      })),
+    [questions]
+  );
+
+  const filteredItems = useMemo(() => {
+    if (!nameFilter.trim()) {
+      return items;
+    }
+
+    const searchTerm = nameFilter.trim().toLowerCase();
+    return items.filter((item) => {
+      const userName = item.user_name || "Guest / Anonymous";
+      return userName.toLowerCase().includes(searchTerm);
+    });
+  }, [items, nameFilter]);
 
   return (
     <div className="space-y-6">
@@ -69,6 +90,16 @@ export function QATable({ questions, products, profiles }: QATableProps) {
         </div>
       </div>
 
+      <div className="space-y-1">
+        <Label htmlFor="qa-filter-name">Search by Name</Label>
+        <Input
+          id="qa-filter-name"
+          placeholder="Search by user name..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+        />
+      </div>
+
       <TableWrapper>
         <Table>
           <TableHeader>
@@ -82,7 +113,14 @@ export function QATable({ questions, products, profiles }: QATableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item) => {
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  {nameFilter ? "No questions found matching the search criteria." : "No questions yet."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredItems.map((item) => {
               const statusLabel = getStatusLabel(item.is_approved, item.answer);
               return (
                 <TableRow key={item.id}>
@@ -119,7 +157,8 @@ export function QATable({ questions, products, profiles }: QATableProps) {
                   </TableCell>
                 </TableRow>
               );
-            })}
+            })
+            )}
           </TableBody>
         </Table>
       </TableWrapper>
