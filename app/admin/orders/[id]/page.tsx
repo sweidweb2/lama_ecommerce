@@ -62,6 +62,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
   const order: AdminOrder = {
     id: id,
     user_id: "1",
+    session_id: null,
     status: "delivered",
     subtotal: 299.99,
     shipping_fee: 15.0,

@@ -6,6 +6,7 @@ const orders: AdminOrder[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440010",
     user_id: "1",
+    session_id: null,
     status: "delivered",
     subtotal: 299.99,
     shipping_fee: 15.0,
@@ -23,6 +24,7 @@ const orders: AdminOrder[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440011",
     user_id: "2",
+    session_id: null,
     status: "shipped",
     subtotal: 149.99,
     shipping_fee: 10.0,
@@ -40,6 +42,7 @@ const orders: AdminOrder[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440012",
     user_id: "3",
+    session_id: null,
     status: "processing",
     subtotal: 89.99,
     shipping_fee: 8.0,
@@ -57,6 +60,7 @@ const orders: AdminOrder[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440013",
     user_id: "4",
+    session_id: null,
     status: "pending",
     subtotal: 199.99,
     shipping_fee: 12.0,
@@ -74,6 +78,7 @@ const orders: AdminOrder[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440014",
     user_id: "5",
+    session_id: null,
     status: "cancelled",
     subtotal: 79.99,
     shipping_fee: 5.0,
@@ -92,6 +97,7 @@ const orders: AdminOrder[] = [
   ...Array.from({ length: 50 }, (_, i) => ({
     id: `550e8400-e29b-41d4-a716-44665544${String(1015 + i).padStart(4, '0')}`,
     user_id: String((i % 5) + 1),
+    session_id: null,
     status: (['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled'] as const)[i % 7],
     subtotal: 100 + i * 10,
     shipping_fee: 10 + i,

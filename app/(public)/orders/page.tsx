@@ -11,6 +11,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440010",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "delivered",
     subtotal: 299.99,
     shipping_fee: 15.0,
@@ -27,6 +28,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440011",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "shipped",
     subtotal: 149.99,
     shipping_fee: 10.0,
@@ -43,6 +45,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440012",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "processing",
     subtotal: 89.99,
     shipping_fee: 8.0,
@@ -59,6 +62,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440013",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "pending",
     subtotal: 199.99,
     shipping_fee: 12.0,
@@ -75,6 +79,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440014",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "packed",
     subtotal: 79.99,
     shipping_fee: 9.0,
@@ -91,6 +96,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440015",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "cancelled",
     subtotal: 129.99,
     shipping_fee: 10.0,
@@ -107,6 +113,7 @@ const dummyOrders: Order[] = [
   {
     id: "550e8400-e29b-41d4-a716-446655440016",
     user_id: "550e8400-e29b-41d4-a716-446655440001",
+    session_id: null,
     status: "returned",
     subtotal: 249.99,
     shipping_fee: 15.0,

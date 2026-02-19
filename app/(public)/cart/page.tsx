@@ -10,6 +10,7 @@ import {
   getUserCartWithItemsService,
   getGuestCartWithItemsService,
 } from "@/services/cart.service";
+import { getPublicShippingZones } from "@/services/shipping_zone.service";
 
 export const metadata = {
   title: "Cart | LAMA",
@@ -51,7 +52,7 @@ export default async function CartPage() {
             Your Cart is Empty
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            {cartResult.error || "Add some items to your cart to get started."}
+            Add some items to your cart to get started.
           </p>
           <Link href={ROUTES.HOME}>
             <Button size="lg" className="rounded-xl">
@@ -70,6 +71,9 @@ export default async function CartPage() {
     (sum, item) => sum + item.product.price * item.quantity,
     0
   );
+
+  // Fetch shipping zones for the checkout form (fallback to empty array)
+  const shippingZones = (await getPublicShippingZones()) ?? [];
 
   return (
     <div className="container mx-auto px-4 pt-6 lg:pt-8">
@@ -118,12 +122,15 @@ export default async function CartPage() {
           </div>
         </div>
 
-        {/* Right: Summary */}
+        {/* Right: Order Summary + Checkout Form */}
         <div className="lg:col-span-1">
-          <CartSidebar subtotal={subtotal} />
+          <CartSidebar
+            subtotal={subtotal}
+            cartId={cart.id}
+            shippingZones={shippingZones}
+          />
         </div>
       </div>
     </div>
   );
 }
-

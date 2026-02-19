@@ -36,6 +36,7 @@ export const metadata = {
 const dummyOrder: Order = {
   id: "550e8400-e29b-41d4-a716-446655440010",
   user_id: "550e8400-e29b-41d4-a716-446655440001",
+  session_id: null,
   status: "delivered",
   subtotal: 299.99,
   shipping_fee: 15.0,
