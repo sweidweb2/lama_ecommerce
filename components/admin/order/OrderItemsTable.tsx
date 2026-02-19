@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { CreateOrderItemDialog } from "./CreateOrderItemDialog"
 import { EditOrderItemDialog } from "./EditOrderItemDialog"
 import { DeleteOrderItemDialog } from "./DeleteOrderItemDialog"
 import { formatPrice } from "@/lib/utils"
@@ -139,7 +138,6 @@ export function OrderItemsTable({ orderId, items, isDeleted = false }: OrderItem
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Order Items</h3>
-        {!isDeleted && <CreateOrderItemDialog orderId={orderId} />}
       </div>
 
       {/* Filters */}

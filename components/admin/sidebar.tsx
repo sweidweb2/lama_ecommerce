@@ -80,11 +80,11 @@ const menuItems = [
     label: "Orders",
     icon: FileText,
   },
-  {
-    href: "/admin/website-content",
-    label: "Website Content",
-    icon: FileText,
-  },
+  // {
+  //   href: "/admin/website-content",
+  //   label: "Website Content",
+  //   icon: FileText,
+  // },
   {
     href: "/admin/analytics",
     label: "Analytics",

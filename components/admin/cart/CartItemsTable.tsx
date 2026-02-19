@@ -25,12 +25,13 @@ interface CartItemsTableProps {
   cartId: string
   items: CartItem[]
   showHeader?: boolean
+  isDeleted?: boolean
 }
 
 const ITEMS_PER_PAGE = 10
 const MAX_PAGES = 10
 
-export function CartItemsTable({ cartId, items, showHeader = true }: CartItemsTableProps) {
+export function CartItemsTable({ cartId, items, showHeader = true, isDeleted = false }: CartItemsTableProps) {
   const [productNameFilter, setProductNameFilter] = useState<string>("")
   const [variantFilter, setVariantFilter] = useState<string>("")
   const [minPriceFilter, setMinPriceFilter] = useState<string>("")
@@ -277,13 +278,13 @@ export function CartItemsTable({ cartId, items, showHeader = true }: CartItemsTa
               <TableHead>Price</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Subtotal</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {!isDeleted && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={isDeleted ? 5 : 6} className="text-center text-muted-foreground py-8">
                   {filteredItems.length === 0
                     ? items.length === 0
                       ? "No items in this cart"
@@ -314,12 +315,14 @@ export function CartItemsTable({ cartId, items, showHeader = true }: CartItemsTa
                     <TableCell className="font-medium">
                       {formatPrice(calculateItemTotal(item))}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                        <EditCartItemDialog cartItem={item} />
-                        <DeleteCartItemDialog cartItem={item} />
-                      </div>
-                    </TableCell>
+                    {!isDeleted && (
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-2">
+                          <EditCartItemDialog cartItem={item} />
+                          <DeleteCartItemDialog cartItem={item} />
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
                 {paginatedItems.length > 0 && (
@@ -327,7 +330,7 @@ export function CartItemsTable({ cartId, items, showHeader = true }: CartItemsTa
                     <TableCell colSpan={4} className="text-right font-semibold">
                       {hasActiveFilters ? "Filtered Total:" : "Total:"}
                     </TableCell>
-                    <TableCell colSpan={2} className="font-bold text-lg">
+                    <TableCell colSpan={isDeleted ? 1 : 2} className="font-bold text-lg">
                       {formatPrice(calculateCartTotal())}
                     </TableCell>
                   </TableRow>

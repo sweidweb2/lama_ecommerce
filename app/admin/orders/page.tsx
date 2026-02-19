@@ -1,5 +1,4 @@
 import { OrdersTable } from "@/components/admin/order/OrdersTable"
-import { CreateOrderDialog } from "@/components/admin/order/create_form"
 import { getAdminOrders } from "@/services/order.service"
 import { encryptOrderId } from "@/lib/utils/encryption"
 import { 
@@ -91,14 +90,11 @@ export default async function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Orders</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Manage and track all orders
-          </p>
-        </div>
-        <CreateOrderDialog disabled />
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Orders</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Manage and track all orders
+        </p>
       </div>
 
       {/* Statistics Cards */}
