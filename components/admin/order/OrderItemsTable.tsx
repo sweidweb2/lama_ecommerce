@@ -19,8 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { EditOrderItemDialog } from "./EditOrderItemDialog"
-import { DeleteOrderItemDialog } from "./DeleteOrderItemDialog"
 import { formatPrice } from "@/lib/utils"
 import type { OrderItem } from "@/types/order"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
@@ -301,13 +299,12 @@ export function OrderItemsTable({ orderId, items, isDeleted = false }: OrderItem
               <TableHead>Price</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Subtotal</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   {hasActiveFilters ? "No items match the filters" : "No items in this order"}
                 </TableCell>
               </TableRow>
@@ -348,18 +345,10 @@ export function OrderItemsTable({ orderId, items, isDeleted = false }: OrderItem
                     <TableCell className="font-medium whitespace-nowrap">
                       {formatPrice(calculateItemTotal(item))}
                     </TableCell>
-                    <TableCell>
-                      {!isDeleted && (
-                        <div className="flex items-center justify-end gap-2">
-                          <EditOrderItemDialog orderItem={item} />
-                          <DeleteOrderItemDialog orderItem={item} />
-                        </div>
-                      )}
-                    </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/50">
-                  <TableCell colSpan={5} className="text-right font-semibold">
+                  <TableCell colSpan={4} className="text-right font-semibold">
                     Total ({filteredItems.length} items):
                   </TableCell>
                   <TableCell className="font-bold text-lg">

@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { TableWrapper } from "@/components/admin/table-wrapper";
-import { Download, Database, Trash2 } from "lucide-react";
+import { Download, Database, Trash2, FileDown } from "lucide-react";
 import { CreateBackupDialog } from "./create-backup-dialog";
 import { deleteBackupAction } from "@/actions/backup";
 import type { BackupRow } from "@/repositories/backup.repository";
+import { toast } from "sonner";
 
 interface BackupsTableProps {
   backups: BackupRow[];
@@ -36,6 +37,7 @@ export function BackupsTable({ backups }: BackupsTableProps) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -44,6 +46,58 @@ export function BackupsTable({ backups }: BackupsTableProps) {
       if (result.success) router.refresh();
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleExtractDatabase = async () => {
+    setExtracting(true);
+    try {
+      toast.loading("Extracting database...", { id: "extract-db" });
+      
+      const response = await fetch("/api/admin/backups/extract");
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to extract database");
+      }
+
+      // Get the SQL content
+      const sql = await response.text();
+      
+      // Create a blob and download it
+      const blob = new Blob([sql], { type: "application/sql" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      // Get filename from Content-Disposition header or generate one
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = `database-export-${new Date().toISOString().slice(0, 10)}.sql`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Database extracted successfully", {
+        id: "extract-db",
+        description: `Downloaded ${filename}`,
+      });
+    } catch (error) {
+      console.error("Error extracting database:", error);
+      toast.error("Failed to extract database", {
+        id: "extract-db",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+      });
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -56,10 +110,21 @@ export function BackupsTable({ backups }: BackupsTableProps) {
             Manage database backups and restore points
           </p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-          <Database className="mr-2 h-4 w-4" />
-          Create Backup
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button 
+            className="w-full sm:w-auto" 
+            onClick={handleExtractDatabase}
+            disabled={extracting}
+            variant="outline"
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            {extracting ? "Extracting..." : "Extract Database"}
+          </Button>
+          <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+            <Database className="mr-2 h-4 w-4" />
+            Create Backup
+          </Button>
+        </div>
       </div>
 
       <CreateBackupDialog open={createOpen} onOpenChange={setCreateOpen} />

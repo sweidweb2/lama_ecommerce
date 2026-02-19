@@ -107,17 +107,8 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
           </div>
           {!isDeleted && (
           <div className="flex gap-2">
-            <Link href={`/admin/orders/${encryptOrderId(order.id)}/order_payment`}>
-              <Button 
-                className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700"
-                disabled
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                Pay Order
-              </Button>
-            </Link>
             <EditOrderDialog order={order} showText />
-            <DeleteOrderDialog order={order} showText redirectAfterDelete />
+            <DeleteOrderDialog order={order} showText redirectAfterDelete disabled />
           </div>
           )}
         </div>

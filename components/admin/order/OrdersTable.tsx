@@ -21,7 +21,6 @@ import {
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import Link from "next/link"
 import { EditOrderDialog, type AdminOrder } from "./edit_form"
-import { DeleteOrderDialog } from "./delete_dialog"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { formatPrice, formatDate } from "@/lib/utils"
@@ -309,10 +308,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                         </Button>
                       </Link>
                       {!order.deleted_at && (
-                        <>
-                          <EditOrderDialog order={order} />
-                          <DeleteOrderDialog order={order} />
-                        </>
+                        <EditOrderDialog order={order} />
                       )}
                     </div>
                   </TableCell>

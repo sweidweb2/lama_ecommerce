@@ -39,7 +39,8 @@ export async function updateOrderAction(
   // Revalidate orders pages on success
   if (result.success) {
     revalidatePath("/admin/orders");
-    revalidatePath(`/admin/orders/${orderId}`);
+    // Revalidate the order details page (works with encrypted IDs in URL)
+    revalidatePath("/admin/orders/[id]", "page");
   }
 
   return result;

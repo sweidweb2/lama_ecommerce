@@ -28,9 +28,10 @@ export type AdminOrder = Order & {
 interface EditOrderDialogProps {
   order: AdminOrder
   showText?: boolean
+  onUpdated?: () => void | Promise<void>
 }
 
-export function EditOrderDialog({ order, showText = false }: EditOrderDialogProps) {
+export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrderDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -109,9 +110,10 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
       const result = await updateOrderAction(order.id, {
         status,
         payment_status: paymentStatus,
-        shipping_fee: shippingFeeNum || null,
-        discount: discountNum || null,
-        total: total || null,
+        // shipping_fee and discount are not editable - use original values
+        shipping_fee: order.shipping_fee ?? null,
+        discount: order.discount ?? null,
+        total: order.total ?? null,
         phone: phone.trim() || null,
         email: email.trim() || null,
       })
@@ -128,6 +130,11 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
       })
 
       setOpen(false)
+      
+      // Call onUpdated callback if provided
+      if (onUpdated) {
+        await onUpdated()
+      }
       
       // Refresh the page to show updated data
       router.refresh()
@@ -226,7 +233,8 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={shippingFee}
                   onChange={(e) => setShippingFee(e.target.value)}
                   placeholder="0.00"
-                  disabled={isSubmitting}
+                  disabled={true}
+                  className="bg-muted cursor-not-allowed"
                 />
               </div>
               <div className="space-y-2">
@@ -239,7 +247,8 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0.00"
-                  disabled={isSubmitting}
+                  disabled={true}
+                  className="bg-muted cursor-not-allowed"
                 />
               </div>
             </div>

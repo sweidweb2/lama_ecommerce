@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TableWrapper } from "@/components/admin/table-wrapper"
@@ -20,6 +21,8 @@ import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
 import { ContactStatusToggle } from "./contact-status-toggle"
+import { Download } from "lucide-react"
+import { toast } from "sonner"
 import type { ContactMessage } from "@/types/user"
 
 const ROWS_PER_PAGE = 20
@@ -101,6 +104,48 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
     setPage(nextPage)
   }
 
+  const handleExportToCSV = () => {
+    if (filteredContacts.length === 0) {
+      toast.error("No contacts to export")
+      return
+    }
+
+    // Create CSV headers
+    const headers = ["Name", "Email", "Phone", "Subject", "Message", "Status", "Date"]
+    const csvRows = [headers.join(",")]
+
+    // Add data rows
+    filteredContacts.forEach((contact) => {
+      const name = `"${(contact.full_name || "").replace(/"/g, '""')}"`
+      const email = `"${(contact.email || "").replace(/"/g, '""')}"`
+      const phone = `"${(contact.phone || "").replace(/"/g, '""')}"`
+      const subject = `"${(contact.subject || "").replace(/"/g, '""')}"`
+      const message = `"${(contact.message || "").replace(/"/g, '""').replace(/\n/g, " ")}"`
+      const status = `"${contact.status}"`
+      const date = contact.created_at
+        ? `"${format(new Date(contact.created_at), "PPp")}"`
+        : '""'
+      csvRows.push([name, email, phone, subject, message, status, date].join(","))
+    })
+
+    // Create CSV content
+    const csvContent = csvRows.join("\n")
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `contact_messages_${format(new Date(), "yyyy-MM-dd_HH-mm-ss")}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success("Contact messages exported to CSV successfully")
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -110,7 +155,16 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             Manage contact form submissions
           </p>
         </div>
-        <div className="mt-1">
+        <div className="mt-1 flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportToCSV}
+            disabled={filteredContacts.length === 0}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export to CSV
+          </Button>
           <CreateContactDialog />
         </div>
       </div>
@@ -177,12 +231,12 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[15%]">Name</TableHead>
+              <TableHead className="w-[18%]">Email</TableHead>
+              <TableHead className="w-[20%]">Subject</TableHead>
+              <TableHead className="w-[15%]">Status</TableHead>
+              <TableHead className="w-[15%]">Date</TableHead>
+              <TableHead className="w-[17%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -197,10 +251,16 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             ) : (
               paginatedContacts.map((contact) => (
                 <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.full_name || "—"}</TableCell>
-                  <TableCell>{contact.email || "—"}</TableCell>
-                  <TableCell>{contact.subject || "—"}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium w-[15%]">
+                    <div className="truncate" title={contact.full_name || "—"}>{contact.full_name || "—"}</div>
+                  </TableCell>
+                  <TableCell className="w-[18%]">
+                    <div className="truncate" title={contact.email || "—"}>{contact.email || "—"}</div>
+                  </TableCell>
+                  <TableCell className="w-[20%]">
+                    <div className="truncate" title={contact.subject || "—"}>{contact.subject || "—"}</div>
+                  </TableCell>
+                  <TableCell className="w-[15%]">
                     <div className="flex items-center gap-2">
                       <Badge variant={getStatusVariant(contact.status)} className="capitalize">
                         {contact.status}
@@ -211,12 +271,12 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
                       />
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-[15%]">
                     {contact.created_at
                       ? format(new Date(contact.created_at), "MMM d, yyyy")
                       : "—"}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="w-[17%] text-right">
                     <div className="flex items-center justify-end gap-2">
                       <ViewContactDialog contact={contact as AdminContact} />
                       <EditContactDialog contact={contact as AdminContact} />

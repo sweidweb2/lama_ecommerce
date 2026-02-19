@@ -19,9 +19,10 @@ interface DeleteOrderDialogProps {
   onDelete?: (orderId: string) => void | Promise<void>
   showText?: boolean
   redirectAfterDelete?: boolean
+  disabled?: boolean
 }
 
-export function DeleteOrderDialog({ order, onDelete, showText = false, redirectAfterDelete = false }: DeleteOrderDialogProps) {
+export function DeleteOrderDialog({ order, onDelete, showText = false, redirectAfterDelete = false, disabled = false }: DeleteOrderDialogProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
@@ -70,9 +71,9 @@ export function DeleteOrderDialog({ order, onDelete, showText = false, redirectA
         variant={showText ? "destructive" : "ghost"}
         size={showText ? "default" : "icon"}
         onClick={() => setOpen(true)}
-        disabled={isAlreadyDeleted}
+        disabled={isAlreadyDeleted || disabled}
         aria-label={`Delete order ${order.id}`}
-        title={isAlreadyDeleted ? "Order is already deleted" : "Delete order"}
+        title={isAlreadyDeleted ? "Order is already deleted" : disabled ? "Delete order is disabled" : "Delete order"}
       >
         <Trash2 className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
         {showText && "Delete"}

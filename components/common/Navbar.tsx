@@ -180,20 +180,6 @@ export function Navbar() {
                 {ORDERS_LINK.label}
               </Link>
             )}
-            {isAdmin && (
-              <Link
-                href={ROUTES.ADMIN}
-                className={cn(
-                  "transition-colors hover:text-primary flex items-center gap-2",
-                  pathname === ROUTES.ADMIN
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground",
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Link>
-            )}
           </nav>
 
           {/* Actions */}
@@ -365,21 +351,6 @@ export function Navbar() {
                       )}
                     >
                       {ORDERS_LINK.label}
-                    </Link>
-                  )}
-                  {isAdmin && (
-                    <Link
-                      href={ROUTES.ADMIN}
-                      onClick={() => setIsOpen(false)}
-                      className={cn(
-                        "text-lg font-medium transition-colors hover:text-primary flex items-center gap-2",
-                        pathname === ROUTES.ADMIN
-                          ? "text-primary"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
                     </Link>
                   )}
                   <hr className="my-2" />

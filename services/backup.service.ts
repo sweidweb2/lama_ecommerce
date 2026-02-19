@@ -7,6 +7,7 @@ import {
   getAdminBackups,
   createBackup,
   deleteBackup,
+  extractDatabaseAsSQL,
 } from "@/repositories/backup.repository";
 
 /**
@@ -34,4 +35,11 @@ export async function createBackupAdmin(input: unknown): Promise<BackupRow | nul
  */
 export async function deleteBackupAdmin(id: string): Promise<boolean> {
   return deleteBackup(id);
+}
+
+/**
+ * Extract database as SQL dump.
+ */
+export async function extractDatabaseService(): Promise<{ success: boolean; error?: string; sql?: string }> {
+  return extractDatabaseAsSQL();
 }

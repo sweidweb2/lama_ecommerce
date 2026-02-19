@@ -1,7 +1,7 @@
 "use client"
 
 import { ModeToggle } from "@/components/theme/mode-toggle"
-import { Bell, Search, User, Settings, LogOut, ExternalLink } from "lucide-react"
+import { Search, User, Settings, LogOut, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { MobileSidebar } from "./mobile-sidebar"
@@ -163,10 +163,6 @@ export function Header() {
         </div>
       </div>
       <div className="flex items-center gap-1 md:gap-2">
-        <Button variant="ghost" size="icon" className="hidden sm:flex">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-        </Button>
         <ModeToggle />
 
         {/* User Menu */}

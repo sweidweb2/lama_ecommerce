@@ -48,10 +48,36 @@ export function EditPromoCodeDialog({ promoCode, onUpdated }: EditPromoCodeDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate expiration date
     if (expiresAt.trim() && new Date(expiresAt) <= new Date()) {
       toast.error("Expiration date cannot be in the past")
       return
     }
+
+    // Validate discount value based on type
+    const discountValueNum = discountValue ? parseFloat(discountValue) : null
+    if (discountValueNum === null || isNaN(discountValueNum)) {
+      toast.error("Please enter a valid discount value")
+      return
+    }
+
+    if (discountType === 'percentage') {
+      if (discountValueNum < 0) {
+        toast.error("Percentage discount cannot be less than 0%")
+        return
+      }
+      if (discountValueNum > 100) {
+        toast.error("Percentage discount cannot be greater than 100%")
+        return
+      }
+    } else if (discountType === 'fixed') {
+      if (discountValueNum < 0) {
+        toast.error("Fixed discount cannot be less than $0")
+        return
+      }
+    }
+
     setIsSubmitting(true)
     try {
       const result = await updatePromoCodeAction({
@@ -156,14 +182,26 @@ export function EditPromoCodeDialog({ promoCode, onUpdated }: EditPromoCodeDialo
                   type="number"
                   step="0.01"
                   min="0"
+                  max={discountType === 'percentage' ? "100" : undefined}
                   value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Prevent entering values greater than 100 for percentage
+                    if (discountType === 'percentage' && value !== '') {
+                      const numValue = parseFloat(value)
+                      if (!isNaN(numValue) && numValue > 100) {
+                        toast.error("Percentage cannot exceed 100%")
+                        return
+                      }
+                    }
+                    setDiscountValue(value)
+                  }}
                   placeholder={discountType === 'percentage' ? "20" : "10.00"}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
                   {discountType === 'percentage' 
-                    ? "Enter percentage (e.g., 20 for 20%)" 
+                    ? "Enter percentage between 0 and 100 (e.g., 20 for 20%)" 
                     : "Enter fixed amount in dollars"}
                 </p>
               </div>
