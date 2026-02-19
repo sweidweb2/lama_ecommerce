@@ -13,6 +13,7 @@ import { ProductReviews } from '@/components/(public)/products/product_details/P
 import { ProductComments } from '@/components/(public)/products/product_details/ProductComments'
 import { ProductRelated } from '@/components/(public)/products/product_details/ProductRelated'
 import { ProductMetadata } from '@/components/(public)/products/product_details/ProductMetadata'
+import { trackProductViewAction } from '@/actions/product_view'
 import type { ProductVariant } from '@/types/product'
 
 interface ProductPageProps {
@@ -101,6 +102,11 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
 
   // Fetch reviews for this product
   const reviews = await getProductReviewsService(product.id)
+
+  // Track product view in the background (don't await to avoid blocking page load)
+  trackProductViewAction(product.id).catch((error) => {
+    console.error("Failed to track product view:", error);
+  });
 
   return (
     <div className="min-h-screen bg-background">

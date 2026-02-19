@@ -24,6 +24,7 @@ import {
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
 import { getProductVariantById } from "@/repositories/product_variant.repository";
+import { incrementProductAddToCartService } from "@/services/product_view.service";
 import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
 import {
@@ -262,6 +263,11 @@ export async function addItemToGuestCartService(
         error: cartItemResult.error || "Failed to add item to cart",
       };
     }
+
+    // Increment add_to_cart_count in product_stats (fire and forget)
+    incrementProductAddToCartService(validated.customised_product_id).catch((error) => {
+      console.error("Failed to increment add_to_cart_count:", error);
+    });
 
     return {
       success: true,
@@ -671,6 +677,11 @@ export async function addItemToCartByIdService(
         error: cartItemResult.error || "Failed to add item to cart",
       };
     }
+
+    // Increment add_to_cart_count in product_stats (fire and forget)
+    incrementProductAddToCartService(validated.customised_product_id).catch((error) => {
+      console.error("Failed to increment add_to_cart_count:", error);
+    });
 
     return {
       success: true,

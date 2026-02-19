@@ -16,76 +16,6 @@ interface ProductCommentsProps {
   reviews?: Review[]
 }
 
-// Dummy reviews/comments for demonstration
-const DUMMY_REVIEWS: Review[] = [
-  {
-    id: 'review-1',
-    product_id: '',
-    user_id: null,
-    rating: 5,
-    title: 'Excellent product!',
-    comment: 'This product exceeded my expectations. The quality is outstanding and it arrived quickly. Highly recommend!',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-    deleted_at: null,
-  },
-  {
-    id: 'review-2',
-    product_id: '',
-    user_id: null,
-    rating: 4,
-    title: 'Great value for money',
-    comment: 'Good quality product at a reasonable price. The design is modern and it works as expected. Would buy again.',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-    deleted_at: null,
-  },
-  {
-    id: 'review-3',
-    product_id: '',
-    user_id: null,
-    rating: 5,
-    title: 'Perfect!',
-    comment: 'Absolutely love this product! It\'s exactly what I was looking for. The build quality is impressive and it looks great.',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days ago
-    deleted_at: null,
-  },
-  {
-    id: 'review-4',
-    product_id: '',
-    user_id: null,
-    rating: 3,
-    title: 'Decent product',
-    comment: 'It\'s okay, nothing special. Does the job but I expected a bit more for the price. Still functional though.',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(), // 20 days ago
-    deleted_at: null,
-  },
-  {
-    id: 'review-5',
-    product_id: '',
-    user_id: null,
-    rating: 5,
-    title: 'Amazing quality!',
-    comment: 'This is one of the best purchases I\'ve made. The quality is top-notch and it has all the features I need. Very satisfied!',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(), // 25 days ago
-    deleted_at: null,
-  },
-  {
-    id: 'review-6',
-    product_id: '',
-    user_id: null,
-    rating: 4,
-    title: 'Good product overall',
-    comment: 'Solid product with good features. The only minor issue is the packaging could be better, but the product itself is great.',
-    review_status: 'approved',
-    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-    deleted_at: null,
-  },
-]
-
 /**
  * ProductComments Component
  * 
@@ -105,22 +35,12 @@ export function ProductComments({ productId, reviews = [] }: ProductCommentsProp
   const [comment, setComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Filter approved reviews only, and add dummy reviews if none exist
+  // Filter approved reviews only
   const approvedReviews = useMemo(() => {
-    const realReviews = reviews.filter(
+    return reviews.filter(
       (r) => r.review_status === 'approved' && !r.deleted_at
     )
-    
-    // If no real reviews, use dummy reviews
-    if (realReviews.length === 0) {
-      return DUMMY_REVIEWS.map(review => ({
-        ...review,
-        product_id: productId,
-      }))
-    }
-    
-    return realReviews
-  }, [reviews, productId])
+  }, [reviews])
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()

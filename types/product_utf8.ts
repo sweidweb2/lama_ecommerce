@@ -112,6 +112,7 @@ export interface ProductView {
   id: UUID;
   product_id: UUID;
   user_id: UUID | null;
+  session_id: string | null;
   viewed_at: string;
 }
 
