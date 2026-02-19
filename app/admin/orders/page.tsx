@@ -1,120 +1,94 @@
-import { OrdersTable, type AdminOrder } from "@/components/admin/order/OrdersTable"
+import { OrdersTable } from "@/components/admin/order/OrdersTable"
 import { CreateOrderDialog } from "@/components/admin/order/create_form"
+import { getAdminOrders } from "@/services/order.service"
+import { encryptOrderId } from "@/lib/utils/encryption"
+import { 
+  ShoppingCart, 
+  Clock, 
+  CheckCircle, 
+  DollarSign, 
+  Package,
+  CreditCard
+} from "lucide-react"
+import { formatPrice } from "@/lib/utils"
 
-// Dummy data matching the schema
-const orders: AdminOrder[] = [
-  {
-    id: "550e8400-e29b-41d4-a716-446655440010",
-    user_id: "1",
-    session_id: null,
-    status: "delivered",
-    subtotal: 299.99,
-    shipping_fee: 15.0,
-    discount: 30.0,
-    total: 284.99,
-    payment_status: "paid",
-    address_snapshot: null,
-    phone: "+1234567890",
-    email: "john.doe@example.com",
-    created_at: "2024-12-01T14:30:00Z",
-    updated_at: "2024-12-05T10:00:00Z",
-    deleted_at: null,
-    userName: "John Doe",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440011",
-    user_id: "2",
-    session_id: null,
-    status: "shipped",
-    subtotal: 149.99,
-    shipping_fee: 10.0,
-    discount: 0,
-    total: 159.99,
-    payment_status: "paid",
-    address_snapshot: null,
-    phone: "+1234567891",
-    email: "jane.smith@example.com",
-    created_at: "2024-11-25T09:15:00Z",
-    updated_at: "2024-11-28T16:45:00Z",
-    deleted_at: null,
-    userName: "Jane Smith",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440012",
-    user_id: "3",
-    session_id: null,
-    status: "processing",
-    subtotal: 89.99,
-    shipping_fee: 8.0,
-    discount: 10.0,
-    total: 87.99,
-    payment_status: "paid",
-    address_snapshot: null,
-    phone: "+1234567892",
-    email: "bob.johnson@example.com",
-    created_at: "2024-11-20T11:20:00Z",
-    updated_at: "2024-11-20T11:25:00Z",
-    deleted_at: null,
-    userName: "Bob Johnson",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440013",
-    user_id: "4",
-    session_id: null,
-    status: "pending",
-    subtotal: 199.99,
-    shipping_fee: 12.0,
-    discount: 0,
-    total: 211.99,
-    payment_status: "pending",
-    address_snapshot: null,
-    phone: "+1234567893",
-    email: "alice.williams@example.com",
-    created_at: "2024-11-18T15:45:00Z",
-    updated_at: "2024-11-18T15:45:00Z",
-    deleted_at: null,
-    userName: "Alice Williams",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440014",
-    user_id: "5",
-    session_id: null,
-    status: "cancelled",
-    subtotal: 79.99,
-    shipping_fee: 5.0,
-    discount: 0,
-    total: 84.99,
-    payment_status: "refunded",
-    address_snapshot: null,
-    phone: "+1234567894",
-    email: "charlie.brown@example.com",
-    created_at: "2024-11-15T10:00:00Z",
-    updated_at: "2024-11-16T14:30:00Z",
-    deleted_at: null,
-    userName: "Charlie Brown",
-  },
-  // Add more dummy orders to test pagination
-  ...Array.from({ length: 50 }, (_, i) => ({
-    id: `550e8400-e29b-41d4-a716-44665544${String(1015 + i).padStart(4, '0')}`,
-    user_id: String((i % 5) + 1),
-    session_id: null,
-    status: (['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled'] as const)[i % 7],
-    subtotal: 100 + i * 10,
-    shipping_fee: 10 + i,
-    discount: i % 3 === 0 ? 5 : 0,
-    total: 100 + i * 10 + 10 + i - (i % 3 === 0 ? 5 : 0),
-    payment_status: (['pending', 'paid', 'failed', 'refunded'] as const)[i % 4],
-    address_snapshot: null,
-    phone: `+123456789${i}`,
-    email: `user${i}@example.com`,
-    created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-    deleted_at: null,
-    userName: `User ${i + 1}`,
-  })),
-]
+export default async function OrdersPage() {
+  const orders = await getAdminOrders()
+  
+  // Encrypt order IDs on the server side
+  const ordersWithEncryptedIds = orders.map(order => ({
+    ...order,
+    encryptedId: encryptOrderId(order.id),
+  }))
 
-export default function OrdersPage() {
+  // Calculate statistics (excluding deleted orders)
+  const activeOrders = orders.filter(order => !order.deleted_at)
+  const totalOrders = activeOrders.length
+  const pendingOrders = activeOrders.filter(order => order.status === 'pending').length
+  const processingOrders = activeOrders.filter(order => order.status === 'processing' || order.status === 'packed').length
+  const deliveredOrders = activeOrders.filter(order => order.status === 'delivered').length
+  const paidOrders = activeOrders.filter(order => order.payment_status === 'paid').length
+  const totalRevenue = activeOrders
+    .filter(order => order.payment_status === 'paid' && order.total)
+    .reduce((sum, order) => sum + (order.total || 0), 0)
+
+  const stats = [
+    {
+      title: "Total Orders",
+      value: totalOrders.toLocaleString(),
+      description: "All active orders",
+      icon: ShoppingCart,
+      borderColor: "border-l-blue-500",
+      iconBg: "bg-blue-500/10",
+      iconColor: "text-blue-500",
+    },
+    {
+      title: "Pending Orders",
+      value: pendingOrders.toLocaleString(),
+      description: "Awaiting processing",
+      icon: Clock,
+      borderColor: "border-l-yellow-500",
+      iconBg: "bg-yellow-500/10",
+      iconColor: "text-yellow-500",
+    },
+    {
+      title: "Processing",
+      value: processingOrders.toLocaleString(),
+      description: "In progress",
+      icon: Package,
+      borderColor: "border-l-orange-500",
+      iconBg: "bg-orange-500/10",
+      iconColor: "text-orange-500",
+    },
+    {
+      title: "Delivered",
+      value: deliveredOrders.toLocaleString(),
+      description: "Completed orders",
+      icon: CheckCircle,
+      borderColor: "border-l-green-500",
+      iconBg: "bg-green-500/10",
+      iconColor: "text-green-500",
+    },
+    {
+      title: "Paid Orders",
+      value: paidOrders.toLocaleString(),
+      description: "Payment received",
+      icon: CreditCard,
+      borderColor: "border-l-purple-500",
+      iconBg: "bg-purple-500/10",
+      iconColor: "text-purple-500",
+    },
+    {
+      title: "Total Revenue",
+      value: formatPrice(totalRevenue),
+      description: "From paid orders",
+      icon: DollarSign,
+      borderColor: "border-l-emerald-500",
+      iconBg: "bg-emerald-500/10",
+      iconColor: "text-emerald-500",
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -124,10 +98,36 @@ export default function OrdersPage() {
             Manage and track all orders
           </p>
         </div>
-        <CreateOrderDialog />
+        <CreateOrderDialog disabled />
       </div>
 
-      <OrdersTable orders={orders} />
+      {/* Statistics Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div
+              key={stat.title}
+              className={`rounded-lg border-l-4 border bg-card p-6 shadow-sm ${stat.borderColor}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                  {stat.description && (
+                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  )}
+                </div>
+                <div className={`rounded-full p-3 ${stat.iconBg}`}>
+                  <Icon className={`h-5 w-5 ${stat.iconColor}`} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <OrdersTable orders={ordersWithEncryptedIds} />
     </div>
   )
 }

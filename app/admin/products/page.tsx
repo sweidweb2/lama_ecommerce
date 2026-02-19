@@ -7,6 +7,7 @@ import { type AdminProduct } from "@/components/admin/product/edit_form";
 import { getAdminProductsService } from "@/services/product.service";
 import { getBrandsService } from "@/services/brand.service";
 import { getCategoriesService } from "@/services/categories.service";
+import { encryptOrderId } from "@/lib/utils/encryption";
 
 export default async function ProductsPage() {
   const [productsFromDb, brands, categories] = await Promise.all([
@@ -15,7 +16,7 @@ export default async function ProductsPage() {
     getCategoriesService(),
   ]);
 
-  const adminProducts: AdminProduct[] = productsFromDb.map((p) => {
+  const adminProducts: (AdminProduct & { encryptedId?: string })[] = productsFromDb.map((p) => {
     const primaryImage =
       p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
 
@@ -32,6 +33,7 @@ export default async function ProductsPage() {
       is_trending: p.is_trending,
       is_active: p.is_active,
       image: primaryImage ? primaryImage.url_image : undefined,
+      encryptedId: encryptOrderId(p.id), // Encrypt product ID
     };
   });
 

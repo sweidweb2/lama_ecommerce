@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,7 +8,9 @@ import { EditOrderDialog, type AdminOrder } from '@/components/admin/order/edit_
 import { DeleteOrderDialog } from '@/components/admin/order/delete_dialog'
 import { OrderItemsTable } from '@/components/admin/order/OrderItemsTable'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { decryptOrderId, encryptOrderId } from '@/lib/utils/encryption'
 import type { OrderItem, Payment, Shipment } from '@/types/order'
+import { getAdminOrderDetails } from '@/services/order.service'
 import {
   Package,
   CreditCard,
@@ -23,15 +26,6 @@ interface OrderDetailsPageProps {
     id: string
   }>
 }
-
-// Dummy users for display
-const DUMMY_USERS = [
-  { id: "1", name: "John Doe", email: "john.doe@example.com" },
-  { id: "2", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "3", name: "Bob Johnson", email: "bob.johnson@example.com" },
-  { id: "4", name: "Alice Williams", email: "alice.williams@example.com" },
-  { id: "5", name: "Charlie Brown", email: "charlie.brown@example.com" },
-]
 
 const getStatusVariant = (status: string) => {
   switch (status) {
@@ -56,91 +50,25 @@ const getStatusVariant = (status: string) => {
 }
 
 export default async function OrderDetailsPage({ params }: OrderDetailsPageProps) {
-  const { id } = await params
+  const { id: encryptedId } = await params
 
-  // Dummy order data - in a real app, fetch from database
-  const order: AdminOrder = {
-    id: id,
-    user_id: "1",
-    session_id: null,
-    status: "delivered",
-    subtotal: 299.99,
-    shipping_fee: 15.0,
-    discount: 30.0,
-    total: 284.99,
-    payment_status: "paid",
-    address_snapshot: {
-      country: "United States",
-      city: "New York",
-      address: "123 Main Street, Apt 4B",
-      postal_code: "10001",
-    },
-    phone: "+1234567890",
-    email: "john.doe@example.com",
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    deleted_at: null,
-    userName: "John Doe",
+  // Decrypt the order ID
+  let orderId: string
+  try {
+    orderId = decryptOrderId(encryptedId)
+  } catch (error) {
+    console.error('Failed to decrypt order ID:', error)
+    notFound()
   }
 
-  // Dummy order items - in a real app, fetch from database
-  const orderItems: OrderItem[] = [
-    {
-      id: "order-item-1",
-      order_id: id,
-      customised_product_id: "variant-1",
-      quantity: 2,
-      price_snapshot: 99.99,
-      product_name_snapshot: "Tech Pro Station",
-      size_snapshot: "M",
-      material_snapshot: "Cotton",
-      color_snapshot: "Black",
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-    {
-      id: "order-item-2",
-      order_id: id,
-      customised_product_id: "variant-2",
-      quantity: 1,
-      price_snapshot: 299.99,
-      product_name_snapshot: "Wireless Headphones",
-      size_snapshot: "L",
-      material_snapshot: "Plastic",
-      color_snapshot: "White",
-      created_at: new Date().toISOString(),
-      deleted_at: null,
-    },
-  ]
+  const details = await getAdminOrderDetails(orderId)
 
-  // Dummy payment data - in a real app, fetch from database
-  const payment: Payment = {
-    id: "payment-1",
-    order_id: id,
-    status: "paid",
-    transaction_id: "TXN-123456789",
-    paid_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    amount: 284.99,
-    currency: "USD",
-    gateway: "stripe",
-    payment_method: "credit_card",
-    payment_url: null,
-    callback_payload: null,
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    deleted_at: null,
+  if (!details) {
+    notFound()
   }
 
-  // Dummy shipment data - in a real app, fetch from database
-  const shipment: Shipment = {
-    id: "shipment-1",
-    order_id: id,
-    carrier_name: "FedEx",
-    tracking_number: "FX1234567890",
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    deleted_at: null,
-  }
+  const { order, items: orderItems, payment, shipment } = details
 
-  const user = order.user_id ? DUMMY_USERS.find((u) => u.id === order.user_id) : null
   const address = order.address_snapshot as {
     country?: string
     city?: string
@@ -148,31 +76,50 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
     postal_code?: string
   } | null
 
+  const isDeleted = !!order.deleted_at
+
   return (
     <div>
       <OrderDetailsBreadcrumbs orderId={order.id} />
 
       <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Deleted Order Banner */}
+        {isDeleted && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
+                Deleted Order
+              </Badge>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                This order has been deleted and is in read-only mode. You can view the details but cannot make changes.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Order Details</h1>
             <p className="text-muted-foreground text-sm sm:text-base mt-1">
-              View and manage order information
+              {isDeleted ? "View order information (Read-only)" : "View and manage order information"}
             </p>
           </div>
+          {!isDeleted && (
           <div className="flex gap-2">
-            <Link href={`/admin/orders/${order.id}/order_payment`}>
+            <Link href={`/admin/orders/${encryptOrderId(order.id)}/order_payment`}>
               <Button 
                 className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700"
+                disabled
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 Pay Order
               </Button>
             </Link>
             <EditOrderDialog order={order} showText />
-            <DeleteOrderDialog order={order} showText />
+            <DeleteOrderDialog order={order} showText redirectAfterDelete />
           </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -180,11 +127,8 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
           <div className="lg:col-span-2 space-y-6">
             {/* Order Items */}
             <Card>
-              <CardHeader>
-                <CardTitle>Order Items</CardTitle>
-              </CardHeader>
               <CardContent>
-                <OrderItemsTable orderId={order.id} items={orderItems} />
+                <OrderItemsTable orderId={order.id} items={orderItems} isDeleted={isDeleted} />
               </CardContent>
             </Card>
           </div>
@@ -199,18 +143,13 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Order ID</label>
-                  <p className="text-sm font-mono mt-1">{order.id}</p>
+                  <p className="text-sm font-mono mt-1 truncate" title={order.id}>{order.id}</p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">User</label>
-                  {user ? (
-                    <div className="mt-1">
-                      <p className="text-sm font-medium">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                  ) : order.user_id ? (
-                    <p className="text-sm mt-1">User ID: {order.user_id}</p>
+                  {order.user_id ? (
+                    <p className="text-sm mt-1 truncate" title={order.user_id}>User ID: {order.user_id}</p>
                   ) : (
                     <p className="text-sm mt-1 text-muted-foreground">Guest</p>
                   )}
@@ -240,7 +179,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                     <Phone className="h-4 w-4" />
                     Phone
                   </label>
-                  <p className="text-sm mt-1">{order.phone || "—"}</p>
+                  <p className="text-sm mt-1 truncate" title={order.phone || "—"}>{order.phone || "—"}</p>
                 </div>
 
                 <div>
@@ -248,7 +187,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                     <Mail className="h-4 w-4" />
                     Email
                   </label>
-                  <p className="text-sm mt-1">{order.email || "—"}</p>
+                  <p className="text-sm mt-1 truncate" title={order.email || "—"}>{order.email || "—"}</p>
                 </div>
 
                 <div>
@@ -292,8 +231,14 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {address.address && <p className="text-sm">{address.address}</p>}
-                  <p className="text-sm text-muted-foreground">
+                  {address.address && (
+                    <p className="text-sm truncate" title={address.address}>{address.address}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground truncate" title={
+                    [address.city, address.postal_code, address.country]
+                      .filter(Boolean)
+                      .join(", ")
+                  }>
                     {[address.city, address.postal_code, address.country]
                       .filter(Boolean)
                       .join(", ")}
@@ -329,25 +274,25 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                   <span className="font-semibold">Total</span>
                   <span className="font-bold text-lg">{formatPrice(order.total || 0)}</span>
                 </div>
-                {payment.transaction_id && (
+                {payment?.transaction_id && (
                   <div className="pt-2 border-t">
                     <p className="text-xs text-muted-foreground">Transaction ID</p>
-                    <p className="text-sm font-mono">{payment.transaction_id}</p>
+                    <p className="text-sm font-mono truncate" title={payment.transaction_id}>{payment.transaction_id}</p>
                   </div>
                 )}
-                {payment.payment_method && (
+                {payment?.payment_method && (
                   <div>
                     <p className="text-xs text-muted-foreground">Payment Method</p>
-                    <p className="text-sm capitalize">{payment.payment_method.replace('_', ' ')}</p>
+                    <p className="text-sm capitalize truncate" title={payment.payment_method.replace('_', ' ')}>{payment.payment_method.replace('_', ' ')}</p>
                   </div>
                 )}
-                {payment.gateway && (
+                {payment?.gateway && (
                   <div>
                     <p className="text-xs text-muted-foreground">Gateway</p>
-                    <p className="text-sm capitalize">{payment.gateway}</p>
+                    <p className="text-sm capitalize truncate" title={payment.gateway}>{payment.gateway}</p>
                   </div>
                 )}
-                {payment.paid_at && (
+                {payment?.paid_at && (
                   <div>
                     <p className="text-xs text-muted-foreground">Paid At</p>
                     <p className="text-sm">{formatDate(payment.paid_at)}</p>
@@ -369,13 +314,13 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                   {shipment.carrier_name && (
                     <div>
                       <p className="text-xs text-muted-foreground">Carrier</p>
-                      <p className="text-sm font-medium">{shipment.carrier_name}</p>
+                      <p className="text-sm font-medium truncate" title={shipment.carrier_name}>{shipment.carrier_name}</p>
                     </div>
                   )}
                   {shipment.tracking_number && (
                     <div>
                       <p className="text-xs text-muted-foreground">Tracking Number</p>
-                      <p className="text-sm font-mono">{shipment.tracking_number}</p>
+                      <p className="text-sm font-mono truncate" title={shipment.tracking_number}>{shipment.tracking_number}</p>
                     </div>
                   )}
                   {shipment.created_at && (

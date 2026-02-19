@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,114 +19,29 @@ import {
   Phone,
   Mail,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { OrderBreadcrumbs } from "@/components/(public)/orders/OrderBreadcrumbs";
-import type {
-  Order,
-  OrderItem,
-  Payment,
-  Shipment,
-  OrderStatus,
-  PaymentStatus,
-} from "@/types/order";
+import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
+import { getOrderDetails } from "@/services/order.service";
+import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 export const metadata = {
   title: "Order Details | LAMA",
   description: "View detailed information about your order.",
 };
 
-// Dummy order data with all related information
-const dummyOrder: Order = {
-  id: "550e8400-e29b-41d4-a716-446655440010",
-  user_id: "550e8400-e29b-41d4-a716-446655440001",
-  session_id: null,
-  status: "delivered",
-  subtotal: 299.99,
-  shipping_fee: 15.0,
-  discount: 30.0,
-  total: 284.99,
-  payment_status: "paid",
-  address_snapshot: {
-    country: "United States",
-    city: "New York",
-    address: "123 Main Street, Apt 4B",
-    postal_code: "10001",
-  },
-  phone: "+1234567890",
-  email: "john.doe@example.com",
-  created_at: "2024-12-01T14:30:00Z",
-  updated_at: "2024-12-05T10:00:00Z",
-  deleted_at: null,
-};
-
-const dummyOrderItems: OrderItem[] = [
-  {
-    id: "550e8400-e29b-41d4-a716-446655440100",
-    order_id: dummyOrder.id,
-    customised_product_id: "550e8400-e29b-41d4-a716-446655440200",
-    quantity: 2,
-    price_snapshot: 89.99,
-    product_name_snapshot: "Premium Cotton T-Shirt",
-    size_snapshot: "Large",
-    material_snapshot: "100% Organic Cotton",
-    color_snapshot: "Navy Blue",
-    created_at: "2024-12-01T14:30:00Z",
-    deleted_at: null,
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440101",
-    order_id: dummyOrder.id,
-    customised_product_id: "550e8400-e29b-41d4-a716-446655440201",
-    quantity: 1,
-    price_snapshot: 119.99,
-    product_name_snapshot: "Classic Denim Jacket",
-    size_snapshot: "Medium",
-    material_snapshot: "100% Cotton Denim",
-    color_snapshot: "Light Blue",
-    created_at: "2024-12-01T14:30:00Z",
-    deleted_at: null,
-  },
-];
-
-const dummyPayment: Payment = {
-  id: "550e8400-e29b-41d4-a716-446655440300",
-  order_id: dummyOrder.id,
-  status: "paid",
-  transaction_id: "TXN-2024-12-01-001234",
-  paid_at: "2024-12-01T14:35:00Z",
-  amount: 284.99,
-  currency: "USD",
-  gateway: "stripe",
-  payment_method: "Credit Card",
-  payment_url: null,
-  callback_payload: null,
-  created_at: "2024-12-01T14:30:00Z",
-  deleted_at: null,
-};
-
-const dummyShipment: Shipment = {
-  id: "550e8400-e29b-41d4-a716-446655440400",
-  order_id: dummyOrder.id,
-  carrier_name: "DHL Express",
-  tracking_number: "DHL1234567890",
-  created_at: "2024-12-02T09:00:00Z",
-  deleted_at: null,
-};
-
 const getOrderStatusVariant = (status: OrderStatus) => {
   switch (status) {
     case "delivered":
-      return "default";
     case "shipped":
       return "default";
     case "processing":
-      return "secondary";
     case "packed":
-      return "secondary";
     case "pending":
       return "secondary";
     case "cancelled":
-      return "destructive";
     case "returned":
       return "destructive";
     default:
@@ -136,11 +54,10 @@ const getPaymentStatusVariant = (status: PaymentStatus) => {
     case "paid":
       return "default";
     case "pending":
+    case "refunded":
       return "secondary";
     case "failed":
       return "destructive";
-    case "refunded":
-      return "secondary";
     default:
       return "secondary";
   }
@@ -170,16 +87,70 @@ const formatOrderId = (id: string) => {
 };
 
 interface OrderDetailsPageProps {
-  params: {
-    id: string;
-  };
+  params: { id: string };
+  searchParams?: { page?: string };
 }
 
-export default function OrderDetailsPage({ params }: OrderDetailsPageProps) {
-  // For now, all orders use the same dummy data
-  // In production, this would fetch based on params.id
+const ITEMS_PER_PAGE = 20;
+const MAX_ITEM_PAGES = 20;
 
-  const address = dummyOrder.address_snapshot as {
+export default async function OrderDetailsPage({
+  params,
+  searchParams,
+}: OrderDetailsPageProps) {
+  const { id: orderId } = params;
+
+  // Determine identity
+  const user = await getCurrentAuthUserFromComponent();
+
+  let sessionId: string | null = null;
+  if (!user) {
+    const cookieStore = await cookies();
+    sessionId = cookieStore.get("guest_session_id")?.value ?? null;
+  }
+
+  // Fetch order details with ownership check
+  const details = await getOrderDetails(
+    orderId,
+    user?.id ?? null,
+    sessionId,
+  );
+
+  if (!details) {
+    notFound();
+  }
+
+  const { order, items, payment, shipment } = details;
+
+  // Order items pagination (max 20 pages, 20 items per page)
+  const totalItems = items.length;
+  const maxItemsToShow = ITEMS_PER_PAGE * MAX_ITEM_PAGES;
+  const limitedItems = items.slice(0, maxItemsToShow);
+  const totalPages =
+    limitedItems.length === 0
+      ? 0
+      : Math.min(
+          Math.ceil(limitedItems.length / ITEMS_PER_PAGE),
+          MAX_ITEM_PAGES,
+        );
+
+  const rawPage =
+    typeof searchParams?.page === "string"
+      ? Number.parseInt(searchParams.page, 10)
+      : 1;
+  const currentPage =
+    !Number.isFinite(rawPage) || rawPage < 1
+      ? 1
+      : totalPages > 0
+        ? Math.min(rawPage, totalPages)
+        : 1;
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedItems =
+    totalPages === 0 ? [] : limitedItems.slice(startIndex, endIndex);
+
+  const address = order.address_snapshot as {
     country?: string;
     city?: string;
     address?: string;
@@ -189,283 +160,421 @@ export default function OrderDetailsPage({ params }: OrderDetailsPageProps) {
   return (
     <div>
       {/* Breadcrumbs */}
-      <OrderBreadcrumbs orderId={dummyOrder.id} />
-      
+      <OrderBreadcrumbs orderId={order.id} />
+
       <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-16 lg:pb-20 xl:pb-24">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-black tracking-tight text-foreground">
-              Order Details
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Order #{formatOrderId(dummyOrder.id)}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Badge variant={getOrderStatusVariant(dummyOrder.status)}>
-              {dummyOrder.status.charAt(0).toUpperCase() +
-                dummyOrder.status.slice(1)}
-            </Badge>
-            <Badge variant={getPaymentStatusVariant(dummyOrder.payment_status)}>
-              {dummyOrder.payment_status.charAt(0).toUpperCase() +
-                dummyOrder.payment_status.slice(1)}
-            </Badge>
+            <div>
+              <h1 className="text-4xl font-black tracking-tight text-foreground">
+                Order Details
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Order #{formatOrderId(order.id)}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant={getOrderStatusVariant(order.status)}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              </Badge>
+              <Badge variant={getPaymentStatusVariant(order.payment_status)}>
+                {order.payment_status.charAt(0).toUpperCase() +
+                  order.payment_status.slice(1)}
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Order Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Color</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Subtotal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyOrderItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.product_name_snapshot}
-                      </TableCell>
-                      <TableCell>{item.size_snapshot || "N/A"}</TableCell>
-                      <TableCell>{item.color_snapshot || "N/A"}</TableCell>
-                      <TableCell>{item.material_snapshot || "N/A"}</TableCell>
-                      <TableCell className="text-right">
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.price_snapshot)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(
-                          (item.price_snapshot ?? 0) * item.quantity
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Order Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Order Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {paginatedItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No items found for this order.
+                  </p>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Size</TableHead>
+                          <TableHead>Color</TableHead>
+                          <TableHead>Material</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Price</TableHead>
+                          <TableHead className="text-right">Subtotal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedItems.map((item) => {
+                          const productName = item.product_name_snapshot ?? "N/A";
+                          const size = item.size_snapshot ?? "N/A";
+                          const color = item.color_snapshot ?? "N/A";
+                          const material = item.material_snapshot ?? "N/A";
+                          const priceLabel = formatCurrency(item.price_snapshot);
+                          const subtotalLabel = formatCurrency(
+                            (item.price_snapshot ?? 0) * item.quantity,
+                          );
 
-          {/* Payment Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Payment Status</p>
-                  <Badge
-                    variant={getPaymentStatusVariant(dummyPayment.status)}
-                    className="mt-1"
-                  >
-                    {dummyPayment.status.charAt(0).toUpperCase() +
-                      dummyPayment.status.slice(1)}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Payment Method</p>
-                  <p className="font-medium mt-1">
-                    {dummyPayment.payment_method || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Transaction ID</p>
-                  <p className="font-medium mt-1 font-mono text-sm">
-                    {dummyPayment.transaction_id || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Gateway</p>
-                  <p className="font-medium mt-1 capitalize">
-                    {dummyPayment.gateway || "N/A"}
-                  </p>
-                </div>
-                {dummyPayment.paid_at && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Paid At</p>
-                    <p className="font-medium mt-1">
-                      {formatDate(dummyPayment.paid_at)}
-                    </p>
-                  </div>
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">
+                                <span
+                                  className="block max-w-[220px] truncate"
+                                  title={productName}
+                                >
+                                  {productName}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span
+                                  className="block max-w-[120px] truncate"
+                                  title={size}
+                                >
+                                  {size}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span
+                                  className="block max-w-[120px] truncate"
+                                  title={color}
+                                >
+                                  {color}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span
+                                  className="block max-w-[160px] truncate"
+                                  title={material}
+                                >
+                                  {material}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span
+                                  className="inline-block max-w-[80px] truncate text-right"
+                                  title={String(item.quantity)}
+                                >
+                                  {item.quantity}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span
+                                  className="inline-block max-w-[120px] truncate text-right"
+                                  title={priceLabel}
+                                >
+                                  {priceLabel}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                <span
+                                  className="inline-block max-w-[120px] truncate text-right"
+                                  title={subtotalLabel}
+                                >
+                                  {subtotalLabel}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        {/* Previous page */}
+                        <Link
+                          href={
+                            currentPage > 1
+                              ? `?page=${currentPage - 1}`
+                              : `?page=${currentPage}`
+                          }
+                          aria-disabled={currentPage <= 1}
+                          className={`flex h-9 w-9 items-center justify-center rounded-md border text-xs transition-colors ${
+                            currentPage <= 1
+                              ? "cursor-not-allowed opacity-40"
+                              : "hover:bg-accent hover:text-accent-foreground"
+                          }`}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Link>
+
+                        {/* Page numbers */}
+                        <div className="flex items-center gap-1 flex-wrap justify-center">
+                          {Array.from(
+                            { length: totalPages },
+                            (_, i) => i + 1,
+                          ).map((page) => (
+                            <Link
+                              key={page}
+                              href={`?page=${page}`}
+                              aria-label={`Go to page ${page}`}
+                              className={`flex h-8 w-8 items-center justify-center rounded-md border text-xs transition-colors ${
+                                currentPage === page
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "hover:bg-accent hover:text-accent-foreground"
+                              }`}
+                            >
+                              {page}
+                            </Link>
+                          ))}
+                        </div>
+
+                        {/* Next page */}
+                        <Link
+                          href={
+                            currentPage < totalPages
+                              ? `?page=${currentPage + 1}`
+                              : `?page=${currentPage}`
+                          }
+                          aria-disabled={currentPage >= totalPages}
+                          className={`flex h-9 w-9 items-center justify-center rounded-md border text-xs transition-colors ${
+                            currentPage >= totalPages
+                              ? "cursor-not-allowed opacity-40"
+                              : "hover:bg-accent hover:text-accent-foreground"
+                          }`}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    )}
+                  </>
                 )}
-                <div>
-                  <p className="text-sm text-muted-foreground">Amount</p>
-                  <p className="font-medium mt-1">
-                    {formatCurrency(dummyPayment.amount)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Shipping Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="h-5 w-5" />
-                Shipping Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Carrier</p>
-                  <p className="font-medium mt-1">
-                    {dummyShipment.carrier_name || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tracking Number</p>
-                  <p className="font-medium mt-1 font-mono text-sm">
-                    {dummyShipment.tracking_number || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Shipped At</p>
-                  <p className="font-medium mt-1">
-                    {formatDate(dummyShipment.created_at)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Payment Information */}
+            {payment && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Payment Status
+                      </p>
+                      <Badge
+                        variant={getPaymentStatusVariant(payment.status)}
+                        className="mt-1"
+                      >
+                        {payment.status.charAt(0).toUpperCase() +
+                          payment.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Payment Method
+                      </p>
+                      <p className="font-medium mt-1">
+                        {payment.payment_method || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Transaction ID
+                      </p>
+                      <p className="font-medium mt-1 font-mono text-sm">
+                        {payment.transaction_id || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Gateway</p>
+                      <p className="font-medium mt-1 capitalize">
+                        {payment.gateway || "N/A"}
+                      </p>
+                    </div>
+                    {payment.paid_at && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Paid At</p>
+                        <p className="font-medium mt-1">
+                          {formatDate(payment.paid_at)}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Amount</p>
+                      <p className="font-medium mt-1">
+                        {formatCurrency(payment.amount)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Order Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">
-                    {formatCurrency(dummyOrder.subtotal)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium">
-                    {formatCurrency(dummyOrder.shipping_fee)}
-                  </span>
-                </div>
-                {dummyOrder.discount && dummyOrder.discount > 0 && (
+            {/* Shipping Information */}
+            {shipment && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Shipping Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Carrier</p>
+                      <p className="font-medium mt-1">
+                        {shipment.carrier_name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Tracking Number
+                      </p>
+                      <p className="font-medium mt-1 font-mono text-sm">
+                        {shipment.tracking_number || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Shipped At
+                      </p>
+                      <p className="font-medium mt-1">
+                        {formatDate(shipment.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Order Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span className="font-medium text-green-600">
-                      -{formatCurrency(dummyOrder.discount)}
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">
+                      {formatCurrency(order.subtotal)}
                     </span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="font-medium">
+                      {formatCurrency(order.shipping_fee)}
+                    </span>
+                  </div>
+                  {order.discount && order.discount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="font-medium text-green-600">
+                        -{formatCurrency(order.discount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-lg">
+                      {formatCurrency(order.total)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Shipping Address */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Shipping Address
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {address ? (
+                  <>
+                    <p className="font-medium">{address.address}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {address.city}
+                      {address.postal_code ? `, ${address.postal_code}` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {address.country}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No address provided
+                  </p>
                 )}
-                <div className="border-t pt-2 flex justify-between">
-                  <span className="font-semibold">Total</span>
-                  <span className="font-bold text-lg">
-                    {formatCurrency(dummyOrder.total)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Shipping Address */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Shipping Address
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {address ? (
-                <>
-                  <p className="font-medium">{address.address}</p>
+            {/* Contact Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {order.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{order.email}</span>
+                  </div>
+                )}
+                {order.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{order.phone}</span>
+                  </div>
+                )}
+                {!order.email && !order.phone && (
                   <p className="text-sm text-muted-foreground">
-                    {address.city}, {address.postal_code}
+                    No contact information provided
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {address.country}
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Order Dates */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Order Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Placed</p>
+                  <p className="font-medium text-sm mt-1">
+                    {formatDate(order.created_at)}
                   </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">No address provided</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Contact Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {dummyOrder.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{dummyOrder.email}</span>
                 </div>
-              )}
-              {dummyOrder.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{dummyOrder.phone}</span>
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Updated</p>
+                  <p className="font-medium text-sm mt-1">
+                    {formatDate(order.updated_at)}
+                  </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Order Dates */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Order Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Placed</p>
-                <p className="font-medium text-sm mt-1">
-                  {formatDate(dummyOrder.created_at)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Last Updated</p>
-                <p className="font-medium text-sm mt-1">
-                  {formatDate(dummyOrder.updated_at)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );

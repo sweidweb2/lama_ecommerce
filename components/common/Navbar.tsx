@@ -215,14 +215,13 @@ export function Navbar() {
               )}
             </div>
 
-            {isLoggedIn && (
-              <Link href="/wishlist">
-                <Button variant="ghost" size="icon" className="hidden sm:flex">
-                  <Heart className="h-5 w-5" />
-                  <span className="sr-only">Wishlist</span>
-                </Button>
-              </Link>
-            )}
+            {/* Wishlist - accessible to both authenticated users and guests */}
+            <Link href="/wishlist">
+              <Button variant="ghost" size="icon" className="hidden sm:flex">
+                <Heart className="h-5 w-5" />
+                <span className="sr-only">Wishlist</span>
+              </Button>
+            </Link>
 
             <div className="hidden md:flex items-center gap-2">
               <ModeToggle />

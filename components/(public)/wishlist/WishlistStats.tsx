@@ -16,7 +16,7 @@ export function WishlistStats({ items }: WishlistStatsProps) {
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="p-4 border-border/40">
+            <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-primary/10">
                         <Heart className="h-5 w-5 text-primary" />
@@ -28,7 +28,7 @@ export function WishlistStats({ items }: WishlistStatsProps) {
                 </div>
             </Card>
 
-            <Card className="p-4 border-border/40">
+            <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-green-500/10">
                         <DollarSign className="h-5 w-5 text-green-500" />
@@ -40,7 +40,7 @@ export function WishlistStats({ items }: WishlistStatsProps) {
                 </div>
             </Card>
 
-            <Card className="p-4 border-border/40">
+            <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-500/10">
                         <Package className="h-5 w-5 text-blue-500" />
@@ -52,7 +52,7 @@ export function WishlistStats({ items }: WishlistStatsProps) {
                 </div>
             </Card>
 
-            <Card className="p-4 border-border/40">
+            <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-orange-500/10">
                         <TrendingUp className="h-5 w-5 text-orange-500" />

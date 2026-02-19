@@ -15,6 +15,7 @@ import {
   hardDeleteCartService,
   updateCartItemService,
   createCartForAdminService,
+  getCartWithItemsForAdminService,
 } from "@/services/cart.service";
 import { revalidatePath } from "next/cache";
 
@@ -400,4 +401,48 @@ export async function createCartAction(
   }
 
   return result;
+}
+
+/**
+ * Get cart with items for admin (server action).
+ * Used by admin checkout dialog to fetch cart data.
+ */
+export async function getCartWithItemsForAdminAction(
+  cartId: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  data?: { cart: any; items: any[]; subtotal: number };
+}> {
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) {
+    return {
+      success: false,
+      error: "You must be logged in",
+    };
+  }
+
+  const result = await getCartWithItemsForAdminService(cartId);
+
+  if (!result.success || !result.data) {
+    return {
+      success: false,
+      error: result.error || "Cart not found",
+    };
+  }
+
+  // Calculate subtotal
+  const subtotal = result.data.items.reduce(
+    (sum, item) => sum + item.product.price * item.quantity,
+    0,
+  );
+
+  return {
+    success: true,
+    data: {
+      cart: result.data.cart,
+      items: result.data.items,
+      subtotal,
+    },
+  };
 }

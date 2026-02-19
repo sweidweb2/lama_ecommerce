@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toggleWishlistAction } from '@/actions/wishlist'
 import { toast } from 'sonner'
-import { useAuth } from '@/providers/AuthProvider'
-import { useRouter } from 'next/navigation'
-import { ROUTES } from '@/lib/constants/routes'
 
 interface WishlistButtonProps {
     productId: string
@@ -31,18 +28,10 @@ export function WishlistButton({
 }: WishlistButtonProps) {
     const [isInWishlist, setIsInWishlist] = useState(initialIsInWishlist)
     const [isPending, startTransition] = useTransition()
-    const { user } = useAuth()
-    const router = useRouter()
 
     const handleToggle = async (e: React.MouseEvent) => {
         e.preventDefault()
         e.stopPropagation()
-
-        if (!user) {
-            toast.error('Please sign in to add items to your wishlist')
-            router.push(ROUTES.LOGIN)
-            return
-        }
 
         // Use variantId if provided, otherwise assume first variant (in a real app we might need to fetch it)
         // For now, if variantId is not provided, we might need a more robust way to handle it.

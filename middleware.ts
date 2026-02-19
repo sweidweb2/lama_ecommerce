@@ -59,23 +59,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Wishlist - only the authenticated user can access their own
+  // Wishlist - accessible by both authenticated users and guests
   if (pathname.startsWith("/wishlist")) {
-    const { profile, user, response } = await getProfileFromSession(request);
-
-    if (!user || !profile) {
-      const loginUrl = new URL(ROUTES.LOGIN, request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    if (profile.deleted_at) {
-      const loginUrl = new URL(ROUTES.LOGIN, request.url);
-      loginUrl.searchParams.set("reason", "inactive");
-      return NextResponse.redirect(loginUrl);
-    }
-
-    return response;
+    return NextResponse.next();
   }
 
   // Account routes - require authenticated user with active profile

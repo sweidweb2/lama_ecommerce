@@ -7,6 +7,7 @@ import {
   updateShippingZoneAdmin,
   deleteShippingZoneAdmin,
 } from "@/services/shipping_zone.service";
+import { getPublicShippingZones } from "@/services/shipping_zone.service";
 import { createShippingZoneSchema } from "@/lib/validators/shipping_zone/create";
 import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update";
 
@@ -15,6 +16,20 @@ import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update"
  */
 export async function getShippingZonesAction() {
   return await getShippingZonesForAdmin();
+}
+
+/**
+ * Get all shipping zones for public use (checkout forms).
+ * Returns all shipping zones with their fees.
+ */
+export async function getPublicShippingZonesAction() {
+  const zones = await getPublicShippingZones();
+  return zones.map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+    estimated_time: zone.estimated_time,
+    fee: zone.fee,
+  }));
 }
 
 export type CreateShippingZonePayload = {

@@ -19,10 +19,13 @@ import {
   Tag,
   Tags,
   UserPlus,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react"
 import { SidebarItem } from "./sidebar-item"
 import { cn } from "@/lib/utils"
 import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 
 const menuItems = [
   {
@@ -129,8 +132,45 @@ interface SidebarProps {
   onLinkClick?: () => void
 }
 
+// Helper function to get className for Products button
+const getProductsClassName = (isParentActive: boolean, hasActiveChild: boolean) => {
+  if (isParentActive && !hasActiveChild) {
+    return "bg-primary text-primary-foreground"
+  } else if (hasActiveChild && !isParentActive) {
+    return "bg-primary/10 text-primary hover:bg-primary/20"
+  } else {
+    return "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+  }
+}
+
 export function Sidebar({ className, onLinkClick }: SidebarProps) {
   const pathname = usePathname()
+  const [isProductsExpanded, setIsProductsExpanded] = useState(false)
+
+  // Auto-expand Products if any child is active
+  useEffect(() => {
+    const productsItem = menuItems.find((item) => item.href === "/admin/products")
+    if (productsItem?.children) {
+      const hasActiveChild = productsItem.children.some((child) => {
+        if (pathname === child.href) return true
+        if (pathname.startsWith(child.href)) {
+          // Check if any other child is a more specific match
+          const allChildHrefs = productsItem.children.map((c) => c.href)
+          const hasMoreSpecificMatch = allChildHrefs.some(
+            (otherChildHref) =>
+              otherChildHref !== child.href &&
+              pathname.startsWith(otherChildHref) &&
+              otherChildHref.length > child.href.length
+          )
+          return !hasMoreSpecificMatch
+        }
+        return false
+      })
+      if (hasActiveChild) {
+        setIsProductsExpanded(true)
+      }
+    }
+  }, [pathname])
 
   return (
     <aside className={cn("flex h-full flex-col", className)}>
@@ -174,17 +214,39 @@ export function Sidebar({ className, onLinkClick }: SidebarProps) {
               ? pathname === item.href
               : pathname === item.href && !pathname.startsWith(`${item.href}/`))
 
+          // Check if this is the Products item
+          const isProducts = item.href === "/admin/products"
+          const isExpanded = isProducts ? isProductsExpanded : true
+
           return (
             <div key={item.href}>
-              <SidebarItem
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                onLinkClick={onLinkClick}
-                isParentActive={isParentActive}
-                hasActiveChild={hasActiveChild}
-              />
-              {item.children?.map((child) => (
+              {isProducts ? (
+                <button
+                  onClick={() => setIsProductsExpanded(!isProductsExpanded)}
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left mb-2",
+                    getProductsClassName(isParentActive, hasActiveChild)
+                  )}
+                >
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                  {isProductsExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                </button>
+              ) : (
+                <SidebarItem
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  onLinkClick={onLinkClick}
+                  isParentActive={isParentActive}
+                  hasActiveChild={hasActiveChild}
+                />
+              )}
+              {isExpanded && item.children?.map((child) => (
                 <SidebarItem
                   key={child.href}
                   href={child.href}

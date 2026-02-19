@@ -3,12 +3,15 @@ import { ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
+import { decryptOrderId } from "@/lib/utils/encryption";
 import { getCartWithItemsForAdminService } from "@/services/cart.service";
 import { CartDetailsSidebar } from "@/components/admin/cart/CartDetailsSidebar";
 import { CartDetailsBreadcrumbs } from "@/components/admin/cart/CartDetailsBreadcrumbs";
 import { CartItemsTable, type CartItem } from "@/components/admin/cart/CartItemsTable";
 import { AddCartItemDialog } from "@/components/admin/cart/AddCartItemDialog";
+import { SubmitCartButton } from "@/components/admin/cart/submit_cart_button";
 import { getProfileByUserId } from "@/repositories/profile.repository";
+import { notFound } from "next/navigation";
 import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
 export default async function CartDetailsPage({
@@ -16,10 +19,19 @@ export default async function CartDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id: encryptedId } = await params;
+
+  // Decrypt the cart ID
+  let cartId: string;
+  try {
+    cartId = decryptOrderId(encryptedId);
+  } catch (error) {
+    console.error("Failed to decrypt cart ID:", error);
+    notFound();
+  }
 
   // Fetch cart with items
-  const cartResult = await getCartWithItemsForAdminService(id);
+  const cartResult = await getCartWithItemsForAdminService(cartId);
 
   if (!cartResult.success || !cartResult.data) {
     return (
@@ -74,11 +86,16 @@ export default async function CartDetailsPage({
       <div className="container mx-auto px-4 py-6">
         <div className="space-y-6">
           {/* Header */}
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Cart Details</h1>
-            <p className="text-muted-foreground text-sm sm:text-base mt-1">
-              View and manage cart information
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Cart Details</h1>
+              <p className="text-muted-foreground text-sm sm:text-base mt-1">
+                View and manage cart information
+              </p>
+            </div>
+            {cart.deleted_at === null && (
+              <SubmitCartButton cartId={cart.id} />
+            )}
           </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

@@ -111,7 +111,7 @@ export function SidebarItem({
       )}
     >
       <Icon className={cn("h-4 w-4", isNavigating && "animate-pulse")} />
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
     </Link>
   )
 }

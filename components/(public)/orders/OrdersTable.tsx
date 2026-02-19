@@ -46,24 +46,24 @@ const paymentStatusOptions: { label: string; value: PaymentStatus | "all" }[] = 
   { label: "Refunded", value: "refunded" },
 ];
 
-const getOrderStatusVariant = (status: OrderStatus) => {
+const getOrderStatusClassName = (status: OrderStatus) => {
   switch (status) {
-    case "delivered":
-      return "default";
-    case "shipped":
-      return "default";
-    case "processing":
-      return "secondary";
-    case "packed":
-      return "secondary";
     case "pending":
-      return "secondary";
-    case "cancelled":
-      return "destructive";
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    case "processing":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    case "packed":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+    case "shipped":
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300";
+    case "delivered":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     case "returned":
-      return "destructive";
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
+    case "cancelled":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     default:
-      return "secondary";
+      return "bg-muted text-muted-foreground";
   }
 };
 
@@ -265,47 +265,87 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium w-[15%]">
-                    #{formatOrderId(order.id)}
-                  </TableCell>
-                  <TableCell className="w-[15%]">{formatDate(order.created_at)}</TableCell>
-                  <TableCell className="w-[12%]">${order.total?.toFixed(2) ?? "0.00"}</TableCell>
-                  <TableCell className="w-[15%]">
-                    <Badge variant={getOrderStatusVariant(order.status)}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="w-[15%]">
-                    <Badge variant={getPaymentStatusVariant(order.payment_status)}>
-                      {order.payment_status.charAt(0).toUpperCase() +
-                        order.payment_status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right w-auto min-w-[280px]">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/order_details/${order.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Order
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // TODO: Implement invoice download functionality
-                          console.log("Download invoice for order:", order.id);
-                        }}
+              paginatedOrders.map((order) => {
+                const formattedOrderId = formatOrderId(order.id);
+                const formattedDate = formatDate(order.created_at);
+                const totalLabel = `$${order.total?.toFixed(2) ?? "0.00"}`;
+                const orderStatusLabel =
+                  order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                const paymentStatusLabel =
+                  order.payment_status.charAt(0).toUpperCase() +
+                  order.payment_status.slice(1);
+
+                return (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium w-[15%]">
+                      <span
+                        className="block max-w-[120px] truncate"
+                        title={order.id}
                       >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Invoice
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        #{formattedOrderId}
+                      </span>
+                    </TableCell>
+                    <TableCell className="w-[15%]">
+                      <span
+                        className="block max-w-[140px] truncate"
+                        title={formattedDate}
+                      >
+                        {formattedDate}
+                      </span>
+                    </TableCell>
+                    <TableCell className="w-[12%]">
+                      <span
+                        className="block max-w-[120px] truncate"
+                        title={totalLabel}
+                      >
+                        {totalLabel}
+                      </span>
+                    </TableCell>
+                    <TableCell className="w-[15%]">
+                      <Badge
+                        variant="outline"
+                        className={`border-none px-2.5 py-0.5 text-xs font-medium rounded-full ${getOrderStatusClassName(order.status)}`}
+                      >
+                        <span
+                          className="block max-w-[120px] truncate"
+                          title={orderStatusLabel}
+                        >
+                          {orderStatusLabel}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="w-[15%]">
+                      <Badge variant={getPaymentStatusVariant(order.payment_status)}>
+                        <span
+                          className="block max-w-[120px] truncate"
+                          title={paymentStatusLabel}
+                        >
+                          {paymentStatusLabel}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right w-auto min-w-[280px]">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/order_details/${order.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Order
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          title="Coming soon"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download Invoice
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

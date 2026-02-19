@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -10,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
-import { toast } from "sonner";
 
 interface ShippingZone {
   id: string;
@@ -27,7 +25,6 @@ interface ShippingFee {
 interface CartDetailsSidebarProps {
   subtotal: number;
   itemCount?: number;
-  onSubmit?: (data: { shippingFee: number; total: number; zoneId: string }) => void | Promise<void>;
 }
 
 // Dummy shipping zones (same as public cart page)
@@ -48,10 +45,9 @@ const dummyShippingFees: ShippingFee[] = [
   { id: "fee-5", zone_id: "zone-5", fee: 50.0 },
 ];
 
-export function CartDetailsSidebar({ subtotal, itemCount = 0, onSubmit }: CartDetailsSidebarProps) {
+export function CartDetailsSidebar({ subtotal, itemCount = 0 }: CartDetailsSidebarProps) {
   const [selectedZoneId, setSelectedZoneId] = useState<string>("");
   const [selectedFeeId, setSelectedFeeId] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedZone = dummyShippingZones.find((zone) => zone.id === selectedZoneId);
   const selectedFee = dummyShippingFees.find((fee) => fee.id === selectedFeeId);
@@ -68,39 +64,6 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0, onSubmit }: CartDe
       setSelectedFeeId("");
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedZoneId) {
-      toast.error("Error", {
-        description: "Please select a shipping zone to continue.",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      if (onSubmit) {
-        await onSubmit({ shippingFee, total, zoneId: selectedZoneId });
-      } else {
-        // Default behavior
-        toast.info("Submit Cart", {
-          description: `Shipping Fee: ${formatPrice(shippingFee)}, Total: ${formatPrice(total)}`,
-        });
-      }
-    } catch (error) {
-      console.error("Error submitting cart:", error);
-      toast.error("Error", {
-        description: "Failed to submit cart. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const isCheckoutDisabled = !selectedZoneId;
 
   return (
     <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4 space-y-3">
@@ -183,27 +146,6 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0, onSubmit }: CartDe
         <div className="text-xs text-muted-foreground text-center pt-1">
           <span>{itemCount} {itemCount === 1 ? 'item' : 'items'} in cart</span>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full rounded-2xl text-sm"
-          disabled={isCheckoutDisabled || isSubmitting}
-        >
-          {isSubmitting
-            ? "Submitting..."
-            : isCheckoutDisabled
-            ? "Select Shipping Zone to Continue"
-            : "Submit Cart"}
-        </Button>
-      </form>
-
-      {isCheckoutDisabled && (
-        <p className="text-xs text-muted-foreground text-center">
-          Please select a shipping zone to proceed with checkout
-        </p>
       )}
     </div>
   );

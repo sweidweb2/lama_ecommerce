@@ -29,7 +29,11 @@ const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunde
 
 const NONE_VALUE = "__none__"
 
-export function CreateOrderDialog() {
+interface CreateOrderDialogProps {
+  disabled?: boolean
+}
+
+export function CreateOrderDialog({ disabled = false }: CreateOrderDialogProps) {
   const [open, setOpen] = useState(false)
   const [userId, setUserId] = useState<string>(NONE_VALUE)
   const [status, setStatus] = useState<OrderStatus>('pending')
@@ -94,9 +98,14 @@ export function CreateOrderDialog() {
   const discountNum = parseFloat(discount) || 0
   const calculatedTotal = subtotalNum + shippingFeeNum - discountNum
 
+  const handleOpen = () => {
+    if (disabled) return
+    setOpen(true)
+  }
+
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button onClick={handleOpen} disabled={disabled}>
         <Plus className="mr-2 h-4 w-4" />
         Create Order
       </Button>

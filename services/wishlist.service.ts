@@ -1,9 +1,13 @@
 import {
   getWishlistItemsByUserId,
+  getWishlistItemsBySessionId,
   addWishlistItem,
+  addWishlistItemForGuest,
   removeWishlistItemById,
   removeWishlistItemByVariant,
+  removeWishlistItemByVariantForGuest,
   isInWishlist,
+  isInWishlistForGuest,
 } from "@/repositories/wishlist.repository";
 
 /**
@@ -14,6 +18,13 @@ export async function getWishlistItems(userId: string): Promise<any[]> {
 }
 
 /**
+ * Get wishlist items for a guest (call from Server Components with sessionId).
+ */
+export async function getWishlistItemsForGuest(sessionId: string): Promise<any[]> {
+  return getWishlistItemsBySessionId(sessionId);
+}
+
+/**
  * Add a product variant to the user's wishlist.
  */
 export async function addToWishlist(
@@ -21,6 +32,16 @@ export async function addToWishlist(
   customisedProductId: string,
 ) {
   return addWishlistItem(userId, customisedProductId);
+}
+
+/**
+ * Add a product variant to the guest's wishlist.
+ */
+export async function addToWishlistForGuest(
+  sessionId: string,
+  customisedProductId: string,
+) {
+  return addWishlistItemForGuest(sessionId, customisedProductId);
 }
 
 /**
@@ -44,6 +65,16 @@ export async function removeFromWishlistByVariant(
 }
 
 /**
+ * Remove a wishlist entry by product variant id for guest.
+ */
+export async function removeFromWishlistByVariantForGuest(
+  sessionId: string,
+  customisedProductId: string,
+) {
+  return removeWishlistItemByVariantForGuest(sessionId, customisedProductId);
+}
+
+/**
  * Check if a product variant is in the user's wishlist.
  */
 export async function checkIfInWishlist(
@@ -51,4 +82,14 @@ export async function checkIfInWishlist(
   customisedProductId: string,
 ): Promise<boolean> {
   return isInWishlist(userId, customisedProductId);
+}
+
+/**
+ * Check if a product variant is in the guest's wishlist.
+ */
+export async function checkIfInWishlistForGuest(
+  sessionId: string,
+  customisedProductId: string,
+): Promise<boolean> {
+  return isInWishlistForGuest(sessionId, customisedProductId);
 }

@@ -15,7 +15,7 @@ import { DeleteProductDialog } from './delete_dialog'
 import type { AdminProduct } from './edit_form'
 
 interface AdminProductCardProps {
-  product: ProductWithRelations
+  product: ProductWithRelations & { encryptedId?: string }
   brands: Brand[]
   categories: Category[]
 }
@@ -87,7 +87,7 @@ export function AdminProductCard({ product, brands, categories }: AdminProductCa
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
               <DeleteProductDialog product={adminProduct} />
             </div>
-            <Link href={`/admin/products/${product.id}`}>
+            <Link href={`/admin/products/${(product as any).encryptedId || product.id}`}>
               <Button
                 variant="ghost"
                 size="icon"

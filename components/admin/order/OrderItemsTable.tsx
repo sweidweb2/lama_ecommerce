@@ -29,12 +29,13 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react"
 interface OrderItemsTableProps {
   orderId: string
   items: OrderItem[]
+  isDeleted?: boolean
 }
 
 const ITEMS_PER_PAGE = 10
 const MAX_PAGES = 10
 
-export function OrderItemsTable({ orderId, items }: OrderItemsTableProps) {
+export function OrderItemsTable({ orderId, items, isDeleted = false }: OrderItemsTableProps) {
   const [productNameFilter, setProductNameFilter] = useState<string>("")
   const [colorFilter, setColorFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string>("all")
@@ -138,7 +139,7 @@ export function OrderItemsTable({ orderId, items }: OrderItemsTableProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Order Items</h3>
-        <CreateOrderItemDialog orderId={orderId} />
+        {!isDeleted && <CreateOrderItemDialog orderId={orderId} />}
       </div>
 
       {/* Filters */}
@@ -317,29 +318,45 @@ export function OrderItemsTable({ orderId, items }: OrderItemsTableProps) {
                 {paginatedItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
-                      {item.product_name_snapshot || "Unknown Product"}
+                      <div className="max-w-[200px] truncate" title={item.product_name_snapshot || "Unknown Product"}>
+                        {item.product_name_snapshot || "Unknown Product"}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {item.color_snapshot || item.size_snapshot || item.material_snapshot
-                        ? [
-                            item.color_snapshot,
-                            item.size_snapshot,
-                            item.material_snapshot,
-                          ]
-                            .filter(Boolean)
-                            .join(" / ")
-                        : "—"}
+                      <div className="max-w-[150px] truncate" title={
+                        item.color_snapshot || item.size_snapshot || item.material_snapshot
+                          ? [
+                              item.color_snapshot,
+                              item.size_snapshot,
+                              item.material_snapshot,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ")
+                          : "—"
+                      }>
+                        {item.color_snapshot || item.size_snapshot || item.material_snapshot
+                          ? [
+                              item.color_snapshot,
+                              item.size_snapshot,
+                              item.material_snapshot,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ")
+                          : "—"}
+                      </div>
                     </TableCell>
-                    <TableCell>{formatPrice(item.price_snapshot || 0)}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="whitespace-nowrap">{formatPrice(item.price_snapshot || 0)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.quantity}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
                       {formatPrice(calculateItemTotal(item))}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                        <EditOrderItemDialog orderItem={item} />
-                        <DeleteOrderItemDialog orderItem={item} />
-                      </div>
+                      {!isDeleted && (
+                        <div className="flex items-center justify-end gap-2">
+                          <EditOrderItemDialog orderItem={item} />
+                          <DeleteOrderItemDialog orderItem={item} />
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

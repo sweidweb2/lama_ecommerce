@@ -1,11 +1,11 @@
+import { cookies } from 'next/headers'
 import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
-import { getWishlistItems } from '@/services/wishlist.service'
+import { getWishlistItems, getWishlistItemsForGuest } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
 import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/lib/constants/routes'
-import { DUMMY_PRODUCTS, DUMMY_CATEGORIES } from '@/lib/constants/dummy-data'
 import { WishlistStats } from '@/components/(public)/wishlist/WishlistStats'
 import { WishlistFilters } from '@/components/(public)/wishlist/WishlistFilters'
 import { WishlistPagination } from '@/components/(public)/wishlist/WishlistPagination'
@@ -29,34 +29,37 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
     const params = await searchParams
     const user = await getCurrentAuthUserFromComponent()
 
-    // Get real wishlist items if user is logged in
+    // Get wishlist items based on authentication status
     let wishlistItems: any[] = []
+    
     if (user) {
+        // Authenticated user → fetch wishlist by user_id
         wishlistItems = await getWishlistItems(user.id)
+    } else {
+        // Guest → read session cookie and fetch wishlist by session_id
+        const cookieStore = await cookies()
+        const sessionId = cookieStore.get('guest_session_id')?.value
+
+        if (sessionId) {
+            wishlistItems = await getWishlistItemsForGuest(sessionId)
+        }
     }
 
-    // Use dummy data if no wishlist items (for demonstration)
-    // Use more items to support pagination (15 per page * 20 pages = 300 items max)
-    const allItems = wishlistItems.length > 0 
-        ? wishlistItems 
-        : DUMMY_PRODUCTS.slice(0, 300).map((product, index) => ({
-            wishlist_id: `dummy-wishlist-${index + 1}`,
-            product: product,
-        }))
+    // Use real wishlist items (no dummy data)
+    const allItems = wishlistItems
 
     // Apply filters
     let filteredItems = [...allItems]
 
     // Category filter
     if (params.category && params.category !== 'all') {
-        const category = DUMMY_CATEGORIES.find(c => c.slug === params.category || c.id === params.category)
-        if (category) {
-            filteredItems = filteredItems.filter(item => 
-                item.product.category_id === category.id || 
-                item.product.category?.slug === params.category ||
-                item.product.category?.id === category.id
-            )
-        }
+        filteredItems = filteredItems.filter(item => {
+            const categorySlug = item.product.category?.slug
+            const categoryId = item.product.category?.id || item.product.category_id
+            return categorySlug === params.category || 
+                   categoryId === params.category ||
+                   String(categoryId) === params.category
+        })
     }
 
     // Featured filter
@@ -87,13 +90,13 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
     const itemsPerPage = 15
     const currentPage = Number(params.page) || 1
     const totalItems = filteredItems.length
-    const totalPages = Math.min(Math.ceil(totalItems / itemsPerPage), 20) // Max 20 pages
+    const totalPages = Math.ceil(totalItems / itemsPerPage)
     const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = startIndex + itemsPerPage
     const paginatedItems = filteredItems.slice(startIndex, endIndex)
 
     return (
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
                 <div>
                     <h1 className="text-4xl font-black tracking-tight text-foreground flex items-center gap-3">

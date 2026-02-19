@@ -6,6 +6,7 @@ import type { ProductWithRelations } from '@/types/product'
 import { getAdminProductsService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
 import { getCategoriesService } from '@/services/categories.service'
+import { encryptOrderId } from '@/lib/utils/encryption'
 
 interface GridProductsPageProps {
   searchParams: Promise<{
@@ -120,7 +121,10 @@ export default async function GridProductsPage({ searchParams }: GridProductsPag
       {totalPages > 1 && <AdminPagination totalPages={totalPages} />}
 
       <AdminProductGrid 
-        products={paginatedProducts}
+        products={paginatedProducts.map(p => ({
+          ...p,
+          encryptedId: encryptOrderId(p.id),
+        }))}
         brands={brands}
         categories={categories}
       />

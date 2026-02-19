@@ -15,10 +15,17 @@ import { DeleteCartDialog } from "@/components/admin/cart/delete_dialog"
 import { Eye } from "lucide-react"
 import { getAllCartsForAdminService } from "@/services/cart.service"
 import { SubmitCartButton } from "@/components/admin/cart/submit_cart_button"
+import { encryptOrderId } from "@/lib/utils/encryption"
 
 export default async function CartsPage() {
   // Fetch real cart data
   const carts = await getAllCartsForAdminService()
+  
+  // Encrypt cart IDs on the server side
+  const cartsWithEncryptedIds = carts.map(cart => ({
+    ...cart,
+    encryptedId: encryptOrderId(cart.id), // Reusing the same encryption function
+  }))
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -52,11 +59,11 @@ export default async function CartsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              carts.map((cart) => (
+              cartsWithEncryptedIds.map((cart) => (
                 <TableRow key={cart.id}>
                   <TableCell className="font-medium font-mono text-xs">
                     <Link
-                      href={`/admin/carts/${cart.id}`}
+                      href={`/admin/carts/${(cart as any).encryptedId}`}
                       className="hover:text-primary hover:underline transition-colors"
                     >
                       {cart.id.slice(0, 8)}...
@@ -85,7 +92,7 @@ export default async function CartsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/admin/carts/${cart.id}`}>
+                      <Link href={`/admin/carts/${(cart as any).encryptedId}`}>
                         <Button variant="ghost" size="icon" aria-label={`View cart ${cart.id}`}>
                           <Eye className="h-4 w-4" />
                         </Button>

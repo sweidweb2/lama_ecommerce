@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,22 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Edit } from "lucide-react"
+import { Edit, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { updateOrderAction } from "@/actions/order"
 import type { OrderStatus, PaymentStatus, Order } from "@/types/order"
-
-// Dummy users for selection
-const DUMMY_USERS = [
-  { id: "1", name: "John Doe", email: "john.doe@example.com" },
-  { id: "2", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "3", name: "Bob Johnson", email: "bob.johnson@example.com" },
-  { id: "4", name: "Alice Williams", email: "alice.williams@example.com" },
-  { id: "5", name: "Charlie Brown", email: "charlie.brown@example.com" },
-]
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled']
 const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
-
-const NONE_VALUE = "__none__"
 
 export type AdminOrder = Order & {
   userName?: string
@@ -39,50 +31,120 @@ interface EditOrderDialogProps {
 }
 
 export function EditOrderDialog({ order, showText = false }: EditOrderDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [userId, setUserId] = useState<string>(order.user_id || NONE_VALUE)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<OrderStatus>(order.status)
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(order.payment_status)
-  const [subtotal, setSubtotal] = useState<string>(order.subtotal?.toString() || "")
   const [shippingFee, setShippingFee] = useState<string>(order.shipping_fee?.toString() || "")
   const [discount, setDiscount] = useState<string>(order.discount?.toString() || "")
   const [phone, setPhone] = useState<string>(order.phone || "")
   const [email, setEmail] = useState<string>(order.email || "")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Create a stable dependency key from order data to avoid array size changes
+  const orderKey = useMemo(() => {
+    return JSON.stringify({
+      id: order.id,
+      status: order.status,
+      payment_status: order.payment_status,
+      shipping_fee: order.shipping_fee ?? null,
+      discount: order.discount ?? null,
+      phone: order.phone ?? null,
+      email: order.email ?? null,
+      updated_at: order.updated_at,
+    })
+  }, [
+    order.id,
+    order.status,
+    order.payment_status,
+    order.shipping_fee,
+    order.discount,
+    order.phone,
+    order.email,
+    order.updated_at,
+  ])
+
+  // Sync form state with order prop when it changes
+  // Use orderKey as a stable dependency to avoid array size issues
+  useEffect(() => {
+    setStatus(order.status)
+    setPaymentStatus(order.payment_status)
+    setShippingFee(order.shipping_fee?.toString() || "")
+    setDiscount(order.discount?.toString() || "")
+    setPhone(order.phone || "")
+    setEmail(order.email || "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey])
+
+  // Reset form state when dialog opens to ensure fresh data
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isSubmitting) {
+      setOpen(isOpen)
+      if (isOpen) {
+        // Reset form to current order values when opening
+        setStatus(order.status)
+        setPaymentStatus(order.payment_status)
+        setShippingFee(order.shipping_fee?.toString() || "")
+        setDiscount(order.discount?.toString() || "")
+        setPhone(order.phone || "")
+        setEmail(order.email || "")
+      }
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Calculate total
-    const subtotalNum = parseFloat(subtotal) || 0
+    if (isSubmitting) return
+
+    // Calculate total using original subtotal + edited shipping fee - discount
+    const subtotalNum = order.subtotal || 0
     const shippingFeeNum = parseFloat(shippingFee) || 0
     const discountNum = parseFloat(discount) || 0
     const total = subtotalNum + shippingFeeNum - discountNum
 
-    // TODO: Wire this up to a real admin update action / API
-    const updatedOrder = {
-      id: order.id,
-      user_id: userId !== NONE_VALUE ? userId : null,
-      status,
-      payment_status: paymentStatus,
-      subtotal: subtotalNum || null,
-      shipping_fee: shippingFeeNum || null,
-      discount: discountNum || null,
-      total: total || null,
-      phone: phone.trim() || null,
-      email: email.trim() || null,
+    setIsSubmitting(true)
+
+    try {
+      const result = await updateOrderAction(order.id, {
+        status,
+        payment_status: paymentStatus,
+        shipping_fee: shippingFeeNum || null,
+        discount: discountNum || null,
+        total: total || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+      })
+
+      if (!result.success) {
+        toast.error("Failed to update order", {
+          description: result.error || "An error occurred while updating the order.",
+        })
+        return
+      }
+
+      toast.success("Order updated", {
+        description: "The order has been successfully updated.",
+      })
+
+      setOpen(false)
+      
+      // Refresh the page to show updated data
+      router.refresh()
+    } catch (error) {
+      console.error("Error updating order:", error)
+      toast.error("Error", {
+        description: error instanceof Error ? error.message : "Failed to update order. Please try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    console.log("Updating order:", updatedOrder)
-
-    setOpen(false)
   }
 
   const handleCancel = () => {
     // Reset to original values
-    setUserId(order.user_id || NONE_VALUE)
     setStatus(order.status)
     setPaymentStatus(order.payment_status)
-    setSubtotal(order.subtotal?.toString() || "")
     setShippingFee(order.shipping_fee?.toString() || "")
     setDiscount(order.discount?.toString() || "")
     setPhone(order.phone || "")
@@ -90,7 +152,8 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
     setOpen(false)
   }
 
-  const subtotalNum = parseFloat(subtotal) || 0
+  // Calculate total using original subtotal + edited shipping fee - discount
+  const subtotalNum = order.subtotal || 0
   const shippingFeeNum = parseFloat(shippingFee) || 0
   const discountNum = parseFloat(discount) || 0
   const calculatedTotal = subtotalNum + shippingFeeNum - discountNum
@@ -100,46 +163,27 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
       <Button
         variant={showText ? "outline" : "ghost"}
         size={showText ? "default" : "icon"}
-        onClick={() => setOpen(true)}
+        onClick={() => handleOpenChange(true)}
         aria-label={`Edit order ${order.id}`}
       >
         <Edit className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
         {showText && "Edit"}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Order</DialogTitle>
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor={`user-id-${order.id}`}>
-                User <span className="text-xs text-muted-foreground">(Optional)</span>
-              </Label>
-              <Select value={userId} onValueChange={setUserId}>
-                <SelectTrigger id={`user-id-${order.id}`}>
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>None</SelectItem>
-                  {DUMMY_USERS.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor={`status-${order.id}`}>
                   Order Status <span className="text-destructive">*</span>
                 </Label>
-                <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus)}>
-                  <SelectTrigger id={`status-${order.id}`}>
+                <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus)} disabled={isSubmitting}>
+                  <SelectTrigger id={`status-${order.id}`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -156,8 +200,8 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                 <Label htmlFor={`payment-status-${order.id}`}>
                   Payment Status <span className="text-destructive">*</span>
                 </Label>
-                <Select value={paymentStatus} onValueChange={(value) => setPaymentStatus(value as PaymentStatus)}>
-                  <SelectTrigger id={`payment-status-${order.id}`}>
+                <Select value={paymentStatus} onValueChange={(value) => setPaymentStatus(value as PaymentStatus)} disabled={isSubmitting}>
+                  <SelectTrigger id={`payment-status-${order.id}`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -171,19 +215,7 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor={`subtotal-${order.id}`}>Subtotal</Label>
-                <Input
-                  id={`subtotal-${order.id}`}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={subtotal}
-                  onChange={(e) => setSubtotal(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor={`shipping-fee-${order.id}`}>Shipping Fee</Label>
                 <Input
@@ -194,6 +226,7 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={shippingFee}
                   onChange={(e) => setShippingFee(e.target.value)}
                   placeholder="0.00"
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-2">
@@ -206,12 +239,27 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0.00"
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
 
-            <div className="bg-muted p-3 rounded-md">
-              <div className="flex justify-between items-center">
+            <div className="bg-muted p-3 rounded-md space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Subtotal:</span>
+                <span className="font-medium">${subtotalNum.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Shipping Fee:</span>
+                <span className="font-medium">${shippingFeeNum.toFixed(2)}</span>
+              </div>
+              {discountNum > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Discount:</span>
+                  <span className="font-medium text-green-600">-${discountNum.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between items-center">
                 <span className="text-sm font-medium">Total:</span>
                 <span className="text-lg font-bold">
                   ${calculatedTotal.toFixed(2)}
@@ -228,6 +276,7 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1234567890"
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-2">
@@ -238,6 +287,7 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="customer@example.com"
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -247,11 +297,19 @@ export function EditOrderDialog({ order, showText = false }: EditOrderDialogProp
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </DialogFooter>
           </form>

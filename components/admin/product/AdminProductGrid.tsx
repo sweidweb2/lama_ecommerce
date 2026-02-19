@@ -5,7 +5,7 @@ import type { Brand, Category } from '@/types/product'
 import { AdminProductCard } from './AdminProductCard'
 
 interface AdminProductGridProps {
-  products: ProductWithRelations[]
+  products: (ProductWithRelations & { encryptedId?: string })[]
   brands: Brand[]
   categories: Category[]
 }

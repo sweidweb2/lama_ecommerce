@@ -10,11 +10,13 @@ import { ProductImageGallery } from '@/components/admin/product/ProductImageGall
 import { ProductDetailsBreadcrumbs } from '@/components/admin/product/ProductDetailsBreadcrumbs'
 import { StatCard } from '@/components/admin/stat-card'
 import { formatPrice } from '@/lib/utils'
+import { decryptOrderId } from '@/lib/utils/encryption'
 import { Eye, ShoppingCart, ShoppingBag } from 'lucide-react'
 import { getAdminProductByIdService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
 import { getCategoriesService } from '@/services/categories.service'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
+import { notFound } from 'next/navigation'
 import type { ProductWithRelations } from '@/types/product'
 
 interface ProductDetailsPageProps {
@@ -42,11 +44,20 @@ function toAdminProduct(product: ProductWithRelations): AdminProduct {
 }
 
 export default async function ProductDetailsPage({ params }: ProductDetailsPageProps) {
-  const { id } = await params
+  const { id: encryptedId } = await params
+
+  // Decrypt the product ID
+  let productId: string
+  try {
+    productId = decryptOrderId(encryptedId)
+  } catch (error) {
+    console.error('Failed to decrypt product ID:', error)
+    notFound()
+  }
 
   // Load product + supporting data (brands & categories) from the database.
   const [product, brands, categories] = await Promise.all([
-    getAdminProductByIdService(id),
+    getAdminProductByIdService(productId),
     getBrandsService(),
     getCategoriesService(),
   ])
