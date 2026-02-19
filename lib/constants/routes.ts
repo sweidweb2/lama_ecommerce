@@ -5,6 +5,7 @@ export const ROUTES = {
   RESET_PASSWORD: "/auth/reset-password",
   RESET_PASSWORD_CONFIRM: "/auth/reset-password/confirm",
   CALLBACK: "/auth/callback",
+  PRODUCTS: "/products",
   CART: "/cart",
   ADMIN: "/admin",
 } as const;

@@ -14,12 +14,11 @@ export function FullPageLoader() {
 
     // Determine if dark mode is active
     const isDark = mounted && (resolvedTheme === 'dark' || theme === 'dark')
-    
-    // Set loader colors based on theme
-    // Light theme: black, Dark theme: white
-    const loaderColors = isDark 
-        ? ['#ffffff', '#ffffff', '#ffffff'] // White for dark mode
-        : ['#000000', '#000000', '#000000'] // Black for light mode
+
+    // Theme-matched loader colors
+    // Light: primary brown + muted brown  |  Dark: cream + muted cream
+    const colorOne = isDark ? '#E6DDD4' : '#594C39'
+    const colorTwo = isDark ? '#B8A896' : '#847562'
 
     return (
         <div className="flex items-center justify-center h-screen w-screen">
@@ -29,6 +28,8 @@ export function FullPageLoader() {
                     height="100"
                     width="100"
                     ariaLabel="dna-loading"
+                    dnaColorOne={colorOne}
+                    dnaColorTwo={colorTwo}
                     wrapperStyle={{}}
                     wrapperClass="w-full h-full flex items-center justify-center"
                 />

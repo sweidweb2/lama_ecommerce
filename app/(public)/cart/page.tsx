@@ -54,7 +54,7 @@ export default async function CartPage() {
           <p className="text-muted-foreground text-sm mb-6">
             Add some items to your cart to get started.
           </p>
-          <Link href={ROUTES.HOME}>
+          <Link href={ROUTES.PRODUCTS}>
             <Button size="lg" className="rounded-xl">
               Continue Shopping
             </Button>
@@ -93,7 +93,7 @@ export default async function CartPage() {
               <p className="text-muted-foreground text-sm mb-4">
                 Your cart is empty. Start adding items to your cart!
               </p>
-              <Link href={ROUTES.HOME}>
+              <Link href={ROUTES.PRODUCTS}>
                 <Button variant="outline" size="sm" className="rounded-xl text-xs">
                   Continue Shopping
                 </Button>
@@ -114,7 +114,7 @@ export default async function CartPage() {
           )}
 
           <div className="pt-2">
-            <Link href={ROUTES.HOME}>
+            <Link href={ROUTES.PRODUCTS}>
               <Button variant="outline" size="sm" className="rounded-xl text-xs">
                 Continue Shopping
               </Button>
