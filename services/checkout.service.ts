@@ -57,7 +57,7 @@ export async function checkoutService(
     // 4. If checkout successful, increment purchase_count for all products in the order
     if (result.success && result.orderId) {
       // Increment purchase_count in the background (fire and forget)
-      incrementPurchaseCountForOrderService(result.orderId).catch((error) => {
+      incrementPurchaseCountForOrderService(result.orderId).catch((error: unknown) => {
         console.error("Failed to increment purchase_count:", error);
         // Don't fail the checkout if stats update fails
       });

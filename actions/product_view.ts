@@ -2,7 +2,12 @@
 
 import { cookies } from "next/headers";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
-import { trackProductViewService } from "@/services/product_view.service";
+import {
+  getAllProductViewsForAdminService,
+  getProductViewsByProductIdService,
+  getProductViewsStatsService,
+  trackProductViewService,
+} from "@/services/product_view.service";
 
 /** Cookie name for guest session identification. */
 const GUEST_SESSION_COOKIE = "guest_session_id";
@@ -71,9 +76,6 @@ export async function trackProductViewAction(
     // Track the view
     const result = await trackProductViewService(productId, userId, sessionId);
 
-    // Note: We don't revalidate here because this action is called during render.
-    // The stats will be updated on the next page load or when explicitly revalidated.
-
     return result;
   } catch (error) {
     console.error("Error in trackProductViewAction:", error);
@@ -83,4 +85,32 @@ export async function trackProductViewAction(
         error instanceof Error ? error.message : "Failed to track product view",
     };
   }
+}
+
+/**
+ * Get all product views for admin (with pagination)
+ */
+export async function getAllProductViewsAction(
+  page: number = 1,
+  pageSize: number = 50,
+) {
+  return getAllProductViewsForAdminService(page, pageSize);
+}
+
+/**
+ * Get product views for a specific product (with pagination)
+ */
+export async function getProductViewsByProductIdAction(
+  productId: string,
+  page: number = 1,
+  pageSize: number = 20,
+) {
+  return getProductViewsByProductIdService(productId, page, pageSize);
+}
+
+/**
+ * Get product views statistics
+ */
+export async function getProductViewsStatsAction() {
+  return getProductViewsStatsService();
 }

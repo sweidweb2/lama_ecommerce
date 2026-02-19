@@ -8,6 +8,7 @@ import { AddImageForm } from '@/components/admin/product/AddImageForm'
 import { ChangePrimaryImageDialog } from '@/components/admin/product/ChangePrimaryImageDialog'
 import { ProductImageGallery } from '@/components/admin/product/ProductImageGallery'
 import { ProductDetailsBreadcrumbs } from '@/components/admin/product/ProductDetailsBreadcrumbs'
+import { ProductViewsTable } from '@/components/admin/product/ProductViewsTable'
 import { StatCard } from '@/components/admin/stat-card'
 import { formatPrice } from '@/lib/utils'
 import { decryptOrderId } from '@/lib/utils/encryption'
@@ -16,6 +17,7 @@ import { getAdminProductByIdService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
 import { getCategoriesService } from '@/services/categories.service'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
+import { getProductStatsService } from '@/services/product_view.service'
 import { notFound } from 'next/navigation'
 import type { ProductWithRelations } from '@/types/product'
 
@@ -56,10 +58,11 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
   }
 
   // Load product + supporting data (brands & categories) from the database.
-  const [product, brands, categories] = await Promise.all([
+  const [product, brands, categories, productStats] = await Promise.all([
     getAdminProductByIdService(productId),
     getBrandsService(),
     getCategoriesService(),
+    getProductStatsService(productId),
   ])
 
   if (!product) {
@@ -95,11 +98,12 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
     deleted_at: variant.deleted_at,
   }))
 
-  // Dummy statistics data (in a real app, this would come from the database)
-  const productStats = {
-    views: Math.floor(Math.random() * 5000) + 1000, // Random between 1000-6000
-    orders: Math.floor(Math.random() * 500) + 50, // Random between 50-550
-    addedToCart: Math.floor(Math.random() * 800) + 100, // Random between 100-900
+  // Get real product stats (defaults to 0 if no stats exist)
+  const stats = productStats || {
+    product_id: productId,
+    views_count: 0,
+    add_to_cart_count: 0,
+    purchase_count: 0,
   }
 
   return (
@@ -134,19 +138,19 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard
                 title="Product Views"
-                value={productStats.views.toLocaleString()}
+                value={stats.views_count.toLocaleString()}
                 description="Total views"
                 icon={Eye}
               />
               <StatCard
-                title="Product Orders"
-                value={productStats.orders.toLocaleString()}
-                description="Total orders"
+                title="Purchases"
+                value={stats.purchase_count.toLocaleString()}
+                description="Total purchases"
                 icon={ShoppingCart}
               />
               <StatCard
                 title="Added to Cart"
-                value={productStats.addedToCart.toLocaleString()}
+                value={stats.add_to_cart_count.toLocaleString()}
                 description="Total cart additions"
                 icon={ShoppingBag}
               />
@@ -218,6 +222,9 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                 <VariantsTable variants={variants} productPrice={product.price} />
               </CardContent>
             </Card>
+
+            {/* Product Views */}
+            <ProductViewsTable productId={product.id} />
           </div>
 
           {/* Right Column - Metadata */}

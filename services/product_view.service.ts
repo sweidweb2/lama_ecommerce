@@ -1,9 +1,58 @@
 import {
+  getAllProductViewsForAdmin,
+  getProductViewsByProductIdForAdmin,
+  getProductViewsStats,
   trackProductView,
   incrementProductViewsCount,
   incrementProductAddToCartCount,
   incrementProductPurchaseCount,
+  getProductStatsByProductId,
+  type AdminProductViewRow,
+  type ProductViewsStats,
 } from "@/repositories/product_view.repository";
+import type { ProductStats } from "@/types/product_utf8";
+import { getProductVariantById } from "@/repositories/product_variant.repository";
+import { getOrderItemsByOrderIdForAdmin } from "@/repositories/order.repository";
+
+/**
+ * Get all product views for admin with pagination
+ */
+export async function getAllProductViewsForAdminService(
+  page: number = 1,
+  pageSize: number = 50,
+): Promise<{
+  data: AdminProductViewRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  return getAllProductViewsForAdmin(page, pageSize);
+}
+
+/**
+ * Get product views for a specific product with pagination
+ */
+export async function getProductViewsByProductIdService(
+  productId: string,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<{
+  data: AdminProductViewRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  return getProductViewsByProductIdForAdmin(productId, page, pageSize);
+}
+
+/**
+ * Get product views statistics
+ */
+export async function getProductViewsStatsService(): Promise<ProductViewsStats> {
+  return getProductViewsStats();
+}
 
 /**
  * Track a product view and increment the views count.
@@ -15,7 +64,6 @@ export async function trackProductViewService(
   sessionId: string | null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Validate product ID
     if (!productId || typeof productId !== "string" || productId.trim() === "") {
       return {
         success: false,
@@ -32,9 +80,7 @@ export async function trackProductViewService(
     // Increment the views count
     const statsResult = await incrementProductViewsCount(productId);
     if (!statsResult.success) {
-      // View was tracked but stats update failed - log but don't fail
       console.error("Failed to increment views count:", statsResult.error);
-      // Still return success since the view was tracked
     }
 
     return { success: true };
@@ -49,25 +95,36 @@ export async function trackProductViewService(
 }
 
 /**
+ * Get product stats for a given product.
+ * Returns stats with default values (0) if no record exists.
+ */
+export async function getProductStatsService(
+  productId: string,
+): Promise<ProductStats | null> {
+  try {
+    if (!productId || typeof productId !== "string" || productId.trim() === "") {
+      return null;
+    }
+
+    const stats = await getProductStatsByProductId(productId);
+    return stats;
+  } catch (error) {
+    console.error("Error in getProductStatsService:", error);
+    return null;
+  }
+}
+
+/**
  * Increment add_to_cart_count for a product.
- * Gets the product_id from the customised_product_id.
+ * Takes a customised_product_id, gets the product_id, and increments the count.
  */
 export async function incrementProductAddToCartService(
   customisedProductId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Validate customised product ID
-    if (!customisedProductId || typeof customisedProductId !== "string" || customisedProductId.trim() === "") {
-      return {
-        success: false,
-        error: "Invalid customised product ID",
-      };
-    }
-
-    // Get the product_id from the customised product
-    const { getProductVariantById } = await import("@/repositories/product_variant.repository");
+    // Get the variant to extract product_id
     const variant = await getProductVariantById(customisedProductId);
-
+    
     if (!variant) {
       return {
         success: false,
@@ -75,92 +132,90 @@ export async function incrementProductAddToCartService(
       };
     }
 
-    const productId = variant.product_id;
-
-    // Increment the add_to_cart_count
-    const statsResult = await incrementProductAddToCartCount(productId);
-    if (!statsResult.success) {
-      console.error("Failed to increment add_to_cart_count:", statsResult.error);
-      // Don't fail the cart operation if stats update fails
-    }
-
-    return { success: true };
+    // Increment the add_to_cart_count using the product_id
+    return await incrementProductAddToCartCount(variant.product_id);
   } catch (error) {
     console.error("Error in incrementProductAddToCartService:", error);
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to increment add to cart count",
+      error: error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
 }
 
 /**
  * Increment purchase_count for all products in an order.
- * Gets product_id from each order item's customised_product_id.
- * Increments once per order item (for each item that was purchased).
+ * Gets all order items, extracts product_ids from customised_products,
+ * and increments purchase_count for each product (by quantity).
  */
 export async function incrementPurchaseCountForOrderService(
   orderId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Validate order ID
-    if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
-      return {
-        success: false,
-        error: "Invalid order ID",
-      };
-    }
-
-    // Get order items
-    const { getOrderItemsByOrderIdForAdmin } = await import("@/repositories/order.repository");
+    // Get all order items for this order
     const orderItems = await getOrderItemsByOrderIdForAdmin(orderId);
 
-    if (orderItems.length === 0) {
+    if (!orderItems || orderItems.length === 0) {
+      return { success: true }; // No items to process
+    }
+
+    // Get unique customised_product_ids
+    const customisedProductIds = [
+      ...new Set(
+        orderItems
+          .map((item) => item.customised_product_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+
+    if (customisedProductIds.length === 0) {
+      return { success: true }; // No product IDs to process
+    }
+
+    // Get all variants to extract product_ids
+    const variants = await Promise.all(
+      customisedProductIds.map((id) => getProductVariantById(id))
+    );
+
+    // Create a map of customised_product_id -> product_id
+    const productIdMap = new Map<string, string>();
+    variants.forEach((variant, index) => {
+      if (variant) {
+        productIdMap.set(customisedProductIds[index], variant.product_id);
+      }
+    });
+
+    // Group order items by product_id and sum quantities
+    const productQuantities = new Map<string, number>();
+    orderItems.forEach((item) => {
+      if (item.customised_product_id) {
+        const productId = productIdMap.get(item.customised_product_id);
+        if (productId) {
+          const currentQuantity = productQuantities.get(productId) || 0;
+          productQuantities.set(
+            productId,
+            currentQuantity + (item.quantity || 1)
+          );
+        }
+      }
+    });
+
+    // Increment purchase_count for each product (by quantity)
+    const incrementPromises = Array.from(productQuantities.entries()).map(
+      async ([productId, quantity]) => {
+        return await incrementProductPurchaseCount(productId, quantity);
+      }
+    );
+
+    const results = await Promise.all(incrementPromises);
+    const allSucceeded = results.every((r) => r.success);
+
+    if (!allSucceeded) {
+      console.error("Some purchase count increments failed");
       return {
         success: false,
-        error: "No order items found for this order",
+        error: "Some purchase count increments failed",
       };
-    }
-
-    // Get product_id from each order item's customised_product_id
-    const { getProductVariantById } = await import("@/repositories/product_variant.repository");
-    
-    // Map to count how many times each product appears in the order
-    // Key: product_id, Value: count of order items for that product
-    const productCounts = new Map<string, number>();
-
-    for (const orderItem of orderItems) {
-      if (!orderItem.customised_product_id) {
-        continue; // Skip items without customised_product_id
-      }
-
-      const variant = await getProductVariantById(orderItem.customised_product_id);
-      if (variant && variant.product_id) {
-        // Count occurrences of each product (increment per order item)
-        const currentCount = productCounts.get(variant.product_id) || 0;
-        productCounts.set(variant.product_id, currentCount + 1);
-      }
-    }
-
-    // Increment purchase_count for each product (once per order item)
-    const incrementPromises: Promise<{ success: boolean; error?: string }>[] = [];
-
-    for (const [productId, count] of productCounts.entries()) {
-      // Increment 'count' times for this product (once per order item)
-      for (let i = 0; i < count; i++) {
-        incrementPromises.push(incrementProductPurchaseCount(productId));
-      }
-    }
-
-    // Execute all increments in parallel
-    const results = await Promise.allSettled(incrementPromises);
-
-    // Check if any failed
-    const failures = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success));
-    if (failures.length > 0) {
-      console.error("Some purchase count increments failed:", failures);
-      // Don't fail the entire operation if some increments fail
     }
 
     return { success: true };
@@ -168,8 +223,7 @@ export async function incrementPurchaseCountForOrderService(
     console.error("Error in incrementPurchaseCountForOrderService:", error);
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to increment purchase count",
+      error: error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
 }

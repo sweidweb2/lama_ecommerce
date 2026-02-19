@@ -21,6 +21,7 @@ import {
   UserPlus,
   ChevronRight,
   ChevronDown,
+  Eye,
 } from "lucide-react"
 import { SidebarItem } from "./sidebar-item"
 import { cn } from "@/lib/utils"
@@ -67,6 +68,11 @@ const menuItems = [
         href: "/admin/products/create",
         label: "Create Product",
         icon: Plus,
+      },
+      {
+        href: "/admin/product-views",
+        label: "Product Views",
+        icon: Eye,
       },
     ],
   },

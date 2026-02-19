@@ -104,7 +104,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
   const reviews = await getProductReviewsService(product.id)
 
   // Track product view in the background (don't await to avoid blocking page load)
-  trackProductViewAction(product.id).catch((error) => {
+  trackProductViewAction(product.id).catch((error: unknown) => {
     console.error("Failed to track product view:", error);
   });
 
