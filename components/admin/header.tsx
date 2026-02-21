@@ -1,7 +1,7 @@
 "use client"
 
 import { ModeToggle } from "@/components/theme/mode-toggle"
-import { Search, User, Settings, LogOut, ExternalLink } from "lucide-react"
+import { Search, User, LogOut, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { MobileSidebar } from "./mobile-sidebar"
@@ -196,12 +196,6 @@ export function Header() {
               <a href="/profile" className="flex items-center cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
                 Profile
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href="/profile/setting" className="flex items-center cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
