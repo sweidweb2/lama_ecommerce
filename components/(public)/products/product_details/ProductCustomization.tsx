@@ -35,6 +35,42 @@ const COLOR_MAP: Record<string, string> = {
   'Tan': '#D2B48C',
 }
 
+// Helper function to check if a hex color is light
+function isLightHexColor(hex: string): boolean {
+  try {
+    // Remove # if present
+    let cleanHex = hex.replace('#', '')
+    
+    // Handle 3-character hex codes (e.g., #FFF -> #FFFFFF)
+    if (cleanHex.length === 3) {
+      cleanHex = cleanHex.split('').map(char => char + char).join('')
+    }
+    
+    // Validate hex code length
+    if (cleanHex.length !== 6) {
+      return false
+    }
+    
+    // Parse RGB values
+    const r = parseInt(cleanHex.substring(0, 2), 16)
+    const g = parseInt(cleanHex.substring(2, 4), 16)
+    const b = parseInt(cleanHex.substring(4, 6), 16)
+    
+    // Validate parsed values
+    if (isNaN(r) || isNaN(g) || isNaN(b)) {
+      return false
+    }
+    
+    // Calculate luminance (using relative luminance formula)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    
+    // Consider light if luminance is greater than 0.5
+    return luminance > 0.5
+  } catch {
+    return false
+  }
+}
+
 /**
  * ProductCustomization Component
  * 
@@ -82,7 +118,9 @@ export function ProductCustomization({
     return variants.find((v) => {
       const colorMatch = colors.length === 0 || v.color === selectedColor
       const sizeMatch = sizes.length === 0 || v.size === selectedSize
-      return colorMatch && sizeMatch && v.quantity_stock > 0
+      // We intentionally DO NOT filter by stock here so we can
+      // show a clear \"Out of stock\" state for the selected variant.
+      return colorMatch && sizeMatch
     })
   }, [variants, selectedColor, selectedSize, colors.length, sizes.length])
 
@@ -305,8 +343,12 @@ export function ProductCustomization({
             {colors.map((color) => {
               const isAvailable = isOptionAvailable('color', color)
               const isSelected = selectedColor === color
-              const colorHex = COLOR_MAP[color] || '#6B7280'
-              const isLightColor = color === 'White' || color === 'Beige' || color === 'Yellow'
+              // Check if color is already a hex code, otherwise look it up in COLOR_MAP
+              const colorHex = color.startsWith('#') 
+                ? color 
+                : (COLOR_MAP[color] || '#6B7280')
+              const isLightColor = color === 'White' || color === 'Beige' || color === 'Yellow' || 
+                (color.startsWith('#') && isLightHexColor(color))
               
               return (
                 <button
@@ -323,7 +365,7 @@ export function ProductCustomization({
                   )}
                   style={{ backgroundColor: colorHex }}
                   aria-label={`Select color ${color}`}
-                  title={color}
+                  title={color.startsWith('#') ? color : color}
                 >
                   {isSelected && (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -446,13 +488,13 @@ export function ProductCustomization({
             : 'Add to Cart'}
         </Button>
 
-        {/* Wishlist Icon Card - Small card with heart icon */}
-        <button
-          type="button"
-          onClick={handleWishlistToggle}
-          disabled={!selectedVariant || isTogglingWishlist}
-          className={`
-            h-12 w-12 rounded-lg border-2 transition-all duration-300 flex items-center justify-center
+      {/* Wishlist Button - heart icon with visible label for accessibility & tests */}
+      <button
+        type="button"
+        onClick={handleWishlistToggle}
+        disabled={!selectedVariant || isTogglingWishlist}
+        className={`
+            h-12 px-3 rounded-lg border-2 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-medium
             ${isInWishlist
               ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-600'
               : 'bg-background border-border hover:border-red-200 hover:bg-red-50/50 text-muted-foreground'
@@ -460,16 +502,19 @@ export function ProductCustomization({
             ${isTogglingWishlist ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}
             ${!selectedVariant ? 'opacity-50 cursor-not-allowed' : ''}
           `}
-          aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-        >
-          <Heart
-            className={`h-5 w-5 transition-all duration-300 ${
-              isInWishlist
-                ? 'fill-white text-white scale-110'
-                : 'text-muted-foreground'
-            } ${isTogglingWishlist ? 'opacity-50 animate-pulse' : ''}`}
-          />
-        </button>
+        aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+      >
+        <Heart
+          className={`h-5 w-5 transition-all duration-300 ${
+            isInWishlist
+              ? 'fill-white text-white scale-110'
+              : 'text-muted-foreground'
+          } ${isTogglingWishlist ? 'opacity-50 animate-pulse' : ''}`}
+        />
+        <span>
+          {isInWishlist ? 'In wishlist' : 'Add to wishlist'}
+        </span>
+      </button>
       </div>
     </div>
   )

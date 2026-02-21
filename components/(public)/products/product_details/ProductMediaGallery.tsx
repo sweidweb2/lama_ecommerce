@@ -101,7 +101,7 @@ export function ProductMediaGallery({
         </div>
 
         {/* Thumbnails */}
-        {sortedImages.length > 1 && (
+        {sortedImages.length > 0 && (
           <div className="flex gap-2 overflow-x-auto hide-scrollbar">
             {sortedImages.map((image, index) => {
               const isSelected = index === selectedIndex
@@ -156,7 +156,7 @@ export function ProductMediaGallery({
               </div>
             )}
           </div>
-          {sortedImages.length > 1 && (
+          {sortedImages.length > 0 && (
             <div className="flex gap-2 justify-center overflow-x-auto hide-scrollbar p-4 bg-background/95 backdrop-blur-sm">
               {sortedImages.map((image, index) => {
                 const isSelected = index === selectedIndex

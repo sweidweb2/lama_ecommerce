@@ -7,8 +7,8 @@ export default function SettingsPage() {
     return (
         <div className="container mx-auto px-4 py-12">
             <div className="mb-10">
-                <h1 className="text-4xl font-black tracking-tight text-foreground">
-                    Settings
+                <h1 className="text-4xl font-black tracking-tight text-foreground" data-testid="profile-settings-heading">
+                    Profile Settings
                 </h1>
                 <p className="text-muted-foreground mt-2">
                     Manage your account settings and preferences.

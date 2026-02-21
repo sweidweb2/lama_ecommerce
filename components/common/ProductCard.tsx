@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductWithRelations } from '@/types/product'
 import { formatPrice } from '@/lib/utils'
-import { WishlistButton } from './WishlistButton'
 import { ImageIcon } from 'lucide-react'
 
 interface ProductCardProps {
@@ -15,9 +14,15 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
     const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0]
     const hasImage = primaryImage?.url_image
+    const productSlug = product.slug || product.id
 
     return (
-        <Link href={`/products/${product.slug}`} className="block h-full group">
+        <Link
+            href={`/products/${productSlug}`}
+            className="block h-full group"
+            aria-label={`View details for ${product.name}`}
+            title={product.name}
+        >
             <Card className="h-full border-none shadow-none bg-transparent overflow-hidden transition-all duration-300">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-muted border border-border/40">
                     {hasImage ? (
@@ -47,15 +52,6 @@ export function ProductCard({ product }: ProductCardProps) {
                                 Hot
                             </Badge>
                         )}
-                    </div>
-
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <WishlistButton
-                            productId={product.id}
-                            variantId={product.variants?.[0]?.id}
-                            size="icon"
-                            className="h-8 w-8 rounded-lg bg-background/80 border-none"
-                        />
                     </div>
                 </div>
                 <div className="-mt-2 pb-1 px-1 flex flex-col gap-0.5">

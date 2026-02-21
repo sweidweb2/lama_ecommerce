@@ -49,7 +49,7 @@ export function ProfileActions() {
             label: 'Account Settings',
             description: 'Update your profile and preferences',
             icon: Settings,
-            href: '/account/settings', // TODO: Update when settings page is created
+            href: '/profile/setting',
             color: 'text-gray-600',
             bgColor: 'bg-gray-50 dark:bg-gray-950/20',
         },

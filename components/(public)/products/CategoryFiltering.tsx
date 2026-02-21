@@ -31,8 +31,11 @@ export function CategoryFiltering({ categories }: CategoryFilteringProps) {
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Categories</h3>
-                <div className="flex flex-col gap-1">
+                <label htmlFor="category-filter" className="text-sm font-semibold uppercase tracking-wider mb-4 block">
+                    Category
+                </label>
+                <h3 className="sr-only">Categories</h3>
+                <div id="category-filter" className="flex flex-col gap-1" role="list" aria-label="Product categories">
                     <Button
                         variant={!currentCategory ? 'secondary' : 'ghost'}
                         className={cn(
@@ -40,6 +43,7 @@ export function CategoryFiltering({ categories }: CategoryFilteringProps) {
                             !currentCategory && "font-semibold"
                         )}
                         asChild
+                        role="listitem"
                     >
                         <Link href={`/products?${createQueryString('category', null)}`}>
                             All Products
@@ -54,6 +58,7 @@ export function CategoryFiltering({ categories }: CategoryFilteringProps) {
                                 currentCategory === category.slug && "font-semibold"
                             )}
                             asChild
+                            role="listitem"
                         >
                             <Link href={`/products?${createQueryString('category', category.slug)}`}>
                                 {category.name}

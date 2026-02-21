@@ -139,26 +139,32 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
         <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
 
         {/* Subtotal */}
-        <div className="space-y-1.5 text-sm">
+        <div className="space-y-1.5 text-sm" data-testid="subtotal-section">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-medium">{formatPrice(subtotal)}</span>
+            <span className="font-medium" data-testid="subtotal-amount">{formatPrice(subtotal)}</span>
           </div>
         </div>
 
         {/* Shipping Zone Selection */}
-        <div className="space-y-2 pt-1.5 border-t border-black/5">
+        <div className="space-y-2 pt-1.5 border-t border-black/5" data-testid="shipping-zone-section">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">
+            <Label className="text-sm font-medium" htmlFor="shipping-zone-select" id="shipping-zone-label">
               Shipping Zone <span className="text-destructive">*</span>
             </Label>
             <Select value={selectedZoneId} onValueChange={setSelectedZoneId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger 
+                className="w-full" 
+                id="shipping-zone-select"
+                aria-labelledby="shipping-zone-label"
+                data-testid="shipping-zone-select"
+                aria-label="Select shipping zone"
+              >
                 <SelectValue placeholder="Select shipping zone" />
               </SelectTrigger>
               <SelectContent>
                 {shippingZones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
+                  <SelectItem key={zone.id} value={zone.id} data-testid={`shipping-zone-option-${zone.id}`}>
                     <div className="flex flex-col">
                       <span>{zone.name}</span>
                       {zone.estimated_time && (
@@ -297,12 +303,15 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
           className="w-full rounded-2xl text-sm"
           disabled={!isFormValid}
           onClick={handleCheckout}
+          data-testid="proceed-to-checkout-button"
+          aria-label="Proceed to checkout"
+          type="button"
         >
           {!selectedZoneId
             ? "Select Shipping Zone to Continue"
             : !isFormValid
               ? "Fill All Required Fields"
-              : "Place Order"}
+              : "Proceed to checkout"}
         </Button>
 
         {!isFormValid && (

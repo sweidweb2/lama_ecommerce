@@ -42,7 +42,9 @@ async function setGuestSessionCookie(sessionId: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(GUEST_SESSION_COOKIE, sessionId, {
     httpOnly: true,
-    secure: true,
+    // In development, allow non-secure cookies so local HTTP (http://localhost) works.
+    // In production behind HTTPS, cookies will be marked secure.
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: GUEST_SESSION_MAX_AGE,
     path: "/",
@@ -339,6 +341,46 @@ export async function addItemToCartByIdAction(
   }
 
   return result;
+}
+
+/**
+ * Update cart item quantity action (public use).
+ * This is the server action called from client components (cart page).
+ * Updates the quantity of a cart item for both authenticated users and guests.
+ */
+export async function updateCartItemQuantityAction(
+  cartItemId: string,
+  quantity: number,
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  try {
+    // Import the repository function directly
+    const { updateCartItem } = await import("@/repositories/cart_item.repository");
+    
+    // Validate quantity
+    if (quantity < 1) {
+      return {
+        success: false,
+        error: "Quantity must be at least 1",
+      };
+    }
+
+    // Update cart item (RLS will ensure user can only update their own cart items)
+    const result = await updateCartItem(cartItemId, { quantity });
+
+    // Revalidate cart page if successful
+    if (result.success) {
+      revalidatePath("/cart");
+      revalidatePath("/checkout");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error in updateCartItemQuantityAction:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update cart item",
+    };
+  }
 }
 
 /**

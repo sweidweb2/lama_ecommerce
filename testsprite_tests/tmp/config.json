@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "lama_ecommerce",
+    "projectPath": "C:\\Users\\Ali\\Desktop\\lama_ecommerce",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-1E-YbFLEvDkHOzPslAQaBcQUYkx1rVpbpcFPxa34Yc-5FJpHIWxu-iI86U3ntfc0Jc-KRd_OAquTG6LCBNx8vocHUiDS0kwk16ck5s0iPVj_fYSiJl8ppK5otLej0fS-FQo"
+    }
+  },
+  "serverPort": 57217,
+  "proxy": "http://c27d191f-7d60-4c3a-8f7f-a01255f592da:4VChLFa3uDUakQxk06sPcgrskObb9vkI@tun.testsprite.com:8080"
+}

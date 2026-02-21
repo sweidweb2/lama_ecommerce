@@ -10,6 +10,7 @@ import type {
 
 /**
  * Fetch all active categories, ordered by name.
+ * Only returns categories that are active and not deleted.
  */
 export async function getCategories(): Promise<Category[]> {
   try {
@@ -17,6 +18,8 @@ export async function getCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from("categories")
       .select("*")
+      .eq("is_active", true)
+      .is("deleted_at", null)
       .order("name", { ascending: true });
 
     if (error) {

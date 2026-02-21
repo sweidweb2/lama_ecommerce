@@ -199,7 +199,7 @@ export function Header() {
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href="/profile/settings" className="flex items-center cursor-pointer">
+              <a href="/profile/setting" className="flex items-center cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </a>

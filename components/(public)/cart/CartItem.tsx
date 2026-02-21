@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus, Minus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
-import { deleteCartItemAction } from "@/actions/cart";
+import { deleteCartItemAction, updateCartItemQuantityAction } from "@/actions/cart";
 import type { ProductWithRelations } from "@/types/product";
 
 interface CartItemProps {
@@ -24,14 +24,93 @@ interface CartItemProps {
   stock: number;
 }
 
-export function CartItem({ id, product, quantity, stock }: CartItemProps) {
+export function CartItem({ id, product, quantity: initialQuantity, stock }: CartItemProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [quantity, setQuantity] = useState(initialQuantity);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
+  const isProcessingRef = useRef(false);
 
   const primaryImage =
     product.images?.find((img) => img.is_primary) || product.images?.[0];
   const imageUrl = primaryImage?.url_image || "/placeholder-product.webp";
+
+  const handleQuantityChange = async (newQuantity: number) => {
+    // Double-click protection
+    if (isProcessingRef.current) return;
+    
+    // Validate quantity
+    if (newQuantity < 1) {
+      toast.error("Error", {
+        description: "Quantity must be at least 1",
+      });
+      return;
+    }
+
+    if (newQuantity > stock) {
+      const errorMessage = `Only ${stock} units available.`;
+      setStockError(errorMessage);
+      toast.error("Insufficient stock", {
+        description: errorMessage,
+      });
+      // Clear error after 5 seconds
+      setTimeout(() => setStockError(null), 5000);
+      return;
+    }
+
+    // Clear any previous errors when validation passes
+    setStockError(null);
+
+    // Don't update if quantity hasn't changed
+    if (newQuantity === quantity) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    setIsUpdating(true);
+
+    try {
+      const result = await updateCartItemQuantityAction(id, newQuantity);
+
+      if (!result.success) {
+        const errorMessage = result.error || "Failed to update quantity. Please try again.";
+        // Check if error is related to stock
+        if (errorMessage.toLowerCase().includes("stock") || errorMessage.toLowerCase().includes("available")) {
+          setStockError(errorMessage);
+          setTimeout(() => setStockError(null), 5000);
+        }
+        toast.error("Error", {
+          description: errorMessage,
+        });
+        // Revert to previous quantity on error
+        setQuantity(quantity);
+        return;
+      }
+
+      // Update local state
+      setQuantity(newQuantity);
+
+      // Dispatch event to update floating cart button
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cart-updated'))
+      }
+
+      // Refresh the page to update subtotal
+      router.refresh();
+    } catch (error) {
+      console.error("Error updating cart item quantity:", error);
+      toast.error("Error", {
+        description: "Failed to update quantity. Please try again.",
+      });
+      // Revert to previous quantity on error
+      setQuantity(quantity);
+    } finally {
+      isProcessingRef.current = false;
+      setIsUpdating(false);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
@@ -71,7 +150,7 @@ export function CartItem({ id, product, quantity, stock }: CartItemProps) {
 
   return (
     <>
-      <div className="flex gap-4 rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4">
+      <div className="flex gap-4 rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4" data-testid="cart-item" role="article" aria-label={`Cart item: ${product.name}`}>
         <div className="relative h-20 w-20 rounded-xl overflow-hidden bg-muted border border-border/40 shrink-0">
           <Image
             src={imageUrl}
@@ -84,7 +163,7 @@ export function CartItem({ id, product, quantity, stock }: CartItemProps) {
 
         <div className="flex-1 flex flex-col justify-between gap-1">
           <div>
-            <h2 className="text-sm sm:text-base font-semibold line-clamp-1">
+            <h2 className="text-sm sm:text-base font-semibold line-clamp-1" data-testid="cart-item-name">
               {product.name}
             </h2>
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
@@ -94,18 +173,55 @@ export function CartItem({ id, product, quantity, stock }: CartItemProps) {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-[11px] font-medium">
-                Qty: {quantity}
+              {/* Quantity Controls */}
+              <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                  disabled={quantity <= 1 || isUpdating}
+                  aria-label="Decrease quantity"
+                  data-testid="decrease-quantity-button"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center text-sm font-medium" data-testid="cart-item-quantity">
+                  {quantity}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                  disabled={quantity >= stock || isUpdating}
+                  aria-label="Increase quantity"
+                  data-testid="increase-quantity-button"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
               </div>
               {/* Stock Information Card */}
               <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground">
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   stock > 0 ? 'bg-primary' : 'bg-destructive'
                 }`}></span>
-                {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                <span data-testid="available-stock-text">
+                  {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                </span>
               </div>
             </div>
-            <p className="text-sm font-bold">
+            {/* Stock Validation Error Message */}
+            {stockError && (
+              <div className="mt-2 rounded-md bg-destructive/10 border border-destructive/20 p-2" data-testid="stock-validation-error">
+                <p className="text-xs text-destructive font-medium">
+                  {stockError}
+                </p>
+              </div>
+            )}
+            <p className="text-sm font-bold" data-testid="cart-item-total">
               {formatPrice(product.price * quantity)}
             </p>
           </div>
@@ -116,6 +232,8 @@ export function CartItem({ id, product, quantity, stock }: CartItemProps) {
           onClick={() => setOpen(true)}
           className="h-8 w-8 flex items-center justify-center rounded-full border border-black/5 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors text-xs"
           aria-label={`Remove ${product.name} from cart`}
+          data-testid="remove-cart-item-button"
+          title="Remove item from cart"
         >
           <Trash2 className="h-4 w-4" />
         </button>
