@@ -6,7 +6,6 @@ import {
 } from "@/actions/product_view";
 import {
   Eye,
-  Package,
   Users,
   Calendar,
   TrendingUp,
@@ -45,20 +44,13 @@ export default async function ProductViewsPage({
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <ProductViewsStatCard
           title="Total Views"
           value={formatNumber(stats.totalViews)}
           description="All time"
           icon={Eye}
           borderColor="#3b82f6"
-        />
-        <ProductViewsStatCard
-          title="Unique Products"
-          value={formatNumber(stats.uniqueProducts)}
-          description="Viewed products"
-          icon={Package}
-          borderColor="#10b981"
         />
         <ProductViewsStatCard
           title="Unique Users"

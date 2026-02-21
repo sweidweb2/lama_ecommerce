@@ -122,6 +122,8 @@ UI, business logic, and data access.
                         HOW IT WORKS - ARCHITECTURE
 ================================================================================
 
+
+
 LAYERED ARCHITECTURE:
 
 1. PRESENTATION LAYER (app/ & components/)
@@ -282,6 +284,14 @@ INFRASTRUCTURE:
                         USER ROLES & PERMISSIONS
 ================================================================================
 
+user:
+example@gmail.com
+password123
+
+admin:
+helepinostar2022@gmail.com
+Password123!
+
 PUBLIC USER (Unauthenticated):
 - Browse products
 - View product details
@@ -340,3 +350,4 @@ handling, and a scalable architecture that follows best practices for
 Next.js and Supabase development.
 
 ================================================================================
+

@@ -120,7 +120,7 @@ export default async function AdminDashboard() {
               View all
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
             {recentOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent orders</p>
             ) : (
@@ -166,7 +166,7 @@ export default async function AdminDashboard() {
               View all
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
             {recentUsers.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent users</p>
             ) : (
