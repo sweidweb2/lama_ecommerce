@@ -1,31 +1,24 @@
 'use client'
 
-import Link from 'next/link'
-import { useSearchParams, useRouter } from 'next/navigation'
 import { Category } from '@/types/product'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface CategoryFilteringProps {
     categories: Category[]
+    selectedCategory?: string | null
+    onCategoryChange?: (category: string | null) => void
 }
 
-export function CategoryFiltering({ categories }: CategoryFilteringProps) {
-    const searchParams = useSearchParams()
-    const router = useRouter()
-    const currentCategory = searchParams.get('category')
-
-    const createQueryString = (name: string, value: string | null) => {
-        const params = new URLSearchParams(searchParams.toString())
-        if (value) {
-            params.set(name, value)
-        } else {
-            params.delete(name)
+export function CategoryFiltering({ 
+    categories, 
+    selectedCategory, 
+    onCategoryChange 
+}: CategoryFilteringProps) {
+    const handleCategoryClick = (categorySlug: string | null) => {
+        if (onCategoryChange) {
+            onCategoryChange(categorySlug)
         }
-        // Reset page when filtering
-        params.delete('page')
-        return params.toString()
     }
 
     return (
@@ -37,32 +30,28 @@ export function CategoryFiltering({ categories }: CategoryFilteringProps) {
                 <h3 className="sr-only">Categories</h3>
                 <div id="category-filter" className="flex flex-col gap-1" role="list" aria-label="Product categories">
                     <Button
-                        variant={!currentCategory ? 'secondary' : 'ghost'}
+                        variant={!selectedCategory ? 'secondary' : 'ghost'}
                         className={cn(
                             "justify-start font-normal",
-                            !currentCategory && "font-semibold"
+                            !selectedCategory && "font-semibold"
                         )}
-                        asChild
+                        onClick={() => handleCategoryClick(null)}
                         role="listitem"
                     >
-                        <Link href={`/products?${createQueryString('category', null)}`}>
-                            All Products
-                        </Link>
+                        All Products
                     </Button>
                     {categories.map((category) => (
                         <Button
                             key={category.id}
-                            variant={currentCategory === category.slug ? 'secondary' : 'ghost'}
+                            variant={selectedCategory === category.slug ? 'secondary' : 'ghost'}
                             className={cn(
                                 "justify-start font-normal",
-                                currentCategory === category.slug && "font-semibold"
+                                selectedCategory === category.slug && "font-semibold"
                             )}
-                            asChild
+                            onClick={() => handleCategoryClick(category.slug)}
                             role="listitem"
                         >
-                            <Link href={`/products?${createQueryString('category', category.slug)}`}>
-                                {category.name}
-                            </Link>
+                            {category.name}
                         </Button>
                     ))}
                 </div>

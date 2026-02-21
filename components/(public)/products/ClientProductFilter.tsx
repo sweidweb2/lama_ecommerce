@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import { ProductGrid } from './ProductGrid'
 import { SearchBar } from './SearchBar'
 import { MobileFilters } from './MobileFilters'
@@ -16,15 +15,14 @@ export function ClientProductFilter({ initialProducts, categories }: ClientProdu
     const [searchQuery, setSearchQuery] = useState("")
     const [page, setPage] = useState(1)
     const pageSize = 12
-    const searchParams = useSearchParams()
-    const sort = searchParams.get("sort") || "created_at-desc"
 
-    // Reset to first page when search or sort changes
+    // Reset to first page when search changes
     useEffect(() => {
         setPage(1)
-    }, [searchQuery, sort])
+    }, [searchQuery])
 
-    // Filter + sort products client-side based on search query and sort param
+    // Filter products client-side based on search query only
+    // Sorting and other filters are handled by the parent component
     const processedProducts = useMemo(() => {
         let data = initialProducts
 
@@ -42,31 +40,8 @@ export function ClientProductFilter({ initialProducts, categories }: ClientProdu
             })
         }
 
-        // Apply client-side sort based on current sort param to ensure UI reflects selection
-        const sorted = [...data]
-        switch (sort) {
-            case "price-asc":
-                sorted.sort((a, b) => Number(a.price) - Number(b.price))
-                break
-            case "price-desc":
-                sorted.sort((a, b) => Number(b.price) - Number(a.price))
-                break
-            case "name-asc":
-                sorted.sort((a, b) => a.name.localeCompare(b.name))
-                break
-            case "created_at-desc":
-            default:
-                // Fallback to created_at desc to match server-side default
-                sorted.sort((a, b) => {
-                    const aDate = a.created_at ? new Date(a.created_at as any).getTime() : 0
-                    const bDate = b.created_at ? new Date(b.created_at as any).getTime() : 0
-                    return bDate - aDate
-                })
-                break
-        }
-
-        return sorted
-    }, [initialProducts, searchQuery, sort])
+        return data
+    }, [initialProducts, searchQuery])
 
     const totalPages = Math.max(1, Math.ceil(processedProducts.length / pageSize))
     const currentPage = Math.min(page, totalPages)

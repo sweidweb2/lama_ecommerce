@@ -20,33 +20,43 @@ const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
 
 interface SizeFilterProps {
     categorySlug?: string | null
+    selectedSizes?: string[]
+    onSizesChange?: (sizes: string[]) => void
 }
 
-export function SizeFilter({ categorySlug }: SizeFilterProps) {
+export function SizeFilter({ 
+    categorySlug, 
+    selectedSizes: controlledSizes,
+    onSizesChange 
+}: SizeFilterProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-
-    const [selectedSizes, setSelectedSizes] = useState<string[]>([])
+    const [localSizes, setLocalSizes] = useState<string[]>([])
 
     // Get available sizes based on category
     const availableSizes = categorySlug 
         ? (CATEGORY_SIZES[categorySlug] || DEFAULT_SIZES)
         : DEFAULT_SIZES
 
-    // Sync from URL
+    // Use controlled value if provided, otherwise use local state
+    const selectedSizes = controlledSizes !== undefined ? controlledSizes : localSizes
+
+    // Sync from URL only if not controlled
     useEffect(() => {
-        const sizesParam = searchParams.get('sizes')
-        if (!sizesParam) {
-            setSelectedSizes([])
-        } else {
-            setSelectedSizes(
-                sizesParam
-                    .split(',')
-                    .map((s) => s.trim().toUpperCase())
-                    .filter(Boolean),
-            )
+        if (controlledSizes === undefined) {
+            const sizesParam = searchParams.get('sizes')
+            if (!sizesParam) {
+                setLocalSizes([])
+            } else {
+                setLocalSizes(
+                    sizesParam
+                        .split(',')
+                        .map((s) => s.trim().toUpperCase())
+                        .filter(Boolean),
+                )
+            }
         }
-    }, [searchParams])
+    }, [searchParams, controlledSizes])
 
     const toggleSize = (size: string) => {
         const normalized = size.toUpperCase()
@@ -54,30 +64,19 @@ export function SizeFilter({ categorySlug }: SizeFilterProps) {
             ? selectedSizes.filter((s) => s !== normalized)
             : [...selectedSizes, normalized]
 
-        setSelectedSizes(newSizes)
-        updateURL(newSizes)
-    }
-
-    const updateURL = (sizes: string[]) => {
-        const params = new URLSearchParams(searchParams.toString())
-
-        if (sizes.length === 0) {
-            params.delete('sizes')
+        if (onSizesChange) {
+            onSizesChange(newSizes)
         } else {
-            params.set('sizes', sizes.join(','))
+            setLocalSizes(newSizes)
         }
-
-        // Reset page when filtering
-        params.delete('page')
-        router.push(`/products?${params.toString()}`)
     }
 
     const handleClear = () => {
-        setSelectedSizes([])
-        const params = new URLSearchParams(searchParams.toString())
-        params.delete('sizes')
-        params.delete('page')
-        router.push(`/products?${params.toString()}`)
+        if (onSizesChange) {
+            onSizesChange([])
+        } else {
+            setLocalSizes([])
+        }
     }
 
     // Don't render if no sizes available for this category

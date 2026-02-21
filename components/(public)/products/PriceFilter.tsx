@@ -24,36 +24,33 @@ export function PriceFilter({
     const searchParams = useSearchParams()
     const [localValue, setLocalValue] = useState<[number, number]>([minPrice, maxPrice])
 
-    // Initialize from URL params if available
+    // Initialize from URL params if available (only if not controlled)
     useEffect(() => {
-        const minParam = searchParams.get('minPrice')
-        const maxParam = searchParams.get('maxPrice')
-        
-        if (minParam && maxParam) {
-            const min = parseFloat(minParam)
-            const max = parseFloat(maxParam)
-            if (!isNaN(min) && !isNaN(max)) {
-                setLocalValue([min, max])
-                if (onChange) {
-                    onChange([min, max])
+        if (value === undefined) {
+            const minParam = searchParams.get('minPrice')
+            const maxParam = searchParams.get('maxPrice')
+            
+            if (minParam && maxParam) {
+                const min = parseFloat(minParam)
+                const max = parseFloat(maxParam)
+                if (!isNaN(min) && !isNaN(max)) {
+                    setLocalValue([min, max])
                 }
-            }
-        } else {
-            setLocalValue([minPrice, maxPrice])
-            if (onChange) {
-                onChange([minPrice, maxPrice])
+            } else {
+                setLocalValue([minPrice, maxPrice])
             }
         }
-    }, [minPrice, maxPrice, searchParams, onChange])
+    }, [minPrice, maxPrice, searchParams, value])
 
     // Use controlled value if provided, otherwise use local state
     const currentValue = value !== undefined ? value : localValue
 
     const handleValueChange = (newValue: number[]) => {
         const newRange: [number, number] = [newValue[0], newValue[1]]
-        setLocalValue(newRange)
         if (onChange) {
             onChange(newRange)
+        } else {
+            setLocalValue(newRange)
         }
     }
 
