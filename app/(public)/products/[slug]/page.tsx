@@ -39,7 +39,7 @@ interface ProductPageProps {
  * - ProductAvailability: Maps to customised_products.quantity_stock
  * - ProductActions: Handles cart operations (maps to carts/cart_items)
  * - ProductReviews: Maps to reviews table
- * - ProductRelated: Related products by category
+ * - ProductRelated: Related products by priority (brand+category, then brand, then category, then rest)
  * - ProductMetadata: SKU, timestamps, etc.
  */
 export default async function ProductDetailsPage({ params }: ProductPageProps) {
@@ -72,33 +72,53 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     deleted_at: variant.deleted_at,
   }))
 
-  // Get related products (same category, excluding current)
+  // Get related products by priority: (brand + category) → (brand only) → (category only) → (remaining)
   const { data: allProducts } = await getProducts({
     page: 1,
     pageSize: 10000, // Large number to get all products
   })
 
-  let relatedProducts = allProducts.filter((p) => 
-    p.id !== product.id && 
-    p.category_id === product.category_id && 
-    p.is_active
-  )
-  
-  // If not enough products in same category, add from other categories
-  if (relatedProducts.length < 12) {
-    const additionalProducts = allProducts
-      .filter((p) => 
-        p.id !== product.id && 
-        p.category_id !== product.category_id && 
-        p.is_active
-      )
-      .slice(0, 12 - relatedProducts.length)
-    
-    relatedProducts = [...relatedProducts, ...additionalProducts]
+  const others = allProducts.filter((p) => p.id !== product.id && p.is_active)
+  const usedIds = new Set<string>()
+
+  const takeUpTo = (list: typeof others, max: number) => {
+    const out: typeof others = []
+    for (const p of list) {
+      if (usedIds.has(p.id)) continue
+      usedIds.add(p.id)
+      out.push(p)
+      if (out.length >= max) break
+    }
+    return out
   }
-  
-  // Limit to 12 products
-  relatedProducts = relatedProducts.slice(0, 12)
+
+  const need = 12
+  const tier1 = takeUpTo(
+    others.filter(
+      (p) =>
+        p.brand_id === product.brand_id && p.category_id === product.category_id
+    ),
+    need
+  )
+  let relatedProducts = tier1
+  if (relatedProducts.length < need) {
+    const tier2 = takeUpTo(
+      others.filter((p) => p.brand_id === product.brand_id),
+      need - relatedProducts.length
+    )
+    relatedProducts = [...relatedProducts, ...tier2]
+  }
+  if (relatedProducts.length < need) {
+    const tier3 = takeUpTo(
+      others.filter((p) => p.category_id === product.category_id),
+      need - relatedProducts.length
+    )
+    relatedProducts = [...relatedProducts, ...tier3]
+  }
+  if (relatedProducts.length < need) {
+    const tier4 = takeUpTo(others, need - relatedProducts.length)
+    relatedProducts = [...relatedProducts, ...tier4]
+  }
 
   // Fetch reviews for this product
   const reviews = await getProductReviewsService(product.id)
