@@ -69,7 +69,7 @@ export async function createReview(
         rating: input.rating,
         title: input.title?.trim() || null,
         comment: input.comment?.trim() || null,
-        review_status: "pending", // New reviews start as pending
+        review_status: "approved", // New user reviews are approved by default; admin can edit
       })
       .select()
       .single();
