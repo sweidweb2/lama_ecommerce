@@ -85,7 +85,9 @@ export function Navbar() {
 
   // Check if user is admin
   const isAdmin = role === ROLES.ADMIN && user !== null;
-  const isLoggedIn = user !== null && !loading;
+  // Only check isLoggedIn after mount to avoid hydration mismatch
+  // During SSR, we'll render as if not logged in, then update after mount
+  const isLoggedIn = mounted && user !== null && !loading;
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -324,6 +326,7 @@ export function Navbar() {
                   </div>
                 )}
                 <nav className="flex flex-col gap-4 mt-8 px-4 overflow-y-auto flex-1 pb-4 hide-scrollbar">
+                  {/* Navigation Links - matching desktop */}
                   {NAV_LINKS_BASE.map((link) => (
                     <Link
                       key={link.href}
@@ -332,7 +335,7 @@ export function Navbar() {
                       className={cn(
                         "text-lg font-medium transition-colors hover:text-primary",
                         pathname === link.href
-                          ? "text-primary"
+                          ? "text-primary font-semibold"
                           : "text-muted-foreground",
                       )}
                     >
@@ -346,34 +349,17 @@ export function Navbar() {
                       className={cn(
                         "text-lg font-medium transition-colors hover:text-primary",
                         pathname === ORDERS_LINK.href
-                          ? "text-primary"
+                          ? "text-primary font-semibold"
                           : "text-muted-foreground",
                       )}
                     >
                       {ORDERS_LINK.label}
                     </Link>
                   )}
+                  
                   <hr className="my-2" />
-                  {isLoggedIn && (
-                    <>
-                      <Link
-                        href={ROUTES.CART}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <ShoppingCart className="h-5 w-5" />
-                        Cart
-                      </Link>
-                      <Link
-                        href="/wishlist"
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Heart className="h-5 w-5" />
-                        Wishlist
-                      </Link>
-                    </>
-                  )}
+                  
+                  {/* Actions - matching desktop order: Search, Wishlist, Theme, Cart */}
                   <div
                     onClick={() => setMobileSearchOpen((prev) => !prev)}
                     className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
@@ -381,12 +367,36 @@ export function Navbar() {
                     <Search className="h-5 w-5" />
                     {mobileSearchOpen ? "Close search" : "Search"}
                   </div>
-                  <hr className="my-2" />
+                  
+                  {/* Wishlist - available to everyone, matching desktop */}
+                  <Link
+                    href="/wishlist"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Heart className="h-5 w-5" />
+                    Wishlist
+                  </Link>
+                  
+                  {/* Theme Toggle - matching desktop */}
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium">Theme</span>
+                    <span className="text-lg font-medium text-muted-foreground">Theme</span>
                     <ModeToggle />
                   </div>
+                  
+                  {/* Cart - available to everyone, matching desktop */}
+                  <Link
+                    href={ROUTES.CART}
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    Cart
+                  </Link>
+                  
                   <hr className="my-2" />
+                  
+                  {/* User Menu - matching desktop */}
                   {isLoggedIn ? (
                     <div className="flex flex-col gap-2">
                       <div className="px-2 py-1.5">
@@ -435,6 +445,7 @@ export function Navbar() {
                       </Button>
                     </div>
                   ) : (
+                    /* Login/Signup buttons - matching desktop */
                     <div className="flex flex-col gap-2">
                       <Link href={ROUTES.LOGIN} onClick={() => setIsOpen(false)}>
                         <Button className="w-full justify-start" variant="ghost">

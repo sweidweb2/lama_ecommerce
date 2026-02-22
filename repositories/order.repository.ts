@@ -88,7 +88,12 @@ export async function getOrderById(
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching order by id:", error);
+      console.error("Error fetching order by id:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       return null;
     }
 

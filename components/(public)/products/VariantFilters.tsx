@@ -5,24 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const AVAILABLE_COLORS = [
-    'Red',
-    'Blue',
-    'Green',
-    'Yellow',
-    'Black',
-    'White',
-    'Gray',
-    'Purple',
-    'Pink',
-    'Orange',
-    'Brown',
-    'Navy',
-    'Beige',
-    'Tan',
-]
-
-
 function getColorValue(colorName: string): string {
     const colorMap: Record<string, string> = {
         red: '#ef4444',
@@ -46,12 +28,23 @@ function getColorValue(colorName: string): string {
     return colorMap[normalized] || '#6b7280'
 }
 
+/**
+ * Capitalize first letter of each word in a string
+ */
+function capitalizeColor(color: string): string {
+    return color
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+}
+
 interface VariantFiltersProps {
     value?: string[]
     onChange?: (colors: string[]) => void
+    availableColors?: string[]
 }
 
-export function VariantFilters({ value, onChange }: VariantFiltersProps) {
+export function VariantFilters({ value, onChange, availableColors = [] }: VariantFiltersProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -75,6 +68,11 @@ export function VariantFilters({ value, onChange }: VariantFiltersProps) {
     }, [searchParams, value])
 
     const selectedColors = value !== undefined ? value : localColors
+
+    // If no available colors provided, don't render
+    if (availableColors.length === 0) {
+        return null
+    }
 
     const toggleColor = (color: string) => {
         const normalized = color.toLowerCase()
@@ -139,10 +137,11 @@ export function VariantFilters({ value, onChange }: VariantFiltersProps) {
                     )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                    {AVAILABLE_COLORS.map((color) => {
+                    {availableColors.map((color) => {
                         const normalized = color.toLowerCase()
                         const isSelected = selectedColors.includes(normalized)
                         const colorValue = getColorValue(color)
+                        const displayName = capitalizeColor(color)
 
                         return (
                             <button
@@ -162,7 +161,7 @@ export function VariantFilters({ value, onChange }: VariantFiltersProps) {
                                         backgroundColor: colorValue,
                                     }}
                                 />
-                                <span className="truncate">{color}</span>
+                                <span className="truncate">{displayName}</span>
                             </button>
                         )
                     })}

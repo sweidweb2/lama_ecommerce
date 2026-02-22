@@ -150,36 +150,45 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
 
   return (
     <>
-      <div className="flex gap-4 rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4" data-testid="cart-item" role="article" aria-label={`Cart item: ${product.name}`}>
-        <div className="relative h-20 w-20 rounded-xl overflow-hidden bg-muted border border-border/40 shrink-0">
+      <div className="flex gap-2 sm:gap-4 rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-3 sm:p-4" data-testid="cart-item" role="article" aria-label={`Cart item: ${product.name}`}>
+        <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden bg-muted border border-border/40 shrink-0">
           <Image
             src={imageUrl}
             alt={product.name}
             fill
             className="object-cover"
-            sizes="80px"
+            sizes="(max-width: 640px) 64px, 80px"
           />
         </div>
 
-        <div className="flex-1 flex flex-col justify-between gap-1">
-          <div>
-            <h2 className="text-sm sm:text-base font-semibold line-clamp-1" data-testid="cart-item-name">
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
+          <div className="min-w-0">
+            <h2 className="text-xs sm:text-sm md:text-base font-semibold line-clamp-2 sm:line-clamp-1" data-testid="cart-item-name">
               {product.name}
             </h2>
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-0.5">
               {product.category?.name || "Category"}
             </p>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          {/* Stock Validation Error Message */}
+          {stockError && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-1.5 sm:p-2" data-testid="stock-validation-error">
+              <p className="text-[10px] sm:text-xs text-destructive font-medium">
+                {stockError}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {/* Quantity Controls */}
               <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-6 w-6 sm:h-7 sm:w-7 p-0"
                   onClick={() => handleQuantityChange(quantity - 1)}
                   disabled={quantity <= 1 || isUpdating}
                   aria-label="Decrease quantity"
@@ -187,14 +196,14 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
-                <span className="w-8 text-center text-sm font-medium" data-testid="cart-item-quantity">
+                <span className="w-7 sm:w-8 text-center text-xs sm:text-sm font-medium" data-testid="cart-item-quantity">
                   {quantity}
                 </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-6 w-6 sm:h-7 sm:w-7 p-0"
                   onClick={() => handleQuantityChange(quantity + 1)}
                   disabled={quantity >= stock || isUpdating}
                   aria-label="Increase quantity"
@@ -204,8 +213,8 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
                 </Button>
               </div>
               {/* Stock Information Card */}
-              <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                <span className={`w-1.5 h-1.5 rounded-full ${
+              <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-medium text-muted-foreground">
+                <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
                   stock > 0 ? 'bg-primary' : 'bg-destructive'
                 }`}></span>
                 <span data-testid="available-stock-text">
@@ -213,15 +222,7 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
                 </span>
               </div>
             </div>
-            {/* Stock Validation Error Message */}
-            {stockError && (
-              <div className="mt-2 rounded-md bg-destructive/10 border border-destructive/20 p-2" data-testid="stock-validation-error">
-                <p className="text-xs text-destructive font-medium">
-                  {stockError}
-                </p>
-              </div>
-            )}
-            <p className="text-sm font-bold" data-testid="cart-item-total">
+            <p className="text-xs sm:text-sm font-bold" data-testid="cart-item-total">
               {formatPrice(product.price * quantity)}
             </p>
           </div>
@@ -230,12 +231,12 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="h-8 w-8 flex items-center justify-center rounded-full border border-black/5 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors text-xs"
+          className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-full border border-black/5 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors text-xs shrink-0"
           aria-label={`Remove ${product.name} from cart`}
           data-testid="remove-cart-item-button"
           title="Remove item from cart"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </button>
       </div>
 

@@ -47,6 +47,16 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  // Validation errors
+  const [errors, setErrors] = useState<{
+    shippingZone?: string;
+    country?: string;
+    city?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  }>({});
+
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<"processing" | "success" | "error">(
@@ -67,10 +77,75 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
     phone.trim().length >= 5 &&
     email.includes("@");
 
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+
+    if (!selectedZoneId) {
+      newErrors.shippingZone = "Please select a shipping zone";
+    }
+
+    if (!country.trim()) {
+      newErrors.country = "Country is required";
+    }
+
+    if (!city.trim()) {
+      newErrors.city = "City is required";
+    }
+
+    if (!address.trim()) {
+      newErrors.address = "Address is required";
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (phone.trim().length < 5) {
+      newErrors.phone = "Phone number must be at least 5 characters";
+    }
+
+    if (!email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!email.includes("@")) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    setErrors(newErrors);
+    return { isValid: Object.keys(newErrors).length === 0, errors: newErrors };
+  };
+
   const handleCheckout = async () => {
     // Double-click protection
     if (isProcessingRef.current) return;
+
+    // Validate form first
+    const validation = validateForm();
+    if (!validation.isValid) {
+      // Scroll to first error after state update
+      setTimeout(() => {
+        const errorKeys = Object.keys(validation.errors);
+        if (errorKeys.length > 0) {
+          const firstError = errorKeys[0];
+          let elementId = "";
+          if (firstError === "shippingZone") {
+            elementId = "shipping-zone-select";
+          } else {
+            elementId = firstError;
+          }
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            if (element instanceof HTMLElement && element.focus) {
+              element.focus();
+            }
+          }
+        }
+      }, 100);
+      return;
+    }
+
     isProcessingRef.current = true;
+
+    // Clear any previous errors
+    setErrors({});
 
     // Show fake payment modal
     setModalStatus("processing");
@@ -152,13 +227,22 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
             <Label className="text-sm font-medium" htmlFor="shipping-zone-select" id="shipping-zone-label">
               Shipping Zone <span className="text-destructive">*</span>
             </Label>
-            <Select value={selectedZoneId} onValueChange={setSelectedZoneId}>
+            <Select 
+              value={selectedZoneId} 
+              onValueChange={(value) => {
+                setSelectedZoneId(value);
+                if (errors.shippingZone) {
+                  setErrors((prev) => ({ ...prev, shippingZone: undefined }));
+                }
+              }}
+            >
               <SelectTrigger 
-                className="w-full" 
+                className={`w-full bg-[#f9f9f9] dark:bg-card ${errors.shippingZone ? "border-destructive" : ""}`}
                 id="shipping-zone-select"
                 aria-labelledby="shipping-zone-label"
                 data-testid="shipping-zone-select"
                 aria-label="Select shipping zone"
+                aria-invalid={!!errors.shippingZone}
               >
                 <SelectValue placeholder="Select shipping zone" />
               </SelectTrigger>
@@ -177,6 +261,9 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
                 ))}
               </SelectContent>
             </Select>
+            {errors.shippingZone && (
+              <p className="text-xs text-destructive mt-1">{errors.shippingZone}</p>
+            )}
           </div>
 
           {/* Shipping Fee */}
@@ -210,9 +297,19 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
               <Input
                 placeholder="Country"
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="h-8 text-sm"
+                onChange={(e) => {
+                  setCountry(e.target.value);
+                  if (errors.country) {
+                    setErrors((prev) => ({ ...prev, country: undefined }));
+                  }
+                }}
+                className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.country ? "border-destructive" : ""}`}
+                aria-invalid={!!errors.country}
+                id="country"
               />
+              {errors.country && (
+                <p className="text-xs text-destructive mt-0.5">{errors.country}</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
@@ -221,9 +318,19 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
               <Input
                 placeholder="City"
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="h-8 text-sm"
+                onChange={(e) => {
+                  setCity(e.target.value);
+                  if (errors.city) {
+                    setErrors((prev) => ({ ...prev, city: undefined }));
+                  }
+                }}
+                className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.city ? "border-destructive" : ""}`}
+                aria-invalid={!!errors.city}
+                id="city"
               />
+              {errors.city && (
+                <p className="text-xs text-destructive mt-0.5">{errors.city}</p>
+              )}
             </div>
           </div>
           <div className="space-y-1">
@@ -233,9 +340,19 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
             <Input
               placeholder="Street address"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="h-8 text-sm"
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (errors.address) {
+                  setErrors((prev) => ({ ...prev, address: undefined }));
+                }
+              }}
+              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.address ? "border-destructive" : ""}`}
+              aria-invalid={!!errors.address}
+              id="address"
             />
+            {errors.address && (
+              <p className="text-xs text-destructive mt-0.5">{errors.address}</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Postal Code</Label>
@@ -243,7 +360,8 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
               placeholder="Postal code (optional)"
               value={postalCode}
               onChange={(e) => setPostalCode(e.target.value)}
-              className="h-8 text-sm"
+              className="h-8 text-sm bg-[#f9f9f9] dark:bg-card"
+              id="postalCode"
             />
           </div>
         </div>
@@ -258,10 +376,20 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
             <Input
               placeholder="Phone number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-8 text-sm"
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (errors.phone) {
+                  setErrors((prev) => ({ ...prev, phone: undefined }));
+                }
+              }}
+              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.phone ? "border-destructive" : ""}`}
               type="tel"
+              aria-invalid={!!errors.phone}
+              id="phone"
             />
+            {errors.phone && (
+              <p className="text-xs text-destructive mt-0.5">{errors.phone}</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">
@@ -270,10 +398,20 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
             <Input
               placeholder="Email address"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-8 text-sm"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) {
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                }
+              }}
+              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.email ? "border-destructive" : ""}`}
               type="email"
+              aria-invalid={!!errors.email}
+              id="email"
             />
+            {errors.email && (
+              <p className="text-xs text-destructive mt-0.5">{errors.email}</p>
+            )}
           </div>
         </div>
 
@@ -301,24 +439,13 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
         <Button
           size="lg"
           className="w-full rounded-2xl text-sm"
-          disabled={!isFormValid}
           onClick={handleCheckout}
           data-testid="proceed-to-checkout-button"
           aria-label="Proceed to checkout"
           type="button"
         >
-          {!selectedZoneId
-            ? "Select Shipping Zone to Continue"
-            : !isFormValid
-              ? "Fill All Required Fields"
-              : "Proceed to checkout"}
+          Proceed to checkout
         </Button>
-
-        {!isFormValid && (
-          <p className="text-xs text-muted-foreground text-center">
-            Please fill in all required fields to place your order
-          </p>
-        )}
       </div>
 
       {/* Fake Payment Processing Modal */}

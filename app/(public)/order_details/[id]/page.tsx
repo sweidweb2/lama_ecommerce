@@ -87,8 +87,8 @@ const formatOrderId = (id: string) => {
 };
 
 interface OrderDetailsPageProps {
-  params: { id: string };
-  searchParams?: { page?: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ page?: string }>;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -98,7 +98,8 @@ export default async function OrderDetailsPage({
   params,
   searchParams,
 }: OrderDetailsPageProps) {
-  const { id: orderId } = params;
+  const { id: orderId } = await params;
+  const resolvedSearchParams = await searchParams;
 
   // Determine identity
   const user = await getCurrentAuthUserFromComponent();
@@ -135,8 +136,8 @@ export default async function OrderDetailsPage({
         );
 
   const rawPage =
-    typeof searchParams?.page === "string"
-      ? Number.parseInt(searchParams.page, 10)
+    typeof resolvedSearchParams?.page === "string"
+      ? Number.parseInt(resolvedSearchParams.page, 10)
       : 1;
   const currentPage =
     !Number.isFinite(rawPage) || rawPage < 1

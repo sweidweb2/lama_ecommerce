@@ -2,14 +2,11 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Sorting } from './Sorting'
-import { VariantFilters } from './VariantFilters'
 import { PriceFilter } from './PriceFilter'
 
 interface AdvancedFiltersProps {
     minPrice?: number
     maxPrice?: number
-    selectedColors?: string[]
-    onColorsChange?: (colors: string[]) => void
     priceRange?: [number, number]
     onPriceRangeChange?: (range: [number, number]) => void
     sort?: string
@@ -19,8 +16,6 @@ interface AdvancedFiltersProps {
 export function AdvancedFilters({ 
     minPrice = 0, 
     maxPrice = 1000,
-    selectedColors = [],
-    onColorsChange,
     priceRange,
     onPriceRangeChange,
     sort,
@@ -40,8 +35,6 @@ export function AdvancedFilters({
                                 <Sorting value={sort} onChange={onSortChange} />
                             </div>
                         </div>
-                        
-                        <VariantFilters value={selectedColors} onChange={onColorsChange} />
                         
                         <PriceFilter 
                             minPrice={minPrice}

@@ -92,6 +92,8 @@ export function ProductCustomization({
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [showColorAlert, setShowColorAlert] = useState(false)
+  const [showSizeAlert, setShowSizeAlert] = useState(false)
   // Ref to prevent double-click - faster than state updates
   const isProcessingRef = useRef(false)
 
@@ -144,6 +146,7 @@ export function ProductCustomization({
       setSelectedColor(color)
     }
     setQuantity(1) // Reset quantity when color changes
+    setShowColorAlert(false) // Clear alert when color is selected
   }
 
   // Allow users to change size - clicking a different size will update selection
@@ -155,6 +158,7 @@ export function ProductCustomization({
       setSelectedSize(size)
     }
     setQuantity(1) // Reset quantity when size changes
+    setShowSizeAlert(false) // Clear alert when size is selected
   }
 
   // Update selected variant ID in context
@@ -180,9 +184,21 @@ export function ProductCustomization({
       return // Already processing, ignore this click
     }
 
+    // Check for required selections and show awareness messages
+    if (!hasRequiredSelections) {
+      if (colors.length > 0 && !selectedColor) {
+        setShowColorAlert(true)
+      }
+      if (sizes.length > 0 && !selectedSize) {
+        setShowSizeAlert(true)
+      }
+      return
+    }
+
     if (!selectedVariant) {
       toast.error('Please select options', {
         description: 'Choose a color and size to continue.',
+        duration: 4000,
       })
       return
     }
@@ -389,7 +405,10 @@ export function ProductCustomization({
               )
             })}
           </div>
-          {selectedColor && (
+          {showColorAlert && (
+            <p className="text-sm text-destructive font-medium">Please select a color</p>
+          )}
+          {selectedColor && !showColorAlert && (
             <p className="text-sm text-muted-foreground">Selected: {selectedColor}</p>
           )}
         </div>
@@ -421,6 +440,9 @@ export function ProductCustomization({
               )
             })}
           </div>
+          {showSizeAlert && (
+            <p className="text-sm text-destructive font-medium">Please select a size</p>
+          )}
         </div>
       )}
 
@@ -476,13 +498,14 @@ export function ProductCustomization({
           size="lg"
           className="flex-1 h-12"
           onClick={handleAddToCart}
-          disabled={!isAvailable || isAddingToCart || !hasRequiredSelections}
+          disabled={isAddingToCart}
+          variant={!hasRequiredSelections ? 'outline' : 'default'}
         >
           <ShoppingCart className="mr-2 h-5 w-5" />
           {isAddingToCart
             ? 'Adding...'
             : !hasRequiredSelections
-            ? 'Select Options'
+            ? 'Add to Cart'
             : !isAvailable
             ? 'Out of Stock'
             : 'Add to Cart'}

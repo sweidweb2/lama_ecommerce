@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
-import { AdvancedFilters } from '@/components/(public)/products/AdvancedFilters'
-import { SizeFilter } from '@/components/(public)/products/SizeFilter'
+import { Sorting } from '@/components/(public)/products/Sorting'
+import { PriceFilter } from '@/components/(public)/products/PriceFilter'
 import { ClientProductFilter } from '@/components/(public)/products/ClientProductFilter'
 import { Separator } from '@/components/ui/separator'
 import type { ProductWithRelations, Category } from '@/types/product'
@@ -28,8 +28,6 @@ export function ProductsPageClient({
     
     // Filter state - all client-side
     const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
-    const [selectedSizes, setSelectedSizes] = useState<string[]>([])
-    const [selectedColors, setSelectedColors] = useState<string[]>([])
     const [priceRange, setPriceRange] = useState<[number, number]>([calculatedMinPrice, calculatedMaxPrice])
     const [sort, setSort] = useState<string>(searchParams.get("sort") || "created_at-desc")
 
@@ -38,26 +36,6 @@ export function ProductsPageClient({
         const categoryParam = searchParams.get('category')
         if (categoryParam) {
             setSelectedCategory(categoryParam)
-        }
-
-        const sizesParam = searchParams.get('sizes')
-        if (sizesParam) {
-            setSelectedSizes(
-                sizesParam
-                    .split(',')
-                    .map((s) => s.trim().toUpperCase())
-                    .filter(Boolean)
-            )
-        }
-
-        const colorsParam = searchParams.get('colors')
-        if (colorsParam) {
-            setSelectedColors(
-                colorsParam
-                    .split(',')
-                    .map(c => c.trim().toLowerCase())
-                    .filter(Boolean)
-            )
         }
 
         const minParam = searchParams.get('minPrice')
@@ -84,24 +62,6 @@ export function ProductsPageClient({
         if (selectedCategory) {
             filtered = filtered.filter(product => 
                 product.category?.slug === selectedCategory
-            )
-        }
-
-        // Size filter
-        if (selectedSizes.length > 0) {
-            filtered = filtered.filter(product =>
-                product.variants?.some(variant =>
-                    variant.size && selectedSizes.includes(variant.size.toUpperCase())
-                )
-            )
-        }
-
-        // Color filter
-        if (selectedColors.length > 0) {
-            filtered = filtered.filter(product =>
-                product.variants?.some(variant =>
-                    variant.color && selectedColors.includes(variant.color.toLowerCase())
-                )
             )
         }
 
@@ -134,7 +94,7 @@ export function ProductsPageClient({
         }
 
         return sorted
-    }, [initialProducts, selectedCategory, selectedSizes, selectedColors, priceRange, sort])
+    }, [initialProducts, selectedCategory, priceRange, sort])
 
     const currentCategoryName = selectedCategory 
         ? categories.find(c => c.slug === selectedCategory)?.name 
@@ -152,20 +112,15 @@ export function ProductsPageClient({
                                 selectedCategory={selectedCategory}
                                 onCategoryChange={setSelectedCategory}
                             />
-                            <SizeFilter 
-                                categorySlug={selectedCategory}
-                                selectedSizes={selectedSizes}
-                                onSizesChange={setSelectedSizes}
+                            <Sorting 
+                                value={sort}
+                                onChange={setSort}
                             />
-                            <AdvancedFilters 
+                            <PriceFilter 
                                 minPrice={calculatedMinPrice}
                                 maxPrice={calculatedMaxPrice}
-                                selectedColors={selectedColors}
-                                onColorsChange={setSelectedColors}
-                                priceRange={priceRange}
-                                onPriceRangeChange={setPriceRange}
-                                sort={sort}
-                                onSortChange={setSort}
+                                value={priceRange}
+                                onChange={setPriceRange}
                             />
                         </div>
                     </div>
