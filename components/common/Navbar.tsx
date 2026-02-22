@@ -48,7 +48,8 @@ const NAV_LINKS_BASE = [
 ];
 const ORDERS_LINK = { label: "Orders", href: "/orders" };
 
-const LOGO_LIGHT = "/aviora-logo.png";
+// Light logo used only in navbar/footer; site favicon stays /aviora-logo.png
+const LOGO_LIGHT = "/aviora-logo-nav-footer-light.png";
 const LOGO_DARK = "/aviora-logo-white.png";
 
 export function Navbar() {

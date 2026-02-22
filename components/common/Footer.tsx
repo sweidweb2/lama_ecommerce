@@ -18,7 +18,8 @@ import { Button } from '@/components/ui/button'
 import { createLeadAction } from '@/actions/lead'
 import { toast } from 'sonner'
 
-const LOGO_LIGHT = '/aviora-logo.png'
+// Light logo used only in navbar/footer; site favicon stays /aviora-logo.png
+const LOGO_LIGHT = '/aviora-logo-nav-footer-light.png'
 const LOGO_DARK = '/aviora-logo-white.png'
 
 export function Footer() {
