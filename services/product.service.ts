@@ -12,9 +12,7 @@ import {
   type GetProductsRepoParams,
   updateProduct,
   type UpdateProductRepoInput,
-  hasProductRelations,
   softDeleteProduct,
-  hardDeleteProduct,
   getProductById,
 } from "@/repositories/product.repository";
 import { getCategoryIdBySlug } from "@/repositories/categories.repository";
@@ -89,37 +87,12 @@ export async function getAdminProductByIdService(
 }
 
 /**
- * Delete a product as admin.
- *
- * - If there are no related rows, perform a soft delete (set deleted_at, is_active=false).
- * - If there are related rows, return "hard" so the caller can handle storage
- *   cleanup first, then perform a hard delete.
- *
- * Returns:
- * - "soft" if soft-deleted
- * - "hard" if hard-deleted
- * - null if the operation failed
+ * Delete a product as admin (soft delete).
+ * Sets deleted_at, is_active = false, is_featured = false, is_trending = false.
+ * The product remains in the database and is excluded from the public storefront.
  */
-export async function deleteProductService(
-  id: string,
-): Promise<"soft" | "hard" | null> {
-  const related = await hasProductRelations(id);
-
-  if (!related) {
-    const ok = await softDeleteProduct(id);
-    return ok ? "soft" : null;
-  }
-
-  // Caller will do storage cleanup first, then call hardDeleteProductService.
-  return "hard";
-}
-
-/**
- * Perform a hard delete of a product (DB only).
- * Intended to be called after storage cleanup has succeeded or at least been attempted.
- */
-export async function hardDeleteProductService(id: string): Promise<boolean> {
-  return hardDeleteProduct(id);
+export async function deleteProductService(id: string): Promise<boolean> {
+  return softDeleteProduct(id);
 }
 
 export interface GetProductsServiceParams {

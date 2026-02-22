@@ -33,12 +33,16 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
         await deleteProductAction(formData)
       }
 
-      // If we're on a product details route (/admin/products/[id]),
-      // navigate back to the products list after delete.
-      if (pathname && pathname.startsWith("/admin/products/") && pathname.split("/").length === 4) {
+      // If we're on a product details route (/admin/products/[id]), navigate back to list.
+      const segments = pathname?.split("/") ?? []
+      const isProductDetailPage =
+        segments.length === 4 &&
+        segments[2] === "products" &&
+        segments[3] !== "grid" &&
+        segments[3] !== "create"
+      if (isProductDetailPage) {
         router.push("/admin/products")
       } else {
-        // Otherwise just refresh the current view (tables, cards, etc.).
         router.refresh()
       }
 

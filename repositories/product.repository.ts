@@ -2,6 +2,7 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Product, ProductWithRelations } from "@/types/product";
 
 export interface GetProductsRepoParams {
@@ -326,17 +327,61 @@ export async function softDeleteProduct(id: string): Promise<boolean> {
 }
 
 /**
- * Hard-delete a product row (DB-level); relies on ON DELETE CASCADE for related tables.
+ * Hard-delete a product row (DB-level).
+ * Uses admin client to bypass RLS. Deletes dependent rows in tables that do not have
+ * ON DELETE CASCADE (product_questions, product_answers, product_views, product_stats) first.
+ * Caller must enforce admin authorization (e.g. in the server action).
  */
 export async function hardDeleteProduct(id: string): Promise<boolean> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
-    const { error } = await supabase
-      .from("products")
+    // Tables that reference products(id) without ON DELETE CASCADE must be cleared first.
+    const { data: questionIds } = await supabase
+      .from("product_questions")
+      .select("id")
+      .eq("product_id", id);
+
+    if (questionIds?.length) {
+      const ids = (questionIds as { id: string }[]).map((q) => q.id);
+      const { error: answersErr } = await supabase
+        .from("product_answers")
+        .delete()
+        .in("product_question_id", ids);
+      if (answersErr) {
+        console.error("Error deleting product_answers:", answersErr);
+        return false;
+      }
+    }
+
+    const { error: questionsErr } = await supabase
+      .from("product_questions")
       .delete()
-      .eq("id", id);
+      .eq("product_id", id);
+    if (questionsErr) {
+      console.error("Error deleting product_questions:", questionsErr);
+      return false;
+    }
 
+    const { error: viewsErr } = await supabase
+      .from("product_views")
+      .delete()
+      .eq("product_id", id);
+    if (viewsErr) {
+      console.error("Error deleting product_views:", viewsErr);
+      return false;
+    }
+
+    const { error: statsErr } = await supabase
+      .from("product_stats")
+      .delete()
+      .eq("product_id", id);
+    if (statsErr) {
+      console.error("Error deleting product_stats:", statsErr);
+      return false;
+    }
+
+    const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
       console.error("Error hard-deleting product:", error);
       return false;
