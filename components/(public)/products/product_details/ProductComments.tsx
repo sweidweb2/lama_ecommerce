@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -29,6 +30,7 @@ interface ProductCommentsProps {
  * - Comment form
  */
 export function ProductComments({ productId, reviews = [] }: ProductCommentsProps) {
+  const router = useRouter()
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [title, setTitle] = useState('')
@@ -79,9 +81,24 @@ export function ProductComments({ productId, reviews = [] }: ProductCommentsProp
         setTitle('')
         setComment('')
       } else {
-        toast.error('Error', {
-          description: result.error || 'Failed to submit review. Please try again.',
-        })
+        // Check if error is due to not being logged in
+        const isNotLoggedIn = result.error?.toLowerCase().includes('logged in') || 
+                              result.error?.toLowerCase().includes('must be logged')
+        
+        if (isNotLoggedIn) {
+          toast.error('Login Required', {
+            description: 'You must be logged in to submit a review. Redirecting to login page...',
+          })
+          
+          // Navigate to login page after a short delay to show the toast
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 1500)
+        } else {
+          toast.error('Error', {
+            description: result.error || 'Failed to submit review. Please try again.',
+          })
+        }
       }
     } catch (error) {
       toast.error('Error', {

@@ -124,9 +124,13 @@ export function LoginForm() {
                       placeholder="you@example.com"
                       autoComplete="email"
                       className={cn(
-                        "pl-9",
+                        "pl-9 !bg-background",
                         form.formState.errors.email && "border-destructive"
                       )}
+                      style={{
+                        WebkitBoxShadow: "0 0 0 1000px hsl(var(--background)) inset",
+                        boxShadow: "0 0 0 1000px hsl(var(--background)) inset",
+                      }}
                       disabled={isLoading}
                       {...field}
                     />
