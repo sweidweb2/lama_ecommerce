@@ -13,26 +13,22 @@ import type { Category as AdminCategory } from "@/types/product"
 interface CategoriesFiltersProps {
   nameFilter: string
   parentFilter: string | "all"
-  showDeleted: boolean
   rowsPerPage: number
   rowsPerPageOptions: number[]
   parentOptions: AdminCategory[]
   onNameFilterChange: (value: string) => void
   onParentFilterChange: (value: string | "all") => void
-  onShowDeletedChange: (value: boolean) => void
   onRowsPerPageChange: (value: number) => void
 }
 
 export function CategoriesFilters({
   nameFilter,
   parentFilter,
-  showDeleted,
   rowsPerPage,
   rowsPerPageOptions,
   parentOptions,
   onNameFilterChange,
   onParentFilterChange,
-  onShowDeletedChange,
   onRowsPerPageChange,
 }: CategoriesFiltersProps) {
   return (
@@ -72,22 +68,6 @@ export function CategoriesFilters({
             </SelectContent>
           </Select>
         </div>
-
-        <div className="flex items-center gap-2 pb-1">
-          <input
-            id="categories-show-deleted"
-            type="checkbox"
-            checked={showDeleted}
-            onChange={(e) => onShowDeletedChange(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-input"
-          />
-          <label
-            htmlFor="categories-show-deleted"
-            className="text-xs text-muted-foreground cursor-pointer"
-          >
-            Show deleted
-          </label>
-        </div>
       </div>
 
       <div className="flex items-center justify-between sm:justify-end gap-3">
@@ -115,4 +95,3 @@ export function CategoriesFilters({
     </div>
   )
 }
-

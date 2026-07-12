@@ -15,7 +15,7 @@ import {
   type GetProductsRepoParams,
   updateProduct,
   type UpdateProductRepoInput,
-  softDeleteProduct,
+  hardDeleteProduct,
   getProductById,
 } from "@/repositories/product.repository";
 import { getCategoryIdBySlug } from "@/repositories/categories.repository";
@@ -102,9 +102,8 @@ export async function getAdminProductByIdService(
 }
 
 /**
- * Delete a product as admin (soft delete).
- * Sets deleted_at, is_active = false, is_featured = false, is_trending = false.
- * The product remains in the database and is excluded from the public storefront.
+ * Hard-delete a product as admin.
+ * Refuses when blocking FK children exist (questions, views, stats, wishlist/cart on variants).
  */
 export async function deleteProductService(id: string): Promise<boolean> {
   try {
@@ -112,7 +111,7 @@ export async function deleteProductService(id: string): Promise<boolean> {
   } catch {
     return false;
   }
-  return softDeleteProduct(id);
+  return hardDeleteProduct(id);
 }
 
 export interface GetProductsServiceParams {

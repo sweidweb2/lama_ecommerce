@@ -8,8 +8,9 @@ const getOrderItemsByOrderIdForAdmin = vi.fn();
 const getPaymentByOrderIdForAdmin = vi.fn();
 const getShipmentByOrderIdForAdmin = vi.fn();
 const updateOrder = vi.fn();
-const softDeleteOrderItemsByOrderId = vi.fn();
-const softDeleteOrderAdmin = vi.fn();
+const deleteOrderAdmin = vi.fn();
+const countPaymentsByOrderId = vi.fn();
+const countShipmentsByOrderId = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
   getCurrentUserProfile: (...args: unknown[]) => getCurrentUserProfile(...args),
@@ -32,9 +33,10 @@ vi.mock("@/repositories/order.repository", () => ({
     getShipmentByOrderIdForAdmin(...args),
   getAllOrdersForAdmin: (...args: unknown[]) => getAllOrdersForAdmin(...args),
   updateOrder: (...args: unknown[]) => updateOrder(...args),
-  softDeleteOrderAdmin: (...args: unknown[]) => softDeleteOrderAdmin(...args),
-  softDeleteOrderItemsByOrderId: (...args: unknown[]) =>
-    softDeleteOrderItemsByOrderId(...args),
+  deleteOrderAdmin: (...args: unknown[]) => deleteOrderAdmin(...args),
+  countPaymentsByOrderId: (...args: unknown[]) => countPaymentsByOrderId(...args),
+  countShipmentsByOrderId: (...args: unknown[]) =>
+    countShipmentsByOrderId(...args),
 }));
 
 describe("order.service admin authz", () => {
@@ -72,7 +74,7 @@ describe("order.service admin authz", () => {
       success: false,
       error: "Forbidden",
     });
-    expect(softDeleteOrderAdmin).not.toHaveBeenCalled();
+    expect(deleteOrderAdmin).not.toHaveBeenCalled();
   });
 
   it("updateOrderService reaches repository for admin", async () => {

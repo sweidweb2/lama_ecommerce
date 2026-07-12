@@ -80,38 +80,20 @@ export default async function CartDetailsPage({
     price: item.product.price,
   }));
 
-  const isDeleted = !!cart.deleted_at
-
   return (
     <div>
       <CartDetailsBreadcrumbs cartId={cart.id} />
       <div className="container mx-auto px-4 py-6">
         <div className="space-y-6">
-          {/* Deleted Cart Banner */}
-          {isDeleted && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
-                  Deleted Cart
-                </Badge>
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  This cart has been deleted and is in read-only mode. You can view the details but cannot make changes.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold">Cart Details</h1>
               <p className="text-muted-foreground text-sm sm:text-base mt-1">
-                {isDeleted ? "View cart information (Read-only)" : "View and manage cart information"}
+                View and manage cart information
               </p>
             </div>
-            {!isDeleted && (
-              <SubmitCartButton cartId={cart.id} />
-            )}
+            <SubmitCartButton cartId={cart.id} />
           </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -181,27 +163,12 @@ export default async function CartDetailsPage({
                   </div>
                 </div>
 
-                {cart.deleted_at && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Deleted At
-                    </label>
-                    <p className="text-sm mt-1">
-                      {new Date(cart.deleted_at).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Status
                   </label>
                   <div className="mt-1">
-                    <Badge
-                      variant={cart.deleted_at ? "destructive" : "default"}
-                    >
-                      {cart.deleted_at ? "Deleted" : "Active"}
-                    </Badge>
+                    <Badge variant="default">Active</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -222,13 +189,11 @@ export default async function CartDetailsPage({
                 <ShoppingCart className="h-5 w-5" />
                 Cart Items ({items.length})
               </CardTitle>
-              {!isDeleted && (
-                <AddCartItemDialog cartId={cart.id} showText />
-              )}
+              <AddCartItemDialog cartId={cart.id} showText />
             </div>
           </CardHeader>
           <CardContent>
-            <CartItemsTable cartId={cart.id} items={tableItems} showHeader={false} isDeleted={!!cart.deleted_at} />
+            <CartItemsTable cartId={cart.id} items={tableItems} showHeader={false} />
           </CardContent>
         </Card>
         </div>

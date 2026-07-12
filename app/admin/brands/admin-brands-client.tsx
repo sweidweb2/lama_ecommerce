@@ -24,7 +24,6 @@ export default function AdminBrandsClient({
   deleteBrandAction,
 }: AdminBrandsClientProps) {
   const [nameFilter, setNameFilter] = useState("")
-  const [showDeleted, setShowDeleted] = useState(false)
   const [rowsPerPage, setRowsPerPage] = useState<number>(ROWS_PER_PAGE_OPTIONS[0])
   const [page, setPage] = useState(1)
 
@@ -32,8 +31,6 @@ export default function AdminBrandsClient({
     const query = nameFilter.trim().toLowerCase()
 
     return brands.filter((brand) => {
-      if (!showDeleted && brand.deleted_at) return false
-
       if (!query) return true
 
       const name = (brand.name ?? "").toLowerCase()
@@ -41,7 +38,7 @@ export default function AdminBrandsClient({
 
       return name.includes(query) || slug.includes(query)
     })
-  }, [brands, nameFilter, showDeleted])
+  }, [brands, nameFilter])
 
   const safeRowsPerPage = Math.min(rowsPerPage, MAX_ROWS_PER_PAGE)
   const pageCount = Math.max(1, Math.ceil(filteredBrands.length / safeRowsPerPage))
@@ -73,15 +70,10 @@ export default function AdminBrandsClient({
 
       <BrandsFilters
         nameFilter={nameFilter}
-        showDeleted={showDeleted}
         rowsPerPage={safeRowsPerPage}
         rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
         onNameFilterChange={(value) => {
           setNameFilter(value)
-          setPage(1)
-        }}
-        onShowDeletedChange={(value) => {
-          setShowDeleted(value)
           setPage(1)
         }}
         onRowsPerPageChange={(value) => handleChangeRowsPerPage(String(value))}
@@ -104,4 +96,3 @@ export default function AdminBrandsClient({
     </div>
   )
 }
-

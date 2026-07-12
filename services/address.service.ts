@@ -12,7 +12,7 @@ import { createAddressSchema } from "@/lib/validators/user_address/create";
 import { updateAddressSchema } from "@/lib/validators/user_address/update";
 
 /**
- * Get all non-deleted addresses for a user. Call from Server Component with current user id.
+ * Get all addresses for a user. Call from Server Component with current user id.
  */
 export async function getAddressesByUserId(
   userId: string,
@@ -56,7 +56,7 @@ export async function updateAddressForUser(
 }
 
 /**
- * Soft-delete an address. Only the owner can delete.
+ * Hard-delete an address. Only the owner can delete.
  */
 export async function deleteAddressForUser(
   userId: string,

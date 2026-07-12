@@ -19,8 +19,7 @@ create policy "Users can read own carts"
 on carts
 for select
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 drop policy if exists "Users can insert own carts" on carts;
@@ -36,12 +35,10 @@ create policy "Users can update own carts"
 on carts
 for update
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 )
 with check (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 drop policy if exists "Users can delete own carts" on carts;
@@ -49,8 +46,7 @@ create policy "Users can delete own carts"
 on carts
 for delete
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 --------------------------------------------------
@@ -62,12 +58,10 @@ create policy "Users can read own cart items"
 on cart_items
 for select
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_items.cart_id
-      and c.deleted_at is null
       and c.user_id = auth.uid()
   )
 );
@@ -81,7 +75,6 @@ with check (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and c.user_id = auth.uid()
   )
 );
@@ -91,22 +84,18 @@ create policy "Users can update own cart items"
 on cart_items
 for update
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and c.user_id = auth.uid()
   )
 )
 with check (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and c.user_id = auth.uid()
   )
 );
@@ -116,12 +105,10 @@ create policy "Users can delete own cart items"
 on cart_items
 for delete
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and c.user_id = auth.uid()
   )
 );
@@ -135,8 +122,7 @@ create policy "Users can read own orders"
 on orders
 for select
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 drop policy if exists "Users can insert own orders" on orders;
@@ -152,12 +138,10 @@ create policy "Users can update own orders"
 on orders
 for update
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 )
 with check (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 drop policy if exists "Users can delete own orders" on orders;
@@ -165,8 +149,7 @@ create policy "Users can delete own orders"
 on orders
 for delete
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 --------------------------------------------------
@@ -178,12 +161,10 @@ create policy "Users can read own order items"
 on order_items
 for select
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_items.order_id
-      and o.deleted_at is null
       and o.user_id = auth.uid()
   )
 );
@@ -197,7 +178,6 @@ with check (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and o.user_id = auth.uid()
   )
 );
@@ -207,22 +187,18 @@ create policy "Users can update own order items"
 on order_items
 for update
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and o.user_id = auth.uid()
   )
 )
 with check (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and o.user_id = auth.uid()
   )
 );
@@ -232,12 +208,10 @@ create policy "Users can delete own order items"
 on order_items
 for delete
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and o.user_id = auth.uid()
   )
 );
@@ -257,8 +231,7 @@ create policy "Users can read own wishlist items"
 on wishlists
 for select
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 create policy "Users can insert own wishlist items"
@@ -272,8 +245,7 @@ create policy "Users can delete own wishlist items"
 on wishlists
 for delete
 using (
-  deleted_at is null
-  and user_id = auth.uid()
+  user_id = auth.uid()
 );
 
 --------------------------------------------------
@@ -307,11 +279,10 @@ BEGIN
   -- 1. Validate cart exists and is active
   SELECT * INTO v_cart
   FROM carts
-  WHERE id = p_cart_id
-    AND deleted_at IS NULL;
+  WHERE id = p_cart_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Cart not found or already deleted';
+    RAISE EXCEPTION 'Cart not found';
   END IF;
 
   -- 2. Validate ownership (authenticated cart OR guest session cart)
@@ -345,11 +316,11 @@ BEGIN
       p.name           AS product_name
     FROM cart_items ci
     JOIN customised_products cp
-      ON cp.id = ci.customised_product_id AND cp.deleted_at IS NULL
+      ON cp.id = ci.customised_product_id
     JOIN products p
-      ON p.id = cp.product_id AND p.deleted_at IS NULL
+      ON p.id = cp.product_id
     WHERE ci.cart_id = p_cart_id
-      AND ci.deleted_at IS NULL
+     
   LOOP
     v_item_count := v_item_count + 1;
 
@@ -402,11 +373,11 @@ BEGIN
       p.name           AS product_name
     FROM cart_items ci
     JOIN customised_products cp
-      ON cp.id = ci.customised_product_id AND cp.deleted_at IS NULL
+      ON cp.id = ci.customised_product_id
     JOIN products p
-      ON p.id = cp.product_id AND p.deleted_at IS NULL
+      ON p.id = cp.product_id
     WHERE ci.cart_id = p_cart_id
-      AND ci.deleted_at IS NULL
+     
   LOOP
     v_price := COALESCE(v_item.price_override, v_item.base_price);
 
@@ -432,15 +403,8 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 7. Soft-delete cart items
-  UPDATE cart_items
-  SET deleted_at = now()
-  WHERE cart_id = p_cart_id
-    AND deleted_at IS NULL;
-
-  -- 8. Soft-delete cart
-  UPDATE carts
-  SET deleted_at = now()
+  -- 7. Hard-delete cart (cart_items CASCADE)
+  DELETE FROM carts
   WHERE id = p_cart_id;
 
   RETURN v_order_id;

@@ -92,18 +92,49 @@ export async function updateBrand(
   }
 }
 
+/**
+ * Hard-delete a brand.
+ * Blocks when products still reference this brand.
+ */
 export async function deleteBrand(id: string): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
+
+    const { count: productCount, error: productError } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("brand_id", id);
+
+    if (productError) {
+      console.error("Error checking products before brand delete:", productError);
+      return false;
+    }
+    if ((productCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete brand: products still reference it. Reassign them first.",
+      );
+    }
+
     const { error } = await supabase.from("brands").delete().eq("id", id);
 
     if (error) {
+      if (error.code === "23503") {
+        throw new Error(
+          "Cannot delete brand: related records still exist. Remove them first.",
+        );
+      }
       console.error("Error deleting brand:", error);
       return false;
     }
 
     return true;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete brand:")
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in deleteBrand:", error);
     return false;
   }

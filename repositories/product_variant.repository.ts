@@ -112,7 +112,6 @@ export async function getProductVariantById(
       .from("customised_products")
       .select("*")
       .eq("id", id)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
@@ -140,7 +139,6 @@ export async function getProductVariantsByProductId(
       .from("customised_products")
       .select("*")
       .eq("product_id", productId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -156,33 +154,8 @@ export async function getProductVariantsByProductId(
 }
 
 /**
- * Soft delete a product variant (set deleted_at).
- */
-export async function softDeleteProductVariant(
-  id: string,
-): Promise<boolean> {
-  try {
-    const supabase = await createSupabaseServerActionClient();
-
-    const { error } = await (supabase as any)
-      .from("customised_products")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error soft deleting product variant:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Unexpected error in softDeleteProductVariant:", error);
-    return false;
-  }
-}
-
-/**
- * Hard delete a product variant (permanently remove from database).
+ * Hard delete a product variant.
+ * Blocks when wishlists or cart_items still reference it.
  */
 export async function hardDeleteProductVariant(
   id: string,
@@ -190,18 +163,59 @@ export async function hardDeleteProductVariant(
   try {
     const supabase = await createSupabaseServerActionClient();
 
+    const { count: wishlistCount, error: wishlistError } = await supabase
+      .from("wishlists")
+      .select("*", { count: "exact", head: true })
+      .eq("customised_product_id", id);
+
+    if (wishlistError) {
+      console.error("Error checking wishlists before variant delete:", wishlistError);
+      return false;
+    }
+    if ((wishlistCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete variant: wishlist items still reference it. Remove them first.",
+      );
+    }
+
+    const { count: cartItemCount, error: cartItemError } = await supabase
+      .from("cart_items")
+      .select("*", { count: "exact", head: true })
+      .eq("customised_product_id", id);
+
+    if (cartItemError) {
+      console.error("Error checking cart_items before variant delete:", cartItemError);
+      return false;
+    }
+    if ((cartItemCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete variant: cart items still reference it. Remove them first.",
+      );
+    }
+
     const { error } = await supabase
       .from("customised_products")
       .delete()
       .eq("id", id);
 
     if (error) {
+      if (error.code === "23503") {
+        throw new Error(
+          "Cannot delete variant: related records still exist. Remove them first.",
+        );
+      }
       console.error("Error hard deleting product variant:", error);
       return false;
     }
 
     return true;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete variant:")
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in hardDeleteProductVariant:", error);
     return false;
   }

@@ -15,13 +15,11 @@ on payments
 for select
 to authenticated
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = payments.order_id
       and o.user_id = auth.uid()
-      and o.deleted_at is null
   )
 );
 
@@ -42,13 +40,11 @@ on shipments
 for select
 to authenticated
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = shipments.order_id
       and o.user_id = auth.uid()
-      and o.deleted_at is null
   )
 );
 

@@ -29,7 +29,6 @@ export type AdminCart = {
   session_id?: string | null
   created_at?: string
   updated_at?: string
-  deleted_at?: string | null
 }
 
 interface EditCartDialogProps {

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ConditionalLayout } from "@/components/layout/ConditionalMain";
+import { TopNavigationLoader } from "@/components/feedback/TopNavigationLoader";
 
 // Main font: Bagina (see globals.css).
 export const metadata: Metadata = {
@@ -24,6 +25,9 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider>
+          <Suspense fallback={null}>
+            <TopNavigationLoader />
+          </Suspense>
           <AuthProvider>
             <Suspense fallback={<div className="flex min-h-screen flex-col"><main className="flex-1">{children}</main></div>}>
               <ConditionalLayout>{children}</ConditionalLayout>

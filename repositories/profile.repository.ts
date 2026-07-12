@@ -12,7 +12,7 @@ export interface AdminProfileRow {
   full_name: string | null;
   role: ProfileRole;
   created_at: string;
-  deleted_at: string | null;
+  is_active: boolean;
   email: string | null;
 }
 
@@ -99,7 +99,7 @@ async function getAllProfilesForAdminFallback(
 ): Promise<AdminProfileRow[]> {
   const { data, error } = await (supabase as any)
     .from("profiles")
-    .select("id, user_id, full_name, role, created_at, deleted_at");
+    .select("id, user_id, full_name, role, created_at, is_active");
 
   if (error) return [];
   return (data ?? []).map((row: Omit<AdminProfileRow, "email">) => ({
@@ -109,7 +109,7 @@ async function getAllProfilesForAdminFallback(
 }
 
 /**
- * Update a profile by id (admin use). Updates full_name, role, and/or deleted_at (status).
+ * Update a profile by id (admin use). Updates full_name, role, and/or is_active (status).
  * Caller must be admin (enforced by RLS).
  */
 export async function updateProfileById(
@@ -117,7 +117,7 @@ export async function updateProfileById(
   updates: {
     full_name?: string | null;
     role?: ProfileRole;
-    deleted_at?: string | null;
+    is_active?: boolean;
   },
 ): Promise<Profile | null> {
   try {
@@ -125,7 +125,7 @@ export async function updateProfileById(
     const payload: Record<string, unknown> = {};
     if (updates.full_name !== undefined) payload.full_name = updates.full_name;
     if (updates.role !== undefined) payload.role = updates.role;
-    if (updates.deleted_at !== undefined) payload.deleted_at = updates.deleted_at;
+    if (updates.is_active !== undefined) payload.is_active = updates.is_active;
 
     const { data, error } = await (supabase as any)
       .from("profiles")
@@ -158,7 +158,7 @@ export async function createUserAndProfile(params: {
   password: string;
   full_name: string;
   role: ProfileRole;
-  deleted_at: string | null;
+  is_active: boolean;
 }): Promise<CreateUserAndProfileResult> {
   try {
     const supabase = createSupabaseAdminClient();
@@ -185,7 +185,7 @@ export async function createUserAndProfile(params: {
     const adminSupabase = supabase as any;
     const { data: existing } = await adminSupabase
       .from("profiles")
-      .select("id, user_id, full_name, role, created_at, deleted_at")
+      .select("id, user_id, full_name, role, created_at, is_active")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -197,7 +197,7 @@ export async function createUserAndProfile(params: {
         .update({
           full_name: params.full_name.trim(),
           role: params.role,
-          deleted_at: params.deleted_at,
+          is_active: params.is_active,
         })
         .eq("id", existing.id)
         .select()
@@ -214,7 +214,7 @@ export async function createUserAndProfile(params: {
           user_id: userId,
           full_name: params.full_name.trim(),
           role: params.role,
-          deleted_at: params.deleted_at,
+          is_active: params.is_active,
         })
         .select()
         .single();

@@ -10,7 +10,7 @@ import { z } from "zod";
  * - title: Optional string, max 200 characters
  * - comment: Optional string, max 5000 characters
  * 
- * Note: user_id, review_status, created_at, and deleted_at are managed by the server
+ * Note: user_id, review_status, and created_at are managed by the server
  */
 export const reviewBaseSchema = z.object({
   product_id: z.string().uuid("Product ID must be a valid UUID"),

@@ -97,12 +97,8 @@ export default async function CartsPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
-                      {cart.deleted_at === null && (
-                        <>
-                          <SubmitCartButton cartId={cart.id} />
-                          <DeleteCartDialog cart={cart} />
-                        </>
-                      )}
+                      <SubmitCartButton cartId={cart.id} />
+                      <DeleteCartDialog cart={cart} />
                     </div>
                   </TableCell>
                 </TableRow>

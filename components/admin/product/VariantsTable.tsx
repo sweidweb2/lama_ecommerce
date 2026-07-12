@@ -33,7 +33,6 @@ export interface ProductVariant {
   sku_variant: string | null
   price_override: number | null
   created_at: string
-  deleted_at: string | null
 }
 
 interface VariantsTableProps {

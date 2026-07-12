@@ -16,7 +16,6 @@ export type CartItem = {
   customised_product_id: string
   quantity: number
   created_at?: string
-  deleted_at?: string | null
   // Extended fields for display
   product_name?: string
   color?: string

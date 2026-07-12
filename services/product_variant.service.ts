@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   createProductVariant,
   updateProductVariant,
-  softDeleteProductVariant,
   hardDeleteProductVariant,
   getProductVariantById,
   getProductVariantsByProductId,
@@ -71,10 +70,11 @@ export async function getProductVariantsByProductIdService(
 }
 
 /**
- * Delete a product variant (soft delete).
+ * Hard-delete a product variant.
+ * Refuses when wishlists or cart_items still reference it.
  */
 export async function deleteProductVariantService(
   id: string,
 ): Promise<boolean> {
-  return softDeleteProductVariant(id);
+  return hardDeleteProductVariant(id);
 }

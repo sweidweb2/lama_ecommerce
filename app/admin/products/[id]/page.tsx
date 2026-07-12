@@ -95,8 +95,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
     sku_variant: variant.sku_variant,
     price_override: variant.price_override,
     created_at: variant.created_at,
-    deleted_at: variant.deleted_at,
-  }))
+  })))
 
   // Get real product stats (defaults to 0 if no stats exist)
   const stats = productStats || {

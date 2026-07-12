@@ -41,7 +41,7 @@ export function ProductComments({ productId, reviews = [] }: ProductCommentsProp
   // Filter approved reviews only
   const approvedReviews = useMemo(() => {
     return reviews.filter(
-      (r) => r.review_status === 'approved' && !r.deleted_at
+      (r) => r.review_status === 'approved'
     )
   }, [reviews])
 

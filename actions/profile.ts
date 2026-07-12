@@ -36,7 +36,7 @@ export async function getUsersWithoutActiveCartsAction() {
 
 /**
  * Update a user's profile (name, role, status) as admin. Revalidates /admin/users.
- * status: active = clear deleted_at, inactive = set deleted_at (soft block).
+ * status: active = is_active true, inactive = is_active false.
  */
 export async function updateProfileAction(
   profileId: string,
@@ -55,7 +55,7 @@ export async function updateProfileAction(
   if (full_name !== undefined) updates.full_name = full_name;
   if (role !== undefined) updates.role = role as ProfileRole;
   if (status !== undefined) {
-    updates.deleted_at = status === "inactive" ? new Date().toISOString() : null;
+    updates.is_active = status === "active";
   }
   const updated = await updateProfileAdmin(profileId, updates);
   if (!updated) {

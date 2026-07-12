@@ -91,7 +91,6 @@ export async function getCartById(
       .from("carts")
       .select("*")
       .eq("id", cartId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
@@ -168,8 +167,8 @@ export async function getCartByIdForAdmin(
 }
 
 /**
- * Check if a user has an active cart (deleted_at is null).
- * Returns true if the user has at least one active cart, false otherwise.
+ * Check if a user has an active cart.
+ * Returns true if the user has at least one cart, false otherwise.
  */
 export async function hasActiveCart(
   userId: string,
@@ -180,7 +179,6 @@ export async function hasActiveCart(
       .from("carts")
       .select("*")
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -213,7 +211,7 @@ export async function hasActiveCart(
 
 /**
  * Get a cart for an authenticated user.
- * Returns the most recent active cart for the user.
+ * Returns the most recent cart for the user.
  */
 export async function getCartByUserId(
   userId: string,
@@ -224,7 +222,6 @@ export async function getCartByUserId(
       .from("carts")
       .select("*")
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -252,7 +249,7 @@ export async function getCartByUserId(
 }
 
 /**
- * Check if a guest session has an active cart (deleted_at is null).
+ * Check if a guest session has an active cart.
  * Uses service-role client; always filters by session_id + user_id IS NULL.
  */
 export async function hasActiveCartBySessionId(
@@ -265,7 +262,6 @@ export async function hasActiveCartBySessionId(
       .select("*")
       .eq("session_id", sessionId)
       .is("user_id", null)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -297,7 +293,7 @@ export async function hasActiveCartBySessionId(
 
 /**
  * Get a cart for a guest by session_id.
- * Uses service-role client; returns the most recent active guest cart for the session.
+ * Uses service-role client; returns the most recent guest cart for the session.
  */
 export async function getCartBySessionId(
   sessionId: string,
@@ -309,7 +305,6 @@ export async function getCartBySessionId(
       .select("*")
       .eq("session_id", sessionId)
       .is("user_id", null)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -417,7 +412,7 @@ export async function updateCart(
 }
 
 /**
- * Soft-delete a cart by setting deleted_at.
+ * Hard-delete a cart. Cart items are removed via ON DELETE CASCADE.
  * RLS policy ensures users can only delete their own carts.
  */
 export async function deleteCart(
@@ -428,7 +423,7 @@ export async function deleteCart(
 
     const { error } = await supabase
       .from("carts")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", cartId);
 
     if (error) {
@@ -498,7 +493,6 @@ export interface AdminCartRow {
   session_id: string | null;
   created_at: string;
   updated_at: string;
-  deleted_at: string | null;
   userName: string | null;
   items: number;
   total: number;
@@ -513,7 +507,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Fetch all carts (including deleted ones for admin view)
+    // Fetch all carts
     const { data: carts, error: cartsError } = await supabase
       .from("carts")
       .select(`
@@ -521,8 +515,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
         user_id,
         session_id,
         created_at,
-        updated_at,
-        deleted_at
+        updated_at
       `)
       .order("created_at", { ascending: false });
 
@@ -603,7 +596,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
         items: 0,
         total: 0,
       };
-      const status = cart.deleted_at ? "Deleted" : "Active";
+      const status = "Active";
       const userName = cart.user_id
         ? profileMap.get(cart.user_id) || `User ${cart.user_id}`
         : "Guest";
@@ -614,7 +607,6 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
         session_id: cart.session_id,
         created_at: cart.created_at,
         updated_at: cart.updated_at,
-        deleted_at: cart.deleted_at,
         userName,
         items: aggregates.items,
         total: aggregates.total,
@@ -630,7 +622,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
 }
 
 /**
- * Get user IDs that have active carts (deleted_at is null).
+ * Get user IDs that have carts.
  * Uses admin client to bypass RLS for admin access.
  */
 export async function getUserIdsWithActiveCarts(): Promise<string[]> {
@@ -640,8 +632,7 @@ export async function getUserIdsWithActiveCarts(): Promise<string[]> {
     const { data, error } = await supabase
       .from("carts")
       .select("user_id")
-      .not("user_id", "is", null)
-      .is("deleted_at", null);
+      .not("user_id", "is", null);
 
     if (error) {
       console.error("Error fetching user IDs with active carts:", error);
@@ -757,10 +748,11 @@ export async function updateCartUserId(
 }
 
 /**
- * Soft-delete a cart using admin client (bypass RLS).
+ * Hard-delete a cart using admin client (bypass RLS).
  * Used for guest carts after merging, where the user_id may not match.
+ * Cart items are removed via ON DELETE CASCADE.
  */
-export async function softDeleteCartAdmin(
+export async function deleteCartAdmin(
   cartId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -768,20 +760,20 @@ export async function softDeleteCartAdmin(
 
     const { error } = await supabase
       .from("carts")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", cartId);
 
     if (error) {
-      console.error("Error soft-deleting cart (admin):", error);
+      console.error("Error deleting cart (admin):", error);
       return {
         success: false,
-        error: error.message || "Failed to soft-delete cart",
+        error: error.message || "Failed to delete cart",
       };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Unexpected error in softDeleteCartAdmin:", error);
+    console.error("Unexpected error in deleteCartAdmin:", error);
     return {
       success: false,
       error:

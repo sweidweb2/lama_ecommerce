@@ -65,7 +65,7 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
           name: result.data.full_name ?? name,
           email: result.data.email ?? email,
           role: result.data.role === "admin" ? "Admin" : "Customer",
-          status: result.data.deleted_at ? "Inactive" : "Active",
+          status: result.data.is_active ? "Active" : "Inactive",
         })
         handleClose()
         router.refresh()

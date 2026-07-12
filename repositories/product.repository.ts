@@ -2,7 +2,6 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Product, ProductWithRelations } from "@/types/product";
 
 export interface GetProductsRepoParams {
@@ -50,51 +49,6 @@ export interface UpdateProductRepoInput {
   is_featured?: boolean;
   is_trending?: boolean;
   is_active?: boolean;
-}
-
-/**
- * Check whether any rows in related tables reference this product.
- *
- * If true, we should hard-delete (cascade) instead of soft-deleting.
- */
-export async function hasProductRelations(productId: string): Promise<boolean> {
-  try {
-    const supabase = await createSupabaseServerActionClient();
-
-    const relatedChecks: Array<{
-      table:
-        | "product_images"
-        | "customised_products"
-        | "reviews"
-        | "product_questions"
-        | "product_views"
-        | "product_stats";
-      column: string;
-    }> = [
-      { table: "product_images", column: "product_id" },
-      { table: "customised_products", column: "product_id" },
-      { table: "reviews", column: "product_id" },
-      { table: "product_questions", column: "product_id" },
-      { table: "product_views", column: "product_id" },
-      { table: "product_stats", column: "product_id" },
-    ];
-
-    for (const { table, column } of relatedChecks) {
-      const { count, error } = await supabase
-        .from(table)
-        .select("*", { count: "exact", head: true })
-        .eq(column, productId);
-
-      if (!error && (count ?? 0) > 0) {
-        return true;
-      }
-    }
-
-    return false;
-  } catch (error) {
-    console.error("Unexpected error in hasProductRelations:", error);
-    return true;
-  }
 }
 
 /**
@@ -468,97 +422,104 @@ export async function updateProduct(
 }
 
 /**
- * Soft-delete a product by setting deleted_at and is_active = false.
- */
-export async function softDeleteProduct(id: string): Promise<boolean> {
-  try {
-    const supabase = await createSupabaseServerActionClient();
-
-    const { error } = await supabase
-      .from("products")
-      .update({
-        deleted_at: new Date().toISOString(),
-          is_active: false,
-          is_featured: false,
-          is_trending: false,
-        } as never)
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error soft-deleting product:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Unexpected error in softDeleteProduct:", error);
-    return false;
-  }
-}
-
-/**
- * Hard-delete a product row (DB-level).
- * Uses admin client to bypass RLS. Deletes dependent rows in tables that do not have
- * ON DELETE CASCADE (product_questions, product_answers, product_views, product_stats) first.
- * Caller must enforce admin authorization (e.g. in the server action).
+ * Hard-delete a product.
+ * Blocks when NO ACTION children exist: product_questions, product_views, product_stats,
+ * or wishlists/cart_items referencing the product's variants.
+ * Images, variants, and reviews cascade via FK.
  */
 export async function hardDeleteProduct(id: string): Promise<boolean> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
 
-    // Tables that reference products(id) without ON DELETE CASCADE must be cleared first.
-    const { data: questionIds } = await supabase
-      .from("product_questions")
-      .select("id")
-      .eq("product_id", id);
+    const blockingChecks: Array<{
+      table: "product_questions" | "product_views" | "product_stats";
+      label: string;
+    }> = [
+      { table: "product_questions", label: "product questions" },
+      { table: "product_views", label: "product views" },
+      { table: "product_stats", label: "product stats" },
+    ];
 
-    if (questionIds?.length) {
-      const ids = (questionIds as { id: string }[]).map((q) => q.id);
-      const { error: answersErr } = await supabase
-        .from("product_answers")
-        .delete()
-        .in("product_question_id", ids);
-      if (answersErr) {
-        console.error("Error deleting product_answers:", answersErr);
+    for (const { table, label } of blockingChecks) {
+      const { count, error } = await supabase
+        .from(table)
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", id);
+
+      if (error) {
+        console.error(`Error checking ${table} before product delete:`, error);
         return false;
+      }
+      if ((count ?? 0) > 0) {
+        throw new Error(
+          `Cannot delete product: ${label} still exist. Remove them first.`,
+        );
       }
     }
 
-    const { error: questionsErr } = await supabase
-      .from("product_questions")
-      .delete()
+    const { data: variants, error: variantsError } = await supabase
+      .from("customised_products")
+      .select("id")
       .eq("product_id", id);
-    if (questionsErr) {
-      console.error("Error deleting product_questions:", questionsErr);
+
+    if (variantsError) {
+      console.error("Error fetching variants before product delete:", variantsError);
       return false;
     }
 
-    const { error: viewsErr } = await supabase
-      .from("product_views")
-      .delete()
-      .eq("product_id", id);
-    if (viewsErr) {
-      console.error("Error deleting product_views:", viewsErr);
-      return false;
-    }
+    const variantIds = ((variants ?? []) as { id: string }[]).map((v) => v.id);
 
-    const { error: statsErr } = await supabase
-      .from("product_stats")
-      .delete()
-      .eq("product_id", id);
-    if (statsErr) {
-      console.error("Error deleting product_stats:", statsErr);
-      return false;
+    if (variantIds.length > 0) {
+      const { count: wishlistCount, error: wishlistError } = await supabase
+        .from("wishlists")
+        .select("*", { count: "exact", head: true })
+        .in("customised_product_id", variantIds);
+
+      if (wishlistError) {
+        console.error("Error checking wishlists before product delete:", wishlistError);
+        return false;
+      }
+      if ((wishlistCount ?? 0) > 0) {
+        throw new Error(
+          "Cannot delete product: wishlist items still reference its variants. Remove them first.",
+        );
+      }
+
+      const { count: cartItemCount, error: cartItemError } = await supabase
+        .from("cart_items")
+        .select("*", { count: "exact", head: true })
+        .in("customised_product_id", variantIds);
+
+      if (cartItemError) {
+        console.error("Error checking cart_items before product delete:", cartItemError);
+        return false;
+      }
+      if ((cartItemCount ?? 0) > 0) {
+        throw new Error(
+          "Cannot delete product: cart items still reference its variants. Remove them first.",
+        );
+      }
     }
 
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
+      if (error.code === "23503") {
+        throw new Error(
+          "Cannot delete product: related records still exist. Remove them first.",
+        );
+      }
       console.error("Error hard-deleting product:", error);
       return false;
     }
 
     return true;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete product:")
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in hardDeleteProduct:", error);
     return false;
   }

@@ -17,7 +17,6 @@ export type Database = {
           parent_id: string | null
           is_active: boolean
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -26,7 +25,6 @@ export type Database = {
           parent_id?: string | null
           is_active?: boolean
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -35,7 +33,6 @@ export type Database = {
           parent_id?: string | null
           is_active?: boolean
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -55,7 +52,6 @@ export type Database = {
           owner_id: string | null
           created_at: string
           updated_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -72,7 +68,6 @@ export type Database = {
           owner_id?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -89,7 +84,6 @@ export type Database = {
           owner_id?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -115,7 +109,6 @@ export type Database = {
           slug: string | null
           logo_image_url: string | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -123,7 +116,6 @@ export type Database = {
           slug?: string | null
           logo_image_url?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -131,7 +123,6 @@ export type Database = {
           slug?: string | null
           logo_image_url?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -178,7 +169,6 @@ export type Database = {
           sku_variant: string | null
           price_override: number | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -190,7 +180,6 @@ export type Database = {
           sku_variant?: string | null
           price_override?: number | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -202,7 +191,6 @@ export type Database = {
           sku_variant?: string | null
           price_override?: number | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -213,7 +201,7 @@ export type Database = {
           full_name: string | null
           role: 'user' | 'admin'
           created_at: string
-          deleted_at: string | null
+          is_active: boolean
         }
         Insert: {
           id?: string
@@ -221,7 +209,7 @@ export type Database = {
           full_name?: string | null
           role?: 'user' | 'admin'
           created_at?: string
-          deleted_at?: string | null
+          is_active?: boolean
         }
         Update: {
           id?: string
@@ -229,7 +217,7 @@ export type Database = {
           full_name?: string | null
           role?: 'user' | 'admin'
           created_at?: string
-          deleted_at?: string | null
+          is_active?: boolean
         }
         Relationships: []
       }
@@ -240,7 +228,6 @@ export type Database = {
           session_id: string | null
           created_at: string
           updated_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -248,7 +235,6 @@ export type Database = {
           session_id?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -256,7 +242,6 @@ export type Database = {
           session_id?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -267,7 +252,6 @@ export type Database = {
           customised_product_id: string
           quantity: number
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -275,7 +259,6 @@ export type Database = {
           customised_product_id: string
           quantity: number
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -283,7 +266,6 @@ export type Database = {
           customised_product_id?: string
           quantity?: number
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -318,7 +300,6 @@ export type Database = {
           email: string | null
           created_at: string
           updated_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -335,7 +316,6 @@ export type Database = {
           email?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -352,7 +332,6 @@ export type Database = {
           email?: string | null
           created_at?: string
           updated_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -368,7 +347,6 @@ export type Database = {
           material_snapshot: string | null
           color_snapshot: string | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -381,7 +359,6 @@ export type Database = {
           material_snapshot?: string | null
           color_snapshot?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -394,7 +371,6 @@ export type Database = {
           material_snapshot?: string | null
           color_snapshot?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -412,7 +388,6 @@ export type Database = {
           payment_url: string | null
           callback_payload: JSON | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -427,7 +402,6 @@ export type Database = {
           payment_url?: string | null
           callback_payload?: JSON | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -442,7 +416,6 @@ export type Database = {
           payment_url?: string | null
           callback_payload?: JSON | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -453,7 +426,6 @@ export type Database = {
           carrier_name: string | null
           tracking_number: string | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -461,7 +433,6 @@ export type Database = {
           carrier_name?: string | null
           tracking_number?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -469,7 +440,6 @@ export type Database = {
           carrier_name?: string | null
           tracking_number?: string | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -483,7 +453,6 @@ export type Database = {
           comment: string | null
           review_status: 'pending' | 'approved' | 'rejected'
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -494,7 +463,6 @@ export type Database = {
           comment?: string | null
           review_status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -505,7 +473,6 @@ export type Database = {
           comment?: string | null
           review_status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -553,7 +520,6 @@ export type Database = {
           sku_variant: string | null
           price_override: number | null
           created_at: string
-          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -565,7 +531,6 @@ export type Database = {
           sku_variant?: string | null
           price_override?: number | null
           created_at?: string
-          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -577,7 +542,6 @@ export type Database = {
           sku_variant?: string | null
           price_override?: number | null
           created_at?: string
-          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -720,7 +684,6 @@ export type Database = {
           customised_product_id: string
           quantity: number
           created_at: string
-          deleted_at: string | null
         }[]
       }
       process_checkout: {

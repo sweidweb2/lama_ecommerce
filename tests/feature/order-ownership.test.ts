@@ -30,8 +30,9 @@ vi.mock("@/repositories/order.repository", () => ({
     getShipmentByOrderIdForAdmin(...args),
   getAllOrdersForAdmin: vi.fn(),
   updateOrder: vi.fn(),
-  softDeleteOrderAdmin: vi.fn(),
-  softDeleteOrderItemsByOrderId: vi.fn(),
+  deleteOrderAdmin: vi.fn(),
+  countPaymentsByOrderId: vi.fn(),
+  countShipmentsByOrderId: vi.fn(),
 }));
 
 describe("getOrderDetails ownership", () => {

@@ -10,7 +10,7 @@ import {
   deleteCart,
   hardDeleteCart,
   updateCartUserId,
-  softDeleteCartAdmin,
+  deleteCartAdmin,
   type AdminCartRow,
 } from "@/repositories/cart.repository";
 import {
@@ -432,7 +432,7 @@ export async function updateCartItemService(
 
 /**
  * Delete cart service.
- * Soft-deletes a cart by setting deleted_at.
+ * Hard-deletes a cart (items cascade).
  */
 export async function deleteCartService(
   cartId: string,
@@ -514,13 +514,13 @@ export async function createCartForAdminService(
  * Scenarios:
  * 1. Both user cart and guest cart exist →
  *    Move all guest cart items into user cart (merging duplicate quantities),
- *    assign the guest cart's user_id to the logged-in user, then soft-delete the guest cart.
+ *    assign the guest cart's user_id to the logged-in user, then hard-delete the guest cart.
  *
  * 2. Only user cart exists → nothing to do (guest had no cart).
  *
  * 3. Only guest cart exists →
  *    Create a new cart for the user, move all guest items into it,
- *    assign the guest cart's user_id to the logged-in user, then soft-delete the guest cart.
+ *    assign the guest cart's user_id to the logged-in user, then hard-delete the guest cart.
  *
  * 4. Neither exists → nothing to do.
  *
@@ -574,8 +574,8 @@ export async function mergeGuestCartToUserService(
       // Assign the guest cart to this user (ownership record)
       await updateCartUserId(guestCart.id, userId);
 
-      // Soft-delete the guest cart
-      await softDeleteCartAdmin(guestCart.id);
+      // Hard-delete the guest cart
+      await deleteCartAdmin(guestCart.id);
 
       return { success: true, merged: true };
     }
@@ -607,8 +607,8 @@ export async function mergeGuestCartToUserService(
       // Assign the guest cart to this user (ownership record)
       await updateCartUserId(guestCart.id, userId);
 
-      // Soft-delete the guest cart
-      await softDeleteCartAdmin(guestCart.id);
+      // Hard-delete the guest cart
+      await deleteCartAdmin(guestCart.id);
 
       return { success: true, merged: true };
     }

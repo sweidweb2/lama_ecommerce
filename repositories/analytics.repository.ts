@@ -16,8 +16,7 @@ export async function getSalesAndOrdersByMonth(): Promise<
     const { data: orders, error } = await supabase
       .from("orders")
       .select("total, created_at")
-      .gte("created_at", sixMonthsAgo.toISOString())
-      .is("deleted_at", null);
+      .gte("created_at", sixMonthsAgo.toISOString());
 
     if (error) {
       console.error("Error fetching sales data:", error);
@@ -74,7 +73,7 @@ export async function getUserGrowthByMonth(): Promise<
       .from("profiles")
       .select("created_at")
       .gte("created_at", sixMonthsAgo.toISOString())
-      .is("deleted_at", null);
+      .eq("is_active", true);
 
     if (error) {
       console.error("Error fetching user growth data:", error);
@@ -118,8 +117,7 @@ export async function getOrderStatusBreakdown(): Promise<
 
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("status")
-      .is("deleted_at", null);
+      .select("status");
 
     if (error) {
       console.error("Error fetching order status data:", error);
@@ -154,8 +152,7 @@ export async function getPaymentStatusBreakdown(): Promise<
 
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("payment_status")
-      .is("deleted_at", null);
+      .select("payment_status");
 
     if (error) {
       console.error("Error fetching payment status data:", error);
@@ -211,24 +208,20 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .eq("is_active", true),
       supabase
         .from("products")
-        .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .select("*", { count: "exact", head: true }),
       supabase
         .from("orders")
-        .select("total")
-        .is("deleted_at", null),
+        .select("total"),
       supabase
         .from("carts")
-        .select("id")
-        .is("deleted_at", null),
+        .select("id"),
       supabase
         .from("reviews")
         .select("id")
-        .eq("review_status", "pending")
-        .is("deleted_at", null),
+        .eq("review_status", "pending"),
       supabase
         .from("contact_us")
         .select("id")
@@ -236,7 +229,6 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       supabase
         .from("products")
         .select("id")
-        .is("deleted_at", null)
         .eq("is_active", true),
     ]);
 
@@ -254,7 +246,6 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
     const { data: variants } = await supabase
       .from("customised_products")
       .select("product_id, quantity_stock")
-      .is("deleted_at", null)
       .lte("quantity_stock", 5);
 
     const lowStockProductIds = new Set(
@@ -303,21 +294,19 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
     // Get order items with product names
     const { data: orderItems, error } = await supabase
       .from("order_items")
-      .select("product_name_snapshot, price_snapshot, quantity, order_id")
-      .is("deleted_at", null);
+      .select("product_name_snapshot, price_snapshot, quantity, order_id");
 
     if (error) {
       console.error("Error fetching top products:", error);
       return [];
     }
 
-    // Get order IDs to check if orders are not deleted
+    // Get order IDs for valid orders
     const orderIds = [...new Set((orderItems || []).map((item) => item.order_id))];
     const { data: orders } = await supabase
       .from("orders")
       .select("id")
-      .in("id", orderIds)
-      .is("deleted_at", null);
+      .in("id", orderIds);
 
     const validOrderIds = new Set((orders || []).map((o) => o.id));
 

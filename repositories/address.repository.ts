@@ -5,7 +5,7 @@ import {
 import type { UserAddress } from "@/types/user";
 
 /**
- * Get all non-deleted addresses for a user (default first).
+ * Get all addresses for a user (default first).
  */
 export async function getAddressesByUserId(
   userId: string,
@@ -16,7 +16,6 @@ export async function getAddressesByUserId(
       .from("user_addresses")
       .select("*")
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -118,7 +117,6 @@ export async function updateAddressById(
       .update(payload)
       .eq("id", addressId)
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .select()
       .maybeSingle();
 
@@ -134,7 +132,7 @@ export async function updateAddressById(
 }
 
 /**
- * Soft-delete an address. RLS ensures user can only delete own addresses.
+ * Hard-delete an address. RLS ensures user can only delete own addresses.
  */
 export async function deleteAddressById(
   addressId: string,
@@ -144,7 +142,7 @@ export async function deleteAddressById(
     const supabase = await createSupabaseServerActionClient();
     const { error } = await (supabase as any)
       .from("user_addresses")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", addressId)
       .eq("user_id", userId);
 
@@ -178,7 +176,6 @@ export async function setDefaultAddress(
       .update({ is_default: true })
       .eq("id", addressId)
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .select()
       .maybeSingle();
 

@@ -121,9 +121,18 @@ export async function deleteBrandService(
 ): Promise<boolean> {
   await requireAdmin();
   try {
-    await removeBrandLogo(logoUrl);
-    return await deleteBrand(id);
+    const deleted = await deleteBrand(id);
+    if (deleted) {
+      await removeBrandLogo(logoUrl);
+    }
+    return deleted;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete brand:")
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in deleteBrandService:", error);
     return false;
   }

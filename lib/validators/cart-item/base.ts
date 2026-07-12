@@ -9,7 +9,7 @@ import { z } from "zod";
  * - customised_product_id: Required UUID reference to customised_products table
  * - quantity: Required integer, minimum 1
  * 
- * Note: id, created_at, and deleted_at are managed by the server
+ * Note: id and created_at are managed by the server
  */
 export const cartItemBaseSchema = z.object({
   cart_id: z.string().uuid("Cart ID must be a valid UUID"),

@@ -77,41 +77,23 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
     postal_code?: string
   } | null
 
-  const isDeleted = !!order.deleted_at
-
   return (
     <div>
       <OrderDetailsBreadcrumbs orderId={order.id} />
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Deleted Order Banner */}
-        {isDeleted && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700">
-                Deleted Order
-              </Badge>
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                This order has been deleted and is in read-only mode. You can view the details but cannot make changes.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Order Details</h1>
             <p className="text-muted-foreground text-sm sm:text-base mt-1">
-              {isDeleted ? "View order information (Read-only)" : "View and manage order information"}
+              View and manage order information
             </p>
           </div>
-          {!isDeleted && (
           <div className="flex gap-2">
             <EditOrderDialog order={order} showText />
             <DeleteOrderDialog order={order} showText redirectAfterDelete disabled />
           </div>
-          )}
         </div>
 
         {/* Order Status Stepper */}
@@ -123,7 +105,6 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             <OrderStatusStepper
               orderId={order.id}
               currentStatus={order.status}
-              isDeleted={isDeleted}
             />
           </CardContent>
         </Card>
@@ -134,7 +115,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             {/* Order Items */}
             <Card>
               <CardContent>
-                <OrderItemsTable orderId={order.id} items={orderItems} isDeleted={isDeleted} />
+                <OrderItemsTable orderId={order.id} items={orderItems} />
               </CardContent>
             </Card>
           </div>
@@ -215,15 +196,6 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                     {order.updated_at ? formatDate(order.updated_at) : "—"}
                   </p>
                 </div>
-
-                {order.deleted_at && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Deleted At</label>
-                    <p className="text-sm mt-1">
-                      {formatDate(order.deleted_at)}
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
 

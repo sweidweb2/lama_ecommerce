@@ -14,7 +14,7 @@ export interface AdminOrderRow extends Order {
 }
 
 /**
- * Get orders for a specific user (non-deleted, newest first).
+ * Get orders for a specific user (newest first).
  */
 export async function getOrdersByUserId(
   userId: string,
@@ -26,7 +26,6 @@ export async function getOrdersByUserId(
       .from("orders")
       .select("*")
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (limit) {
@@ -48,7 +47,7 @@ export async function getOrdersByUserId(
 }
 
 /**
- * Get order count for a specific user (non-deleted).
+ * Get order count for a specific user.
  */
 export async function getOrderCountByUserId(userId: string): Promise<number> {
   try {
@@ -56,8 +55,7 @@ export async function getOrderCountByUserId(userId: string): Promise<number> {
     const { count, error } = await supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .is("deleted_at", null);
+      .eq("user_id", userId);
 
     if (error) {
       console.error("Error fetching user order count:", error);
@@ -72,7 +70,7 @@ export async function getOrderCountByUserId(userId: string): Promise<number> {
 }
 
 /**
- * Get a single order by ID (non-deleted).
+ * Get a single order by ID.
  * Uses RLS — caller must own the order (user_id = auth.uid() or user_id IS NULL for guests).
  */
 export async function getOrderById(
@@ -84,7 +82,6 @@ export async function getOrderById(
       .from("orders")
       .select("*")
       .eq("id", orderId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
@@ -105,8 +102,8 @@ export async function getOrderById(
 }
 
 /**
- * Get a single order by ID (including deleted) - Admin use.
- * Uses admin client to bypass RLS and include deleted orders.
+ * Get a single order by ID - Admin use.
+ * Uses admin client to bypass RLS.
  */
 export async function getOrderByIdForAdmin(
   orderId: string,
@@ -132,7 +129,7 @@ export async function getOrderByIdForAdmin(
 }
 
 /**
- * Get order items for a given order (non-deleted).
+ * Get order items for a given order.
  * Uses RLS — only items belonging to the caller's orders are returned.
  */
 export async function getOrderItemsByOrderId(
@@ -144,7 +141,6 @@ export async function getOrderItemsByOrderId(
       .from("order_items")
       .select("*")
       .eq("order_id", orderId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -160,8 +156,8 @@ export async function getOrderItemsByOrderId(
 }
 
 /**
- * Get order items for a given order (including deleted) - Admin use.
- * Uses admin client to bypass RLS and include deleted items.
+ * Get order items for a given order - Admin use.
+ * Uses admin client to bypass RLS.
  */
 export async function getOrderItemsByOrderIdForAdmin(
   orderId: string,
@@ -200,7 +196,6 @@ export async function getPaymentByOrderId(
       .from("payments")
       .select("*")
       .eq("order_id", orderId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -218,8 +213,8 @@ export async function getPaymentByOrderId(
 }
 
 /**
- * Get the payment record for an order (including deleted) - Admin use.
- * Uses admin client and includes deleted payments.
+ * Get the payment record for an order - Admin use.
+ * Uses admin client to bypass RLS.
  */
 export async function getPaymentByOrderIdForAdmin(
   orderId: string,
@@ -260,7 +255,6 @@ export async function getShipmentByOrderId(
       .from("shipments")
       .select("*")
       .eq("order_id", orderId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -278,8 +272,8 @@ export async function getShipmentByOrderId(
 }
 
 /**
- * Get the shipment record for an order (including deleted) - Admin use.
- * Uses admin client and includes deleted shipments.
+ * Get the shipment record for an order - Admin use.
+ * Uses admin client to bypass RLS.
  */
 export async function getShipmentByOrderIdForAdmin(
   orderId: string,
@@ -314,7 +308,7 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Fetch all orders (including soft-deleted for full admin visibility)
+    // Fetch all orders
     const { data: orders, error } = await supabase
       .from("orders")
       .select(`
@@ -331,8 +325,7 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
         phone,
         email,
         created_at,
-        updated_at,
-        deleted_at
+        updated_at
       `)
       .order("created_at", { ascending: false });
 
@@ -382,7 +375,7 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
 }
 
 /**
- * Get orders for a guest session (non-deleted, newest first).
+ * Get orders for a guest session (newest first).
  * Uses service-role client; always filters by session_id + user_id IS NULL.
  */
 export async function getOrdersBySessionId(
@@ -396,7 +389,6 @@ export async function getOrdersBySessionId(
       .select("*")
       .eq("session_id", sessionId)
       .is("user_id", null)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (limit) {
@@ -559,61 +551,64 @@ export async function updateOrder(
 }
 
 /**
- * Soft-delete order items by order ID using admin client (bypass RLS).
- * Used for admin operations to soft-delete all items associated with an order.
+ * Count payments for an order (admin). Used to block hard-delete when payments exist.
  */
-export async function softDeleteOrderItemsByOrderId(
+export async function countPaymentsByOrderId(
   orderId: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<number> {
   try {
     const supabase = createSupabaseAdminClient();
-
-    // Validate order ID
-    if (!orderId || typeof orderId !== "string") {
-      return {
-        success: false,
-        error: "Invalid order ID",
-      };
-    }
-
-    // Soft-delete all order items for this order
-    const { error } = await supabase
-      .from("order_items")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("order_id", orderId)
-      .is("deleted_at", null); // Only update items that aren't already deleted
+    const { count, error } = await supabase
+      .from("payments")
+      .select("*", { count: "exact", head: true })
+      .eq("order_id", orderId);
 
     if (error) {
-      console.error("Error soft-deleting order items:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to soft-delete order items",
-      };
+      console.error("Error counting payments:", error);
+      return 0;
     }
-
-    return { success: true };
+    return count ?? 0;
   } catch (error) {
-    console.error("Unexpected error in softDeleteOrderItemsByOrderId:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Unexpected error occurred",
-    };
+    console.error("Unexpected error in countPaymentsByOrderId:", error);
+    return 0;
   }
 }
 
 /**
- * Soft-delete an order using admin client (bypass RLS).
- * Used for admin operations to soft-delete orders.
- * Note: This does NOT automatically soft-delete order items - that must be done separately.
+ * Count shipments for an order (admin). Used to block hard-delete when shipments exist.
  */
-export async function softDeleteOrderAdmin(
+export async function countShipmentsByOrderId(
+  orderId: string,
+): Promise<number> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { count, error } = await supabase
+      .from("shipments")
+      .select("*", { count: "exact", head: true })
+      .eq("order_id", orderId);
+
+    if (error) {
+      console.error("Error counting shipments:", error);
+      return 0;
+    }
+    return count ?? 0;
+  } catch (error) {
+    console.error("Unexpected error in countShipmentsByOrderId:", error);
+    return 0;
+  }
+}
+
+/**
+ * Hard-delete an order using admin client (bypass RLS).
+ * Order items are removed via ON DELETE CASCADE.
+ * Caller must refuse delete when payments or shipments exist.
+ */
+export async function deleteOrderAdmin(
   orderId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Validate order ID
     if (!orderId || typeof orderId !== "string") {
       return {
         success: false,
@@ -621,10 +616,9 @@ export async function softDeleteOrderAdmin(
       };
     }
 
-    // Check if order exists and is not already deleted
     const { data: existingOrder, error: checkError } = await supabase
       .from("orders")
-      .select("id, deleted_at")
+      .select("id")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -643,30 +637,22 @@ export async function softDeleteOrderAdmin(
       };
     }
 
-    if (existingOrder.deleted_at) {
-      return {
-        success: false,
-        error: "Order is already deleted",
-      };
-    }
-
-    // Soft-delete the order
     const { error } = await supabase
       .from("orders")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", orderId);
 
     if (error) {
-      console.error("Error soft-deleting order:", error);
+      console.error("Error deleting order:", error);
       return {
         success: false,
-        error: error.message || "Failed to soft-delete order",
+        error: error.message || "Failed to delete order",
       };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Unexpected error in softDeleteOrderAdmin:", error);
+    console.error("Unexpected error in deleteOrderAdmin:", error);
     return {
       success: false,
       error:

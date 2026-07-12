@@ -12,8 +12,9 @@ import {
   getShipmentByOrderIdForAdmin,
   getAllOrdersForAdmin,
   updateOrder,
-  softDeleteOrderAdmin,
-  softDeleteOrderItemsByOrderId,
+  deleteOrderAdmin,
+  countPaymentsByOrderId,
+  countShipmentsByOrderId,
 } from "@/repositories/order.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
@@ -213,8 +214,8 @@ export async function updateOrderService(
 }
 
 /**
- * Delete an order (admin use) - soft delete order and its order items.
- * Validates input and ensures both order and items are soft-deleted.
+ * Delete an order (admin use) - hard delete.
+ * Refuses if payments or shipments exist; order items cascade with the order.
  */
 export async function deleteOrderService(
   orderId: string,
@@ -233,17 +234,23 @@ export async function deleteOrderService(
       };
     }
 
-    // First, soft-delete all order items
-    const itemsResult = await softDeleteOrderItemsByOrderId(orderId);
-    if (!itemsResult.success) {
+    const paymentCount = await countPaymentsByOrderId(orderId);
+    if (paymentCount > 0) {
       return {
         success: false,
-        error: itemsResult.error || "Failed to delete order items",
+        error: "Cannot delete order with existing payments",
       };
     }
 
-    // Then, soft-delete the order itself
-    const orderResult = await softDeleteOrderAdmin(orderId);
+    const shipmentCount = await countShipmentsByOrderId(orderId);
+    if (shipmentCount > 0) {
+      return {
+        success: false,
+        error: "Cannot delete order with existing shipments",
+      };
+    }
+
+    const orderResult = await deleteOrderAdmin(orderId);
     if (!orderResult.success) {
       return {
         success: false,

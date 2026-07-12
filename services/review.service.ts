@@ -133,7 +133,7 @@ export async function updateReviewService(
 
 /**
  * Delete a review (admin use).
- * Performs a soft delete by setting deleted_at.
+ * Permanently deletes the review.
  */
 export async function deleteReviewService(
   reviewId: string,

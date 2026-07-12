@@ -27,7 +27,7 @@ export async function updateCategoryService(
   return updateCategory(id, payload);
 }
 
-// Soft-delete a category (admin).
+// Hard-delete a category (admin). Re-parents children; refuses if products still reference it.
 export async function deleteCategoryService(id: string): Promise<boolean> {
   return deleteCategory(id);
 }

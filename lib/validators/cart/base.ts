@@ -10,7 +10,7 @@ import { z } from "zod";
  * 
  * Note: 
  * - Either user_id OR session_id must be present (enforced by database check constraint)
- * - id, created_at, updated_at, and deleted_at are managed by the server
+ * - id, created_at, and updated_at are managed by the server
  */
 export const cartBaseSchema = z.object({
   user_id: z

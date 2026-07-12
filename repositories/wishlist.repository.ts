@@ -50,8 +50,7 @@ export async function getWishlistItemsByUserId(
     const { data, error } = await (supabase as any)
       .from("wishlists")
       .select(WISHLIST_SELECT)
-      .eq("user_id", userId)
-      .is("deleted_at", null);
+      .eq("user_id", userId);
 
     if (error) {
       console.error("Error fetching wishlist:", error);
@@ -100,7 +99,6 @@ export async function addWishlistItem(
       .select("id")
       .eq("user_id", userId)
       .eq("customised_product_id", customisedProductId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (existing) {
@@ -203,7 +201,6 @@ export async function isInWishlist(
       .select("id")
       .eq("user_id", userId)
       .eq("customised_product_id", customisedProductId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
@@ -230,8 +227,7 @@ export async function getWishlistItemsBySessionId(
       .from("wishlists")
       .select(WISHLIST_SELECT)
       .eq("session_id", sessionId)
-      .is("user_id", null)
-      .is("deleted_at", null);
+      .is("user_id", null);
 
     if (error) {
       console.error("Error fetching guest wishlist:", error);
@@ -282,7 +278,6 @@ export async function addWishlistItemForGuest(
       .eq("session_id", sessionId)
       .is("user_id", null)
       .eq("customised_product_id", customisedProductId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (existing) {
@@ -358,7 +353,6 @@ export async function isInWishlistForGuest(
       .eq("session_id", sessionId)
       .is("user_id", null)
       .eq("customised_product_id", customisedProductId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {

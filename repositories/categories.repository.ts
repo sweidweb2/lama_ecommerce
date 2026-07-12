@@ -10,7 +10,6 @@ import type {
 
 /**
  * Fetch all active categories, ordered by name.
- * Only returns categories that are active and not deleted.
  */
 export async function getCategories(): Promise<Category[]> {
   try {
@@ -19,7 +18,6 @@ export async function getCategories(): Promise<Category[]> {
       .from("categories")
       .select("*")
       .eq("is_active", true)
-      .is("deleted_at", null)
       .order("name", { ascending: true });
 
     if (error) {
@@ -110,50 +108,79 @@ export async function updateCategory(
 }
 
 /**
- * Soft-delete a category (admin).
- * Also re-parent its children:
- * - If the deleted category has a parent, children are moved to that parent.
- * - If the deleted category is a root category, children become root (parent_id = null).
+ * Hard-delete a category (admin).
+ * Re-parents children first:
+ * - If the deleted category has a parent, children move to that parent.
+ * - If it is a root category, children become root (parent_id = null).
+ * Blocks when products still reference this category.
  */
 export async function deleteCategory(id: string): Promise<boolean> {
-  const supabase = await createSupabaseServerActionClient();
+  try {
+    const supabase = await createSupabaseServerActionClient();
 
-  // Fetch parent_id of the category being deleted
-  const { data: category, error: fetchError } = await supabase
-    .from("categories")
-    .select("parent_id")
-    .eq("id", id)
-    .maybeSingle();
+    const { data: category, error: fetchError } = await supabase
+      .from("categories")
+      .select("parent_id")
+      .eq("id", id)
+      .maybeSingle();
 
-  if (fetchError) {
-    console.error("Error fetching category before delete:", fetchError);
+    if (fetchError) {
+      console.error("Error fetching category before delete:", fetchError);
+      return false;
+    }
+
+    const parentId =
+      (category as { parent_id: string | null } | null)?.parent_id ?? null;
+
+    const { error: childrenError } = await supabase
+      .from("categories")
+      .update([{ parent_id: parentId }] as never)
+      .eq("parent_id", id);
+
+    if (childrenError) {
+      console.error("Error re-parenting child categories:", childrenError);
+      return false;
+    }
+
+    const { count: productCount, error: productError } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("category_id", id);
+
+    if (productError) {
+      console.error("Error checking products before category delete:", productError);
+      return false;
+    }
+    if ((productCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete category: products still reference it. Reassign them first.",
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      if (deleteError.code === "23503") {
+        throw new Error(
+          "Cannot delete category: related records still exist. Remove them first.",
+        );
+      }
+      console.error("Error deleting category:", deleteError);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete category:")
+    ) {
+      throw error;
+    }
+    console.error("Unexpected error in deleteCategory:", error);
     return false;
   }
-
-  const parentId =
-    (category as { parent_id: string | null } | null)?.parent_id ?? null;
-
-  // Re-parent children: move them to the deleted category's parent (or root)
-  const { error: childrenError } = await supabase
-    .from("categories")
-    .update([{ parent_id: parentId }] as never)
-    .eq("parent_id", id);
-
-  if (childrenError) {
-    console.error("Error re-parenting child categories:", childrenError);
-    return false;
-  }
-
-  // Soft-delete the category itself
-  const { error: deleteError } = await supabase
-    .from("categories")
-    .update([{ deleted_at: new Date().toISOString(), is_active: false }] as never)
-    .eq("id", id);
-
-  if (deleteError) {
-    console.error("Error deleting category:", deleteError);
-    return false;
-  }
-
-  return true;
 }

@@ -40,7 +40,7 @@ create table profiles (
   full_name text,
   role profile_role not null default 'user',
   created_at timestamptz default now(),
-  deleted_at timestamptz
+  is_active boolean not null default true
 );
 
 --------------------------------------------------
@@ -55,8 +55,7 @@ create table user_addresses (
   postal_code text,
   phone text,
   is_default boolean default false,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -67,8 +66,7 @@ create table brands (
   name text not null,
   slug text unique,
   logo_image_url text,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -80,8 +78,7 @@ create table categories (
   slug text unique,
   parent_id uuid references categories(id),
   is_active boolean default true,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -101,8 +98,7 @@ create table products (
   is_active boolean default true,
   owner_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  deleted_at timestamptz
+  updated_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -128,8 +124,7 @@ create table customised_products (
   quantity_stock integer default 0 check (quantity_stock >= 0),
   sku_variant text unique,
   price_override numeric(10,2),
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -139,8 +134,7 @@ create table wishlists (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
   customised_product_id uuid not null references customised_products(id),
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -152,7 +146,6 @@ create table carts (
   session_id text,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  deleted_at timestamptz,
   check (user_id is not null or session_id is not null)
 );
 
@@ -164,8 +157,7 @@ create table cart_items (
   cart_id uuid not null references carts(id) on delete cascade,
   customised_product_id uuid not null references customised_products(id),
   quantity integer not null,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -180,7 +172,6 @@ create table reviews (
   comment text,
   review_status review_status default 'pending',
   created_at timestamptz default now(),
-  deleted_at timestamptz,
   unique (product_id, user_id)
 );
 
@@ -219,8 +210,7 @@ create table orders (
   phone text,
   email text,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  deleted_at timestamptz
+  updated_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -236,8 +226,7 @@ create table order_items (
   size_snapshot text,
   material_snapshot text,
   color_snapshot text,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -255,8 +244,7 @@ create table payments (
   payment_method text,
   payment_url text,
   callback_payload jsonb,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -281,8 +269,7 @@ create table shipments (
   order_id uuid not null references orders(id),
   carrier_name text,
   tracking_number text,
-  created_at timestamptz default now(),
-  deleted_at timestamptz
+  created_at timestamptz default now()
 );
 
 --------------------------------------------------
@@ -805,7 +792,7 @@ with check (public.get_user_role() = 'admin'::profile_role);
 --
 -- - Admins can SELECT all profiles (for users table).
 -- - Admins can UPDATE any profile (full_name, role; own-role change still blocked by trigger).
--- - Soft-delete: admins set deleted_at via UPDATE (no separate delete policy).
+-- - Admins can set is_active via UPDATE.
 -- - get_admin_profiles(): returns profiles joined with auth.users email for admin only.
 --------------------------------------------------
 
@@ -815,7 +802,7 @@ on profiles
 for select
 using (public.get_user_role() = 'admin'::profile_role);
 
--- Admins can update any profile (e.g. full_name, role; soft-delete via deleted_at)
+-- Admins can update any profile (e.g. full_name, role, is_active)
 create policy "Admins can update any profile"
 on profiles
 for update
@@ -834,7 +821,7 @@ returns table (
   full_name text,
   role profile_role,
   created_at timestamptz,
-  deleted_at timestamptz,
+  is_active boolean,
   email text
 )
 language plpgsql
@@ -852,7 +839,7 @@ begin
     p.full_name,
     p.role,
     p.created_at,
-    p.deleted_at,
+    p.is_active,
     u.email::text
   from public.profiles p
   join auth.users u on u.id = p.user_id;
@@ -1061,8 +1048,7 @@ create policy "Public can read product variants"
 on customised_products
 for select
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1 from products
     where products.id = customised_products.product_id
     and products.is_active = true
@@ -1123,8 +1109,7 @@ create policy "Users can read reviews"
 on reviews
 for select
 using (
-  deleted_at is null
-  and (
+  (
     review_status = 'approved'  -- Can read all approved reviews
     or auth.uid() = user_id     -- Or their own reviews (even if pending/rejected)
   )
@@ -1176,8 +1161,7 @@ create policy "Users can read own carts"
 on carts
 for select
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own carts
     or (user_id is null)  -- Guests: carts with no user_id (session_id handled in app)
   )
@@ -1198,28 +1182,25 @@ create policy "Users can update own carts"
 on carts
 for update
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own carts
     or (user_id is null)  -- Guests: carts with no user_id
   )
 )
 with check (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own carts
     or (user_id is null)  -- Guests: carts with no user_id
   )
 );
 
--- Users can delete their own carts (soft delete by setting deleted_at)
+-- Users can delete their own carts
 drop policy if exists "Users can delete own carts" on carts;
 create policy "Users can delete own carts"
 on carts
 for delete
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own carts
     or (user_id is null)  -- Guests: carts with no user_id
   )
@@ -1243,12 +1224,10 @@ create policy "Users can read own cart items"
 on cart_items
 for select
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_items.cart_id
-      and c.deleted_at is null
       and (
         c.user_id = auth.uid()  -- Authenticated users: their own carts
         or c.user_id is null    -- Guests: carts with no user_id
@@ -1266,7 +1245,6 @@ with check (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and (
         c.user_id = auth.uid()  -- Authenticated users: their own carts
         or c.user_id is null    -- Guests: carts with no user_id
@@ -1280,12 +1258,10 @@ create policy "Users can update own cart items"
 on cart_items
 for update
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and (
         c.user_id = auth.uid()  -- Authenticated users: their own carts
         or c.user_id is null    -- Guests: carts with no user_id
@@ -1293,12 +1269,10 @@ using (
   )
 )
 with check (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and (
         c.user_id = auth.uid()  -- Authenticated users: their own carts
         or c.user_id is null    -- Guests: carts with no user_id
@@ -1306,18 +1280,16 @@ with check (
   )
 );
 
--- Users can delete cart items from their own carts (soft delete by setting deleted_at)
+-- Users can delete cart items from their own carts
 drop policy if exists "Users can delete own cart items" on cart_items;
 create policy "Users can delete own cart items"
 on cart_items
 for delete
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from carts c
     where c.id = cart_id
-      and c.deleted_at is null
       and (
         c.user_id = auth.uid()  -- Authenticated users: their own carts
         or c.user_id is null    -- Guests: carts with no user_id
@@ -1354,13 +1326,12 @@ with check (public.get_user_role() = 'admin'::profile_role);
 
 --------------------------------------------------
 -- PARTIAL UNIQUE INDEX
--- Prevents duplicate active cart items (ignores soft-deleted)
--- This index ensures only one active cart item per (cart_id, customised_product_id)
+-- Ensures one cart item per (cart_id, customised_product_id)
 --------------------------------------------------
 DROP INDEX IF EXISTS cart_items_unique_active;
-CREATE UNIQUE INDEX cart_items_unique_active
-ON cart_items (cart_id, customised_product_id)
-WHERE deleted_at IS NULL;
+DROP INDEX IF EXISTS cart_items_unique_cart_variant;
+CREATE UNIQUE INDEX cart_items_unique_cart_variant
+ON cart_items (cart_id, customised_product_id);
 
 --------------------------------------------------
 -- UPSERT CART ITEM FUNCTION
@@ -1385,23 +1356,21 @@ BEGIN
   -- 1. Validate stock availability
   SELECT quantity_stock INTO v_available_stock
   FROM customised_products
-  WHERE id = p_customised_product_id
-    AND deleted_at IS NULL;
+  WHERE id = p_customised_product_id;
   
   IF v_available_stock IS NULL THEN
-    RAISE EXCEPTION 'Product variant not found or deleted';
+    RAISE EXCEPTION 'Product variant not found';
   END IF;
   
   IF v_available_stock <= 0 THEN
     RAISE EXCEPTION 'Product variant is out of stock';
   END IF;
   
-  -- 2. Try to update existing cart item (if exists and not soft-deleted)
+  -- 2. Try to update existing cart item
   UPDATE cart_items
   SET quantity = quantity + p_quantity
   WHERE cart_id = p_cart_id
     AND customised_product_id = p_customised_product_id
-    AND deleted_at IS NULL
   RETURNING * INTO v_result;
   
   -- 3. If no row was updated, insert new cart item
@@ -1494,8 +1463,7 @@ create policy "Users can read own orders"
 on orders
 for select
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()      -- Authenticated users: their own orders
     or (user_id is null)      -- Guests: orders with no user_id (session_id handled in app)
   )
@@ -1516,28 +1484,25 @@ create policy "Users can update own orders"
 on orders
 for update
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()      -- Authenticated users: their own orders
     or (user_id is null)      -- Guests: orders with no user_id
   )
 )
 with check (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()      -- Authenticated users: their own orders
     or (user_id is null)      -- Guests: orders with no user_id
   )
 );
 
--- Users can delete their own orders (soft delete by setting deleted_at)
+-- Users can delete their own orders
 drop policy if exists "Users can delete own orders" on orders;
 create policy "Users can delete own orders"
 on orders
 for delete
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()      -- Authenticated users: their own orders
     or (user_id is null)      -- Guests: orders with no user_id
   )
@@ -1561,12 +1526,10 @@ create policy "Users can read own order items"
 on order_items
 for select
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_items.order_id
-      and o.deleted_at is null
       and (
         o.user_id = auth.uid()    -- Authenticated users: their own orders
         or o.user_id is null      -- Guests: orders with no user_id (session_id handled in app)
@@ -1584,7 +1547,6 @@ with check (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and (
         o.user_id = auth.uid()    -- Authenticated users: their own orders
         or o.user_id is null      -- Guests: orders with no user_id
@@ -1598,12 +1560,10 @@ create policy "Users can update own order items"
 on order_items
 for update
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and (
         o.user_id = auth.uid()    -- Authenticated users: their own orders
         or o.user_id is null      -- Guests: orders with no user_id
@@ -1611,12 +1571,10 @@ using (
   )
 )
 with check (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and (
         o.user_id = auth.uid()    -- Authenticated users: their own orders
         or o.user_id is null      -- Guests: orders with no user_id
@@ -1624,18 +1582,16 @@ with check (
   )
 );
 
--- Users can delete order items from their own orders (soft delete by setting deleted_at)
+-- Users can delete order items from their own orders
 drop policy if exists "Users can delete own order items" on order_items;
 create policy "Users can delete own order items"
 on order_items
 for delete
 using (
-  deleted_at is null
-  and exists (
+  exists (
     select 1
     from orders o
     where o.id = order_id
-      and o.deleted_at is null
       and (
         o.user_id = auth.uid()    -- Authenticated users: their own orders
         or o.user_id is null      -- Guests: orders with no user_id
@@ -1696,11 +1652,10 @@ BEGIN
   -- 1. Validate cart exists and is active
   SELECT * INTO v_cart
   FROM carts
-  WHERE id = p_cart_id
-    AND deleted_at IS NULL;
+  WHERE id = p_cart_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Cart not found or already deleted';
+    RAISE EXCEPTION 'Cart not found';
   END IF;
 
   -- 2. Validate ownership
@@ -1724,11 +1679,11 @@ BEGIN
       p.name           AS product_name
     FROM cart_items ci
     JOIN customised_products cp
-      ON cp.id = ci.customised_product_id AND cp.deleted_at IS NULL
+      ON cp.id = ci.customised_product_id
     JOIN products p
-      ON p.id = cp.product_id AND p.deleted_at IS NULL
+      ON p.id = cp.product_id
     WHERE ci.cart_id = p_cart_id
-      AND ci.deleted_at IS NULL
+     
   LOOP
     v_item_count := v_item_count + 1;
 
@@ -1783,11 +1738,11 @@ BEGIN
       p.name           AS product_name
     FROM cart_items ci
     JOIN customised_products cp
-      ON cp.id = ci.customised_product_id AND cp.deleted_at IS NULL
+      ON cp.id = ci.customised_product_id
     JOIN products p
-      ON p.id = cp.product_id AND p.deleted_at IS NULL
+      ON p.id = cp.product_id
     WHERE ci.cart_id = p_cart_id
-      AND ci.deleted_at IS NULL
+     
   LOOP
     v_price := COALESCE(v_item.price_override, v_item.base_price);
 
@@ -1815,15 +1770,8 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 7. Soft-delete cart items
-  UPDATE cart_items
-  SET deleted_at = now()
-  WHERE cart_id = p_cart_id
-    AND deleted_at IS NULL;
-
-  -- 8. Soft-delete cart
-  UPDATE carts
-  SET deleted_at = now()
+  -- 7. Hard-delete cart (cart_items CASCADE)
+  DELETE FROM carts
   WHERE id = p_cart_id;
 
   RETURN v_order_id;
@@ -1911,8 +1859,7 @@ create policy "Users and guests can read wishlist items"
 on wishlists
 for select
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own wishlist items
     or user_id is null     -- Guests: wishlist items with no user_id (session_id handled in app)
   )
@@ -1933,8 +1880,7 @@ create policy "Users and guests can delete wishlist items"
 on wishlists
 for delete
 using (
-  deleted_at is null
-  and (
+  (
     user_id = auth.uid()  -- Authenticated users: their own wishlist items
     or user_id is null    -- Guests: wishlist items with no user_id
   )
@@ -2067,5 +2013,5 @@ drop policy if exists "Public can read categories" on categories;
 create policy "Public can read categories"
 on categories
 for select
-using (deleted_at is null);
+using (true);
 

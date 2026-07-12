@@ -48,7 +48,7 @@ export function CategoriesTable({
               category.parent_id &&
               allCategories.find((c) => c.id === category.parent_id)
 
-            const isActive = category.is_active && category.deleted_at == null
+            const isActive = category.is_active
 
             return (
               <TableRow key={category.id}>

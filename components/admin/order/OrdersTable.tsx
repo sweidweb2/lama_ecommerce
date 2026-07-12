@@ -22,7 +22,6 @@ import { TableWrapper } from "@/components/admin/table-wrapper"
 import Link from "@/components/ui/link"
 import { EditOrderDialog, type AdminOrder } from "./edit_form"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
-import { Label } from "@/components/ui/label"
 import { formatPrice, formatDate } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus } from "@/types/order"
 
@@ -63,7 +62,6 @@ const getStatusVariant = (status: string) => {
 export function OrdersTable({ orders }: OrdersTableProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all")
-  const [showDeleted, setShowDeleted] = useState<boolean>(false)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Filter orders (on full orders data)
@@ -71,11 +69,10 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     return orders.filter((order) => {
       const matchesStatus = statusFilter === "all" || order.status === statusFilter
       const matchesPaymentStatus = paymentStatusFilter === "all" || order.payment_status === paymentStatusFilter
-      const matchesDeleted = showDeleted || !order.deleted_at
       
-      return matchesStatus && matchesPaymentStatus && matchesDeleted
+      return matchesStatus && matchesPaymentStatus
     })
-  }, [orders, statusFilter, paymentStatusFilter, showDeleted])
+  }, [orders, statusFilter, paymentStatusFilter])
 
   // Calculate pagination
   const maxOrdersToShow = MAX_PAGES * ORDERS_PER_PAGE
@@ -108,17 +105,11 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     setCurrentPage(1)
   }
 
-  const handleShowDeletedChange = (checked: boolean) => {
-    setShowDeleted(checked)
-    setCurrentPage(1)
-  }
-
-  const hasActiveFilters = statusFilter !== "all" || paymentStatusFilter !== "all" || showDeleted
+  const hasActiveFilters = statusFilter !== "all" || paymentStatusFilter !== "all"
 
   const clearFilters = () => {
     setStatusFilter("all")
     setPaymentStatusFilter("all")
-    setShowDeleted(false)
     setCurrentPage(1)
   }
 
@@ -174,19 +165,6 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Label htmlFor="show-deleted" className="text-sm text-muted-foreground whitespace-nowrap cursor-pointer flex items-center gap-2">
-              <input
-                id="show-deleted"
-                type="checkbox"
-                checked={showDeleted}
-                onChange={(e) => handleShowDeletedChange(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-              />
-              Show deleted orders
-            </Label>
           </div>
 
           {hasActiveFilters && (
@@ -272,14 +250,9 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               </TableRow>
             ) : (
               paginatedOrders.map((order) => (
-                <TableRow key={order.id} className={order.deleted_at ? "opacity-60" : ""}>
+                <TableRow key={order.id}>
                   <TableCell className="font-medium font-mono text-xs">
                     {order.id.slice(0, 8)}...
-                    {order.deleted_at && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Deleted
-                      </Badge>
-                    )}
                   </TableCell>
                   <TableCell>
                     {order.userName || (order.user_id ? `User ${order.user_id}` : "Guest")}
@@ -307,9 +280,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
-                      {!order.deleted_at && (
-                        <EditOrderDialog order={order} />
-                      )}
+                      <EditOrderDialog order={order} />
                     </div>
                   </TableCell>
                 </TableRow>

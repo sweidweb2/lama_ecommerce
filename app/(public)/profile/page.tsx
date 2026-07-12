@@ -17,7 +17,7 @@ const dummyProfile: Profile = {
     full_name: 'John Doe',
     role: 'user',
     created_at: '2024-01-15T10:30:00Z',
-    deleted_at: null,
+    is_active: true,
 }
 
 const dummyEmail = 'john.doe@example.com'
@@ -38,7 +38,6 @@ const dummyOrders: Order[] = [
         email: 'john.doe@example.com',
         created_at: '2024-12-01T14:30:00Z',
         updated_at: '2024-12-05T10:00:00Z',
-        deleted_at: null,
     },
     {
         id: '550e8400-e29b-41d4-a716-446655440011',
@@ -55,7 +54,6 @@ const dummyOrders: Order[] = [
         email: 'john.doe@example.com',
         created_at: '2024-11-25T09:15:00Z',
         updated_at: '2024-11-28T16:45:00Z',
-        deleted_at: null,
     },
     {
         id: '550e8400-e29b-41d4-a716-446655440012',
@@ -72,7 +70,6 @@ const dummyOrders: Order[] = [
         email: 'john.doe@example.com',
         created_at: '2024-11-20T11:20:00Z',
         updated_at: '2024-11-20T11:25:00Z',
-        deleted_at: null,
     },
     {
         id: '550e8400-e29b-41d4-a716-446655440013',
@@ -89,7 +86,6 @@ const dummyOrders: Order[] = [
         email: 'john.doe@example.com',
         created_at: '2024-11-18T15:45:00Z',
         updated_at: '2024-11-18T15:45:00Z',
-        deleted_at: null,
     },
     {
         id: '550e8400-e29b-41d4-a716-446655440014',
@@ -106,7 +102,6 @@ const dummyOrders: Order[] = [
         email: 'john.doe@example.com',
         created_at: '2024-11-15T08:30:00Z',
         updated_at: '2024-11-17T14:20:00Z',
-        deleted_at: null,
     },
 ]
 

@@ -97,8 +97,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Inactive (soft-deleted) users cannot access account
-    if (profile.deleted_at) {
+    // Inactive users cannot access account
+    if (!profile.is_active) {
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("reason", "inactive");
       return NextResponse.redirect(loginUrl);
@@ -118,8 +118,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Inactive (soft-deleted) users cannot access profile
-    if (profile.deleted_at) {
+    // Inactive users cannot access profile
+    if (!profile.is_active) {
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("reason", "inactive");
       return NextResponse.redirect(loginUrl);

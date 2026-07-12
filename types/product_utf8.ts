@@ -16,7 +16,6 @@ export interface Brand {
   slug: string | null;
   logo_image_url: string | null;
   created_at: string; // timestamptz ISO string
-  deleted_at: string | null;
 }
 
 export interface Category {
@@ -26,7 +25,6 @@ export interface Category {
   parent_id: UUID | null;
   is_active: boolean;
   created_at: string;
-  deleted_at: string | null;
 }
 
 export interface Product {
@@ -44,7 +42,6 @@ export interface Product {
   owner_id: UUID | null;
   created_at: string;
   updated_at: string;
-  deleted_at: string | null;
 }
 
 export interface ProductImage {
@@ -66,7 +63,6 @@ export interface ProductVariant {
   sku_variant: string | null;
   price_override: number | null;
   created_at: string;
-  deleted_at: string | null;
 }
 
 export interface WishlistItem {
@@ -74,7 +70,6 @@ export interface WishlistItem {
   user_id: UUID | null;
   customised_product_id: UUID;
   created_at: string;
-  deleted_at: string | null;
 }
 
 export interface Review {
@@ -86,7 +81,6 @@ export interface Review {
   comment: string | null;
   review_status: ReviewStatus;
   created_at: string;
-  deleted_at: string | null;
 }
 
 export interface ProductQuestion {

@@ -20,14 +20,13 @@ export default async function OrdersPage() {
     encryptedId: encryptOrderId(order.id),
   }))
 
-  // Calculate statistics (excluding deleted orders)
-  const activeOrders = orders.filter(order => !order.deleted_at)
-  const totalOrders = activeOrders.length
-  const pendingOrders = activeOrders.filter(order => order.status === 'pending').length
-  const processingOrders = activeOrders.filter(order => order.status === 'processing' || order.status === 'packed').length
-  const deliveredOrders = activeOrders.filter(order => order.status === 'delivered').length
-  const paidOrders = activeOrders.filter(order => order.payment_status === 'paid').length
-  const totalRevenue = activeOrders
+  // Calculate statistics
+  const totalOrders = orders.length
+  const pendingOrders = orders.filter(order => order.status === 'pending').length
+  const processingOrders = orders.filter(order => order.status === 'processing' || order.status === 'packed').length
+  const deliveredOrders = orders.filter(order => order.status === 'delivered').length
+  const paidOrders = orders.filter(order => order.payment_status === 'paid').length
+  const totalRevenue = orders
     .filter(order => order.payment_status === 'paid' && order.total)
     .reduce((sum, order) => sum + (order.total || 0), 0)
 
@@ -35,7 +34,7 @@ export default async function OrdersPage() {
     {
       title: "Total Orders",
       value: totalOrders.toLocaleString(),
-      description: "All active orders",
+      description: "All orders",
       icon: ShoppingCart,
       borderColor: "border-l-blue-500",
       iconBg: "bg-blue-500/10",

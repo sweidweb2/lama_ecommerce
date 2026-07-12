@@ -40,7 +40,6 @@ describe("guest cart session scoping", () => {
     expect(from).toHaveBeenCalledWith("carts");
     expect(eq).toHaveBeenCalledWith("session_id", "guest-session-abc");
     expect(is).toHaveBeenCalledWith("user_id", null);
-    expect(is).toHaveBeenCalledWith("deleted_at", null);
   });
 
   it("getCartBySessionId filters by session_id and null user_id", async () => {
@@ -52,7 +51,6 @@ describe("guest cart session scoping", () => {
     expect(from).toHaveBeenCalledWith("carts");
     expect(eq).toHaveBeenCalledWith("session_id", "guest-session-def");
     expect(is).toHaveBeenCalledWith("user_id", null);
-    expect(is).toHaveBeenCalledWith("deleted_at", null);
   });
 });
 
@@ -62,8 +60,7 @@ describe("guest wishlist session scoping", () => {
   });
 
   it("getWishlistItemsBySessionId filters by session_id and null user_id", async () => {
-    const isDeleted = vi.fn().mockResolvedValue({ data: [], error: null });
-    const isUser = vi.fn(() => ({ is: isDeleted }));
+    const isUser = vi.fn().mockResolvedValue({ data: [], error: null });
     const eqSession = vi.fn(() => ({ is: isUser }));
     const selectWish = vi.fn(() => ({ eq: eqSession }));
     const fromWish = vi.fn(() => ({ select: selectWish }));
@@ -77,6 +74,5 @@ describe("guest wishlist session scoping", () => {
     expect(fromWish).toHaveBeenCalledWith("wishlists");
     expect(eqSession).toHaveBeenCalledWith("session_id", "guest-session-xyz");
     expect(isUser).toHaveBeenCalledWith("user_id", null);
-    expect(isDeleted).toHaveBeenCalledWith("deleted_at", null);
   });
 });

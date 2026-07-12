@@ -25,7 +25,6 @@ export default async function OrderPaymentPage({ params }: OrderPaymentPageProps
     payment_url: null,
     callback_payload: null,
     created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    deleted_at: null,
   }
 
   return (

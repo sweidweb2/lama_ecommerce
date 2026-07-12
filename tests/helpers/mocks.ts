@@ -8,7 +8,7 @@ export const adminProfile = {
   full_name: "Admin User",
   role: ROLES.ADMIN,
   created_at: "2026-01-01T00:00:00.000Z",
-  deleted_at: null,
+  is_active: true,
 } as Profile;
 
 export const userProfile = {
@@ -17,7 +17,7 @@ export const userProfile = {
   full_name: "Normal User",
   role: ROLES.USER,
   created_at: "2026-01-01T00:00:00.000Z",
-  deleted_at: null,
+  is_active: true,
 } as Profile;
 
 type RateLimitRow = {

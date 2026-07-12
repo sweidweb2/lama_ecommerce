@@ -25,18 +25,13 @@ export default function AdminCategoriesClient({
 }: AdminCategoriesClientProps) {
   const [nameFilter, setNameFilter] = useState("");
   const [parentFilter, setParentFilter] = useState<string | "all">("all");
-  const [showDeleted, setShowDeleted] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState<number>(ROWS_PER_PAGE_OPTIONS[0]);
   const [page, setPage] = useState(1);
 
   const parentOptions = useMemo(
     () =>
       Array.from(
-        new Map(
-          categories
-            .filter((c) => !c.deleted_at)
-            .map((c) => [c.id, c]),
-        ).values(),
+        new Map(categories.map((c) => [c.id, c])).values(),
       ),
     [categories],
   );
@@ -45,8 +40,6 @@ export default function AdminCategoriesClient({
     const nameQuery = nameFilter.trim().toLowerCase();
 
     return categories.filter((category) => {
-      if (!showDeleted && category.deleted_at) return false;
-
       if (nameQuery) {
         const matchesName =
           category.name.toLowerCase().includes(nameQuery) ||
@@ -64,7 +57,7 @@ export default function AdminCategoriesClient({
 
       return true;
     });
-  }, [categories, nameFilter, parentFilter, showDeleted]);
+  }, [categories, nameFilter, parentFilter]);
 
   const safeRowsPerPage = Math.min(rowsPerPage, MAX_ROWS_PER_PAGE);
   const pageCount = Math.max(1, Math.ceil(filteredCategories.length / safeRowsPerPage));
@@ -101,7 +94,6 @@ export default function AdminCategoriesClient({
       <CategoriesFilters
         nameFilter={nameFilter}
         parentFilter={parentFilter}
-        showDeleted={showDeleted}
         rowsPerPage={safeRowsPerPage}
         rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
         parentOptions={parentOptions}
@@ -111,10 +103,6 @@ export default function AdminCategoriesClient({
         }}
         onParentFilterChange={(value) => {
           setParentFilter(value);
-          setPage(1);
-        }}
-        onShowDeletedChange={(value) => {
-          setShowDeleted(value);
           setPage(1);
         }}
         onRowsPerPageChange={(value) => handleChangeRowsPerPage(String(value))}
@@ -138,4 +126,3 @@ export default function AdminCategoriesClient({
     </div>
   );
 }
-

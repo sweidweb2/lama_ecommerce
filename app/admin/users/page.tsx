@@ -18,7 +18,7 @@ function toAdminUser(row: {
   user_id: string
   full_name: string | null
   role: string
-  deleted_at: string | null
+  is_active: boolean
   email: string | null
 }): AdminUser {
   return {
@@ -26,7 +26,7 @@ function toAdminUser(row: {
     name: row.full_name ?? "—",
     email: row.email ?? "—",
     role: row.role === "admin" ? "Admin" : "Customer",
-    status: row.deleted_at ? "Inactive" : "Active",
+    status: row.is_active ? "Active" : "Inactive",
   }
 }
 

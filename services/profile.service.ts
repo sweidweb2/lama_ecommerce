@@ -69,19 +69,19 @@ export async function getUsersWithoutActiveCarts(): Promise<AdminProfileRow[]> {
     (profile) =>
       profile.user_id &&
       !userIdsWithActiveCarts.includes(profile.user_id) &&
-      !profile.deleted_at // Only include active users
+      profile.is_active
   );
 }
 
 /**
- * Update a profile (full_name, role, deleted_at/status) as admin. Fails if caller is not admin.
+ * Update a profile (full_name, role, is_active/status) as admin. Fails if caller is not admin.
  */
 export async function updateProfileAdmin(
   profileId: string,
   updates: {
     full_name?: string | null;
     role?: ProfileRole;
-    deleted_at?: string | null;
+    is_active?: boolean;
   },
 ): Promise<Profile | null> {
   const profile = await getCurrentUserProfile();
@@ -108,15 +108,14 @@ export async function createUserAdmin(params: {
     return { ok: false, error: "Forbidden" };
   }
 
-  const deleted_at =
-    params.status === "inactive" ? new Date().toISOString() : null;
+  const is_active = params.status === "active";
 
   const result = await createUserAndProfile({
     email: params.email,
     password: params.password,
     full_name: params.full_name,
     role: params.role,
-    deleted_at,
+    is_active,
   });
 
   if (!result.ok) return { ok: false, error: result.error };
@@ -128,7 +127,7 @@ export async function createUserAdmin(params: {
       full_name: result.profile.full_name,
       role: result.profile.role,
       created_at: result.profile.created_at,
-      deleted_at: result.profile.deleted_at,
+      is_active: result.profile.is_active,
       email: params.email.trim().toLowerCase(),
     },
   };

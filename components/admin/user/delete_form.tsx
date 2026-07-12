@@ -10,7 +10,7 @@ interface DeleteUserDialogProps {
   user: AdminUser
 }
 
-/** Delete user dialog. Profile soft-delete has been removed; this dialog is kept for UI consistency if re-enabled. */
+/** Delete user dialog. Profile delete is disabled; use Active/Inactive status instead. */
 export function DeleteUserDialog({ user }: DeleteUserDialogProps) {
   const [open, setOpen] = useState(false)
 
@@ -39,7 +39,7 @@ export function DeleteUserDialog({ user }: DeleteUserDialogProps) {
             <p>
               User <span className="font-semibold text-foreground">{user.name}</span>.
             </p>
-            <p>Profile soft-delete is disabled.</p>
+            <p>Profile delete is disabled. Set status to Inactive instead.</p>
           </div>
 
           <DialogFooter className="mt-4 flex justify-end gap-2">

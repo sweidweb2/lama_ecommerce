@@ -50,47 +50,41 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       (supabase as any)
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .eq("is_active", true),
       
       // Total active products
       (supabase as any)
         .from("products")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null)
         .eq("is_active", true),
       
       // Orders this month
       (supabase as any)
         .from("orders")
         .select("total, created_at")
-        .gte("created_at", startOfMonth.toISOString())
-        .is("deleted_at", null),
+        .gte("created_at", startOfMonth.toISOString()),
       
       // All orders for pending count
       (supabase as any)
         .from("orders")
-        .select("status")
-        .is("deleted_at", null),
+        .select("status"),
       
       // Low stock items (quantity <= 10 and > 0)
       (supabase as any)
         .from("customised_products")
         .select("quantity_stock")
-        .is("deleted_at", null)
         .gt("quantity_stock", 0)
         .lte("quantity_stock", 10),
       
       // All questions for unanswered count
       (supabase as any)
         .from("product_questions")
-        .select("answer")
-        .is("deleted_at", null),
+        .select("answer"),
       
       // All reviews for pending count
       (supabase as any)
         .from("reviews")
-        .select("review_status")
-        .is("deleted_at", null),
+        .select("review_status"),
     ]);
 
     // Calculate revenue this month
@@ -156,7 +150,6 @@ export async function getRecentOrders(limit: number = 5): Promise<RecentOrder[]>
         payment_status,
         created_at
       `)
-      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -207,7 +200,7 @@ export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
     if (!rpcError && profilesWithEmail) {
       // Sort by created_at and take the most recent
       const sorted = (profilesWithEmail as any[])
-        .filter((p: any) => !p.deleted_at)
+        .filter((p: any) => p.is_active !== false)
         .sort((a: any, b: any) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
@@ -229,7 +222,7 @@ export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
         full_name,
         created_at
       `)
-      .is("deleted_at", null)
+      .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(limit);
 

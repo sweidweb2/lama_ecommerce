@@ -42,7 +42,6 @@ export async function createReview(
       .select("id")
       .eq("product_id", input.product_id)
       .eq("user_id", userId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (checkError) {
@@ -126,7 +125,6 @@ export async function getProductReviews(
       .select("*")
       .eq("product_id", productId)
       .eq("review_status", "approved") // Explicitly filter for approved reviews
-      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -149,11 +147,10 @@ export async function getAllReviewsForAdmin(): Promise<AdminReviewRow[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
 
-    // Fetch all reviews (not deleted)
+    // Fetch all reviews
     const { data: reviews, error: reviewsError } = await (supabase as any)
       .from("reviews")
       .select("id, product_id, user_id, rating, title, comment, review_status, created_at")
-      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (reviewsError || !reviews?.length) {
@@ -274,7 +271,7 @@ export async function updateReview(
 }
 
 /**
- * Soft-delete a review by setting deleted_at (admin use).
+ * Hard-delete a review (admin use).
  * RLS policy allows admins to delete all reviews.
  */
 export async function deleteReview(reviewId: string): Promise<{ success: boolean; error?: string }> {
@@ -283,7 +280,7 @@ export async function deleteReview(reviewId: string): Promise<{ success: boolean
 
     const { error } = await (supabase as any)
       .from("reviews")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", reviewId);
 
     if (error) {

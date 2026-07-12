@@ -217,7 +217,7 @@ export async function deleteCartItemAction(
 /**
  * Delete cart action.
  * This is the server action called from client components (admin panel).
- * Soft-deletes a cart by setting deleted_at.
+ * Hard-deletes a cart (items cascade via FK).
  */
 export async function deleteCartAction(
   cartId: string,

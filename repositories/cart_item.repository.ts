@@ -106,7 +106,6 @@ export async function getCartItemById(
       .from("cart_items")
       .select("*")
       .eq("id", cartItemId)
-      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) {
@@ -151,7 +150,6 @@ export async function getCartItemsByCartId(
       .from("cart_items")
       .select("*")
       .eq("cart_id", cartId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -213,7 +211,6 @@ interface CartItemProductJoinRow {
       owner_id?: string | null;
       created_at: string;
       updated_at: string;
-      deleted_at?: string | null;
       brands: { id: string; name: string; slug: string | null } | null;
       categories: { id: string; name: string; slug: string | null } | null;
       product_images: Array<{
@@ -248,7 +245,6 @@ function transformCartItemProductJoin(
     owner_id: productData.owner_id || null,
     created_at: productData.created_at,
     updated_at: productData.updated_at,
-    deleted_at: productData.deleted_at || null,
     brand: (productData.brands as ProductWithRelations["brand"]) || null,
     category: (productData.categories as ProductWithRelations["category"]) || null,
     images: (productData.product_images || []) as ProductWithRelations["images"],
@@ -322,7 +318,6 @@ export async function getCartItemsWithProductsByCartId(
         )
       `)
       .eq("cart_id", cartId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (cartItemsError) {
@@ -403,7 +398,6 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
         )
       `)
       .eq("cart_id", cartId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (cartItemsError) {
@@ -556,7 +550,7 @@ export async function updateCartItemForAdmin(
 }
 
 /**
- * Soft-delete a cart item by setting deleted_at.
+ * Hard-delete a cart item.
  * RLS policy ensures users can only delete items from their own carts.
  */
 export async function deleteCartItem(
@@ -567,7 +561,7 @@ export async function deleteCartItem(
 
     const { error } = await supabase
       .from("cart_items")
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq("id", cartItemId);
 
     if (error) {
@@ -637,9 +631,8 @@ async function assertCartItemOwnedByGuestSession(
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("cart_items")
-    .select("id, cart_id, carts!inner(id, session_id, user_id, deleted_at)")
+    .select("id, cart_id, carts!inner(id, session_id, user_id)")
     .eq("id", cartItemId)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -653,11 +646,9 @@ async function assertCartItemOwnedByGuestSession(
     id: string;
     session_id: string | null;
     user_id: string | null;
-    deleted_at: string | null;
   };
 
   if (
-    cart.deleted_at ||
     cart.user_id !== null ||
     cart.session_id !== sessionId
   ) {
@@ -746,12 +737,11 @@ export async function moveCartItemsToCart(
   try {
     const supabase = createSupabaseAdminClient();
 
-    // 1. Get all active items in the source (guest) cart
+    // 1. Get all items in the source (guest) cart
     const { data: sourceItems, error: srcError } = await supabase
       .from("cart_items")
       .select("id, customised_product_id, quantity")
-      .eq("cart_id", fromCartId)
-      .is("deleted_at", null);
+      .eq("cart_id", fromCartId);
 
     if (srcError) {
       console.error("Error fetching source cart items:", srcError);
@@ -762,12 +752,11 @@ export async function moveCartItemsToCart(
       return { success: true, movedCount: 0 };
     }
 
-    // 2. Get all active items in the destination (user) cart
+    // 2. Get all items in the destination (user) cart
     const { data: destItems, error: dstError } = await supabase
       .from("cart_items")
       .select("id, customised_product_id, quantity")
-      .eq("cart_id", toCartId)
-      .is("deleted_at", null);
+      .eq("cart_id", toCartId);
 
     if (dstError) {
       console.error("Error fetching destination cart items:", dstError);
