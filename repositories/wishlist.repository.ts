@@ -1,5 +1,6 @@
 import { createSupabaseServerComponentClient } from "@/lib/supabase/server";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const WISHLIST_SELECT = `
   id,
@@ -218,16 +219,18 @@ export async function isInWishlist(
 
 /**
  * Fetch wishlist items for a guest by session_id (Server Component context).
+ * Uses service-role client; always filters by session_id.
  */
 export async function getWishlistItemsBySessionId(
   sessionId: string,
 ): Promise<any[]> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await (supabase as any)
       .from("wishlists")
       .select(WISHLIST_SELECT)
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .is("deleted_at", null);
 
     if (error) {
@@ -263,19 +266,21 @@ export async function getWishlistItemsBySessionId(
 
 /**
  * Add an item to the guest's wishlist (Server Action context).
+ * Uses service-role client; always scoped to session_id.
  */
 export async function addWishlistItemForGuest(
   sessionId: string,
   customisedProductId: string,
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
     
     // Check if item already exists
     const { data: existing } = await (supabase as any)
       .from("wishlists")
       .select("id")
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .eq("customised_product_id", customisedProductId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -316,11 +321,12 @@ export async function removeWishlistItemByVariantForGuest(
   customisedProductId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
     const { error } = await (supabase as any)
       .from("wishlists")
       .delete()
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .eq("customised_product_id", customisedProductId);
 
     if (error) {
@@ -345,11 +351,12 @@ export async function isInWishlistForGuest(
   customisedProductId: string,
 ): Promise<boolean> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await (supabase as any)
       .from("wishlists")
       .select("id")
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .eq("customised_product_id", customisedProductId)
       .is("deleted_at", null)
       .maybeSingle();

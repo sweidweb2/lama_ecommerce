@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { encryptOrderId } from "@/lib/utils/encryption";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { deleteOrderService, updateOrderService } from "@/services/order.service";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
@@ -19,8 +20,9 @@ export async function encryptOrderIdAction(orderId: string): Promise<string> {
 }
 
 /**
- * Server action to update an order.
- * Updates order fields like status, payment_status, shipping_fee, etc.
+ * Admin-only: update an order.
+ * Storefront/checkout must never set payment_status — checkout leaves it
+ * `pending`; only admin (and later a Stripe webhook) may change it.
  */
 export async function updateOrderAction(
   orderId: string,
@@ -34,12 +36,16 @@ export async function updateOrderAction(
     email?: string | null;
   },
 ): Promise<{ success: boolean; error?: string; data?: any }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
+
   const result = await updateOrderService(orderId, input);
 
-  // Revalidate orders pages on success
   if (result.success) {
     revalidatePath("/admin/orders");
-    // Revalidate the order details page (works with encrypted IDs in URL)
     revalidatePath("/admin/orders/[id]", "page");
   }
 
@@ -47,13 +53,18 @@ export async function updateOrderAction(
 }
 
 /**
- * Server action to update only the order status.
- * Used by the OrderStatusStepper component.
+ * Admin-only: update order fulfillment status.
  */
 export async function updateOrderStatusAction(
   orderId: string,
   status: OrderStatus,
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
+
   const validStatuses: OrderStatus[] = [
     "pending",
     "processing",
@@ -79,15 +90,19 @@ export async function updateOrderStatusAction(
 }
 
 /**
- * Server action to delete an order (soft delete).
- * Deletes the order and all its order items.
+ * Admin-only: soft-delete an order and its items.
  */
 export async function deleteOrderAction(
   orderId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
+
   const result = await deleteOrderService(orderId);
 
-  // Revalidate orders pages on success
   if (result.success) {
     revalidatePath("/admin/orders");
     revalidatePath(`/admin/orders/${orderId}`);

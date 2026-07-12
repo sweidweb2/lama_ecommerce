@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Category } from '@/types/product'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,10 +16,20 @@ export function CategoryFiltering({
     selectedCategory, 
     onCategoryChange 
 }: CategoryFilteringProps) {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
     const handleCategoryClick = (categorySlug: string | null) => {
         if (onCategoryChange) {
             onCategoryChange(categorySlug)
+            return
         }
+        const params = new URLSearchParams(searchParams.toString())
+        if (categorySlug) params.set('category', categorySlug)
+        else params.delete('category')
+        params.delete('page')
+        const qs = params.toString()
+        router.push(qs ? `/products?${qs}` : '/products')
     }
 
     return (

@@ -4,11 +4,15 @@ import type { Database } from "@/types/supabase";
 import { ROUTES } from "@/lib/constants/routes";
 import { ROLES } from "@/lib/constants/roles";
 import { getCurrentUserProfile } from "@/services/profile.service";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") ?? ROUTES.HOME;
+  const next = safeRedirectPath(
+    requestUrl.searchParams.get("next"),
+    ROUTES.HOME,
+  );
 
   if (code) {
     const response = NextResponse.redirect(new URL(next, requestUrl.origin));
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
         // If profile check fails, continue with normal redirect
         console.error("Failed to check user role in callback:", error);
       }
-      
+
       return response;
     }
   }

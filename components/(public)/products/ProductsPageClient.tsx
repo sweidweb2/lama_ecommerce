@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { PriceFilter } from '@/components/(public)/products/PriceFilter'
@@ -10,94 +10,77 @@ import { Separator } from '@/components/ui/separator'
 import type { ProductWithRelations, Category } from '@/types/product'
 
 interface ProductsPageClientProps {
-    initialProducts: ProductWithRelations[]
+    products: ProductWithRelations[]
+    totalCount: number
+    totalPages: number
+    currentPage: number
     categories: Category[]
-    initialCategory?: string | null
-    calculatedMinPrice: number
-    calculatedMaxPrice: number
+    selectedCategory: string | null
+    sort: string
+    priceBoundsMin: number
+    priceBoundsMax: number
+    priceRange: [number, number]
+    search: string
 }
 
 export function ProductsPageClient({
-    initialProducts,
+    products,
+    totalCount,
+    totalPages,
+    currentPage,
     categories,
-    initialCategory,
-    calculatedMinPrice,
-    calculatedMaxPrice,
+    selectedCategory,
+    sort,
+    priceBoundsMin,
+    priceBoundsMax,
+    priceRange,
+    search,
 }: ProductsPageClientProps) {
+    const router = useRouter()
     const searchParams = useSearchParams()
-    
-    // Filter state - all client-side
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
-    const [priceRange, setPriceRange] = useState<[number, number]>([calculatedMinPrice, calculatedMaxPrice])
-    const [sort, setSort] = useState<string>(searchParams.get("sort") || "created_at-desc")
 
-    // Initialize from URL params on mount
-    useEffect(() => {
-        const categoryParam = searchParams.get('category')
-        if (categoryParam) {
-            setSelectedCategory(categoryParam)
-        }
+    const pushParams = useCallback(
+        (mutate: (params: URLSearchParams) => void) => {
+            const params = new URLSearchParams(searchParams.toString())
+            mutate(params)
+            const qs = params.toString()
+            router.push(qs ? `/products?${qs}` : '/products')
+        },
+        [router, searchParams],
+    )
 
-        const minParam = searchParams.get('minPrice')
-        const maxParam = searchParams.get('maxPrice')
-        if (minParam && maxParam) {
-            const min = parseFloat(minParam)
-            const max = parseFloat(maxParam)
-            if (!isNaN(min) && !isNaN(max)) {
-                setPriceRange([min, max])
-            }
-        }
-
-        const sortParam = searchParams.get('sort')
-        if (sortParam) {
-            setSort(sortParam)
-        }
-    }, []) // Only on mount
-
-    // Apply all filters client-side
-    const filteredProducts = useMemo(() => {
-        let filtered = [...initialProducts]
-
-        // Category filter
-        if (selectedCategory) {
-            filtered = filtered.filter(product => 
-                product.category?.slug === selectedCategory
-            )
-        }
-
-        // Price filter
-        filtered = filtered.filter(product => {
-            const price = Number(product.price)
-            return price >= priceRange[0] && price <= priceRange[1]
+    const handleCategoryChange = (category: string | null) => {
+        pushParams((params) => {
+            if (category) params.set('category', category)
+            else params.delete('category')
+            params.delete('page')
         })
+    }
 
-        // Sort
-        const sorted = [...filtered]
-        switch (sort) {
-            case "price-asc":
-                sorted.sort((a, b) => Number(a.price) - Number(b.price))
-                break
-            case "price-desc":
-                sorted.sort((a, b) => Number(b.price) - Number(a.price))
-                break
-            case "name-asc":
-                sorted.sort((a, b) => a.name.localeCompare(b.name))
-                break
-            case "created_at-desc":
-            default:
-                sorted.sort((a, b) => {
-                    const aDate = a.created_at ? new Date(a.created_at as any).getTime() : 0
-                    const bDate = b.created_at ? new Date(b.created_at as any).getTime() : 0
-                    return bDate - aDate
-                })
-                break
-        }
+    const handleSortChange = (value: string) => {
+        pushParams((params) => {
+            params.set('sort', value)
+            params.delete('page')
+        })
+    }
 
-        return sorted
-    }, [initialProducts, selectedCategory, priceRange, sort])
+    const handlePriceChange = (range: [number, number]) => {
+        pushParams((params) => {
+            params.set('minPrice', String(range[0]))
+            params.set('maxPrice', String(range[1]))
+            params.delete('page')
+        })
+    }
 
-    const currentCategoryName = selectedCategory 
-        ? categories.find(c => c.slug === selectedCategory)?.name 
+    const handlePageChange = (page: number) => {
+        pushParams((params) => {
+            if (page <= 1) params.delete('page')
+            else params.set('page', String(page))
+        })
+    }
+
+    const currentCategoryName = selectedCategory
+        ? categories.find(c => c.slug === selectedCategory)?.name
         : 'All Products'
 
     return (
@@ -107,20 +90,20 @@ export function ProductsPageClient({
                 <aside className="hidden md:block w-full md:w-64 shrink-0">
                     <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2 hide-scrollbar">
                         <div className="space-y-6 pb-4">
-                            <CategoryFiltering 
+                            <CategoryFiltering
                                 categories={categories}
                                 selectedCategory={selectedCategory}
-                                onCategoryChange={setSelectedCategory}
+                                onCategoryChange={handleCategoryChange}
                             />
-                            <Sorting 
+                            <Sorting
                                 value={sort}
-                                onChange={setSort}
+                                onChange={handleSortChange}
                             />
-                            <PriceFilter 
-                                minPrice={calculatedMinPrice}
-                                maxPrice={calculatedMaxPrice}
+                            <PriceFilter
+                                minPrice={priceBoundsMin}
+                                maxPrice={priceBoundsMax}
                                 value={priceRange}
-                                onChange={setPriceRange}
+                                onChange={handlePriceChange}
                             />
                         </div>
                     </div>
@@ -135,7 +118,8 @@ export function ProductsPageClient({
                                     {currentCategoryName}
                                 </h1>
                                 <p className="text-muted-foreground mt-2">
-                                    Browse our collection of products
+                                    {totalCount} product{totalCount === 1 ? '' : 's'}
+                                    {search ? ` matching “${search}”` : ''}
                                 </p>
                             </div>
                         </div>
@@ -143,9 +127,20 @@ export function ProductsPageClient({
                         <Separator className="opacity-50" />
                     </div>
 
-                    <ClientProductFilter 
-                        initialProducts={filteredProducts}
+                    <ClientProductFilter
+                        products={products}
                         categories={categories}
+                        totalPages={totalPages}
+                        currentPage={currentPage}
+                        onPageChange={handlePageChange}
+                        priceBoundsMin={priceBoundsMin}
+                        priceBoundsMax={priceBoundsMax}
+                        selectedCategory={selectedCategory}
+                        sort={sort}
+                        priceRange={priceRange}
+                        onCategoryChange={handleCategoryChange}
+                        onSortChange={handleSortChange}
+                        onPriceChange={handlePriceChange}
                     />
                 </main>
             </div>

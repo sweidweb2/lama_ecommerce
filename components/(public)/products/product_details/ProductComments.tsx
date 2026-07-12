@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -200,13 +201,12 @@ export function ProductComments({ productId, reviews = [] }: ProductCommentsProp
           {/* Title Input */}
           <div className="space-y-2">
             <Label htmlFor="review-title">Title (Optional)</Label>
-            <input
+            <Input
               id="review-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Give your review a title"
-              className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 

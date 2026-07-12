@@ -1,3 +1,4 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
@@ -13,20 +14,17 @@ type ContactMessagesFilter = {
 };
 
 /**
- * Insert a new contact-us message into the database.
- *
- * Uses the Server Action client because this is a write operation
- * triggered from a form submission (Server Action).
+ * Insert a new contact-us message (service role — public INSERT policy removed).
  */
 export async function createContactMessage(
   input: CreateContactUsInput,
 ): Promise<boolean> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
-    const { error } = await supabase
-      .from("contact_us") // ← your actual table name
-      .insert(input as any);
+    const { error } = await (supabase as any)
+      .from("contact_us")
+      .insert(input);
 
     if (error) {
       console.error("Failed to create contact message:", error);

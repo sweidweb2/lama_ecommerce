@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import Link from "next/link";
+import Link from "@/components/ui/link";
 import { Eye, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/order";

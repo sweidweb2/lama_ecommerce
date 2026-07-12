@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -206,11 +207,10 @@ export function EditProductDialog({
 
             <div className="space-y-2">
               <Label htmlFor={`product-description-${product.id}`}>Description</Label>
-              <textarea
+              <Textarea
                 id={`product-description-${product.id}`}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:border-[1.5px] disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Enter product description"
               />
               {errors.description && (

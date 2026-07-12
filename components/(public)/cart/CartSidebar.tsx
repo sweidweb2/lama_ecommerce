@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
 import { checkoutAction } from "@/actions/checkout";
+import { encryptOrderIdAction } from "@/actions/order";
 import { CheckoutModal } from "@/components/(public)/cart/CheckoutModal";
 
 interface ShippingZoneOption {
@@ -147,15 +148,12 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
     // Clear any previous errors
     setErrors({});
 
-    // Show fake payment modal
+    // Show placing-order modal (no payment simulation)
     setModalStatus("processing");
     setModalOpen(true);
     setModalError("");
 
     try {
-      // Simulate payment processing delay (fake)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
       const result = await checkoutAction({
         cart_id: cartId,
         shipping_zone_id: selectedZoneId,
@@ -169,27 +167,26 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
         email: email.trim(),
       });
 
-      if (result.success) {
+      if (result.success && result.orderId) {
         setModalStatus("success");
 
         toast.success("Order placed!", {
-          description: "Your order has been created successfully.",
+          description: "Your order was created. Payment status is pending.",
         });
 
-        // Short delay then redirect to cart (empty state)
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const encryptedId = await encryptOrderIdAction(result.orderId);
+        await new Promise((resolve) => setTimeout(resolve, 800));
         setModalOpen(false);
-        router.push("/cart");
+        router.push(`/order_details/${encodeURIComponent(encryptedId)}`);
         router.refresh();
       } else {
         setModalStatus("error");
-        setModalError(result.error || "Checkout failed. Please try again.");
+        setModalError(result.error || "Could not place your order. Please try again.");
 
-        toast.error("Checkout failed", {
+        toast.error("Order failed", {
           description: result.error || "Please try again.",
         });
 
-        // Close modal after a delay
         await new Promise((resolve) => setTimeout(resolve, 2500));
         setModalOpen(false);
       }
@@ -197,7 +194,7 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
       setModalStatus("error");
       setModalError("An unexpected error occurred. Please try again.");
 
-      toast.error("Checkout error", {
+      toast.error("Order error", {
         description: "An unexpected error occurred.",
       });
 
@@ -435,20 +432,20 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
           <span className="text-lg">{formatPrice(total)}</span>
         </div>
 
-        {/* Checkout Button */}
+        {/* Place order */}
         <Button
           size="lg"
           className="w-full rounded-2xl text-sm"
           onClick={handleCheckout}
           data-testid="proceed-to-checkout-button"
-          aria-label="Proceed to checkout"
+          aria-label="Place order"
           type="button"
         >
-          Proceed to checkout
+          Place order
         </Button>
       </div>
 
-      {/* Fake Payment Processing Modal */}
+      {/* Placing-order modal (payment stays pending until gateway/admin) */}
       <CheckoutModal
         open={modalOpen}
         status={modalStatus}

@@ -8,6 +8,8 @@ import {
   createProduct,
   getAdminProducts,
   getProducts as getProductsRepo,
+  getProductPriceBounds,
+  getRelatedProducts,
   type CreateProductRepoInput,
   type GetProductsRepoParams,
   updateProduct,
@@ -101,6 +103,8 @@ export interface GetProductsServiceParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 /**
@@ -109,7 +113,15 @@ export interface GetProductsServiceParams {
 export async function getProducts(
   params: GetProductsServiceParams = {},
 ): Promise<{ data: ProductWithRelations[]; count: number }> {
-  const { categorySlug, sort, page = 1, pageSize = 12, search } = params;
+  const {
+    categorySlug,
+    sort,
+    page = 1,
+    pageSize = 12,
+    search,
+    minPrice,
+    maxPrice,
+  } = params;
 
   let categoryId: string | null = null;
 
@@ -123,7 +135,33 @@ export async function getProducts(
     page,
     pageSize,
     search,
+    minPrice,
+    maxPrice,
   };
 
   return getProductsRepo(repoParams);
+}
+
+/**
+ * Price slider bounds for the products listing.
+ */
+export async function getProductPriceBoundsService(): Promise<{
+  minPrice: number;
+  maxPrice: number;
+}> {
+  return getProductPriceBounds();
+}
+
+/**
+ * Related products for a product detail page (tiered, bounded queries).
+ */
+export async function getRelatedProductsService(
+  product: {
+    id: string;
+    brand_id: string | null;
+    category_id: string | null;
+  },
+  limit = 12,
+): Promise<ProductWithRelations[]> {
+  return getRelatedProducts(product, limit);
 }

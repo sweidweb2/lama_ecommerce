@@ -23,17 +23,19 @@ const statusConfig: Record<
   { title: string; icon: React.ReactNode; description: string }
 > = {
   processing: {
-    title: "Processing Your Order",
+    title: "Placing Your Order",
     icon: <Loader2 className="h-12 w-12 animate-spin text-primary" />,
-    description: "Please wait while we process your payment and create your order…",
+    description:
+      "Please wait while we create your order. Payment stays pending until paid.",
   },
   success: {
     title: "Order Placed Successfully!",
     icon: <CheckCircle2 className="h-12 w-12 text-green-500" />,
-    description: "Your order has been created. Redirecting you shortly…",
+    description:
+      "Your order has been created with payment pending. Redirecting to order details…",
   },
   error: {
-    title: "Checkout Failed",
+    title: "Could Not Place Order",
     icon: <XCircle className="h-12 w-12 text-destructive" />,
     description: "",
   },

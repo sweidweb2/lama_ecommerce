@@ -6,19 +6,22 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
-import { getCartItemsWithProductsByCartId } from "@/repositories/cart_item.repository";
 
 /**
  * Create a new cart.
- * For authenticated users, user_id is set automatically.
- * For guests, session_id should be provided.
+ * For authenticated users, user_id is set and the session client + RLS apply.
+ * For guests, session_id is required and the service-role client is used
+ * (guest rows are not readable/writable via anon RLS).
  */
 export async function createCart(
   userId: string | null,
   input: CreateCartInput,
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const isGuest = !userId && !!input.session_id;
+    const supabase = isGuest
+      ? createSupabaseAdminClient()
+      : await createSupabaseServerActionClient();
 
     // Build insert payload
     const insertPayload: Record<string, unknown> = {};
@@ -250,14 +253,13 @@ export async function getCartByUserId(
 
 /**
  * Check if a guest session has an active cart (deleted_at is null).
- * Returns true if the session has at least one active cart, false otherwise.
- * Filters by user_id IS NULL to ensure we only match guest carts.
+ * Uses service-role client; always filters by session_id + user_id IS NULL.
  */
 export async function hasActiveCartBySessionId(
   sessionId: string,
 ): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await (supabase as any)
       .from("carts")
       .select("*")
@@ -295,17 +297,18 @@ export async function hasActiveCartBySessionId(
 
 /**
  * Get a cart for a guest by session_id.
- * Returns the most recent active cart for the session.
+ * Uses service-role client; returns the most recent active guest cart for the session.
  */
 export async function getCartBySessionId(
   sessionId: string,
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await (supabase as any)
       .from("carts")
       .select("*")
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -551,41 +554,69 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
       profileMap.set(p.user_id, p.full_name || "Unknown");
     });
 
-    // For each cart, get items and calculate totals
-    const adminCarts: AdminCartRow[] = await Promise.all(
-      carts.map(async (cart: any) => {
-        // Get cart items with products to calculate totals
-        const items = await getCartItemsWithProductsByCartId(cart.id);
+    // Batch-fetch cart item quantities + prices for all carts (no N+1)
+    const cartIds = carts.map((c: { id: string }) => c.id);
+    const totalsByCartId = new Map<string, { items: number; total: number }>();
 
-        // Calculate item count and total
-        const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-        const total = items.reduce(
-          (sum, item) => sum + item.product.price * item.quantity,
-          0,
-        );
+    if (cartIds.length > 0) {
+      const { data: cartItems, error: itemsError } = await (supabase as any)
+        .from("cart_items")
+        .select(
+          `
+          cart_id,
+          quantity,
+          customised_products (
+            products (
+              price
+            )
+          )
+        `,
+        )
+        .in("cart_id", cartIds);
 
-        // Determine status
-        const status = cart.deleted_at ? "Deleted" : "Active";
+      if (itemsError) {
+        console.error("Error fetching cart items for admin carts:", itemsError);
+      } else {
+        for (const row of cartItems ?? []) {
+          const cartId = row.cart_id as string;
+          const quantity = Number(row.quantity) || 0;
+          const price = Number(
+            row.customised_products?.products?.price ?? 0,
+          );
+          const current = totalsByCartId.get(cartId) ?? {
+            items: 0,
+            total: 0,
+          };
+          current.items += quantity;
+          current.total += price * quantity;
+          totalsByCartId.set(cartId, current);
+        }
+      }
+    }
 
-        // Get user name
-        const userName = cart.user_id
-          ? profileMap.get(cart.user_id) || `User ${cart.user_id}`
-          : "Guest";
+    const adminCarts: AdminCartRow[] = carts.map((cart: any) => {
+      const aggregates = totalsByCartId.get(cart.id) ?? {
+        items: 0,
+        total: 0,
+      };
+      const status = cart.deleted_at ? "Deleted" : "Active";
+      const userName = cart.user_id
+        ? profileMap.get(cart.user_id) || `User ${cart.user_id}`
+        : "Guest";
 
-        return {
-          id: cart.id,
-          user_id: cart.user_id,
-          session_id: cart.session_id,
-          created_at: cart.created_at,
-          updated_at: cart.updated_at,
-          deleted_at: cart.deleted_at,
-          userName,
-          items: itemCount,
-          total,
-          status,
-        };
-      }),
-    );
+      return {
+        id: cart.id,
+        user_id: cart.user_id,
+        session_id: cart.session_id,
+        created_at: cart.created_at,
+        updated_at: cart.updated_at,
+        deleted_at: cart.deleted_at,
+        userName,
+        items: aggregates.items,
+        total: aggregates.total,
+        status,
+      };
+    });
 
     return adminCarts;
   } catch (error) {

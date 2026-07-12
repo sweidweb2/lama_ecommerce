@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/link";
 import { Eye, ImageIcon } from "lucide-react";
 import { getProducts } from "@/services/product.service";
 import { formatPrice } from "@/lib/utils";

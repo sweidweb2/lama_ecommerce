@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/ui/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { loginService } from "@/services/auth.service";
 import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import { ROUTES } from "@/lib/constants/routes";
 import { ROLES } from "@/lib/constants/roles";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -83,8 +84,8 @@ export function LoginForm() {
         console.error("Failed to fetch profile:", error);
       }
 
-      // Redirect to the specified redirect URL or home
-      const redirectTo = searchParams.get("redirect") || ROUTES.HOME;
+      // Redirect to a safe same-origin path (or home)
+      const redirectTo = safeRedirectPath(searchParams.get("redirect"), ROUTES.HOME);
       router.push(redirectTo);
       router.refresh(); // Refresh to update server-side state
     } catch (error) {

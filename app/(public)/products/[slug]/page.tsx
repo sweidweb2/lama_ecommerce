@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getProductBySlug } from '@/repositories/product.repository'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
-import { getProducts } from '@/services/product.service'
+import { getRelatedProductsService } from '@/services/product.service'
 import { getProductReviewsService } from '@/services/review.service'
 import { ProductBreadcrumbs } from '@/components/(public)/products/ProductBreadcrumbs'
 import { ProductMediaGallery } from '@/components/(public)/products/product_details/ProductMediaGallery'
@@ -72,53 +72,15 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     deleted_at: variant.deleted_at,
   }))
 
-  // Get related products by priority: (brand + category) → (brand only) → (category only) → (remaining)
-  const { data: allProducts } = await getProducts({
-    page: 1,
-    pageSize: 10000, // Large number to get all products
-  })
-
-  const others = allProducts.filter((p) => p.id !== product.id && p.is_active)
-  const usedIds = new Set<string>()
-
-  const takeUpTo = (list: typeof others, max: number) => {
-    const out: typeof others = []
-    for (const p of list) {
-      if (usedIds.has(p.id)) continue
-      usedIds.add(p.id)
-      out.push(p)
-      if (out.length >= max) break
-    }
-    return out
-  }
-
-  const need = 12
-  const tier1 = takeUpTo(
-    others.filter(
-      (p) =>
-        p.brand_id === product.brand_id && p.category_id === product.category_id
-    ),
-    need
+  // Related products: tiered bounded queries (no full-catalog fetch)
+  const relatedProducts = await getRelatedProductsService(
+    {
+      id: product.id,
+      brand_id: product.brand_id,
+      category_id: product.category_id,
+    },
+    12,
   )
-  let relatedProducts = tier1
-  if (relatedProducts.length < need) {
-    const tier2 = takeUpTo(
-      others.filter((p) => p.brand_id === product.brand_id),
-      need - relatedProducts.length
-    )
-    relatedProducts = [...relatedProducts, ...tier2]
-  }
-  if (relatedProducts.length < need) {
-    const tier3 = takeUpTo(
-      others.filter((p) => p.category_id === product.category_id),
-      need - relatedProducts.length
-    )
-    relatedProducts = [...relatedProducts, ...tier3]
-  }
-  if (relatedProducts.length < need) {
-    const tier4 = takeUpTo(others, need - relatedProducts.length)
-    relatedProducts = [...relatedProducts, ...tier4]
-  }
 
   // Fetch reviews for this product
   const reviews = await getProductReviewsService(product.id)

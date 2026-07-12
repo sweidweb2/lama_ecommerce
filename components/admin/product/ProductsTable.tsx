@@ -22,7 +22,7 @@ import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
-import Link from "next/link"
+import Link from "@/components/ui/link"
 import type { Brand, Category } from "@/types/product"
 
 interface ProductsTableProps {

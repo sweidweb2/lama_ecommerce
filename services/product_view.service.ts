@@ -13,6 +13,24 @@ import {
 import type { ProductStats } from "@/types/product_utf8";
 import { getProductVariantById } from "@/repositories/product_variant.repository";
 import { getOrderItemsByOrderIdForAdmin } from "@/repositories/order.repository";
+import { requireAdmin } from "@/lib/auth/require-admin";
+
+const EMPTY_PRODUCT_VIEWS_PAGE = {
+  data: [] as AdminProductViewRow[],
+  total: 0,
+  page: 1,
+  pageSize: 50,
+  totalPages: 0,
+};
+
+const EMPTY_PRODUCT_VIEWS_STATS: ProductViewsStats = {
+  totalViews: 0,
+  uniqueProducts: 0,
+  uniqueUsers: 0,
+  viewsToday: 0,
+  viewsThisWeek: 0,
+  viewsThisMonth: 0,
+};
 
 /**
  * Get all product views for admin with pagination
@@ -27,6 +45,11 @@ export async function getAllProductViewsForAdminService(
   pageSize: number;
   totalPages: number;
 }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ...EMPTY_PRODUCT_VIEWS_PAGE, page, pageSize };
+  }
   return getAllProductViewsForAdmin(page, pageSize);
 }
 
@@ -44,6 +67,11 @@ export async function getProductViewsByProductIdService(
   pageSize: number;
   totalPages: number;
 }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ...EMPTY_PRODUCT_VIEWS_PAGE, page, pageSize };
+  }
   return getProductViewsByProductIdForAdmin(productId, page, pageSize);
 }
 
@@ -51,6 +79,11 @@ export async function getProductViewsByProductIdService(
  * Get product views statistics
  */
 export async function getProductViewsStatsService(): Promise<ProductViewsStats> {
+  try {
+    await requireAdmin();
+  } catch {
+    return EMPTY_PRODUCT_VIEWS_STATS;
+  }
   return getProductViewsStats();
 }
 

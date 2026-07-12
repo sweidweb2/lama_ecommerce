@@ -11,9 +11,37 @@ import {
   updateContactStatus,
   deleteContactUs,
 } from "@/services/contact_us.service";
+import {
+  checkFormRateLimit,
+  getClientIpFromHeaders,
+  CONTACT_RATE_LIMIT,
+} from "@/lib/rate-limit";
 
-export async function createContactUsAction(input: CreateContactUsInput) {
-  return await createContactUs(input);
+export async function createContactUsAction(
+  input: CreateContactUsInput & { website?: string },
+) {
+  // Honeypot: bots fill hidden "website" — fake success, do not insert
+  if (input.website && input.website.trim() !== "") {
+    return { success: true as const };
+  }
+
+  const ip = await getClientIpFromHeaders();
+  const allowed = await checkFormRateLimit({
+    key: `contact:${ip}`,
+    limit: CONTACT_RATE_LIMIT.limit,
+    windowSeconds: CONTACT_RATE_LIMIT.windowSeconds,
+  });
+
+  if (!allowed) {
+    return {
+      success: false as const,
+      error: "Too many submissions. Try again later.",
+    };
+  }
+
+  const { website: _website, ...contactInput } = input;
+  await createContactUs(contactInput);
+  return { success: true as const };
 }
 
 export async function updateContactUsAction(id: string, input: CreateContactUsInput) {

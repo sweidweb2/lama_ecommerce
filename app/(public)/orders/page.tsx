@@ -1,7 +1,7 @@
-import { cookies } from "next/headers";
 import { OrdersTable } from "@/components/(public)/orders/OrdersTable";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { getUserOrders, getSessionOrders } from "@/services/order.service";
+import { getGuestSessionId } from "@/lib/auth/guest-session";
 
 export const metadata = {
   title: "My Orders | LAMA",
@@ -19,8 +19,7 @@ export default async function OrdersPage() {
     orders = await getUserOrders(user.id);
   } else {
     // Guest → read session cookie and fetch orders by session_id
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("guest_session_id")?.value;
+    const sessionId = await getGuestSessionId();
 
     orders = sessionId ? await getSessionOrders(sessionId) : [];
   }

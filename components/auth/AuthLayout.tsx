@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/link";
 import { ROUTES } from "@/lib/constants/routes";
 
 interface AuthLayoutProps {

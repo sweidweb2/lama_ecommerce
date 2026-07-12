@@ -188,7 +188,7 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
           <div className="min-w-[150px]">
             <label className="text-sm font-medium mb-1 block">Viewer Type</label>
             <select
-              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm outline-none transition-[color,box-shadow,background-color] focus-visible:border-ring focus-visible:bg-accent focus-visible:ring-ring/50 focus-visible:ring-[3px]"
               value={viewerTypeFilter}
               onChange={(e) => {
                 setViewerTypeFilter(e.target.value);

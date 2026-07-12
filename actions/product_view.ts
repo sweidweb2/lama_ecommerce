@@ -1,50 +1,14 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getAllProductViewsForAdminService,
   getProductViewsByProductIdService,
   getProductViewsStatsService,
   trackProductViewService,
 } from "@/services/product_view.service";
-
-/** Cookie name for guest session identification. */
-const GUEST_SESSION_COOKIE = "guest_session_id";
-
-/** Guest session cookie lifetime: 14 days in seconds. */
-const GUEST_SESSION_MAX_AGE = 14 * 24 * 60 * 60; // 14 days
-
-/**
- * Read the guest_session_id cookie.
- * Returns the value or null if missing / expired.
- */
-async function getGuestSessionId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(GUEST_SESSION_COOKIE)?.value ?? null;
-}
-
-/**
- * Generate a new guest session ID.
- */
-function generateGuestSessionId(): string {
-  return `guest_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-}
-
-/**
- * Set (or refresh) the guest_session_id cookie.
- * HttpOnly, Secure, SameSite=Lax, 14-day expiry.
- */
-async function setGuestSessionCookie(sessionId: string): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(GUEST_SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: GUEST_SESSION_MAX_AGE,
-    path: "/",
-  });
-}
+import { getOrCreateGuestSessionId } from "@/lib/auth/guest-session";
 
 /**
  * Track a product view.
@@ -62,15 +26,9 @@ export async function trackProductViewAction(
     let sessionId: string | null = null;
 
     if (user) {
-      // Authenticated user
       userId = user.id;
     } else {
-      // Guest user - get or create session ID
-      sessionId = await getGuestSessionId();
-      if (!sessionId) {
-        sessionId = generateGuestSessionId();
-        await setGuestSessionCookie(sessionId);
-      }
+      sessionId = await getOrCreateGuestSessionId();
     }
 
     // Track the view
@@ -94,6 +52,7 @@ export async function getAllProductViewsAction(
   page: number = 1,
   pageSize: number = 50,
 ) {
+  await requireAdmin();
   return getAllProductViewsForAdminService(page, pageSize);
 }
 
@@ -105,6 +64,7 @@ export async function getProductViewsByProductIdAction(
   page: number = 1,
   pageSize: number = 20,
 ) {
+  await requireAdmin();
   return getProductViewsByProductIdService(productId, page, pageSize);
 }
 
@@ -112,5 +72,6 @@ export async function getProductViewsByProductIdAction(
  * Get product views statistics
  */
 export async function getProductViewsStatsAction() {
+  await requireAdmin();
   return getProductViewsStatsService();
 }

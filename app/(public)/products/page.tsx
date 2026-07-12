@@ -1,4 +1,4 @@
-import { getProducts } from '@/services/product.service'
+import { getProducts, getProductPriceBoundsService } from '@/services/product.service'
 import { getCategoriesService } from '@/services/categories.service'
 import { ProductsPageClient } from '@/components/(public)/products/ProductsPageClient'
 
@@ -15,32 +15,47 @@ interface ProductsPageProps {
     }>
 }
 
+const PAGE_SIZE = 12
+
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
     const params = await searchParams
 
-    // Fetch categories for the sidebar
-    const categories = await getCategoriesService()
+    const page = Math.max(1, parseInt(params.page || '1', 10) || 1)
+    const minPrice = params.minPrice != null ? parseFloat(params.minPrice) : undefined
+    const maxPrice = params.maxPrice != null ? parseFloat(params.maxPrice) : undefined
 
-    // Fetch all products for client-side filtering (without pagination)
-    const { data: allProducts } = await getProducts({
-        categorySlug: undefined, // Get all products, filtering will be done client-side
-        sort: undefined,
-        page: 1,
-        pageSize: 10000, // Large number to get all products for client-side filtering
-    })
+    const [categories, bounds, productsResult] = await Promise.all([
+        getCategoriesService(),
+        getProductPriceBoundsService(),
+        getProducts({
+            categorySlug: params.category || undefined,
+            sort: params.sort || 'created_at-desc',
+            page,
+            pageSize: PAGE_SIZE,
+            search: params.search || undefined,
+            minPrice: minPrice != null && !Number.isNaN(minPrice) ? minPrice : undefined,
+            maxPrice: maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : undefined,
+        }),
+    ])
 
-    // Calculate price range from all available products
-    const prices = allProducts.map(p => Number(p.price))
-    const calculatedMinPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0
-    const calculatedMaxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000
+    const totalPages = Math.max(1, Math.ceil(productsResult.count / PAGE_SIZE))
 
     return (
         <ProductsPageClient
-            initialProducts={allProducts}
+            products={productsResult.data}
+            totalCount={productsResult.count}
+            totalPages={totalPages}
+            currentPage={Math.min(page, totalPages)}
             categories={categories}
-            initialCategory={params.category || null}
-            calculatedMinPrice={calculatedMinPrice}
-            calculatedMaxPrice={calculatedMaxPrice}
+            selectedCategory={params.category || null}
+            sort={params.sort || 'created_at-desc'}
+            priceBoundsMin={bounds.minPrice}
+            priceBoundsMax={bounds.maxPrice}
+            priceRange={[
+                minPrice != null && !Number.isNaN(minPrice) ? minPrice : bounds.minPrice,
+                maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : bounds.maxPrice,
+            ]}
+            search={params.search || ''}
         />
     )
 }

@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import Link from "next/link"
+import Link from "@/components/ui/link"
 import { EditOrderDialog, type AdminOrder } from "./edit_form"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { Label } from "@/components/ui/label"

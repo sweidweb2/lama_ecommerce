@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { 
   Mail, 
@@ -22,6 +23,7 @@ export default function ContactUsPage() {
     subject: '',
     message: '',
     phone: '',
+    website: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -30,15 +32,20 @@ export default function ContactUsPage() {
     setIsSubmitting(true)
 
     try {
-      await createContactUsAction({
+      const result = await createContactUsAction({
         full_name: formData.full_name,
         email: formData.email,
         subject: formData.subject,
         message: formData.message,
         phone: formData.phone,
+        website: formData.website,
       })
+      if (!result.success) {
+        toast.error(result.error || 'Failed to send message. Please try again.')
+        return
+      }
       toast.success('Thank you for your message! We\'ll get back to you soon.')
-      setFormData({ full_name: '', email: '', subject: '', message: '', phone: '' })
+      setFormData({ full_name: '', email: '', subject: '', message: '', phone: '', website: '' })
     } catch (error) {
       toast.error('Failed to send message. Please try again.')
     } finally {
@@ -69,7 +76,23 @@ export default function ContactUsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="relative space-y-6">
+                    {/* Honeypot — leave empty; hidden from users */}
+                    <div
+                      className="absolute -left-[9999px] opacity-0 h-0 w-0 overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        name="website"
+                        type="text"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={formData.website}
+                        onChange={handleChange}
+                      />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label htmlFor="full_name">Full name *</Label>
@@ -125,7 +148,7 @@ export default function ContactUsPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="message">Message *</Label>
-                      <textarea
+                      <Textarea
                         id="message"
                         name="message"
                         rows={6}
@@ -133,7 +156,7 @@ export default function ContactUsPage() {
                         value={formData.message}
                         onChange={handleChange}
                         required
-                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none"
+                        className="resize-none md:text-sm"
                       />
                     </div>
 

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { cookies } from "next/headers";
+import Link from "@/components/ui/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/routes";
@@ -11,6 +10,7 @@ import {
   getGuestCartWithItemsService,
 } from "@/services/cart.service";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
+import { getGuestSessionId } from "@/lib/auth/guest-session";
 
 export const metadata = {
   title: "Cart | LAMA",
@@ -29,8 +29,7 @@ export default async function CartPage() {
     cartResult = await getUserCartWithItemsService(user.id);
   } else {
     // Guest → read session cookie and fetch cart by session_id
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("guest_session_id")?.value;
+    const sessionId = await getGuestSessionId();
 
     if (sessionId) {
       cartResult = await getGuestCartWithItemsService(sessionId);

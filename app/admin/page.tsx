@@ -15,7 +15,7 @@ import {
   getRecentOrdersService,
   getRecentUsersService,
 } from "@/services/dashboard.service"
-import Link from "next/link"
+import Link from "@/components/ui/link"
 import { Badge } from "@/components/ui/badge"
 
 function formatCurrency(amount: number): string {

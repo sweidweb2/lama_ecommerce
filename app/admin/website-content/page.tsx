@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function WebsiteContentPage() {
@@ -29,9 +30,8 @@ export default function WebsiteContentPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="hero-description">Description</Label>
-              <textarea
+              <Textarea
                 id="hero-description"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 placeholder="Enter banner description"
               />
             </div>
@@ -48,9 +48,8 @@ export default function WebsiteContentPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="homepage-meta">Meta Description</Label>
-              <textarea
+              <Textarea
                 id="homepage-meta"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 placeholder="Enter meta description"
               />
             </div>

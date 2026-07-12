@@ -1,14 +1,14 @@
-import { cookies } from 'next/headers'
 import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems, getWishlistItemsForGuest } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
 import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
-import Link from 'next/link'
+import Link from "@/components/ui/link"
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/lib/constants/routes'
 import { WishlistStats } from '@/components/(public)/wishlist/WishlistStats'
 import { WishlistFilters } from '@/components/(public)/wishlist/WishlistFilters'
 import { WishlistPagination } from '@/components/(public)/wishlist/WishlistPagination'
+import { getGuestSessionId } from '@/lib/auth/guest-session'
 
 export const metadata = {
     title: 'My Wishlist | LAMA',
@@ -37,8 +37,7 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
         wishlistItems = await getWishlistItems(user.id)
     } else {
         // Guest → read session cookie and fetch wishlist by session_id
-        const cookieStore = await cookies()
-        const sessionId = cookieStore.get('guest_session_id')?.value
+        const sessionId = await getGuestSessionId()
 
         if (sessionId) {
             wishlistItems = await getWishlistItemsForGuest(sessionId)

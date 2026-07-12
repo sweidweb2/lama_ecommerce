@@ -2,7 +2,7 @@ import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
 import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
-import Link from 'next/link'
+import Link from "@/components/ui/link"
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/lib/constants/routes'
 

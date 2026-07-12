@@ -17,6 +17,8 @@ import {
 } from "@/repositories/order.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
+import { getCurrentUserProfile } from "@/services/profile.service";
+import { canAccessAdmin } from "@/lib/auth/permissions";
 
 /** Composite return type for a full order detail view. */
 export interface OrderDetails {
@@ -57,6 +59,8 @@ export async function getUserOrderCount(userId: string): Promise<number> {
  * Get all orders for the admin panel (newest first) with user names.
  */
 export async function getAdminOrders(): Promise<AdminOrderRow[]> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || !canAccessAdmin(profile.role)) return [];
   return getAllOrdersForAdmin();
 }
 
@@ -68,35 +72,46 @@ export async function getAdminOrders(): Promise<AdminOrderRow[]> {
  * - If sessionId is provided (guest), the order must match that session_id and have no user_id.
  * - If neither matches, returns null (forbidden / not found).
  */
+/**
+ * Get full order details for a user or guest.
+ * - Authenticated: RLS-scoped fetch by user_id.
+ * - Guest: service-role fetch + session ownership check (guest rows denied by RLS).
+ */
 export async function getOrderDetails(
   orderId: string,
   userId: string | null,
   sessionId: string | null,
 ): Promise<OrderDetails | null> {
-  // 1. Fetch the order (RLS already scopes by auth.uid() or user_id IS NULL)
-  const order = await getOrderById(orderId);
-  if (!order) return null;
-
-  // 2. App-level ownership check
   if (userId) {
-    // Authenticated: order must belong to this user
+    const order = await getOrderById(orderId);
+    if (!order) return null;
     if (order.user_id !== userId) return null;
-  } else if (sessionId) {
-    // Guest: order must be a guest order with matching session_id
-    if (order.user_id !== null || order.session_id !== sessionId) return null;
-  } else {
-    // No identity at all — deny
-    return null;
+
+    const [items, payment, shipment] = await Promise.all([
+      getOrderItemsByOrderId(orderId),
+      getPaymentByOrderId(orderId),
+      getShipmentByOrderId(orderId),
+    ]);
+
+    return { order, items, payment, shipment };
   }
 
-  // 3. Fetch related data in parallel
-  const [items, payment, shipment] = await Promise.all([
-    getOrderItemsByOrderId(orderId),
-    getPaymentByOrderId(orderId),
-    getShipmentByOrderId(orderId),
-  ]);
+  if (sessionId) {
+    // Guest orders are not readable via anon RLS — use admin + ownership check
+    const order = await getOrderByIdForAdmin(orderId);
+    if (!order) return null;
+    if (order.user_id !== null || order.session_id !== sessionId) return null;
 
-  return { order, items, payment, shipment };
+    const [items, payment, shipment] = await Promise.all([
+      getOrderItemsByOrderIdForAdmin(orderId),
+      getPaymentByOrderIdForAdmin(orderId),
+      getShipmentByOrderIdForAdmin(orderId),
+    ]);
+
+    return { order, items, payment, shipment };
+  }
+
+  return null;
 }
 
 /**
@@ -107,6 +122,9 @@ export async function getOrderDetails(
 export async function getAdminOrderDetails(
   orderId: string,
 ): Promise<OrderDetails | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || !canAccessAdmin(profile.role)) return null;
+
   const order = await getOrderByIdForAdmin(orderId);
   if (!order) return null;
 
@@ -138,6 +156,11 @@ export async function updateOrderService(
   },
 ): Promise<{ success: boolean; error?: string; data?: Order }> {
   try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || !canAccessAdmin(profile.role)) {
+      return { success: false, error: "Forbidden" };
+    }
+
     // Basic validation
     if (input.email !== undefined && input.email !== null && input.email.trim() !== "") {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -197,6 +220,11 @@ export async function deleteOrderService(
   orderId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const profile = await getCurrentUserProfile();
+    if (!profile || !canAccessAdmin(profile.role)) {
+      return { success: false, error: "Forbidden" };
+    }
+
     // Validate order ID
     if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
       return {

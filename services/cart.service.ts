@@ -15,6 +15,7 @@ import {
 } from "@/repositories/cart.repository";
 import {
   createCartItem,
+  createCartItemAsAdmin,
   getCartItemsWithProductsByCartId,
   getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
@@ -27,6 +28,7 @@ import { getProductVariantById } from "@/repositories/product_variant.repository
 import { incrementProductAddToCartService } from "@/services/product_view.service";
 import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createSupabaseServerActionClient,
 } from "@/lib/supabase/server";
@@ -250,8 +252,8 @@ export async function addItemToGuestCartService(
       cart = cartResult.data;
     }
 
-    // Add item to cart (UPSERT with stock validation handled atomically in database function)
-    const cartItemResult = await createCartItem({
+    // Add item to cart (UPSERT via service role — guest carts are not anon-accessible)
+    const cartItemResult = await createCartItemAsAdmin({
       cart_id: cart.id,
       customised_product_id: validated.customised_product_id,
       quantity: validated.quantity,
@@ -372,8 +374,8 @@ export async function getGuestCartWithItemsService(
 
     const cart = cartResult.data;
 
-    // Get cart items with product details
-    const items = await getCartItemsWithProductsByCartId(cart.id);
+    // Guest cart items require service-role read (RLS denies anon guest rows)
+    const items = await getCartItemsWithProductsByCartIdForAdmin(cart.id);
 
     return {
       success: true,
@@ -407,6 +409,11 @@ export async function deleteCartItemService(
  * Returns carts with user information, item counts, and totals.
  */
 export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return await getAllCartsForAdmin();
 }
 
@@ -421,6 +428,12 @@ export async function getCartWithItemsForAdminService(
   error?: string;
   data?: { cart: Cart; items: CartItemWithProduct[] };
 }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
   try {
     // Get cart by ID (admin access)
     const cartResult = await getCartByIdForAdmin(cartId);
@@ -462,6 +475,11 @@ export async function updateCartItemService(
   cartItemId: string,
   input: { quantity: number },
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
   return await updateCartItemForAdmin(cartItemId, { quantity: input.quantity });
 }
 
@@ -472,6 +490,11 @@ export async function updateCartItemService(
 export async function deleteCartService(
   cartId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
   return await deleteCart(cartId);
 }
 
@@ -483,6 +506,12 @@ export async function deleteCartService(
 export async function hardDeleteCartService(
   cartId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
   try {
     // First, hard delete all cart items
     const deleteItemsResult = await hardDeleteCartItemsByCartId(cartId);
@@ -524,6 +553,11 @@ export async function hardDeleteCartService(
 export async function createCartForAdminService(
   input: { user_id?: string | null; session_id?: string | null },
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
   return await createCartForAdmin(input);
 }
 
@@ -658,14 +692,20 @@ export async function addItemToCartByIdService(
   },
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
   try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
     // Validate input using Zod schema
     const validated = createCartItemSchema.parse({
       customised_product_id: input.customised_product_id,
       quantity: input.quantity,
     });
 
-    // Add item directly to the specified cart
-    const cartItemResult = await createCartItem({
+    // Add item directly to the specified cart (admin may target guest carts)
+    const cartItemResult = await createCartItemAsAdmin({
       cart_id: cartId,
       customised_product_id: validated.customised_product_id,
       quantity: validated.quantity,

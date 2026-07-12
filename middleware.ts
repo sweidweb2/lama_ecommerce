@@ -41,14 +41,37 @@ async function getProfileFromSession(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // API routes — explicit policy (JSON for admin APIs, not HTML redirects)
+  if (pathname.startsWith("/api")) {
+    if (pathname.startsWith("/api/auth")) {
+      return NextResponse.next();
+    }
+
+    if (pathname.startsWith("/api/admin")) {
+      const { profile, user, response } = await getProfileFromSession(request);
+
+      if (!user || !profile) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      if (profile.role !== ROLES.ADMIN) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      return response;
+    }
+
+    // Other /api/* — allow for now
+    return NextResponse.next();
+  }
+
   // Public routes - no protection needed (storefront, auth pages, etc.)
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/products") ||
     pathname.startsWith("/checkout") ||
-    pathname.startsWith("/search") ||
-    pathname.startsWith("/api");
+    pathname.startsWith("/search");
 
   if (isPublicRoute) {
     return NextResponse.next();
@@ -135,12 +158,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public folder)
+     * - public image files
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

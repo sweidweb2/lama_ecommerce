@@ -1,15 +1,14 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 import type { Lead } from "@/types/user";
 import type { CreateLeadInput } from "@/lib/validators/lead/create";
 import type { UpdateLeadInput } from "@/lib/validators/lead/update";
 
 /**
- * Insert a new lead (e.g. newsletter signup). Uses server action client; RLS must allow public insert.
+ * Insert a new lead (e.g. newsletter signup). Service role — public INSERT policy removed.
  */
 export async function createLead(input: CreateLeadInput): Promise<boolean> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
     const { error } = await (supabase as any)
       .from("leads")
       .insert({ email: input.email });

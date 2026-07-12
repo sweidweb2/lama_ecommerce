@@ -11,59 +11,14 @@ import type { ProductWithRelations } from "@/types/product";
 /**
  * Create or update a cart item (UPSERT) - Double-click safe.
  * Uses database function for atomic operation with stock validation.
- * If an item with the same customised_product_id already exists in the cart,
- * the quantity will be added to the existing quantity.
- * 
- * This function is transaction-safe and handles race conditions from double-clicks.
+ * Authenticated path: session client (EXECUTE granted to authenticated).
  */
 export async function createCartItem(
   input: CreateCartItemInput & { cart_id: string },
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
   try {
     const supabase = await createSupabaseServerActionClient();
-
-    // Call the database UPSERT function (atomic, double-click safe)
-    const { data, error } = await (supabase as any).rpc("upsert_cart_item", {
-      p_cart_id: input.cart_id,
-      p_customised_product_id: input.customised_product_id,
-      p_quantity: input.quantity,
-    });
-
-    if (error) {
-      console.error("Error upserting cart item:", error);
-      
-      // Parse database error messages for better user feedback
-      let errorMessage = error.message || "Failed to add item to cart";
-      
-      if (error.message?.includes("not found or deleted")) {
-        errorMessage = "Product variant not found or no longer available";
-      } else if (error.message?.includes("out of stock")) {
-        errorMessage = "This product variant is out of stock";
-      } else if (error.message?.includes("Insufficient stock")) {
-        // Extract available stock from error message if possible
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-
-    if (!data || data.length === 0) {
-      return {
-        success: false,
-        error: "Failed to add item to cart - no data returned",
-      };
-    }
-
-    // The RPC function returns an array, get the first (and only) result
-    const cartItem = data[0] as CartItem;
-
-    return {
-      success: true,
-      data: cartItem,
-    };
+    return await upsertCartItemWithClient(supabase, input);
   } catch (error) {
     console.error("Unexpected error in createCartItem:", error);
     return {
@@ -72,6 +27,68 @@ export async function createCartItem(
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
+}
+
+/**
+ * Upsert a cart item via service-role client.
+ * Required for guest carts after guest RLS bypasses were removed.
+ */
+export async function createCartItemAsAdmin(
+  input: CreateCartItemInput & { cart_id: string },
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    return await upsertCartItemWithClient(supabase, input);
+  } catch (error) {
+    console.error("Unexpected error in createCartItemAsAdmin:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+async function upsertCartItemWithClient(
+  supabase: any,
+  input: CreateCartItemInput & { cart_id: string },
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  const { data, error } = await supabase.rpc("upsert_cart_item", {
+    p_cart_id: input.cart_id,
+    p_customised_product_id: input.customised_product_id,
+    p_quantity: input.quantity,
+  });
+
+  if (error) {
+    console.error("Error upserting cart item:", error);
+
+    let errorMessage = error.message || "Failed to add item to cart";
+
+    if (error.message?.includes("not found or deleted")) {
+      errorMessage = "Product variant not found or no longer available";
+    } else if (error.message?.includes("out of stock")) {
+      errorMessage = "This product variant is out of stock";
+    } else if (error.message?.includes("Insufficient stock")) {
+      errorMessage = error.message;
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      success: false,
+      error: "Failed to add item to cart - no data returned",
+    };
+  }
+
+  return {
+    success: true,
+    data: data[0] as CartItem,
+  };
 }
 
 /**
@@ -586,6 +603,109 @@ export async function hardDeleteCartItem(
     };
   } catch (error) {
     console.error("Unexpected error in hardDeleteCartItem:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Verify a cart item belongs to a guest session cart (service role).
+ */
+async function assertCartItemOwnedByGuestSession(
+  cartItemId: string,
+  sessionId: string,
+): Promise<{ ok: true; cartId: string } | { ok: false; error: string }> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await (supabase as any)
+    .from("cart_items")
+    .select("id, cart_id, carts!inner(id, session_id, user_id, deleted_at)")
+    .eq("id", cartItemId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: error.message || "Failed to verify cart item" };
+  }
+  if (!data) {
+    return { ok: false, error: "Cart item not found" };
+  }
+
+  const cart = data.carts as {
+    id: string;
+    session_id: string | null;
+    user_id: string | null;
+    deleted_at: string | null;
+  };
+
+  if (
+    cart.deleted_at ||
+    cart.user_id !== null ||
+    cart.session_id !== sessionId
+  ) {
+    return { ok: false, error: "Cart item does not belong to this session" };
+  }
+
+  return { ok: true, cartId: cart.id };
+}
+
+/**
+ * Update a guest cart item quantity, scoped to guest session_id.
+ */
+export async function updateCartItemForGuest(
+  sessionId: string,
+  cartItemId: string,
+  input: UpdateCartItemInput,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  try {
+    const owned = await assertCartItemOwnedByGuestSession(cartItemId, sessionId);
+    if (!owned.ok) {
+      return { success: false, error: owned.error };
+    }
+
+    return await updateCartItemForAdmin(cartItemId, input);
+  } catch (error) {
+    console.error("Unexpected error in updateCartItemForGuest:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Hard-delete a guest cart item, scoped to guest session_id.
+ */
+export async function hardDeleteCartItemForGuest(
+  sessionId: string,
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const owned = await assertCartItemOwnedByGuestSession(cartItemId, sessionId);
+    if (!owned.ok) {
+      return { success: false, error: owned.error };
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const { error } = await (supabase as any)
+      .from("cart_items")
+      .delete()
+      .eq("id", cartItemId);
+
+    if (error) {
+      console.error("Error hard deleting guest cart item:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete cart item",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error in hardDeleteCartItemForGuest:", error);
     return {
       success: false,
       error:

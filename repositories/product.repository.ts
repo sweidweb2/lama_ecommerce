@@ -11,6 +11,10 @@ export interface GetProductsRepoParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  excludeId?: string;
+  brandId?: string | null;
 }
 
 // Common select used for product detail / listing where we only need
@@ -112,7 +116,19 @@ export async function getAdminProducts(): Promise<ProductWithRelations[]> {
 export async function getProducts(
   params: GetProductsRepoParams = {},
 ): Promise<{ data: ProductWithRelations[]; count: number }> {
-  const { categoryId, sort, page = 1, pageSize = 12, search } = params;
+  const {
+    categoryId,
+    sort,
+    page = 1,
+    pageSize: rawPageSize = 12,
+    search,
+    minPrice,
+    maxPrice,
+    excludeId,
+    brandId,
+  } = params;
+
+  const pageSize = Math.min(Math.max(1, rawPageSize), 48);
 
   try {
     const supabase = await createSupabaseServerComponentClient();
@@ -125,13 +141,35 @@ export async function getProducts(
       query = query.eq("category_id", categoryId);
     }
 
+    if (brandId) {
+      query = query.eq("brand_id", brandId);
+    }
+
+    if (excludeId) {
+      query = query.neq("id", excludeId);
+    }
+
     if (search) {
       query = query.ilike("name", `%${search}%`);
     }
 
+    if (minPrice !== undefined && !Number.isNaN(minPrice)) {
+      query = query.gte("price", minPrice);
+    }
+
+    if (maxPrice !== undefined && !Number.isNaN(maxPrice)) {
+      query = query.lte("price", maxPrice);
+    }
+
     if (sort) {
       const [field, order] = sort.split("-");
-      query = query.order(field, { ascending: order === "asc" });
+      // Only allow known sortable columns
+      const allowed = new Set(["created_at", "price", "name"]);
+      if (allowed.has(field)) {
+        query = query.order(field, { ascending: order === "asc" });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
     } else {
       query = query.order("created_at", { ascending: false });
     }
@@ -153,6 +191,117 @@ export async function getProducts(
   } catch {
     return { data: [], count: 0 };
   }
+}
+
+/**
+ * Min/max active product prices for the storefront price slider.
+ */
+export async function getProductPriceBounds(): Promise<{
+  minPrice: number;
+  maxPrice: number;
+}> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+
+    const [{ data: minRow }, { data: maxRow }] = await Promise.all([
+      supabase
+        .from("products")
+        .select("price")
+        .eq("is_active", true)
+        .order("price", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("products")
+        .select("price")
+        .eq("is_active", true)
+        .order("price", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const minPrice = minRow?.price != null ? Math.floor(Number(minRow.price)) : 0;
+    const maxPrice = maxRow?.price != null ? Math.ceil(Number(maxRow.price)) : 1000;
+
+    return {
+      minPrice,
+      maxPrice: Math.max(maxPrice, minPrice),
+    };
+  } catch {
+    return { minPrice: 0, maxPrice: 1000 };
+  }
+}
+
+/**
+ * Related products via tiered bounded queries (no full-catalog fetch).
+ */
+export async function getRelatedProducts(
+  product: {
+    id: string;
+    brand_id: string | null;
+    category_id: string | null;
+  },
+  limit = 12,
+): Promise<ProductWithRelations[]> {
+  const results: ProductWithRelations[] = [];
+  const usedIds = new Set<string>([product.id]);
+
+  const append = (rows: ProductWithRelations[]) => {
+    for (const row of rows) {
+      if (usedIds.has(row.id)) continue;
+      usedIds.add(row.id);
+      results.push(row);
+      if (results.length >= limit) return;
+    }
+  };
+
+  const remaining = () => limit - results.length;
+
+  if (product.brand_id && product.category_id && remaining() > 0) {
+    const { data } = await getProducts({
+      brandId: product.brand_id,
+      categoryId: product.category_id,
+      excludeId: product.id,
+      page: 1,
+      pageSize: remaining(),
+      sort: "created_at-desc",
+    });
+    append(data);
+  }
+
+  if (product.brand_id && remaining() > 0) {
+    const { data } = await getProducts({
+      brandId: product.brand_id,
+      excludeId: product.id,
+      page: 1,
+      pageSize: remaining(),
+      sort: "created_at-desc",
+    });
+    append(data);
+  }
+
+  if (product.category_id && remaining() > 0) {
+    const { data } = await getProducts({
+      categoryId: product.category_id,
+      excludeId: product.id,
+      page: 1,
+      pageSize: remaining(),
+      sort: "created_at-desc",
+    });
+    append(data);
+  }
+
+  if (remaining() > 0) {
+    const { data } = await getProducts({
+      excludeId: product.id,
+      page: 1,
+      pageSize: remaining(),
+      sort: "created_at-desc",
+    });
+    append(data);
+  }
+
+  return results;
 }
 
 /**

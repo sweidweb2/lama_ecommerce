@@ -11,7 +11,7 @@ import {
     type CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/link";
 
 const heroData = [
     {

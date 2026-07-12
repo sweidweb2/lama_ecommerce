@@ -2,6 +2,8 @@ import { Sidebar } from "@/components/admin/sidebar"
 import { Header } from "@/components/admin/header"
 import { AdminNavigationLoader } from "@/components/admin/admin-navigation-loader"
 
+export const dynamic = "force-dynamic"
+
 export default function AdminLayout({
   children,
 }: {
@@ -25,3 +27,4 @@ export default function AdminLayout({
     </div>
   )
 }
+

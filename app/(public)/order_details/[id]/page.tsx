@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { cookies } from "next/headers";
+import Link from "@/components/ui/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +24,8 @@ import {
 import { OrderBreadcrumbs } from "@/components/(public)/orders/OrderBreadcrumbs";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { getOrderDetails } from "@/services/order.service";
+import { getGuestSessionId } from "@/lib/auth/guest-session";
+import { decryptOrderId } from "@/lib/utils/encryption";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 export const metadata = {
@@ -98,16 +99,23 @@ export default async function OrderDetailsPage({
   params,
   searchParams,
 }: OrderDetailsPageProps) {
-  const { id: orderId } = await params;
+  const { id: encryptedOrRawId } = await params;
   const resolvedSearchParams = await searchParams;
+
+  // Support encrypted IDs (post-checkout) and raw UUIDs (order list links)
+  let orderId = encryptedOrRawId;
+  try {
+    orderId = decryptOrderId(decodeURIComponent(encryptedOrRawId));
+  } catch {
+    // Keep raw id from URL
+  }
 
   // Determine identity
   const user = await getCurrentAuthUserFromComponent();
 
   let sessionId: string | null = null;
   if (!user) {
-    const cookieStore = await cookies();
-    sessionId = cookieStore.get("guest_session_id")?.value ?? null;
+    sessionId = await getGuestSessionId();
   }
 
   // Fetch order details with ownership check

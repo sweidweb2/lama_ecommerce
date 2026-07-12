@@ -92,7 +92,7 @@ export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
                     placeholder="Search products... (Press / to focus)"
                     value={query}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="pl-9 pr-10 h-10 w-full bg-background border-border focus-visible:ring-primary/20 focus-visible:border-primary transition-all duration-200"
+                    className="pl-9 pr-10 h-10 w-full border-border transition-all duration-200"
                 />
                 {query && (
                     <button

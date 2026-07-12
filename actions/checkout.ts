@@ -1,13 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import { checkoutService } from "@/services/checkout.service";
 import { checkoutSchema, type CheckoutInput } from "@/lib/validators/checkout/checkout";
-
-/** Cookie name for guest session identification. */
-const GUEST_SESSION_COOKIE = "guest_session_id";
+import { getGuestSessionId } from "@/lib/auth/guest-session";
 
 /**
  * Server action: process checkout.
@@ -39,9 +36,7 @@ export async function checkoutAction(
   let sessionId: string | null = null;
 
   if (!user) {
-    // Guest: read session cookie
-    const cookieStore = await cookies();
-    sessionId = cookieStore.get(GUEST_SESSION_COOKIE)?.value ?? null;
+    sessionId = await getGuestSessionId();
 
     if (!sessionId) {
       return {

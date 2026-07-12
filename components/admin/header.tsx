@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useState, useMemo, useRef, useEffect } from "react"
 import { ROUTES } from "@/lib/constants/routes"
-import Link from "next/link"
+import Link from "@/components/ui/link"
 
 /** Flat list of admin pages for search (href + label). */
 const ADMIN_PAGES = [

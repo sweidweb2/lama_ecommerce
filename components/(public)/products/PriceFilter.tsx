@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Slider } from '@/components/ui/slider'
-import { cn } from '@/lib/utils'
 
 interface PriceFilterProps {
     minPrice?: number
@@ -21,37 +20,44 @@ export function PriceFilter({
     value,
     onChange 
 }: PriceFilterProps) {
+    const router = useRouter()
     const searchParams = useSearchParams()
-    const [localValue, setLocalValue] = useState<[number, number]>([minPrice, maxPrice])
+    const [localValue, setLocalValue] = useState<[number, number]>(
+        value ?? [minPrice, maxPrice]
+    )
 
-    // Initialize from URL params if available (only if not controlled)
     useEffect(() => {
-        if (value === undefined) {
-            const minParam = searchParams.get('minPrice')
-            const maxParam = searchParams.get('maxPrice')
-            
-            if (minParam && maxParam) {
-                const min = parseFloat(minParam)
-                const max = parseFloat(maxParam)
-                if (!isNaN(min) && !isNaN(max)) {
-                    setLocalValue([min, max])
-                }
-            } else {
-                setLocalValue([minPrice, maxPrice])
+        if (value !== undefined) {
+            setLocalValue(value)
+            return
+        }
+        const minParam = searchParams.get('minPrice')
+        const maxParam = searchParams.get('maxPrice')
+        if (minParam && maxParam) {
+            const min = parseFloat(minParam)
+            const max = parseFloat(maxParam)
+            if (!isNaN(min) && !isNaN(max)) {
+                setLocalValue([min, max])
+                return
             }
         }
+        setLocalValue([minPrice, maxPrice])
     }, [minPrice, maxPrice, searchParams, value])
 
-    // Use controlled value if provided, otherwise use local state
-    const currentValue = value !== undefined ? value : localValue
-
     const handleValueChange = (newValue: number[]) => {
-        const newRange: [number, number] = [newValue[0], newValue[1]]
+        setLocalValue([newValue[0], newValue[1]])
+    }
+
+    const commitRange = (range: [number, number]) => {
         if (onChange) {
-            onChange(newRange)
-        } else {
-            setLocalValue(newRange)
+            onChange(range)
+            return
         }
+        const params = new URLSearchParams(searchParams.toString())
+        params.set('minPrice', String(range[0]))
+        params.set('maxPrice', String(range[1]))
+        params.delete('page')
+        router.push(`/products?${params.toString()}`)
     }
 
     return (
@@ -63,8 +69,9 @@ export function PriceFilter({
             </div>
             <div className="space-y-3">
                 <Slider
-                    value={[currentValue[0], currentValue[1]]}
+                    value={[localValue[0], localValue[1]]}
                     onValueChange={handleValueChange}
+                    onValueCommit={(v) => commitRange([v[0], v[1]])}
                     min={minPrice}
                     max={maxPrice}
                     step={1}
@@ -72,10 +79,10 @@ export function PriceFilter({
                 />
                 <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                        ${currentValue[0].toFixed(2)}
+                        ${localValue[0].toFixed(2)}
                     </span>
                     <span className="text-muted-foreground">
-                        ${currentValue[1].toFixed(2)}
+                        ${localValue[1].toFixed(2)}
                     </span>
                 </div>
             </div>

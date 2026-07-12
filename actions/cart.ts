@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
   addItemToCartService,
@@ -17,47 +16,13 @@ import {
   createCartForAdminService,
   getCartWithItemsForAdminService,
 } from "@/services/cart.service";
+import {
+  clearGuestSessionCookie,
+  getGuestSessionId,
+  getOrCreateGuestSessionId,
+} from "@/lib/auth/guest-session";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { revalidatePath } from "next/cache";
-
-/** Cookie name for guest session identification. */
-const GUEST_SESSION_COOKIE = "guest_session_id";
-
-/** Guest session cookie lifetime: 14 days in seconds. */
-const GUEST_SESSION_MAX_AGE = 14 * 24 * 60 * 60; // 14 days
-
-/**
- * Read the guest_session_id cookie.
- * Returns the value or null if missing / expired.
- */
-async function getGuestSessionId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(GUEST_SESSION_COOKIE)?.value ?? null;
-}
-
-/**
- * Set (or refresh) the guest_session_id cookie.
- * HttpOnly, Secure, SameSite=Lax, 14-day expiry.
- */
-async function setGuestSessionCookie(sessionId: string): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(GUEST_SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    // In development, allow non-secure cookies so local HTTP (http://localhost) works.
-    // In production behind HTTPS, cookies will be marked secure.
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: GUEST_SESSION_MAX_AGE,
-    path: "/",
-  });
-}
-
-/**
- * Delete the guest_session_id cookie (e.g. after merging cart on login).
- */
-async function clearGuestSessionCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(GUEST_SESSION_COOKIE);
-}
 
 /**
  * Merge guest cart into the authenticated user's cart.
@@ -139,17 +104,7 @@ export async function addItemToCartAction(input: {
   }
 
   // ── Guest user flow ──
-
-  // Read existing session cookie (null when missing or expired)
-  let sessionId = await getGuestSessionId();
-
-  if (!sessionId) {
-    // Generate a fresh session ID – never reuse old / deleted sessions
-    sessionId = crypto.randomUUID();
-  }
-
-  // Always set / refresh the cookie so expiry slides forward
-  await setGuestSessionCookie(sessionId);
+  const sessionId = await getOrCreateGuestSessionId();
 
   // Delegate to guest cart service (creates cart if needed, adds item)
   const result = await addItemToGuestCartService(sessionId, input);
@@ -228,27 +183,32 @@ export async function getUserCartWithItemsAction(): Promise<{
 
 /**
  * Delete cart item action.
- * This is the server action called from client components.
- * Hard deletes the cart item from the database.
+ * Authenticated users: RLS-scoped hard delete.
+ * Guests: service-role delete scoped to guest_session_id cookie.
  */
 export async function deleteCartItemAction(
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Authorization check: User must be logged in
   const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to delete cart items",
-    };
+
+  let result: { success: boolean; error?: string };
+
+  if (user) {
+    result = await deleteCartItemService(cartItemId);
+  } else {
+    const sessionId = await getGuestSessionId();
+    if (!sessionId) {
+      return { success: false, error: "No active session found" };
+    }
+    const { hardDeleteCartItemForGuest } = await import(
+      "@/repositories/cart_item.repository"
+    );
+    result = await hardDeleteCartItemForGuest(sessionId, cartItemId);
   }
 
-  // Call service to delete cart item
-  const result = await deleteCartItemService(cartItemId);
-
-  // Revalidate cart page if successful
   if (result.success) {
     revalidatePath("/cart");
+    revalidatePath("/checkout");
   }
 
   return result;
@@ -262,13 +222,10 @@ export async function deleteCartItemAction(
 export async function deleteCartAction(
   cartId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Authorization check: User must be logged in (admin check should be done in UI)
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to delete carts",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to delete cart
@@ -290,13 +247,10 @@ export async function deleteCartAction(
 export async function hardDeleteCartAction(
   cartId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Authorization check: User must be logged in (admin check should be done in UI)
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to delete carts",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to hard delete cart (deletes items first, then cart)
@@ -322,13 +276,10 @@ export async function addItemToCartByIdAction(
     quantity: number;
   },
 ): Promise<{ success: boolean; error?: string; data?: any }> {
-  // Authorization check: User must be logged in (admin check should be done in UI)
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to add items to cart",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to add item to the specified cart
@@ -345,18 +296,14 @@ export async function addItemToCartByIdAction(
 
 /**
  * Update cart item quantity action (public use).
- * This is the server action called from client components (cart page).
- * Updates the quantity of a cart item for both authenticated users and guests.
+ * Authenticated users: RLS-scoped update.
+ * Guests: service-role update scoped to guest_session_id cookie.
  */
 export async function updateCartItemQuantityAction(
   cartItemId: string,
   quantity: number,
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   try {
-    // Import the repository function directly
-    const { updateCartItem } = await import("@/repositories/cart_item.repository");
-    
-    // Validate quantity
     if (quantity < 1) {
       return {
         success: false,
@@ -364,10 +311,27 @@ export async function updateCartItemQuantityAction(
       };
     }
 
-    // Update cart item (RLS will ensure user can only update their own cart items)
-    const result = await updateCartItem(cartItemId, { quantity });
+    const user = await getCurrentAuthUserFromAction();
+    let result: { success: boolean; error?: string; data?: any };
 
-    // Revalidate cart page if successful
+    if (user) {
+      const { updateCartItem } = await import(
+        "@/repositories/cart_item.repository"
+      );
+      result = await updateCartItem(cartItemId, { quantity });
+    } else {
+      const sessionId = await getGuestSessionId();
+      if (!sessionId) {
+        return { success: false, error: "No active session found" };
+      }
+      const { updateCartItemForGuest } = await import(
+        "@/repositories/cart_item.repository"
+      );
+      result = await updateCartItemForGuest(sessionId, cartItemId, {
+        quantity,
+      });
+    }
+
     if (result.success) {
       revalidatePath("/cart");
       revalidatePath("/checkout");
@@ -393,13 +357,10 @@ export async function updateCartItemAction(
   quantity: number,
   cartId: string,
 ): Promise<{ success: boolean; error?: string; data?: any }> {
-  // Authorization check: User must be logged in (admin check should be done in UI)
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to update cart items",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to update cart item
@@ -425,13 +386,10 @@ export async function createCartAction(
     session_id?: string | null;
   },
 ): Promise<{ success: boolean; error?: string; data?: any }> {
-  // Authorization check: User must be logged in (admin check should be done in UI)
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to create carts",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to create cart
@@ -456,12 +414,10 @@ export async function getCartWithItemsForAdminAction(
   error?: string;
   data?: { cart: any; items: any[]; subtotal: number };
 }> {
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   const result = await getCartWithItemsForAdminService(cartId);

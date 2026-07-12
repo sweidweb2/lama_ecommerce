@@ -383,13 +383,14 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
 
 /**
  * Get orders for a guest session (non-deleted, newest first).
+ * Uses service-role client; always filters by session_id + user_id IS NULL.
  */
 export async function getOrdersBySessionId(
   sessionId: string,
   limit?: number,
 ): Promise<Order[]> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = createSupabaseAdminClient();
     let query = (supabase as any)
       .from("orders")
       .select("*")
@@ -432,8 +433,8 @@ export interface ProcessCheckoutInput {
 
 /**
  * Execute the atomic checkout PG function via Supabase RPC.
- * This performs stock validation, order creation, order_items snapshot,
- * stock decrement, and cart soft-delete in a single transaction.
+ * Uses service-role client (EXECUTE revoked from anon/authenticated).
+ * Ownership is enforced inside process_checkout (user_id or session_id match).
  *
  * Returns the new order ID on success.
  */
@@ -441,7 +442,7 @@ export async function processCheckout(
   input: ProcessCheckoutInput,
 ): Promise<{ success: boolean; error?: string; orderId?: string }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
     const { data, error } = await (supabase as any).rpc("process_checkout", {
       p_cart_id: input.cart_id,
