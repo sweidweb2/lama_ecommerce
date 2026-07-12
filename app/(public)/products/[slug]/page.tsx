@@ -69,7 +69,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     sku_variant: variant.sku_variant,
     price_override: variant.price_override,
     created_at: variant.created_at,
-  })))
+  }))
 
   // Related products: tiered bounded queries (no full-catalog fetch)
   const relatedProducts = await getRelatedProductsService(

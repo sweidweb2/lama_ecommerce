@@ -45,31 +45,64 @@ export async function addProductImageService(
 
 /**
  * Upload a product image file to storage and create the DB row.
- * Returns false if upload or DB insert fails (does not throw).
+ * Returns `{ success, error }` so callers can surface the real failure.
  */
 export async function uploadAndAddProductImageService(
   productId: string,
   imageFile: File,
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const mime = imageFile.type || "image/png";
-    const ext = mime.split("/")[1] || "png";
+    const name = imageFile.name || "";
+    const nameExt = name.includes(".")
+      ? name.split(".").pop()?.toLowerCase()
+      : undefined;
+    const mime =
+      imageFile.type ||
+      (nameExt === "jpg" || nameExt === "jpeg"
+        ? "image/jpeg"
+        : nameExt === "webp"
+          ? "image/webp"
+          : nameExt === "gif"
+            ? "image/gif"
+            : "image/png");
+    const ext =
+      nameExt && ["png", "jpg", "jpeg", "webp", "gif"].includes(nameExt)
+        ? nameExt === "jpeg"
+          ? "jpg"
+          : nameExt
+        : mime === "image/jpeg"
+          ? "jpg"
+          : mime.split("/")[1] || "png";
     const filePath = `products/${productId}/${crypto.randomUUID()}.${ext}`;
 
     const upload = await uploadPublicFile("products", filePath, imageFile, mime);
     if (!upload.success) {
-      return false;
+      return {
+        success: false,
+        error: upload.error || "Storage upload failed",
+      };
     }
 
     const publicUrl = await getPublicUrl("products", filePath);
     if (!publicUrl) {
-      return false;
+      return { success: false, error: "Failed to resolve public image URL" };
     }
 
-    return await addProductImageService(productId, publicUrl);
+    const created = await addProductImageService(productId, publicUrl);
+    if (!created) {
+      return {
+        success: false,
+        error:
+          "Image uploaded but DB row insert failed (check product_images RLS / FK)",
+      };
+    }
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in uploadAndAddProductImageService:", error);
-    return false;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unexpected upload error",
+    };
   }
 }
 

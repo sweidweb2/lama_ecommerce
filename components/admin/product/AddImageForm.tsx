@@ -57,7 +57,9 @@ export function AddImageForm({ productId }: AddImageFormProps) {
       router.refresh()
     } catch (error) {
       console.error("Error uploading image:", error)
-      // You might want to show an error toast here
+      const message =
+        error instanceof Error ? error.message : "Failed to upload image"
+      window.alert(message)
     } finally {
       setIsUploading(false)
     }

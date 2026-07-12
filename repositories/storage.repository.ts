@@ -6,13 +6,23 @@ import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 export async function uploadPublicFile(
   bucket: string,
   path: string,
-  file: File | Blob,
+  file: File | Blob | ArrayBuffer | Buffer | Uint8Array,
   contentType: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      contentType,
+
+    // Server Actions' File/Blob can fail with supabase-js; prefer raw bytes.
+    let body: File | Blob | ArrayBuffer | Buffer | Uint8Array = file;
+    if (typeof File !== "undefined" && file instanceof File) {
+      body = Buffer.from(await file.arrayBuffer());
+    } else if (typeof Blob !== "undefined" && file instanceof Blob) {
+      body = Buffer.from(await file.arrayBuffer());
+    }
+
+    const { error } = await supabase.storage.from(bucket).upload(path, body, {
+      contentType: contentType || "application/octet-stream",
+      upsert: false,
     });
 
     if (error) {

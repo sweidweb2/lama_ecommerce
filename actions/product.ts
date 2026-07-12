@@ -92,8 +92,8 @@ export async function createProductAction(formData: FormData): Promise<void> {
         created.id,
         imageFile,
       );
-      if (!uploaded) {
-        console.error("Error uploading product image on create");
+      if (!uploaded.success) {
+        console.error("Error uploading product image on create:", uploaded.error);
         // Do not fail the whole product creation if image upload fails
       }
     }
@@ -227,9 +227,13 @@ export async function addProductImageAction(formData: FormData): Promise<void> {
     const parsed = addProductImageSchema.parse({ product_id: productIdRaw });
     const productId = parsed.product_id;
 
-    const success = await uploadAndAddProductImageService(productId, imageFile);
-    if (!success) {
-      throw new Error("Failed to upload or create product image");
+    const result = await uploadAndAddProductImageService(productId, imageFile);
+    if (!result.success) {
+      throw new Error(
+        result.error
+          ? `Failed to upload or create product image: ${result.error}`
+          : "Failed to upload or create product image",
+      );
     }
 
     // Revalidate the products list and the specific product details page
