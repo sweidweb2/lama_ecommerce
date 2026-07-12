@@ -26,8 +26,8 @@ These files define the visual structure and styling. You can freely redesign the
 
 | File Path | Description |
 | :--- | :--- |
-| [layout.tsx](file:///d:/lama_ecomerce/lama_ecommerce/app/(storefront)/auth/layout.tsx) | The wrapper for all auth pages (backgrounds, centering, etc.). |
-| [page.tsx](file:///d:/lama_ecomerce/lama_ecommerce/app/(storefront)/auth/login/page.tsx) | Entry point for the login route. |
+| [layout.tsx](file:///d:/lama_ecomerce/lama_ecommerce/app/(public)/auth/layout.tsx) | The wrapper for all auth pages (backgrounds, centering, etc.). |
+| [page.tsx](file:///d:/lama_ecomerce/lama_ecommerce/app/(public)/auth/login/page.tsx) | Entry point for the login route. |
 | [LoginForm.tsx](file:///d:/lama_ecomerce/lama_ecommerce/components/auth/LoginForm.tsx) | The visual layout of the login form (JSX/CSS). |
 | [SignupForm.tsx](file:///d:/lama_ecomerce/lama_ecommerce/components/auth/SignupForm.tsx) | The visual layout of the signup form (JSX/CSS). |
 

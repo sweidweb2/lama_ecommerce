@@ -8,14 +8,13 @@ import { formatPrice } from "@/lib/utils";
 
 async function getFeaturedProducts() {
     try {
-        // Fetch all products and filter for featured ones
-        const { data: allProducts } = await getProducts({
+        const { data } = await getProducts({
             page: 1,
-            pageSize: 10000, // Large number to get all products
+            pageSize: 12,
+            isFeatured: true,
+            sort: "created_at-desc",
         });
-        
-        const featured = allProducts.filter(p => p.is_featured).slice(0, 12);
-        return featured;
+        return data;
     } catch (error) {
         console.error("Error fetching featured products:", error);
         return [];

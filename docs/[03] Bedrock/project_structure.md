@@ -1,177 +1,129 @@
 # Project Structure
 
-## 📁 Full Project Structure (from root)
+## Full project structure (from root)
 
 ```
 lama_ecommerce/
 ├── .env.local
 ├── .env.example
 ├── .gitignore
-├── next.config.js
-├── tailwind.config.ts
+├── next.config.ts
 ├── tsconfig.json
 ├── package.json
-├── middleware.ts              # auth & role protection
+├── middleware.ts                 # auth & role protection
+├── README.md
 │
 ├── public/
-│   ├── images/
-│   ├── icons/
-│   └── banners/
 │
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx         # root layout
-│   │   ├── globals.css
-│   │   │
-│   │   ├── (storefront)/      # PUBLIC PAGES
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx       # home
-│   │   │   ├── products/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [slug]/
-│   │   │   │       └── page.tsx
-│   │   │   ├── cart/
-│   │   │   │   └── page.tsx
-│   │   │   ├── checkout/
-│   │   │   │   └── page.tsx
-│   │   │   ├── wishlist/
-│   │   │   │   └── page.tsx
-│   │   │   ├── auth/
-│   │   │   │   ├── login/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── register/
-│   │   │   │       └── page.tsx
-│   │   │   └── search/
-│   │   │       └── page.tsx
-│   │   │
-│   │   ├── (account)/         # LOGGED-IN USER AREA
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx       # dashboard
-│   │   │   ├── orders/
-│   │   │   │   └── page.tsx
-│   │   │   ├── profile/
-│   │   │   │   └── page.tsx
-│   │   │   ├── addresses/
-│   │   │   │   └── page.tsx
-│   │   │   └── wishlist/
-│   │   │       └── page.tsx
-│   │   │
-│   │   ├── (admin)/           # ADMIN PANEL
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx       # admin dashboard
-│   │   │   ├── products/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── new/
-│   │   │   │       └── page.tsx
-│   │   │   ├── orders/
-│   │   │   │   └── page.tsx
-│   │   │   ├── users/
-│   │   │   │   └── page.tsx
-│   │   │   ├── categories/
-│   │   │   │   └── page.tsx
-│   │   │   ├── reviews/
-│   │   │   │   └── page.tsx
-│   │   │   ├── shipping/
-│   │   │   │   └── page.tsx
-│   │   │   └── settings/
-│   │   │       └── page.tsx
-│   │   │
-│   │   └── api/               # OPTIONAL API ROUTES
-│   │       ├── webhooks/
-│   │       │   └── stripe/
-│   │       │       └── route.ts
-│   │       └── upload/
-│   │           └── route.ts
+├── app/
+│   ├── layout.tsx                # root layout
+│   ├── globals.css
+│   ├── page.tsx                  # home
 │   │
-│   ├── components/
-│   │   ├── ui/                # shadcn components (auto-generated)
-│   │   ├── common/            # shared components
-│   │   │   ├── Header.tsx
-│   │   │   ├── Footer.tsx
-│   │   │   └── ProductCard.tsx
-│   │   ├── storefront/
-│   │   ├── account/
-│   │   └── admin/
-│   │       ├── tables/
-│   │       ├── forms/
-│   │       └── charts/
+│   ├── (public)/                 # PUBLIC STOREFRONT
+│   │   ├── layout.tsx
+│   │   ├── products/
+│   │   │   ├── page.tsx
+│   │   │   └── [slug]/page.tsx
+│   │   ├── cart/
+│   │   ├── checkout/
+│   │   ├── wishlist/
+│   │   ├── orders/
+│   │   ├── profile/
+│   │   ├── contact-us/
+│   │   └── auth/
+│   │       ├── login/
+│   │       ├── signup/
+│   │       └── callback/route.ts
 │   │
-│   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts
-│   │   │   ├── server.ts
-│   │   │   └── middleware.ts
-│   │   ├── auth/
-│   │   │   └── permissions.ts
-│   │   ├── validators/        # zod schemas
-│   │   └── utils.ts
+│   ├── (useraccount)/            # LOGGED-IN ACCOUNT
+│   │   └── account/
+│   │       ├── page.tsx
+│   │       └── wishlist/
 │   │
-│   ├── services/              # BUSINESS LOGIC (important)
-│   │   ├── products.service.ts
-│   │   ├── orders.service.ts
-│   │   ├── users.service.ts
-│   │   ├── payments.service.ts
-│   │   └── shipping.service.ts
+│   ├── admin/                    # ADMIN PANEL
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── products/
+│   │   ├── orders/
+│   │   ├── users/
+│   │   ├── categories/
+│   │   ├── brands/
+│   │   ├── reviews/
+│   │   ├── shippings/
+│   │   ├── promocodes/
+│   │   ├── carts/
+│   │   ├── analytics/
+│   │   ├── backups/
+│   │   └── …
 │   │
-│   ├── stores/                # zustand
-│   │   ├── cart.store.ts
-│   │   ├── wishlist.store.ts
-│   │   └── ui.store.ts
-│   │
-│   ├── types/
-│   │   ├── product.ts
-│   │   ├── order.ts
-│   │   └── user.ts
-│   │
-│   └── constants/
-│       ├── roles.ts
-│       ├── order-status.ts
-│       └── routes.ts
+│   └── api/
+│       ├── auth/
+│       └── admin/
 │
-└── README.md
+├── actions/                      # server actions (thin)
+├── services/                     # business logic + authz
+├── repositories/                 # Supabase data access only
+│
+├── components/
+│   ├── ui/                       # shadcn-style primitives
+│   ├── common/
+│   ├── (public)/
+│   ├── (useraccount)/
+│   └── admin/
+│
+├── lib/
+│   ├── supabase/                 # clients (browser, server, admin, middleware)
+│   ├── auth/
+│   ├── validators/               # Zod schemas
+│   ├── constants/
+│   └── utils/
+│
+├── types/
+├── tests/                        # Vitest unit + feature
+├── e2e/                          # Playwright smoke
+├── supabase/
+│   └── migrations/
+└── docs/
 ```
 
 ---
 
-## 🔑 Key Rules (DO NOT break these)
+## Key rules
 
-### 1️⃣ No Supabase calls in components
+### 1. No Supabase calls in components
 
-Supabase calls should **only** be made in:
+Supabase access belongs in **`repositories/`** only. Services orchestrate repositories; actions call services.
 
-- `services/`
-- `lib/supabase/`
+### 2. Admin logic ≠ storefront logic
 
-### 2️⃣ Admin logic ≠ Storefront logic
-
-Keep them separated in:
+Keep UI separated under:
 
 - `components/admin`
-- `components/storefront`
+- `components/(public)` / `components/(useraccount)`
 
-### 3️⃣ Authorization layers (3 levels)
+### 3. Authorization layers (3 levels)
 
 | Layer | Responsibility |
-|-------|---------------|
+|-------|----------------|
 | `middleware.ts` | route protection |
 | Supabase RLS | data protection |
-| UI | hide buttons |
+| `services/` | business-rule authz |
 
-### 4️⃣ Tables always live here
+### 4. Admin tables
 
-- `components/admin/tables`
-
-(backed by TanStack Table)
+Complex admin tables live under `components/admin` (often TanStack Table).
 
 ---
 
-## 🧠 Mental Model (important)
+## Mental model
 
 | Directory | Purpose |
 |-----------|---------|
 | `app/` | routing & layouts |
-| `components/` | UI |
+| `actions/` | server actions (orchestration) |
 | `services/` | business logic |
-| `lib/` | infrastructure |
-| `stores/` | client state |
-| Supabase RLS | real security |
+| `repositories/` | data access (Supabase only) |
+| `components/` | UI |
+| `lib/` | infrastructure & shared helpers |
+| Supabase RLS | data-level security |

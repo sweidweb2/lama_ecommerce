@@ -10,9 +10,12 @@ import {
   getGuestCartWithItemsService,
   mergeGuestCartToUserService,
   deleteCartItemService,
+  deleteCartItemForGuestService,
   deleteCartService,
   hardDeleteCartService,
   updateCartItemService,
+  updateUserCartItemQuantityService,
+  updateCartItemQuantityForGuestService,
   createCartForAdminService,
   getCartWithItemsForAdminService,
 } from "@/services/cart.service";
@@ -200,10 +203,7 @@ export async function deleteCartItemAction(
     if (!sessionId) {
       return { success: false, error: "No active session found" };
     }
-    const { hardDeleteCartItemForGuest } = await import(
-      "@/repositories/cart_item.repository"
-    );
-    result = await hardDeleteCartItemForGuest(sessionId, cartItemId);
+    result = await deleteCartItemForGuestService(sessionId, cartItemId);
   }
 
   if (result.success) {
@@ -315,21 +315,17 @@ export async function updateCartItemQuantityAction(
     let result: { success: boolean; error?: string; data?: any };
 
     if (user) {
-      const { updateCartItem } = await import(
-        "@/repositories/cart_item.repository"
-      );
-      result = await updateCartItem(cartItemId, { quantity });
+      result = await updateUserCartItemQuantityService(cartItemId, quantity);
     } else {
       const sessionId = await getGuestSessionId();
       if (!sessionId) {
         return { success: false, error: "No active session found" };
       }
-      const { updateCartItemForGuest } = await import(
-        "@/repositories/cart_item.repository"
-      );
-      result = await updateCartItemForGuest(sessionId, cartItemId, {
+      result = await updateCartItemQuantityForGuestService(
+        sessionId,
+        cartItemId,
         quantity,
-      });
+      );
     }
 
     if (result.success) {

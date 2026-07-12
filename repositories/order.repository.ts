@@ -22,7 +22,7 @@ export async function getOrdersByUserId(
 ): Promise<Order[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    let query = (supabase as any)
+    let query = supabase
       .from("orders")
       .select("*")
       .eq("user_id", userId)
@@ -53,7 +53,7 @@ export async function getOrdersByUserId(
 export async function getOrderCountByUserId(userId: string): Promise<number> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { count, error } = await (supabase as any)
+    const { count, error } = await supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
@@ -80,7 +80,7 @@ export async function getOrderById(
 ): Promise<Order | null> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId)
@@ -113,7 +113,7 @@ export async function getOrderByIdForAdmin(
 ): Promise<Order | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId)
@@ -140,7 +140,7 @@ export async function getOrderItemsByOrderId(
 ): Promise<OrderItem[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("order_items")
       .select("*")
       .eq("order_id", orderId)
@@ -168,7 +168,7 @@ export async function getOrderItemsByOrderIdForAdmin(
 ): Promise<OrderItem[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("order_items")
       .select("*")
       .eq("order_id", orderId)
@@ -196,7 +196,7 @@ export async function getPaymentByOrderId(
 ): Promise<Payment | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("payments")
       .select("*")
       .eq("order_id", orderId)
@@ -226,7 +226,7 @@ export async function getPaymentByOrderIdForAdmin(
 ): Promise<Payment | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("payments")
       .select("*")
       .eq("order_id", orderId)
@@ -256,7 +256,7 @@ export async function getShipmentByOrderId(
 ): Promise<Shipment | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("shipments")
       .select("*")
       .eq("order_id", orderId)
@@ -286,7 +286,7 @@ export async function getShipmentByOrderIdForAdmin(
 ): Promise<Shipment | null> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("shipments")
       .select("*")
       .eq("order_id", orderId)
@@ -315,7 +315,7 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
     const supabase = createSupabaseAdminClient();
 
     // Fetch all orders (including soft-deleted for full admin visibility)
-    const { data: orders, error } = await (supabase as any)
+    const { data: orders, error } = await supabase
       .from("orders")
       .select(`
         id,
@@ -348,14 +348,14 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
     // Gather unique user IDs for name lookup
     const userIds = [
       ...new Set(
-        (orders as any[])
-          .map((o) => o.user_id as string | null)
+        orders
+          .map((o) => o.user_id)
           .filter((id): id is string => Boolean(id)),
       ),
     ];
 
     const { data: profiles } = userIds.length
-      ? await (supabase as any)
+      ? await supabase
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", userIds)
@@ -369,10 +369,10 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
     );
 
     // Map raw orders into AdminOrderRow with userName
-    return (orders as Order[]).map((o: any) => ({
+    return orders.map((o) => ({
       ...(o as Order),
       userName: o.user_id
-        ? profileMap.get(o.user_id as string) ?? "Unknown"
+        ? profileMap.get(o.user_id) ?? "Unknown"
         : "Guest",
     }));
   } catch (error) {
@@ -391,7 +391,7 @@ export async function getOrdersBySessionId(
 ): Promise<Order[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    let query = (supabase as any)
+    let query = supabase
       .from("orders")
       .select("*")
       .eq("session_id", sessionId)
@@ -444,7 +444,7 @@ export async function processCheckout(
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { data, error } = await (supabase as any).rpc("process_checkout", {
+    const { data, error } = await supabase.rpc("process_checkout", {
       p_cart_id: input.cart_id,
       p_user_id: input.user_id,
       p_session_id: input.session_id,
@@ -452,7 +452,7 @@ export async function processCheckout(
       p_discount: input.discount,
       p_phone: input.phone,
       p_email: input.email,
-      p_address_snapshot: input.address_snapshot,
+      p_address_snapshot: input.address_snapshot as unknown as import("@/types/supabase").JSON,
     });
 
     if (error) {
@@ -529,7 +529,7 @@ export async function updateOrder(
       };
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("orders")
       .update(updatePayload)
       .eq("id", orderId)
@@ -577,7 +577,7 @@ export async function softDeleteOrderItemsByOrderId(
     }
 
     // Soft-delete all order items for this order
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("order_items")
       .update({ deleted_at: new Date().toISOString() })
       .eq("order_id", orderId)
@@ -622,7 +622,7 @@ export async function softDeleteOrderAdmin(
     }
 
     // Check if order exists and is not already deleted
-    const { data: existingOrder, error: checkError } = await (supabase as any)
+    const { data: existingOrder, error: checkError } = await supabase
       .from("orders")
       .select("id, deleted_at")
       .eq("id", orderId)
@@ -651,7 +651,7 @@ export async function softDeleteOrderAdmin(
     }
 
     // Soft-delete the order
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("orders")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", orderId);

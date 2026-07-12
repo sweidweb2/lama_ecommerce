@@ -13,7 +13,7 @@ export async function getSalesAndOrdersByMonth(): Promise<
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const { data: orders, error } = await (supabase as any)
+    const { data: orders, error } = await supabase
       .from("orders")
       .select("total, created_at")
       .gte("created_at", sixMonthsAgo.toISOString())
@@ -27,10 +27,10 @@ export async function getSalesAndOrdersByMonth(): Promise<
     // Group by month
     const monthlyData = new Map<string, { sales: number; orders: number }>();
 
-    (orders || []).forEach((order: any) => {
+    (orders || []).forEach((order) => {
       const date = new Date(order.created_at);
       const monthKey = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-      const total = parseFloat(order.total || 0);
+      const total = parseFloat(String(order.total || 0));
 
       if (!monthlyData.has(monthKey)) {
         monthlyData.set(monthKey, { sales: 0, orders: 0 });
@@ -70,7 +70,7 @@ export async function getUserGrowthByMonth(): Promise<
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const { data: profiles, error } = await (supabase as any)
+    const { data: profiles, error } = await supabase
       .from("profiles")
       .select("created_at")
       .gte("created_at", sixMonthsAgo.toISOString())
@@ -84,7 +84,7 @@ export async function getUserGrowthByMonth(): Promise<
     // Group by month
     const monthlyData = new Map<string, number>();
 
-    (profiles || []).forEach((profile: any) => {
+    (profiles || []).forEach((profile) => {
       const date = new Date(profile.created_at);
       const monthKey = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
@@ -116,7 +116,7 @@ export async function getOrderStatusBreakdown(): Promise<
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { data: orders, error } = await (supabase as any)
+    const { data: orders, error } = await supabase
       .from("orders")
       .select("status")
       .is("deleted_at", null);
@@ -128,7 +128,7 @@ export async function getOrderStatusBreakdown(): Promise<
 
     const statusCounts = new Map<string, number>();
 
-    (orders || []).forEach((order: any) => {
+    (orders || []).forEach((order) => {
       const status = order.status;
       statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
     });
@@ -152,7 +152,7 @@ export async function getPaymentStatusBreakdown(): Promise<
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { data: orders, error } = await (supabase as any)
+    const { data: orders, error } = await supabase
       .from("orders")
       .select("payment_status")
       .is("deleted_at", null);
@@ -164,7 +164,7 @@ export async function getPaymentStatusBreakdown(): Promise<
 
     const statusCounts = new Map<string, number>();
 
-    (orders || []).forEach((order: any) => {
+    (orders || []).forEach((order) => {
       const status = order.payment_status;
       statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
     });
@@ -208,32 +208,32 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       { data: contactUs },
       { data: products },
     ] = await Promise.all([
-      (supabase as any)
+      supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
         .is("deleted_at", null),
-      (supabase as any)
+      supabase
         .from("products")
         .select("*", { count: "exact", head: true })
         .is("deleted_at", null),
-      (supabase as any)
+      supabase
         .from("orders")
         .select("total")
         .is("deleted_at", null),
-      (supabase as any)
+      supabase
         .from("carts")
         .select("id")
         .is("deleted_at", null),
-      (supabase as any)
+      supabase
         .from("reviews")
         .select("id")
         .eq("review_status", "pending")
         .is("deleted_at", null),
-      (supabase as any)
+      supabase
         .from("contact_us")
         .select("id")
         .in("status", ["new", "read"]),
-      (supabase as any)
+      supabase
         .from("products")
         .select("id")
         .is("deleted_at", null)
@@ -242,8 +242,8 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
 
     // Calculate revenue
     const totalRevenue =
-      (orders || []).reduce((sum: number, order: any) => {
-        return sum + parseFloat(order.total || 0);
+      (orders || []).reduce((sum, order) => {
+        return sum + parseFloat(String(order.total || 0));
       }, 0) || 0;
 
     // Calculate average order value
@@ -251,15 +251,18 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
     const averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
 
     // Get low stock products (products with variants that have stock <= 5)
-    const { data: variants } = await (supabase as any)
+    const { data: variants } = await supabase
       .from("customised_products")
       .select("product_id, quantity_stock")
       .is("deleted_at", null)
       .lte("quantity_stock", 5);
 
     const lowStockProductIds = new Set(
-      (variants || []).map((v: any) => v.product_id).filter(Boolean)
+      (variants || []).map((v) => v.product_id).filter(Boolean)
     );
+
+    // products fetched for potential future use; keep query for parity with prior stats load
+    void products;
 
     return {
       totalUsers: userCount || 0,
@@ -298,7 +301,7 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
     const supabase = createSupabaseAdminClient();
 
     // Get order items with product names
-    const { data: orderItems, error } = await (supabase as any)
+    const { data: orderItems, error } = await supabase
       .from("order_items")
       .select("product_name_snapshot, price_snapshot, quantity, order_id")
       .is("deleted_at", null);
@@ -309,14 +312,14 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
     }
 
     // Get order IDs to check if orders are not deleted
-    const orderIds = [...new Set((orderItems || []).map((item: any) => item.order_id))];
-    const { data: orders } = await (supabase as any)
+    const orderIds = [...new Set((orderItems || []).map((item) => item.order_id))];
+    const { data: orders } = await supabase
       .from("orders")
       .select("id")
       .in("id", orderIds)
       .is("deleted_at", null);
 
-    const validOrderIds = new Set((orders || []).map((o: any) => o.id));
+    const validOrderIds = new Set((orders || []).map((o) => o.id));
 
     // Calculate revenue per product
     const productRevenue = new Map<
@@ -324,12 +327,12 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
       { product_name: string; revenue: number; orders: Set<string> }
     >();
 
-    (orderItems || []).forEach((item: any) => {
+    (orderItems || []).forEach((item) => {
       if (!validOrderIds.has(item.order_id)) return;
 
       const productName = item.product_name_snapshot || "Unknown Product";
-      const price = parseFloat(item.price_snapshot || 0);
-      const quantity = parseInt(item.quantity || 0);
+      const price = parseFloat(String(item.price_snapshot || 0));
+      const quantity = Number(item.quantity || 0);
       const revenue = price * quantity;
 
       if (!productRevenue.has(productName)) {

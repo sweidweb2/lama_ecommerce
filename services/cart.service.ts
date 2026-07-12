@@ -19,102 +19,18 @@ import {
   getCartItemsWithProductsByCartId,
   getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
+  hardDeleteCartItemForGuest,
   hardDeleteCartItemsByCartId,
+  updateCartItem,
   updateCartItemForAdmin,
+  updateCartItemForGuest,
   moveCartItemsToCart,
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
-import { getProductVariantById } from "@/repositories/product_variant.repository";
 import { incrementProductAddToCartService } from "@/services/product_view.service";
 import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import {
-  createSupabaseServerActionClient,
-} from "@/lib/supabase/server";
-
-/**
- * Helper function to validate stock availability before adding item to cart.
- * Checks if the requested quantity (plus existing quantity in cart) doesn't exceed available stock.
- */
-async function validateStockAvailability(
-  cartId: string,
-  customisedProductId: string,
-  requestedQuantity: number,
-): Promise<{ success: boolean; error?: string; availableStock?: number }> {
-  try {
-    // Fetch the customized product to get stock
-    const variant = await getProductVariantById(customisedProductId);
-    
-    if (!variant) {
-      return {
-        success: false,
-        error: "Product variant not found",
-      };
-    }
-
-    // Check if variant is deleted
-    if (variant.deleted_at) {
-      return {
-        success: false,
-        error: "This product variant is no longer available",
-      };
-    }
-
-    const availableStock = variant.quantity_stock;
-
-    // Check if item already exists in cart
-    const supabase = await createSupabaseServerActionClient();
-    const { data: existingItem, error: checkError } = await (supabase as any)
-      .from("cart_items")
-      .select("quantity")
-      .eq("cart_id", cartId)
-      .eq("customised_product_id", customisedProductId)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 is "not found" which is expected if item doesn't exist
-      console.error("Error checking existing cart item for stock validation:", checkError);
-      return {
-        success: false,
-        error: "Failed to check cart item",
-      };
-    }
-
-    // Calculate total quantity (existing + requested)
-    const existingQuantity = existingItem?.quantity || 0;
-    const totalQuantity = existingQuantity + requestedQuantity;
-
-    // Check if total quantity exceeds available stock
-    if (totalQuantity > availableStock) {
-      const availableToAdd = availableStock - existingQuantity;
-      if (availableToAdd <= 0) {
-        return {
-          success: false,
-          error: `Insufficient stock. Only ${availableStock} unit(s) available, but you already have ${existingQuantity} in your cart.`,
-          availableStock,
-        };
-      }
-      return {
-        success: false,
-        error: `Insufficient stock. Only ${availableStock} unit(s) available. You can add ${availableToAdd} more unit(s) to your cart.`,
-        availableStock,
-      };
-    }
-
-    return {
-      success: true,
-      availableStock,
-    };
-  } catch (error) {
-    console.error("Error validating stock availability:", error);
-    return {
-      success: false,
-      error: "Failed to validate stock availability",
-    };
-  }
-}
 
 /**
  * Add item to cart service.
@@ -402,6 +318,37 @@ export async function deleteCartItemService(
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
   return await hardDeleteCartItem(cartItemId);
+}
+
+/**
+ * Hard delete a guest cart item, scoped by guest session id.
+ */
+export async function deleteCartItemForGuestService(
+  sessionId: string,
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  return await hardDeleteCartItemForGuest(sessionId, cartItemId);
+}
+
+/**
+ * Update quantity for an authenticated user's cart item (RLS-scoped).
+ */
+export async function updateUserCartItemQuantityService(
+  cartItemId: string,
+  quantity: number,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return await updateCartItem(cartItemId, { quantity });
+}
+
+/**
+ * Update quantity for a guest cart item, scoped by guest session id.
+ */
+export async function updateCartItemQuantityForGuestService(
+  sessionId: string,
+  cartItemId: string,
+  quantity: number,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return await updateCartItemForGuest(sessionId, cartItemId, { quantity });
 }
 
 /**

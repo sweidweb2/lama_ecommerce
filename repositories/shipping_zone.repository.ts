@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 /** Shipping zone with optional fee for admin list/detail. */
 export interface ShippingZoneWithFee {
@@ -24,11 +24,11 @@ export interface UpdateShippingZoneInput {
 
 /**
  * Fetch all shipping zones with their fee (first shipping_fee row per zone).
- * Uses admin client (bypasses RLS).
+ * Uses session client + admin RLS (service gates with requireAdmin).
  */
 export async function getAllShippingZonesWithFee(): Promise<ShippingZoneWithFee[]> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const { data: zones, error: zonesError } = await (supabase as any)
       .from("shipping_zones")
       .select("id, name, estimated_time, created_at")
@@ -68,13 +68,14 @@ export async function getAllShippingZonesWithFee(): Promise<ShippingZoneWithFee[
 }
 
 /**
- * Create a shipping zone and one shipping_fee row. Uses admin client.
+ * Create a shipping zone and one shipping_fee row.
+ * Uses session client + admin RLS.
  */
 export async function createShippingZoneWithFee(
   input: CreateShippingZoneInput,
 ): Promise<ShippingZoneWithFee | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
 
     const { data: zone, error: zoneError } = await (supabase as any)
       .from("shipping_zones")
@@ -110,13 +111,14 @@ export async function createShippingZoneWithFee(
 }
 
 /**
- * Update a shipping zone and its first fee row. Uses admin client.
+ * Update a shipping zone and its first fee row.
+ * Uses session client + admin RLS.
  */
 export async function updateShippingZoneWithFee(
   input: UpdateShippingZoneInput,
 ): Promise<ShippingZoneWithFee | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
 
     const { data: zone, error: zoneError } = await (supabase as any)
       .from("shipping_zones")
@@ -159,11 +161,12 @@ export async function updateShippingZoneWithFee(
 }
 
 /**
- * Delete a shipping zone by id (cascade deletes shipping_fees). Uses admin client.
+ * Delete a shipping zone by id (cascade deletes shipping_fees).
+ * Uses session client + admin RLS.
  */
 export async function deleteShippingZoneById(zoneId: string): Promise<boolean> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const { error } = await (supabase as any)
       .from("shipping_zones")
       .delete()

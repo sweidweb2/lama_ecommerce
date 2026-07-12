@@ -199,7 +199,7 @@ const { data: authData, error } = await supabase.auth.signUp({
 
 ### **3. Page Wrappers**
 
-#### `app/(storefront)/auth/login/page.tsx`
+#### `app/(public)/auth/login/page.tsx`
 **Purpose:** Next.js page that renders LoginForm
 
 **Code:**
@@ -218,14 +218,14 @@ export default function LoginPage() {
 
 ---
 
-#### `app/(storefront)/auth/signup/page.tsx`
+#### `app/(public)/auth/signup/page.tsx`
 **Purpose:** Next.js page that renders SignupForm
 
 **Same pattern as login page**
 
 ---
 
-#### `app/(storefront)/auth/layout.tsx`
+#### `app/(public)/auth/layout.tsx`
 **Purpose:** Layout wrapper for all auth pages
 
 **What it does:**
@@ -593,7 +593,7 @@ sb-<project-ref>-auth-token.0   → Refresh token (if split)
 - User sees "Check your email" screen
 
 **Step 7: User Clicks Email Link**
-- File: `app/(storefront)/auth/callback/route.ts` (to be created)
+- File: `app/(public)/auth/callback/route.ts` (to be created)
 - Exchanges code for session
 - Sets cookies
 - Redirects to home
@@ -643,9 +643,9 @@ Login → Cookies Set → Every Request → Server Reads Cookies → User Authen
 | `lib/supabase/middleware.ts` | Edge runtime client | Middleware |
 | `components/auth/LoginForm.tsx` | Login UI + logic | User visits /auth/login |
 | `components/auth/SignupForm.tsx` | Signup UI + logic | User visits /auth/signup |
-| `app/(storefront)/auth/login/page.tsx` | Login page wrapper | Route: /auth/login |
-| `app/(storefront)/auth/signup/page.tsx` | Signup page wrapper | Route: /auth/signup |
-| `app/(storefront)/auth/layout.tsx` | Auth pages layout | All /auth/* routes |
+| `app/(public)/auth/login/page.tsx` | Login page wrapper | Route: /auth/login |
+| `app/(public)/auth/signup/page.tsx` | Signup page wrapper | Route: /auth/signup |
+| `app/(public)/auth/layout.tsx` | Auth pages layout | All /auth/* routes |
 | `components/auth/AuthLayout.tsx` | Auth UI layout | Wraps auth forms |
 | `app/layout.tsx` | Root layout | Every page |
 | `middleware.ts` | Route protection | Every request |
@@ -658,7 +658,7 @@ Login → Cookies Set → Every Request → Server Reads Cookies → User Authen
 
 To complete Fragment 2.3, you still need:
 
-1. **Auth Callback Route** (`app/(storefront)/auth/callback/route.ts`)
+1. **Auth Callback Route** (`app/(public)/auth/callback/route.ts`)
    - Handles email verification
    - Exchanges code for session
 

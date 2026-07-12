@@ -6,10 +6,8 @@ import {
     Heart,
     Settings,
     MapPin,
-    CreditCard,
     ArrowRight
 } from 'lucide-react'
-import { ROUTES } from '@/lib/constants/routes'
 
 export function ProfileActions() {
     const actions = [
@@ -17,7 +15,7 @@ export function ProfileActions() {
             label: 'My Orders',
             description: 'View order history and track shipments',
             icon: ShoppingBag,
-            href: '/orders', // TODO: Update when orders page is created
+            href: '/orders',
             color: 'text-blue-600',
             bgColor: 'bg-blue-50 dark:bg-blue-950/20',
         },
@@ -33,17 +31,9 @@ export function ProfileActions() {
             label: 'Addresses',
             description: 'Manage shipping addresses',
             icon: MapPin,
-            href: '/account/addresses', // TODO: Update when addresses page is created
+            href: '/account',
             color: 'text-green-600',
             bgColor: 'bg-green-50 dark:bg-green-950/20',
-        },
-        {
-            label: 'Payment Methods',
-            description: 'Manage payment options',
-            icon: CreditCard,
-            href: '/account/payments', // TODO: Update when payments page is created
-            color: 'text-purple-600',
-            bgColor: 'bg-purple-50 dark:bg-purple-950/20',
         },
         {
             label: 'Account Settings',
@@ -89,4 +79,3 @@ export function ProfileActions() {
         </Card>
     )
 }
-

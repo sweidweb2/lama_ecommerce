@@ -53,7 +53,7 @@
 - Basic folder structure created
 
 **Features Included:**
-- [ ] Project structure setup (`src/` directory organization)
+- [ ] Project structure setup (root `app/`, `services/`, `repositories/` organization)
 - [ ] Environment configuration (`.env.local`, `.env.example`)
 - [ ] Supabase project creation and connection
 - [ ] TypeScript configuration and path aliases
@@ -155,8 +155,8 @@
 - Database RLS enabled
 
 **Features Included:**
-- [ ] User registration flow (`app/(storefront)/auth/register/page.tsx`)
-- [ ] User login flow (`app/(storefront)/auth/login/page.tsx`)
+- [ ] User registration flow (`app/(public)/auth/register/page.tsx`)
+- [ ] User login flow (`app/(public)/auth/login/page.tsx`)
 - [ ] Email verification handling
 - [ ] Password reset flow
 - [ ] Session management
@@ -164,7 +164,7 @@
 - [ ] Middleware route protection (`middleware.ts`)
 - [ ] Permission utilities (`lib/auth/permissions.ts`)
 - [ ] Supabase middleware helper (`lib/supabase/middleware.ts`)
-- [ ] Protected route groups: `(account)`, `(admin)`
+- [ ] Protected route groups: `(useraccount)`, `admin`
 - [ ] Auth context/provider setup
 - [ ] Logout functionality
 - [ ] Profile creation on signup (trigger/function)
@@ -185,9 +185,9 @@
 - Build login page with form validation
 - Create auth service (`services/auth.service.ts` - if needed, or use Supabase directly)
 - Implement middleware for route protection:
-  - Public routes: `(storefront)/**`
-  - Protected user routes: `(account)/**` (requires auth)
-  - Protected admin routes: `(admin)/**` (requires admin role)
+  - Public routes: `(public)/**`
+  - Protected user routes: `(useraccount)/**` (requires auth)
+  - Protected admin routes: `admin/**` (requires admin role)
 - Create permission checking utilities
 - Build auth layout components
 - Handle auth state in client components
@@ -217,24 +217,24 @@
 - Basic auth working (for wishlist features)
 
 **Features Included:**
-- [ ] Home page (`app/(storefront)/page.tsx`)
+- [ ] Home page (`app/(public)/page.tsx`)
   - Hero section
   - Featured products
   - Category showcase
   - Promotional banners
-- [ ] Products listing page (`app/(storefront)/products/page.tsx`)
+- [ ] Products listing page (`app/(public)/products/page.tsx`)
   - Product grid/list view
   - Category filtering
   - Sorting (price, name, date)
   - Pagination
-- [ ] Product detail page (`app/(storefront)/products/[slug]/page.tsx`)
+- [ ] Product detail page (`app/(public)/products/[slug]/page.tsx`)
   - Product images gallery
   - Variant selection (size, color)
   - Add to cart button
   - Add to wishlist button
   - Product description
   - Related products
-- [ ] Search page (`app/(storefront)/search/page.tsx`)
+- [ ] Search page (`app/(public)/search/page.tsx`)
   - Search input and results
   - Search filters
   - Search result pagination
@@ -247,7 +247,7 @@
   - Mobile menu
 - [ ] Footer component (`components/common/Footer.tsx`)
 - [ ] Product card component (`components/common/ProductCard.tsx`)
-- [ ] Storefront layout (`app/(storefront)/layout.tsx`)
+- [ ] Storefront layout (`app/(public)/layout.tsx`)
 - [ ] Product service (`services/products.service.ts`)
 - [ ] Category service (`services/categories.service.ts`)
 
@@ -302,7 +302,7 @@
   - Calculate totals
   - Persist to localStorage
   - Sync with server (optional)
-- [ ] Cart page (`app/(storefront)/cart/page.tsx`)
+- [ ] Cart page (`app/(public)/cart/page.tsx`)
   - Display cart items
   - Quantity controls
   - Remove items
@@ -312,8 +312,8 @@
 - [ ] Cart icon badge (shows item count)
 - [ ] Wishlist store (`stores/wishlist.store.ts`)
 - [ ] Wishlist service (`services/wishlist.service.ts`)
-- [ ] Public wishlist page (`app/(storefront)/wishlist/page.tsx`)
-- [ ] User account wishlist page (`app/(account)/wishlist/page.tsx`)
+- [ ] Public wishlist page (`app/(public)/wishlist/page.tsx`)
+- [ ] User account wishlist page (`app/(useraccount)/wishlist/page.tsx`)
 - [ ] Add/remove wishlist functionality on product pages
 - [ ] UI store for global UI state (`stores/ui.store.ts`)
 
@@ -355,29 +355,29 @@
 - RLS policies for user data
 
 **Features Included:**
-- [ ] Account layout (`app/(account)/layout.tsx`)
+- [ ] Account layout (`app/(useraccount)/layout.tsx`)
   - Sidebar navigation
   - User info display
-- [ ] Account dashboard (`app/(account)/page.tsx`)
+- [ ] Account dashboard (`app/(useraccount)/page.tsx`)
   - Recent orders summary
   - Account stats
   - Quick actions
-- [ ] Orders page (`app/(account)/orders/page.tsx`)
+- [ ] Orders page (`app/(useraccount)/orders/page.tsx`)
   - Order history list
   - Order details view
   - Order status tracking
   - Re-order functionality
-- [ ] Profile page (`app/(account)/profile/page.tsx`)
+- [ ] Profile page (`app/(useraccount)/profile/page.tsx`)
   - Edit personal information
   - Change password
   - Email preferences
-- [ ] Addresses page (`app/(account)/addresses/page.tsx`)
+- [ ] Addresses page (`app/(useraccount)/addresses/page.tsx`)
   - List saved addresses
   - Add new address
   - Edit address
   - Delete address
   - Set default address
-- [ ] Account wishlist page (`app/(account)/wishlist/page.tsx`)
+- [ ] Account wishlist page (`app/(useraccount)/wishlist/page.tsx`)
 - [ ] Account components (`components/account/`)
 - [ ] User service (`services/users.service.ts`)
 - [ ] Address service (`services/addresses.service.ts`)
@@ -424,7 +424,7 @@
 - Product inventory tracking
 
 **Features Included:**
-- [ ] Checkout page (`app/(storefront)/checkout/page.tsx`)
+- [ ] Checkout page (`app/(public)/checkout/page.tsx`)
   - Cart summary
   - Shipping address selection
   - Billing address (optional, can use shipping)
@@ -491,21 +491,21 @@
 - Supabase Storage configured
 
 **Features Included:**
-- [ ] Admin layout (`app/(admin)/layout.tsx`)
+- [ ] Admin layout (`app/admin/layout.tsx`)
   - Admin sidebar navigation
   - Admin header
   - Role-based menu items
-- [ ] Admin dashboard (`app/(admin)/page.tsx`)
+- [ ] Admin dashboard (`app/admin/page.tsx`)
   - Key metrics (orders, revenue, products)
   - Recent orders
   - Low stock alerts
   - Quick stats
-- [ ] Products list page (`app/(admin)/products/page.tsx`)
+- [ ] Products list page (`app/admin/products/page.tsx`)
   - Products table (TanStack Table)
   - Search and filters
   - Bulk actions
   - Pagination
-- [ ] Product form page (`app/(admin)/products/new/page.tsx`)
+- [ ] Product form page (`app/admin/products/new/page.tsx`)
   - Create new product
   - Edit existing product
   - Image upload (multiple)
@@ -513,7 +513,7 @@
   - Category assignment
   - Inventory management
   - SEO fields
-- [ ] Categories management (`app/(admin)/categories/page.tsx`)
+- [ ] Categories management (`app/admin/categories/page.tsx`)
   - Categories table
   - Create/edit/delete categories
   - Category hierarchy
@@ -569,13 +569,13 @@
 - User profiles exist
 
 **Features Included:**
-- [ ] Orders management page (`app/(admin)/orders/page.tsx`)
+- [ ] Orders management page (`app/admin/orders/page.tsx`)
   - Orders table (TanStack Table)
   - Order status management
   - Order details view
   - Filter by status, date, customer
   - Export orders (CSV)
-- [ ] Users management page (`app/(admin)/users/page.tsx`)
+- [ ] Users management page (`app/admin/users/page.tsx`)
   - Users table
   - User details view
   - Role management
@@ -634,16 +634,16 @@
 - Admin panel functional
 
 **Features Included:**
-- [ ] Shipping management (`app/(admin)/shipping/page.tsx`)
+- [ ] Shipping management (`app/admin/shipping/page.tsx`)
   - Shipping zones configuration
   - Shipping rates management
   - Zone-based pricing
   - Free shipping thresholds
-- [ ] Reviews management (`app/(admin)/reviews/page.tsx`)
+- [ ] Reviews management (`app/admin/reviews/page.tsx`)
   - Reviews table
   - Approve/reject reviews
   - Moderate reviews
-- [ ] Settings page (`app/(admin)/settings/page.tsx`)
+- [ ] Settings page (`app/admin/settings/page.tsx`)
   - General settings
   - Store information
   - Email settings
@@ -701,7 +701,7 @@
 - Reviews table exists
 
 **Features Included:**
-- [ ] Product reviews display (`app/(storefront)/products/[slug]/page.tsx`)
+- [ ] Product reviews display (`app/(public)/products/[slug]/page.tsx`)
   - Reviews list
   - Review ratings
   - Review pagination
@@ -907,11 +907,11 @@ Each phase is considered complete when:
 
 ## 🚨 Critical Rules to Maintain
 
-1. **No Supabase calls in components** - Only in `services/` and `lib/supabase/`
-2. **Admin logic ≠ Storefront logic** - Keep separated in `components/admin` and `components/storefront`
-3. **Three-layer authorization** - Middleware → RLS → UI
+1. **No Supabase calls in components** - Only in `repositories/` (via `services/`); clients in `lib/supabase/`
+2. **Admin logic ≠ Storefront logic** - Keep separated in `components/admin` and `components/(public)`
+3. **Three-layer authorization** - Middleware → RLS → service authz
 4. **Business logic in services** - Never in UI components
-5. **Tables in admin/tables** - All admin tables use TanStack Table
+5. **Tables in admin** - Admin tables use TanStack Table where applicable
 
 ---
 

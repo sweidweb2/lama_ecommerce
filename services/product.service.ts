@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { createProductSchema } from "@/lib/validators/product/create";
 import {
   updateProductSchema,
@@ -27,6 +28,7 @@ export async function createProductService(
   input: z.infer<typeof createProductSchema>,
   ownerId: string,
 ): Promise<Product | null> {
+  await requireAdmin();
   const payload = createProductSchema.parse(input);
 
   const repoInput: CreateProductRepoInput = {
@@ -52,6 +54,7 @@ export async function updateProductService(
   id: string,
   input: UpdateProductInput,
 ): Promise<Product | null> {
+  await requireAdmin();
   const payload = updateProductSchema.parse(input);
 
   const repoInput: UpdateProductRepoInput = {
@@ -76,6 +79,11 @@ export async function updateProductService(
  * Get all products for admin listing.
  */
 export async function getAdminProductsService(): Promise<ProductWithRelations[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return getAdminProducts();
 }
 
@@ -85,6 +93,11 @@ export async function getAdminProductsService(): Promise<ProductWithRelations[]>
 export async function getAdminProductByIdService(
   id: string,
 ): Promise<ProductWithRelations | null> {
+  try {
+    await requireAdmin();
+  } catch {
+    return null;
+  }
   return getProductById(id);
 }
 
@@ -94,6 +107,11 @@ export async function getAdminProductByIdService(
  * The product remains in the database and is excluded from the public storefront.
  */
 export async function deleteProductService(id: string): Promise<boolean> {
+  try {
+    await requireAdmin();
+  } catch {
+    return false;
+  }
   return softDeleteProduct(id);
 }
 
@@ -105,6 +123,8 @@ export interface GetProductsServiceParams {
   search?: string;
   minPrice?: number;
   maxPrice?: number;
+  isFeatured?: boolean;
+  isTrending?: boolean;
 }
 
 /**
@@ -121,6 +141,8 @@ export async function getProducts(
     search,
     minPrice,
     maxPrice,
+    isFeatured,
+    isTrending,
   } = params;
 
   let categoryId: string | null = null;
@@ -137,6 +159,8 @@ export async function getProducts(
     search,
     minPrice,
     maxPrice,
+    isFeatured,
+    isTrending,
   };
 
   return getProductsRepo(repoParams);

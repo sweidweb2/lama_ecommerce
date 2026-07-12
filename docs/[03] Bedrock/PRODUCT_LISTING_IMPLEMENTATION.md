@@ -47,7 +47,7 @@ This fixed multiple TypeScript "never" errors and allowed for type-safe database
 - **`Pagination`**: Intuitive controls for browsing large product catalogs.
 - **`ProductGrid`**: Handles the layout and provides a friendly "No results" state.
 
-## 📄 Main Page (`app/(storefront)/products/page.tsx`)
+## 📄 Main Page (`app/(public)/products/page.tsx`)
 
 Assembled everything into a server-rendered page that:
 1.  Fetches data on the server for SEO and speed.

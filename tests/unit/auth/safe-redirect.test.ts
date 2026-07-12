@@ -29,6 +29,19 @@ describe("safeRedirectPath", () => {
     expect(safeRedirectPath("/%2F%2Fevil.com")).toBe(ROUTES.HOME);
   });
 
+  it("rejects javascript/data scheme smuggling", () => {
+    expect(safeRedirectPath("javascript:alert(1)")).toBe(ROUTES.HOME);
+    expect(safeRedirectPath("data:text/html,hi")).toBe(ROUTES.HOME);
+    expect(safeRedirectPath("/javascript:alert(1)")).toBe(ROUTES.HOME);
+    expect(safeRedirectPath("/data:text/html,hi")).toBe(ROUTES.HOME);
+  });
+
+  it("rejects nested slash and control-character tricks", () => {
+    expect(safeRedirectPath("////evil.com")).toBe(ROUTES.HOME);
+    expect(safeRedirectPath("/\t/evil")).toBe(ROUTES.HOME);
+    expect(safeRedirectPath("/\n/evil")).toBe(ROUTES.HOME);
+  });
+
   it("uses custom fallback when provided", () => {
     expect(safeRedirectPath(null, "/cart")).toBe("/cart");
   });

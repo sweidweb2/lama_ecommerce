@@ -9,7 +9,7 @@
 Create the following route structure:
 
 ```text
-app/(storefront)/auth/
+app/(public)/auth/
   login/
   register/
   reset-password/

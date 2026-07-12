@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createContactUsSchema,
   type CreateContactUsInput,
@@ -14,6 +15,7 @@ import {
 
 /**
  * Create a contact-us submission (validates then persists).
+ * Public — no admin gate.
  */
 export async function createContactUs(input: unknown) {
   const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
@@ -26,14 +28,15 @@ export async function createContactUs(input: unknown) {
  * Get all contact-us submissions (admin).
  */
 export async function getAllContactUs() {
-  const data = await getAllContactMessages();
-  return data;
+  await requireAdmin();
+  return getAllContactMessages();
 }
 
 /**
  * Get a single contact-us submission by id (admin).
  */
 export async function getContactUsById(id: string) {
+  await requireAdmin();
   const data = await getContactMessageById(id);
   if (!data) throw new Error("Contact message not found");
   return data;
@@ -43,6 +46,7 @@ export async function getContactUsById(id: string) {
  * Update a contact-us submission (admin).
  */
 export async function updateContactUs(id: string, input: unknown) {
+  await requireAdmin();
   const parsed = createContactUsSchema.parse(input) as CreateContactUsInput;
   const data = await updateContactMessage(id, parsed);
   if (!data) throw new Error("Failed to update contact message");
@@ -53,6 +57,7 @@ export async function updateContactUs(id: string, input: unknown) {
  * Update only the status of a contact message (e.g. new ↔ read).
  */
 export async function updateContactStatus(id: string, status: ContactStatus) {
+  await requireAdmin();
   const data = await updateContactMessageStatus(id, status);
   if (!data) throw new Error("Failed to update contact status");
   return data;
@@ -62,6 +67,7 @@ export async function updateContactStatus(id: string, status: ContactStatus) {
  * Delete a contact-us submission (admin).
  */
 export async function deleteContactUs(id: string) {
+  await requireAdmin();
   const data = await deleteContactMessage(id);
   if (!data) throw new Error("Failed to delete contact message");
   return data;

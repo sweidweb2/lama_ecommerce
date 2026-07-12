@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import type { CreateProductQuestionAdminInput } from "@/lib/validators/product_question/admin_create";
 import type { UpdateProductQuestionInput } from "@/lib/validators/product_question/update";
 import {
@@ -12,10 +13,12 @@ import {
 } from "@/services/product_question.service";
 
 export async function getAllQuestionsAction() {
+  await requireAdmin();
   return getAllQuestionsAdmin();
 }
 
 export async function createQuestionAction(input: CreateProductQuestionAdminInput) {
+  await requireAdmin();
   const result = await createQuestionAdmin(input);
   if (!result) {
     return { success: false as const, error: "Failed to create question." };
@@ -25,6 +28,7 @@ export async function createQuestionAction(input: CreateProductQuestionAdminInpu
 }
 
 export async function updateQuestionAction(id: string, input: UpdateProductQuestionInput) {
+  await requireAdmin();
   const ok = await updateQuestionAdmin(id, input);
   if (!ok) {
     return { success: false as const, error: "Failed to update question." };
@@ -34,6 +38,7 @@ export async function updateQuestionAction(id: string, input: UpdateProductQuest
 }
 
 export async function submitAnswerAction(questionId: string, answer: string) {
+  await requireAdmin();
   const ok = await submitAnswerAdmin({ question_id: questionId, answer });
   if (!ok) {
     return { success: false as const, error: "Failed to submit answer." };
@@ -43,6 +48,7 @@ export async function submitAnswerAction(questionId: string, answer: string) {
 }
 
 export async function deleteQuestionAction(id: string) {
+  await requireAdmin();
   const ok = await deleteQuestionAdmin(id);
   if (!ok) {
     return { success: false as const, error: "Failed to delete question." };

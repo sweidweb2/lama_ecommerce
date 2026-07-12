@@ -39,14 +39,14 @@ This document outlines the step-by-step implementation of the dynamic Hero carou
 - I will use standard CSS scroll-snap characteristics for a "scroll-like" feel as requested.
 
 ### Step 4: Admin Management Interface
-- Create `app/(admin)/hero/page.tsx`.
+- Create `app/admin/hero/page.tsx`.
 - Build a management dashboard where the admin can:
     - Add new slides.
     - Edit existing slide text/images.
     - Toggle visibility or delete slides.
 
 ### Step 5: Integration
-- Move `app/page.tsx` to `app/(storefront)/page.tsx` to maintain clean routing.
+- Move `app/page.tsx` to `app/(public)/page.tsx` to maintain clean routing.
 - Import and use the new `Hero` component in the home page.
 
 ---

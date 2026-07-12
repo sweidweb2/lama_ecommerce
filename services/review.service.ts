@@ -8,6 +8,7 @@ import {
 } from "@/repositories/review.repository";
 import { createReviewSchema } from "@/lib/validators/product_review/create";
 import { adminUpdateReviewSchema } from "@/lib/validators/product_review/admin_update";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import type { Review } from "@/types/product_utf8";
 
 /**
@@ -78,6 +79,11 @@ export async function getProductReviewsService(
  * Returns reviews with product and user information.
  */
 export async function getAllReviewsForAdminService(): Promise<AdminReviewRow[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return await getAllReviewsForAdmin();
 }
 
@@ -94,6 +100,11 @@ export async function updateReviewService(
     review_status?: "pending" | "approved" | "rejected";
   },
 ): Promise<{ success: boolean; error?: string; data?: Review }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
   try {
     // Validate input using Zod schema
     const validated = adminUpdateReviewSchema.parse(input);
@@ -127,5 +138,10 @@ export async function updateReviewService(
 export async function deleteReviewService(
   reviewId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
   return await deleteReview(reviewId);
 }

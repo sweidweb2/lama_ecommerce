@@ -7,6 +7,8 @@ import type { CartItem } from "@/types/order";
 import type { CreateCartItemInput } from "@/lib/validators/cart-item/create";
 import type { UpdateCartItemInput } from "@/lib/validators/cart-item/update";
 import type { ProductWithRelations } from "@/types/product";
+import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Create or update a cart item (UPSERT) - Double-click safe.
@@ -50,7 +52,7 @@ export async function createCartItemAsAdmin(
 }
 
 async function upsertCartItemWithClient(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   input: CreateCartItemInput & { cart_id: string },
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
   const { data, error } = await supabase.rpc("upsert_cart_item", {
@@ -100,7 +102,7 @@ export async function getCartItemById(
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("cart_items")
       .select("*")
       .eq("id", cartItemId)
@@ -145,7 +147,7 @@ export async function getCartItemsByCartId(
 ): Promise<CartItem[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("cart_items")
       .select("*")
       .eq("cart_id", cartId)
@@ -182,6 +184,92 @@ export interface CartItemWithProduct {
   material?: string | null;
 }
 
+/** Nested select shape used when loading cart items with product details. */
+interface CartItemProductJoinRow {
+  id: string;
+  cart_id: string;
+  customised_product_id: string;
+  quantity: number;
+  created_at: string;
+  customised_products: {
+    id: string;
+    product_id: string;
+    color: string | null;
+    size: string | null;
+    material: string | null;
+    quantity_stock: number;
+    products: {
+      id: string;
+      name: string;
+      description: string | null;
+      slug: string | null;
+      price: number | string;
+      is_featured: boolean;
+      is_trending: boolean;
+      is_active: boolean;
+      brand_id: string | null;
+      category_id: string | null;
+      sku?: string | null;
+      owner_id?: string | null;
+      created_at: string;
+      updated_at: string;
+      deleted_at?: string | null;
+      brands: { id: string; name: string; slug: string | null } | null;
+      categories: { id: string; name: string; slug: string | null } | null;
+      product_images: Array<{
+        id: string;
+        url_image: string;
+        is_primary: boolean;
+      }>;
+    } | null;
+  } | null;
+}
+
+function transformCartItemProductJoin(
+  item: CartItemProductJoinRow,
+): CartItemWithProduct | null {
+  const productData = item.customised_products?.products;
+  if (!productData) {
+    return null;
+  }
+
+  const product: ProductWithRelations = {
+    id: productData.id,
+    name: productData.name,
+    description: productData.description,
+    slug: productData.slug,
+    price: parseFloat(String(productData.price)),
+    is_featured: productData.is_featured,
+    is_trending: productData.is_trending,
+    is_active: productData.is_active,
+    brand_id: productData.brand_id,
+    category_id: productData.category_id,
+    sku: productData.sku || null,
+    owner_id: productData.owner_id || null,
+    created_at: productData.created_at,
+    updated_at: productData.updated_at,
+    deleted_at: productData.deleted_at || null,
+    brand: (productData.brands as ProductWithRelations["brand"]) || null,
+    category: (productData.categories as ProductWithRelations["category"]) || null,
+    images: (productData.product_images || []) as ProductWithRelations["images"],
+    variants: undefined,
+    stats: null,
+  };
+
+  return {
+    id: item.id,
+    cart_id: item.cart_id,
+    customised_product_id: item.customised_product_id,
+    quantity: item.quantity,
+    created_at: item.created_at,
+    product,
+    stock: item.customised_products?.quantity_stock || 0,
+    color: item.customised_products?.color || null,
+    size: item.customised_products?.size || null,
+    material: item.customised_products?.material || null,
+  };
+}
+
 export async function getCartItemsWithProductsByCartId(
   cartId: string,
 ): Promise<CartItemWithProduct[]> {
@@ -189,7 +277,7 @@ export async function getCartItemsWithProductsByCartId(
     const supabase = await createSupabaseServerComponentClient();
     
     // Fetch cart items with nested product data
-    const { data: cartItems, error: cartItemsError } = await (supabase as any)
+    const { data: cartItems, error: cartItemsError } = await supabase
       .from("cart_items")
       .select(`
         id,
@@ -247,46 +335,10 @@ export async function getCartItemsWithProductsByCartId(
     }
 
     // Transform the data to match CartItemWithProduct interface
-    const transformedItems: CartItemWithProduct[] = cartItems
-      .filter((item: any) => item.customised_products?.products)
-      .map((item: any) => {
-        const productData = item.customised_products.products;
-        const product: ProductWithRelations = {
-          id: productData.id,
-          name: productData.name,
-          description: productData.description,
-          slug: productData.slug,
-          price: parseFloat(productData.price),
-          is_featured: productData.is_featured,
-          is_trending: productData.is_trending,
-          is_active: productData.is_active,
-          brand_id: productData.brand_id,
-          category_id: productData.category_id,
-          sku: productData.sku || null,
-          owner_id: productData.owner_id || null,
-          created_at: productData.created_at,
-          updated_at: productData.updated_at,
-          deleted_at: productData.deleted_at || null,
-          brand: productData.brands || null,
-          category: productData.categories || null,
-          images: productData.product_images || [],
-          variants: undefined, // Not needed for cart display
-          stats: null, // Not needed for cart display
-        };
-
-        return {
-          id: item.id,
-          cart_id: item.cart_id,
-          customised_product_id: item.customised_product_id,
-          quantity: item.quantity,
-          created_at: item.created_at,
-          product,
-          stock: item.customised_products?.quantity_stock || 0,
-          color: item.customised_products?.color || null,
-          size: item.customised_products?.size || null,
-          material: item.customised_products?.material || null,
-        };
-      });
+    const rows = cartItems as unknown as CartItemProductJoinRow[];
+    const transformedItems: CartItemWithProduct[] = rows
+      .map(transformCartItemProductJoin)
+      .filter((item): item is CartItemWithProduct => item !== null);
 
     return transformedItems;
   } catch (error) {
@@ -306,7 +358,7 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
     const supabase = createSupabaseAdminClient();
     
     // Fetch cart items with nested product data
-    const { data: cartItems, error: cartItemsError } = await (supabase as any)
+    const { data: cartItems, error: cartItemsError } = await supabase
       .from("cart_items")
       .select(`
         id,
@@ -364,46 +416,10 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
     }
 
     // Transform the data to match CartItemWithProduct interface
-    const transformedItems: CartItemWithProduct[] = cartItems
-      .filter((item: any) => item.customised_products?.products)
-      .map((item: any) => {
-        const productData = item.customised_products.products;
-        const product: ProductWithRelations = {
-          id: productData.id,
-          name: productData.name,
-          description: productData.description,
-          slug: productData.slug,
-          price: parseFloat(productData.price),
-          is_featured: productData.is_featured,
-          is_trending: productData.is_trending,
-          is_active: productData.is_active,
-          brand_id: productData.brand_id,
-          category_id: productData.category_id,
-          sku: productData.sku || null,
-          owner_id: productData.owner_id || null,
-          created_at: productData.created_at,
-          updated_at: productData.updated_at,
-          deleted_at: productData.deleted_at || null,
-          brand: productData.brands || null,
-          category: productData.categories || null,
-          images: productData.product_images || [],
-          variants: undefined, // Not needed for cart display
-          stats: null, // Not needed for cart display
-        };
-
-        return {
-          id: item.id,
-          cart_id: item.cart_id,
-          customised_product_id: item.customised_product_id,
-          quantity: item.quantity,
-          created_at: item.created_at,
-          product,
-          stock: item.customised_products?.quantity_stock || 0,
-          color: item.customised_products?.color || null,
-          size: item.customised_products?.size || null,
-          material: item.customised_products?.material || null,
-        };
-      });
+    const rows = cartItems as unknown as CartItemProductJoinRow[];
+    const transformedItems: CartItemWithProduct[] = rows
+      .map(transformCartItemProductJoin)
+      .filter((item): item is CartItemWithProduct => item !== null);
 
     return transformedItems;
   } catch (error) {
@@ -446,7 +462,7 @@ export async function updateCartItem(
       };
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("cart_items")
       .update(updatePayload)
       .eq("id", cartItemId)
@@ -510,7 +526,7 @@ export async function updateCartItemForAdmin(
       };
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("cart_items")
       .update(updatePayload)
       .eq("id", cartItemId)
@@ -549,7 +565,7 @@ export async function deleteCartItem(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cart_items")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", cartItemId);
@@ -585,7 +601,7 @@ export async function hardDeleteCartItem(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("id", cartItemId);
@@ -619,7 +635,7 @@ async function assertCartItemOwnedByGuestSession(
   sessionId: string,
 ): Promise<{ ok: true; cartId: string } | { ok: false; error: string }> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("cart_items")
     .select("id, cart_id, carts!inner(id, session_id, user_id, deleted_at)")
     .eq("id", cartItemId)
@@ -633,7 +649,7 @@ async function assertCartItemOwnedByGuestSession(
     return { ok: false, error: "Cart item not found" };
   }
 
-  const cart = data.carts as {
+  const cart = data.carts as unknown as {
     id: string;
     session_id: string | null;
     user_id: string | null;
@@ -690,7 +706,7 @@ export async function hardDeleteCartItemForGuest(
     }
 
     const supabase = createSupabaseAdminClient();
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("id", cartItemId);
@@ -731,7 +747,7 @@ export async function moveCartItemsToCart(
     const supabase = createSupabaseAdminClient();
 
     // 1. Get all active items in the source (guest) cart
-    const { data: sourceItems, error: srcError } = await (supabase as any)
+    const { data: sourceItems, error: srcError } = await supabase
       .from("cart_items")
       .select("id, customised_product_id, quantity")
       .eq("cart_id", fromCartId)
@@ -747,7 +763,7 @@ export async function moveCartItemsToCart(
     }
 
     // 2. Get all active items in the destination (user) cart
-    const { data: destItems, error: dstError } = await (supabase as any)
+    const { data: destItems, error: dstError } = await supabase
       .from("cart_items")
       .select("id, customised_product_id, quantity")
       .eq("cart_id", toCartId)
@@ -760,7 +776,7 @@ export async function moveCartItemsToCart(
 
     // Build lookup map: customised_product_id → dest item
     const destMap = new Map<string, { id: string; quantity: number }>();
-    (destItems ?? []).forEach((item: any) => {
+    (destItems ?? []).forEach((item) => {
       destMap.set(item.customised_product_id, {
         id: item.id,
         quantity: item.quantity,
@@ -781,7 +797,7 @@ export async function moveCartItemsToCart(
         // Duplicate: merge quantities into the destination item, then hard-delete source item
         const newQty = existing.quantity + srcItem.quantity;
 
-        const { error: updateErr } = await (supabase as any)
+        const { error: updateErr } = await supabase
           .from("cart_items")
           .update({ quantity: newQty })
           .eq("id", existing.id);
@@ -792,13 +808,13 @@ export async function moveCartItemsToCart(
         }
 
         // Hard-delete the source item
-        await (supabase as any)
+        await supabase
           .from("cart_items")
           .delete()
           .eq("id", srcItem.id);
       } else {
         // No duplicate: move item to destination cart
-        const { error: moveErr } = await (supabase as any)
+        const { error: moveErr } = await supabase
           .from("cart_items")
           .update({ cart_id: toCartId })
           .eq("id", srcItem.id);
@@ -835,7 +851,7 @@ export async function hardDeleteCartItemsByCartId(
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("cart_id", cartId);

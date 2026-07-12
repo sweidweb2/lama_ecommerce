@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 /** Promo code row from DB (discount_type is PostgreSQL enum 'percentage' | 'fixed'). */
 export interface PromoCodeRow {
@@ -33,11 +33,12 @@ export interface UpdatePromoCodeInput {
 }
 
 /**
- * Fetch all promo codes. Uses admin client (bypasses RLS).
+ * Fetch all promo codes.
+ * Uses session client + admin RLS (service gates with requireAdmin).
  */
 export async function getAllPromoCodes(): Promise<PromoCodeRow[]> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const { data, error } = await (supabase as any)
       .from("promo_codes")
       .select("*")
@@ -55,13 +56,14 @@ export async function getAllPromoCodes(): Promise<PromoCodeRow[]> {
 }
 
 /**
- * Create a promo code. Uses admin client.
+ * Create a promo code.
+ * Uses session client + admin RLS.
  */
 export async function createPromoCode(
   input: CreatePromoCodeInput,
 ): Promise<PromoCodeRow | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const expiresAt = input.expires_at?.trim()
       ? new Date(input.expires_at).toISOString()
       : null;
@@ -91,13 +93,14 @@ export async function createPromoCode(
 }
 
 /**
- * Update a promo code by id. Uses admin client.
+ * Update a promo code by id.
+ * Uses session client + admin RLS.
  */
 export async function updatePromoCode(
   input: UpdatePromoCodeInput,
 ): Promise<PromoCodeRow | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const expiresAt = input.expires_at?.trim()
       ? new Date(input.expires_at).toISOString()
       : null;
@@ -128,11 +131,12 @@ export async function updatePromoCode(
 }
 
 /**
- * Delete a promo code by id. Uses admin client.
+ * Delete a promo code by id.
+ * Uses session client + admin RLS.
  */
 export async function deletePromoCodeById(id: string): Promise<boolean> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerActionClient();
     const { error } = await (supabase as any)
       .from("promo_codes")
       .delete()

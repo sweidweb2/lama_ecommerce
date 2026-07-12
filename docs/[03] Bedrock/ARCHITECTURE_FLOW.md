@@ -22,7 +22,7 @@ Your application follows this **layered architecture**:
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │                    SERVICE LAYER                         │
-│  (Business Logic - lib/services/)                       │
+│  (Business Logic - services/)                       │
 │  - Business rules                                       │
 │  - Data transformation                                  │
 │  - Complex operations                                   │
@@ -31,7 +31,7 @@ Your application follows this **layered architecture**:
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │                  REPOSITORY LAYER                        │
-│  (Data Access - lib/repositories/)                      │
+│  (Data Access - repositories/)                      │
 │  - Database queries                                     │
 │  - Supabase calls                                       │
 │  - Data mapping                                         │
@@ -77,9 +77,9 @@ export function EditProfileForm() {
 // actions/profile.ts
 "use server";
 
-import { getCurrentUserProfile } from "@/lib/services/profile.service";
+import { getCurrentUserProfile } from "@/services/profile.service";
 import { canEditProfile } from "@/lib/auth/permissions";
-import { updateProfileService } from "@/lib/services/profile.service";
+import { updateProfileService } from "@/services/profile.service";
 
 export async function updateProfile(profileId: string, data: UpdateData) {
   // 1. Authorization check
@@ -100,9 +100,9 @@ export async function updateProfile(profileId: string, data: UpdateData) {
 
 **3. Service (Business Logic Layer)**
 ```tsx
-// lib/services/profile.service.ts
+// services/profile.service.ts
 
-import { updateProfileRepository } from "@/lib/repositories/profile.repository";
+import { updateProfileRepository } from "@/repositories/profile.repository";
 import { profileUpdateSchema } from "@/lib/validators/user/profile.update";
 
 export async function updateProfileService(
@@ -125,7 +125,7 @@ export async function updateProfileService(
 
 **4. Repository (Data Access Layer)**
 ```tsx
-// lib/repositories/profile.repository.ts
+// repositories/profile.repository.ts
 
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 
@@ -166,7 +166,7 @@ export async function updateProfileRepository(
 // components/account/ProfileForm.tsx
 "use client";
 import { updateProfile } from "@/actions/profile"; // ✅ OK
-// import { updateProfileService } from "@/lib/services/profile.service"; // ❌ NO
+// import { updateProfileService } from "@/services/profile.service"; // ❌ NO
 ```
 
 ---
@@ -181,39 +181,39 @@ import { updateProfile } from "@/actions/profile"; // ✅ OK
 ```tsx
 // actions/profile.ts
 "use server";
-import { getCurrentUserProfile } from "@/lib/services/profile.service"; // ✅ OK
-import { updateProfileService } from "@/lib/services/profile.service"; // ✅ OK
-// import { updateProfileRepository } from "@/lib/repositories/..."; // ❌ NO (skip service layer)
+import { getCurrentUserProfile } from "@/services/profile.service"; // ✅ OK
+import { updateProfileService } from "@/services/profile.service"; // ✅ OK
+// import { updateProfileRepository } from "@/repositories/..."; // ❌ NO (skip service layer)
 ```
 
 ---
 
 ### Service Layer
-**Location:** `lib/services/`
+**Location:** `services/`
 - **Purpose:** Business logic, data transformation, complex operations
 - **Can call:** Repositories, Validators, Other services
 - **Cannot call:** Components, Actions (only called by them)
 
 **Example:**
 ```tsx
-// lib/services/profile.service.ts
-import { getProfileByUserId } from "@/lib/repositories/profile.repository"; // ✅ OK
+// services/profile.service.ts
+import { getProfileByUserId } from "@/repositories/profile.repository"; // ✅ OK
 import { profileUpdateSchema } from "@/lib/validators/user/profile.update"; // ✅ OK
 ```
 
 ---
 
 ### Repository Layer
-**Location:** `lib/repositories/`
+**Location:** `repositories/`
 - **Purpose:** Database access, Supabase queries
 - **Can call:** Supabase clients only
 - **Cannot call:** Services, Components, Actions
 
 **Example:**
 ```tsx
-// lib/repositories/profile.repository.ts
+// repositories/profile.repository.ts
 import { createSupabaseServerActionClient } from "@/lib/supabase/server"; // ✅ OK
-// import { updateProfileService } from "@/lib/services/..."; // ❌ NO (circular)
+// import { updateProfileService } from "@/services/..."; // ❌ NO (circular)
 ```
 
 ---
@@ -254,14 +254,14 @@ import { createSupabaseServerActionClient } from "@/lib/supabase/server"; // ✅
 ```tsx
 // ❌ WRONG
 "use client";
-import { updateProfileService } from "@/lib/services/profile.service";
+import { updateProfileService } from "@/services/profile.service";
 ```
 
 2. **Actions calling Repositories directly (skip Service):**
 ```tsx
 // ❌ WRONG (unless it's a simple operation)
 "use server";
-import { updateProfileRepository } from "@/lib/repositories/...";
+import { updateProfileRepository } from "@/repositories/...";
 ```
 
 3. **Components calling Supabase directly:**
@@ -275,7 +275,7 @@ await supabase.from("profiles").update(...);
 4. **Repositories calling Services:**
 ```tsx
 // ❌ WRONG (circular dependency)
-import { someService } from "@/lib/services/...";
+import { someService } from "@/services/...";
 ```
 
 ---
@@ -304,7 +304,7 @@ import { someService } from "@/lib/services/...";
 
 ```tsx
 // app/account/page.tsx (Server Component)
-import { getCurrentUserProfile } from "@/lib/services/profile.service";
+import { getCurrentUserProfile } from "@/services/profile.service";
 
 export default async function AccountPage() {
   // Direct service call (no Action needed)
@@ -323,7 +323,7 @@ export default async function AccountPage() {
 ```tsx
 // actions/simple.ts
 "use server";
-import { deleteItemRepository } from "@/lib/repositories/...";
+import { deleteItemRepository } from "@/repositories/...";
 
 export async function deleteItem(id: string) {
   // Authorization check
@@ -388,7 +388,7 @@ Let's say you want to add "Add to Wishlist" functionality:
 
 **Step 1: Create Repository**
 ```tsx
-// lib/repositories/wishlist.repository.ts
+// repositories/wishlist.repository.ts
 export async function addToWishlistRepository(userId: string, productId: string) {
   const supabase = await createSupabaseServerActionClient();
   // Supabase query...
@@ -397,7 +397,7 @@ export async function addToWishlistRepository(userId: string, productId: string)
 
 **Step 2: Create Service**
 ```tsx
-// lib/services/wishlist.service.ts
+// services/wishlist.service.ts
 export async function addToWishlistService(userId: string, productId: string) {
   // Validate product exists
   // Check if already in wishlist

@@ -65,6 +65,8 @@ describe("checkoutService", () => {
     expect(processCheckout).toHaveBeenCalledWith(
       expect.objectContaining({
         cart_id: baseInput.cart_id,
+        user_id: baseInput.user_id,
+        session_id: baseInput.session_id,
         shipping_fee: 4.5,
         discount: 0,
         email: baseInput.email,
@@ -73,6 +75,63 @@ describe("checkoutService", () => {
     // Input has no client total/subtotal fields — only zone id drives fee
     expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("total");
     expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("subtotal");
+  });
+
+  it("passes guest session_id through without inventing a user_id", async () => {
+    getAllShippingZonesWithFee.mockResolvedValue([
+      { id: baseInput.shipping_zone_id, name: "Amman", fee: 2 },
+    ]);
+    processCheckout.mockResolvedValue({ success: true, orderId: "order-guest" });
+
+    const guestInput = {
+      ...baseInput,
+      user_id: null,
+      session_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    };
+    const { checkoutService } = await import("@/services/checkout.service");
+    await checkoutService(guestInput);
+
+    expect(processCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: null,
+        session_id: guestInput.session_id,
+        cart_id: guestInput.cart_id,
+      }),
+    );
+  });
+
+  it("surfaces stock race errors from processCheckout", async () => {
+    getAllShippingZonesWithFee.mockResolvedValue([
+      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
+    ]);
+    processCheckout.mockResolvedValue({
+      success: false,
+      error:
+        'Stock race condition for "Tee": stock changed since validation',
+    });
+
+    const { checkoutService } = await import("@/services/checkout.service");
+    await expect(checkoutService(baseInput)).resolves.toEqual({
+      success: false,
+      error:
+        'Stock race condition for "Tee": stock changed since validation',
+    });
+  });
+
+  it("maps thrown stock race exceptions to failure result", async () => {
+    getAllShippingZonesWithFee.mockResolvedValue([
+      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
+    ]);
+    processCheckout.mockRejectedValue(
+      new Error('Stock race condition for "Tee": stock changed since validation'),
+    );
+
+    const { checkoutService } = await import("@/services/checkout.service");
+    await expect(checkoutService(baseInput)).resolves.toEqual({
+      success: false,
+      error:
+        'Stock race condition for "Tee": stock changed since validation',
+    });
   });
 
   it("uses fee 0 when zone fee is null", async () => {

@@ -108,7 +108,7 @@ using (public.get_user_role() = 'admin'::profile_role);
 
 ### `getCurrentUserProfile()` (TypeScript Service)
 
-**Location:** `lib/services/profile.service.ts`
+**Location:** `services/profile.service.ts`
 
 **Purpose:** Get the current user's profile (including role) on the server.
 

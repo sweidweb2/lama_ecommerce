@@ -15,6 +15,8 @@ export interface GetProductsRepoParams {
   maxPrice?: number;
   excludeId?: string;
   brandId?: string | null;
+  isFeatured?: boolean;
+  isTrending?: boolean;
 }
 
 // Common select used for product detail / listing where we only need
@@ -59,7 +61,16 @@ export async function hasProductRelations(productId: string): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const relatedChecks: Array<{ table: string; column: string }> = [
+    const relatedChecks: Array<{
+      table:
+        | "product_images"
+        | "customised_products"
+        | "reviews"
+        | "product_questions"
+        | "product_views"
+        | "product_stats";
+      column: string;
+    }> = [
       { table: "product_images", column: "product_id" },
       { table: "customised_products", column: "product_id" },
       { table: "reviews", column: "product_id" },
@@ -71,7 +82,7 @@ export async function hasProductRelations(productId: string): Promise<boolean> {
     for (const { table, column } of relatedChecks) {
       const { count, error } = await supabase
         .from(table)
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq(column, productId);
 
       if (!error && (count ?? 0) > 0) {
@@ -126,6 +137,8 @@ export async function getProducts(
     maxPrice,
     excludeId,
     brandId,
+    isFeatured,
+    isTrending,
   } = params;
 
   const pageSize = Math.min(Math.max(1, rawPageSize), 48);
@@ -147,6 +160,14 @@ export async function getProducts(
 
     if (excludeId) {
       query = query.neq("id", excludeId);
+    }
+
+    if (isFeatured === true) {
+      query = query.eq("is_featured", true);
+    }
+
+    if (isTrending === true) {
+      query = query.eq("is_trending", true);
     }
 
     if (search) {

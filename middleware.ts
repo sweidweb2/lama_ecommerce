@@ -21,8 +21,8 @@ async function getProfileFromSession(request: NextRequest) {
   }
 
   // Fetch profile from database
-  const { data: profile, error: profileError } = await (supabase as any)
-    .from("profiles" as any)
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();

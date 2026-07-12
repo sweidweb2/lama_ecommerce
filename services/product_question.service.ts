@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createProductQuestionAdminSchema,
   type CreateProductQuestionAdminInput,
@@ -23,6 +24,11 @@ import {
  * Get all product questions for admin (with product name, user name, latest answer).
  */
 export async function getAllQuestionsAdmin(): Promise<AdminQuestionRow[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return getAdminQuestions();
 }
 
@@ -33,6 +39,11 @@ export async function createQuestionAdmin(
   input: unknown,
   adminId?: string | null
 ): Promise<AdminQuestionRow | null> {
+  try {
+    await requireAdmin();
+  } catch {
+    return null;
+  }
   const parsed = createProductQuestionAdminSchema.parse(input) as CreateProductQuestionAdminInput;
   return createProductQuestion(
     {
@@ -54,6 +65,11 @@ export async function updateQuestionAdmin(
   input: unknown,
   adminId?: string | null
 ): Promise<boolean> {
+  try {
+    await requireAdmin();
+  } catch {
+    return false;
+  }
   const parsed = updateProductQuestionSchema.parse(input) as UpdateProductQuestionInput;
   const ok = await updateProductQuestion(id, {
     question: parsed.question,
@@ -73,6 +89,11 @@ export async function submitAnswerAdmin(
   input: unknown,
   adminId?: string | null
 ): Promise<boolean> {
+  try {
+    await requireAdmin();
+  } catch {
+    return false;
+  }
   const parsed = submitProductAnswerSchema.parse(input) as SubmitProductAnswerInput;
   return addProductAnswer(parsed.question_id, parsed.answer, adminId);
 }
@@ -81,5 +102,10 @@ export async function submitAnswerAdmin(
  * Delete a product question (cascade deletes answers).
  */
 export async function deleteQuestionAdmin(id: string): Promise<boolean> {
+  try {
+    await requireAdmin();
+  } catch {
+    return false;
+  }
   return deleteProductQuestion(id);
 }

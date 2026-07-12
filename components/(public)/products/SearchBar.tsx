@@ -4,19 +4,31 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { ROUTES } from '@/lib/constants/routes'
 
 interface SearchBarProps {
     /** Called after navigation (e.g. to close mobile nav sheet) */
     onNavigate?: () => void
     /** Called when search query changes (for client-side filtering) */
     onSearchChange?: (query: string) => void
+    /**
+     * Destination for form submit. Default: dedicated `/search` with `q`.
+     * Pass products catalog path when searching within `/products` filters.
+     */
+    href?: typeof ROUTES.SEARCH | typeof ROUTES.PRODUCTS
 }
 
-export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
+export function SearchBar({
+    onNavigate,
+    onSearchChange,
+    href = ROUTES.SEARCH,
+}: SearchBarProps = {}) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const [query, setQuery] = useState(searchParams.get('search') || '')
+    const queryParam = href === ROUTES.PRODUCTS ? 'search' : 'q'
+    const [query, setQuery] = useState(
+        searchParams.get(queryParam) || searchParams.get('search') || searchParams.get('q') || '',
+    )
 
     // Handle '/' keyboard shortcut
     useEffect(() => {
@@ -32,10 +44,14 @@ export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
 
     // Update query when URL search param changes
     useEffect(() => {
-        const urlQuery = searchParams.get('search') || ''
+        const urlQuery =
+            searchParams.get(queryParam) ||
+            searchParams.get('search') ||
+            searchParams.get('q') ||
+            ''
         setQuery(urlQuery)
         onSearchChange?.(urlQuery)
-    }, [searchParams, onSearchChange])
+    }, [searchParams, onSearchChange, queryParam])
 
     // If onSearchChange is provided, use client-side filtering
     const isClientSide = !!onSearchChange
@@ -47,26 +63,32 @@ export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
         }
     }
 
+    const pushSearch = (nextQuery: string) => {
+        if (href === ROUTES.SEARCH) {
+            const params = new URLSearchParams()
+            if (nextQuery) params.set('q', nextQuery)
+            const qs = params.toString()
+            router.push(qs ? `${ROUTES.SEARCH}?${qs}` : ROUTES.SEARCH)
+        } else {
+            const params = new URLSearchParams(searchParams.toString())
+            if (nextQuery) {
+                params.set('search', nextQuery)
+            } else {
+                params.delete('search')
+            }
+            params.delete('page')
+            const qs = params.toString()
+            router.push(qs ? `${ROUTES.PRODUCTS}?${qs}` : ROUTES.PRODUCTS)
+        }
+        onNavigate?.()
+    }
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
         if (isClientSide) {
-            // Client-side filtering, no need to navigate
             return
         }
-
-        const params = new URLSearchParams(searchParams.toString())
-
-        if (query) {
-            params.set('search', query)
-        } else {
-            params.delete('search')
-        }
-
-        // Reset page when searching
-        params.delete('page')
-
-        router.push(`/products?${params.toString()}`)
-        onNavigate?.()
+        pushSearch(query.trim())
     }
 
     const clearSearch = () => {
@@ -74,11 +96,7 @@ export function SearchBar({ onNavigate, onSearchChange }: SearchBarProps = {}) {
         if (isClientSide) {
             onSearchChange?.('')
         } else {
-            const params = new URLSearchParams(searchParams.toString())
-            params.delete('search')
-            params.delete('page')
-            router.push(`/products?${params.toString()}`)
-            onNavigate?.()
+            pushSearch('')
         }
     }
 

@@ -7,17 +7,17 @@ Follow the sections in order.
 
 ## 1. Auth Route Structure
 
-Create the following folder structure under `app/(storefront)/auth/`. Each should have a `page.tsx`.
+Create the following folder structure under `app/(public)/auth/`. Each should have a `page.tsx`.
 
 ### 1.1 Create Folders and Files
 
-1. `app/(storefront)/auth/login/page.tsx`
-2. `app/(storefront)/auth/register/page.tsx`
-3. `app/(storefront)/auth/reset-password/page.tsx`
+1. `app/(public)/auth/login/page.tsx`
+2. `app/(public)/auth/register/page.tsx`
+3. `app/(public)/auth/reset-password/page.tsx`
 
 ### 1.2 Auth Layout (Optional but Recommended)
 
-1. Create `app/(storefront)/auth/layout.tsx`.
+1. Create `app/(public)/auth/layout.tsx`.
 2. Use a minimal design:
    - Full height (`min-h-screen`).
    - Centered container for forms.
@@ -99,7 +99,7 @@ Create the following folder structure under `app/(storefront)/auth/`. Each shoul
 
 ### 4.2 New Password Form
 
-1. **Route:** Create `app/(storefront)/auth/reset-password/confirm/page.tsx` (or similar).
+1. **Route:** Create `app/(public)/auth/reset-password/confirm/page.tsx` (or similar).
 2. **Action:** After user clicks link in email:
    - Show a "New Password" and "Confirm New Password" form.
    - Update password using `supabase.auth.updateUser({ password: new_password })`.

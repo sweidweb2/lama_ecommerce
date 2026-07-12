@@ -50,7 +50,7 @@ export async function createCart(
       };
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .insert(insertPayload)
       .select()
@@ -87,7 +87,7 @@ export async function getCartById(
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("id", cartId)
@@ -132,7 +132,7 @@ export async function getCartByIdForAdmin(
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("id", cartId)
@@ -176,7 +176,7 @@ export async function hasActiveCart(
 ): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("user_id", userId)
@@ -220,7 +220,7 @@ export async function getCartByUserId(
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("user_id", userId)
@@ -260,7 +260,7 @@ export async function hasActiveCartBySessionId(
 ): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("session_id", sessionId)
@@ -304,7 +304,7 @@ export async function getCartBySessionId(
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("*")
       .eq("session_id", sessionId)
@@ -365,7 +365,7 @@ export async function updateCart(
     }
 
     // Ensure at least one of user_id or session_id is present after update
-    const { data: currentCart } = await (supabase as any)
+    const { data: currentCart } = await supabase
       .from("carts")
       .select("user_id, session_id")
       .eq("id", cartId)
@@ -387,7 +387,7 @@ export async function updateCart(
       }
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .update(updatePayload)
       .eq("id", cartId)
@@ -426,7 +426,7 @@ export async function deleteCart(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("carts")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", cartId);
@@ -463,7 +463,7 @@ export async function hardDeleteCart(
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("carts")
       .delete()
       .eq("id", cartId);
@@ -514,7 +514,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
     const supabase = createSupabaseAdminClient();
 
     // Fetch all carts (including deleted ones for admin view)
-    const { data: carts, error: cartsError } = await (supabase as any)
+    const { data: carts, error: cartsError } = await supabase
       .from("carts")
       .select(`
         id,
@@ -542,7 +542,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
 
     // Fetch profiles for user names
     const { data: profiles } = userIds.length
-      ? await (supabase as any)
+      ? await supabase
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", userIds)
@@ -559,7 +559,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
     const totalsByCartId = new Map<string, { items: number; total: number }>();
 
     if (cartIds.length > 0) {
-      const { data: cartItems, error: itemsError } = await (supabase as any)
+      const { data: cartItems, error: itemsError } = await supabase
         .from("cart_items")
         .select(
           `
@@ -577,8 +577,12 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
       if (itemsError) {
         console.error("Error fetching cart items for admin carts:", itemsError);
       } else {
-        for (const row of cartItems ?? []) {
-          const cartId = row.cart_id as string;
+        for (const row of (cartItems ?? []) as unknown as Array<{
+          cart_id: string;
+          quantity: number;
+          customised_products: { products: { price: number } | null } | null;
+        }>) {
+          const cartId = row.cart_id;
           const quantity = Number(row.quantity) || 0;
           const price = Number(
             row.customised_products?.products?.price ?? 0,
@@ -633,7 +637,7 @@ export async function getUserIdsWithActiveCarts(): Promise<string[]> {
   try {
     const supabase = createSupabaseAdminClient();
     
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("user_id")
       .not("user_id", "is", null)
@@ -689,7 +693,7 @@ export async function createCartForAdmin(
       };
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .insert(insertPayload)
       .select()
@@ -728,7 +732,7 @@ export async function updateCartUserId(
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("carts")
       .update({ user_id: userId })
       .eq("id", cartId);
@@ -762,7 +766,7 @@ export async function softDeleteCartAdmin(
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("carts")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", cartId);

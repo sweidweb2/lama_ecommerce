@@ -24,7 +24,6 @@ export async function createAddressAction(payload: {
   const result = await createAddressForUser(user.id, payload);
   if (!result.ok) return { success: false, error: result.error };
   revalidatePath("/account");
-  revalidatePath("/account/addresses");
   return { success: true, data: result.data };
 }
 
@@ -44,7 +43,6 @@ export async function updateAddressAction(
   const updated = await updateAddressForUser(user.id, addressId, updates);
   if (!updated) return { success: false, error: "Invalid input or update failed" };
   revalidatePath("/account");
-  revalidatePath("/account/addresses");
   return { success: true, data: updated };
 }
 
@@ -54,7 +52,6 @@ export async function deleteAddressAction(addressId: string): Promise<Result> {
   const ok = await deleteAddressForUser(user.id, addressId);
   if (!ok) return { success: false, error: "Delete failed" };
   revalidatePath("/account");
-  revalidatePath("/account/addresses");
   return { success: true };
 }
 
@@ -64,6 +61,5 @@ export async function setDefaultAddressAction(addressId: string): Promise<Result
   const updated = await setDefaultAddressForUser(user.id, addressId);
   if (!updated) return { success: false, error: "Set default failed" };
   revalidatePath("/account");
-  revalidatePath("/account/addresses");
   return { success: true, data: updated };
 }

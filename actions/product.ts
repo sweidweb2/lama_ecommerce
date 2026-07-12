@@ -12,11 +12,10 @@ import {
 } from "@/services/product.service";
 import { createProductSchema } from "@/lib/validators/product/create";
 import { updateProductSchema } from "@/lib/validators/product/update";
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
-import { createProductImage } from "@/repositories/product_images.repository";
 import {
-  addProductImageService,
+  uploadAndAddProductImageService,
   changePrimaryProductImageService,
+  deleteProductImageService,
 } from "@/services/product_image.service";
 import { addProductImageSchema } from "@/lib/validators/product_image/create";
 import {
@@ -89,33 +88,13 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const imageFile = formData.get("images");
 
     if (imageFile && imageFile instanceof File && imageFile.size > 0) {
-      const supabase = await createSupabaseServerActionClient();
-      const mime = imageFile.type || "image/png";
-      const ext = mime.split("/")[1] || "png";
-      const filePath = `products/${created.id}/${crypto.randomUUID()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("products")
-        .upload(filePath, imageFile, {
-          contentType: mime,
-        });
-
-      if (uploadError) {
-        console.error("Error uploading product image:", uploadError);
+      const uploaded = await uploadAndAddProductImageService(
+        created.id,
+        imageFile,
+      );
+      if (!uploaded) {
+        console.error("Error uploading product image on create");
         // Do not fail the whole product creation if image upload fails
-      } else {
-        const { data } = supabase.storage
-          .from("products")
-          .getPublicUrl(filePath);
-
-        const publicUrl = data.publicUrl ?? null;
-        if (publicUrl) {
-          await createProductImage({
-            product_id: created.id,
-            url_image: publicUrl,
-            is_primary: true,
-          });
-        }
       }
     }
 
@@ -248,37 +227,9 @@ export async function addProductImageAction(formData: FormData): Promise<void> {
     const parsed = addProductImageSchema.parse({ product_id: productIdRaw });
     const productId = parsed.product_id;
 
-    // Upload image to Supabase storage
-    const supabase = await createSupabaseServerActionClient();
-    const mime = imageFile.type || "image/png";
-    const ext = mime.split("/")[1] || "png";
-    const filePath = `products/${productId}/${crypto.randomUUID()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("products")
-      .upload(filePath, imageFile, {
-        contentType: mime,
-      });
-
-    if (uploadError) {
-      console.error("Error uploading product image:", uploadError);
-      throw new Error("Failed to upload image");
-    }
-
-    // Get public URL
-    const { data } = supabase.storage
-      .from("products")
-      .getPublicUrl(filePath);
-
-    const publicUrl = data.publicUrl ?? null;
-    if (!publicUrl) {
-      throw new Error("Failed to get public URL for uploaded image");
-    }
-
-    // Add product image (service handles primary image logic)
-    const success = await addProductImageService(productId, publicUrl);
+    const success = await uploadAndAddProductImageService(productId, imageFile);
     if (!success) {
-      throw new Error("Failed to create product image record");
+      throw new Error("Failed to upload or create product image");
     }
 
     // Revalidate the products list and the specific product details page
@@ -344,72 +295,9 @@ export async function deleteProductImageAction(
     const productId = productIdRaw;
     const imageId = imageIdRaw;
 
-    const supabase = await createSupabaseServerActionClient();
-
-    // Fetch image row to know if it was primary and to get URL
-    const { data: image, error: fetchError } = await supabase
-      .from("product_images")
-      .select("*")
-      .eq("id", imageId)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Error fetching product image before delete:", fetchError);
-      throw new Error("Failed to load product image");
-    }
-
-    if (!image) {
-      // Already deleted, just revalidate
-      revalidatePath("/admin/products");
-      revalidatePath(`/admin/products/${productId}`);
-      return;
-    }
-
-    // Delete from storage first (before DB deletion)
-    try {
-      const url = new URL((image as any).url_image as string);
-      const pathIndex = url.pathname.lastIndexOf("/products/");
-      if (pathIndex !== -1) {
-        const objectPath = url.pathname.substring(pathIndex + 1); // includes "products/..."
-        const { error: removeError } = await supabase.storage
-          .from("products")
-          .remove([objectPath]);
-
-        if (removeError) {
-          console.error("Error deleting product image from storage:", removeError);
-          // Don't fail the whole operation if storage delete fails, but log it
-          // The DB row will still be deleted
-        }
-      }
-    } catch (urlError) {
-      // If URL parsing fails, log but continue with DB deletion
-      console.error("Error parsing image URL for storage deletion:", urlError);
-    }
-
-    // Delete DB row
-    const { error: deleteError } = await supabase
-      .from("product_images")
-      .delete()
-      .eq("id", imageId);
-
-    if (deleteError) {
-      console.error("Error deleting product image row:", deleteError);
+    const success = await deleteProductImageService(productId, imageId);
+    if (!success) {
       throw new Error("Failed to delete product image");
-    }
-
-    // If deleted image was primary, promote another image to primary if exists
-    if ((image as any).is_primary) {
-      const { data: nextImage, error: nextError } = await supabase
-        .from("product_images")
-        .select("id")
-        .eq("product_id", productId)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!nextError && nextImage) {
-        await changePrimaryProductImageService(productId, (nextImage as any).id as string);
-      }
     }
 
     revalidatePath("/admin/products");

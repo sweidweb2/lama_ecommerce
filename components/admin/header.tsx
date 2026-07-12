@@ -32,7 +32,6 @@ const ADMIN_PAGES = [
   { href: "/admin/products/create", label: "Create Product" },
   { href: "/admin/carts", label: "Carts" },
   { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/website-content", label: "Website Content" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/product-views", label: "Product Views" },
   { href: "/admin/qa", label: "Q&A" },

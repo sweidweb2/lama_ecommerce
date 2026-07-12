@@ -1,1 +1,4 @@
-1-softwareetkan: sk-user-AVD_pyeRtQVjv8nx7Gh0OIidOWtdZkaJ-3v195pOuR6SbRqB2qkgKACxP1PgKzdlG257YtF48jPywbqVj3RxaMq8uEdqN2VwKktdbdMg6cZynAoJy-K_wFRWmwzNvn8f2c0"
+﻿Do not store API keys, tokens, or other secrets in this folder.
+
+Use `.env.local` (gitignored) for local secrets and your provider dashboards
+for rotation. See the repo root `.env.example` for required variable names.

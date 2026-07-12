@@ -10,10 +10,10 @@ const IV_LENGTH = 12; // 96-bit IV (recommended for GCM)
 function getEncryptionKey(): Buffer {
   const keyHex = process.env.ENCRYPTION_KEY;
   if (!keyHex) {
-    throw new Error('ORDER_ID_ENCRYPTION_KEY environment variable is not set');
+    throw new Error('ENCRYPTION_KEY environment variable is not set');
   }
   if (keyHex.length !== 64) {
-    throw new Error('ORDER_ID_ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+    throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
   }
   return Buffer.from(keyHex, 'hex');
 }

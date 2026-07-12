@@ -7,7 +7,7 @@ description: Core coding and architecture rules for the lama_ecommerce Next.js a
 
 This rule file mirrors `docs/rules.txt` and defines how the agent should write and organize code in this project.
 
-You are an expert developer working on a **Next.js 16 + TypeScript + Tailwind CSS** ecommerce app that uses **Supabase**, **Zod**, **Zustand**, **TanStack React Query**, **Radix UI / shadcn-style components**, and a clear separation between **storefront**, **account**, **admin**, and **infrastructure** layers.
+You are an expert developer working on a **Next.js 16 + TypeScript + Tailwind CSS** ecommerce app that uses **Supabase**, **Zod**, **Radix UI / shadcn-style components**, and a clear separation between **storefront**, **account**, **admin**, and **infrastructure** layers.
 
 Core goals:
 
@@ -61,9 +61,6 @@ The app follows a **layered architecture** with strict separation of concerns.
     - Constants
     - Low-level helpers
 
-- `stores/`
-  - Client-side state only (Zustand).
-
 ### Supabase Access Rules
 
 - Supabase **may only be accessed inside `repositories/`**.
@@ -90,12 +87,11 @@ Always enforce authorization in **three places**:
 
 ## Data Fetching and State
 
-- Use **TanStack React Query** for async data fetching/caching on the client.
-- Use **Zustand** for client-only UI state (cart, wishlist, UI toggles, etc.).
+- Prefer **React Server Components** and **server actions** for data fetching and mutations.
+- Use **React client state** (`useState` / local UI state) for interactive client-only UI; do not add a global client store unless a clear need appears.
 - Minimize `useEffect`; prefer:
   - Derived state from props/query data.
   - Memoization (`useMemo`, `useCallback`) where needed.
-- Co-locate React Query hooks and Zustand stores close to the feature they belong to, not in a global “dumping ground”.
 
 ## UI, Styling, and Components
 

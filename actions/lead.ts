@@ -5,12 +5,12 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createLeadSchema } from "@/lib/validators/lead/create";
 import { updateLeadSchema } from "@/lib/validators/lead/update";
 import {
-  createLead,
-  createLeadAdmin,
-  getAllLeads,
-  updateLead,
-  deleteLead,
-} from "@/repositories/lead.repository";
+  createLeadService,
+  createLeadAdminService,
+  getAllLeadsService,
+  updateLeadService,
+  deleteLeadService,
+} from "@/services/lead.service";
 import {
   checkFormRateLimit,
   getClientIpFromHeaders,
@@ -44,7 +44,7 @@ export async function createLeadAction(formData: FormData) {
   if (!parsed.success) {
     return { success: false as const, error: "Please enter a valid email address." };
   }
-  const ok = await createLead(parsed.data);
+  const ok = await createLeadService(parsed.data);
   return ok
     ? { success: true as const }
     : { success: false as const, error: "Something went wrong. Please try again." };
@@ -53,7 +53,7 @@ export async function createLeadAction(formData: FormData) {
 /** Get all leads for admin. */
 export async function getLeadsAction() {
   await requireAdmin();
-  return await getAllLeads();
+  return await getAllLeadsService();
 }
 
 /** Create a lead as admin. Revalidates /admin/leads on success. */
@@ -63,7 +63,7 @@ export async function createLeadAdminAction(payload: { email: string }) {
   if (!parsed.success) {
     return { success: false as const, error: "Please enter a valid email address." };
   }
-  const created = await createLeadAdmin(parsed.data);
+  const created = await createLeadAdminService(parsed.data);
   if (!created) {
     return { success: false as const, error: "Failed to create lead." };
   }
@@ -78,7 +78,7 @@ export async function updateLeadAction(payload: { id: string; email: string }) {
   if (!parsed.success) {
     return { success: false as const, error: "Please enter a valid email address." };
   }
-  const ok = await updateLead(parsed.data);
+  const ok = await updateLeadService(parsed.data);
   if (!ok) {
     return { success: false as const, error: "Failed to update lead." };
   }
@@ -89,7 +89,7 @@ export async function updateLeadAction(payload: { id: string; email: string }) {
 /** Delete a lead as admin. Revalidates /admin/leads on success. */
 export async function deleteLeadAction(id: string) {
   await requireAdmin();
-  const ok = await deleteLead(id);
+  const ok = await deleteLeadService(id);
   if (!ok) {
     return { success: false as const, error: "Failed to delete lead." };
   }

@@ -1,8 +1,8 @@
-# Lama Ecommerce — Project Strengths, Weaknesses & Threats Audit
+﻿# Lama Ecommerce — Project Strengths, Weaknesses & Threats Audit
 
 **Date:** 2026-07-12  
 **Scope:** Full codebase scan (architecture, security, features, performance, DX, deployment)  
-**Stack:** Next.js 16 · TypeScript · Tailwind · Supabase · Zod · Zustand (declared) · TanStack Query (declared)  
+**Stack:** Next.js 16 · TypeScript · Tailwind · Supabase · Zod · Radix UI / shadcn-style components  
 **Verdict:** Strong layered foundation and broad admin/storefront coverage, but **not production-ready** until critical security and payment gaps are closed.
 
 ---
@@ -110,10 +110,10 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 
 | Sev | Issue | Evidence |
 |-----|--------|----------|
-| **High** | Services call Supabase directly (violates rule) | `services/cart.service.ts` (`createSupabaseServerActionClient` + `.from("cart_items")`) |
-| **High** | Actions talk to Storage / tables / repos directly, skipping service authz | `actions/product.ts`, `actions/brand.ts`, `actions/lead.ts`, `actions/cart.ts` |
-| **High** | Zustand + TanStack Query are in `package.json` / rules but **unused** (no `stores/`, no `QueryClientProvider`) | `package.json`; no `stores/` folder |
-| **Medium** | Widespread `as any` in repositories and middleware weakens type safety | `middleware.ts`, order/cart/analytics repos |
+| **High** | ~~Services call Supabase directly (violates rule)~~ — **resolved✅** | Removed dead `validateStockAvailability` from `cart.service.ts`; services use repositories only |
+| **High** | ~~Actions talk to Storage / tables / repos directly, skipping service authz~~ — **resolved✅** | Brand logos + logout moved to services; admin contact/Q&A pages use services; identity helpers may still call auth repo |
+| **High** | ~~Zustand + TanStack Query are in `package.json` / rules but **unused**~~ — **resolved✅** | Removed unused deps; RSC + server actions for data; React state for client UI |
+| **Medium** | ~~Widespread `as any` in repositories and middleware weakens type safety~~ — **resolved✅** | Expanded `types/supabase.ts`; stripped casts from middleware + order/cart/analytics repos |
 
 ### 3.3 Performance
 
@@ -141,14 +141,14 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 
 | Sev | Issue | Evidence |
 |-----|--------|----------|
-| **High** | `.env.example` is empty; README is create-next-app boilerplate | `.env.example`, `README.md` |
-| **High** | No CI workflows (no `.github/workflows`) | Repo root |
-| **High** | Zero automated tests (`*.test.*` / `*.spec.*`) | Glob empty; no test script in `package.json` |
+| **High** | ~~No CI workflows (no `.github/workflows`)~~ — **resolved✅** | `.github/workflows/ci.yml`: lint + vitest + build (Playwright e2e deferred) |
+| **High** | ~~`.env.example` is empty~~ — **resolved✅**; ~~README is create-next-app boilerplate~~ — **resolved✅** | `.env.example` + root `README.md` (env, migrate, scripts) |
+| **High** | ~~Zero automated tests (`*.test.*` / `*.spec.*`)~~ — **resolved✅** | Vitest unit/feature suites under `tests/`; Playwright smoke under `e2e/` |
 | **Medium** | Docs overstate readiness (“Stripe-ready”, password reset, Super Admin, search) | `docs/summarization.txt` vs code |
-| **Medium** | Bedrock structure docs describe `src/(storefront)` but app uses root `app/(public)` | `docs/bedrock/project_structure.md` |
-| **Medium** | Possible secret material in docs command file — rotate if real | `docs/cmds/api_test_Stripe.txt` |
+| **Medium** | ~~Bedrock structure docs describe `src/(storefront)` but app uses root `app/(public)`~~ — **resolved✅** | Synced `docs/[03] Bedrock` + phase path refs to `app/(public)`, `services/`, `repositories/` |
+| **Medium** | ~~Possible secret material in docs command file~~ — **resolved✅** (working tree); rotate key + purge history if not done | Stubbed `docs/[04] CMDs/api_test_Stripe.txt`; see CMDs README for history purge |
 | **Low** | Duplicate/legacy Supabase helper packages (`@supabase/auth-helpers-nextjs` + `@supabase/ssr`) | `package.json` |
-| **Low** | Sparse per-route loading/error boundaries outside root + admin | Glob of `loading.tsx` / `error.tsx` |
+| **Low** | ~~Sparse per-route loading/error boundaries outside root + admin~~ — **resolved✅** | Products + admin products/orders/carts `loading`/`error`; skip link; Radix dialog focus trap |
 
 ---
 
@@ -164,7 +164,7 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 | T6 | ~~Spam flood on contact/leads~~ — **resolved✅** | — | — | Public INSERT policies dropped; DB rate limit + honeypot |
 | T7 | ~~Fake “paid” UX / unauthenticated `payment_status` abuse~~ — **resolved✅** (interim) | — | — | Place-order UX; admin-only payment_status; Stripe still deferred |
 | T8 | ~~Catalog / cost DoS from 10k product fetch under load~~ — **resolved✅** | — | — | Server-side pageSize cap + related tier queries |
-| T9 | Secret leak in docs (if key is real) → account/API compromise | **Medium** | **Critical** | Rotate immediately; scrub git history if committed |
+| T9 | ~~Secret leak in docs~~ — **resolved✅** (working tree); rotate key + optional history purge still recommended | — | — | Stubbed docs file; purge commands in `docs/[04] CMDs/README.md` |
 | T10 | ~~Stale docs cause wrong security assumptions (“RLS + middleware is enough”)~~ — **partially mitigated** | **Low** | **Medium** | Middleware now covers `/api/admin`; actions still need per-route authz (mostly in place) |
 
 ---
@@ -178,17 +178,17 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 3. ~~**`requireAdmin()` on order / backup / extract / leads / cart-admin / product_view**~~ — **resolved✅**
 4. ~~**Remove or lock down DB extract**~~ — **resolved✅** (admin-only on route + service + middleware)
 5. **Implement real payments (deferred)** — Stripe (or equivalent) + webhook; write `payments` rows; set `payment_status` only after confirmed payment. *(Fake delay / place-order UX — **resolved✅**.)*
-6. **Fix products listing** — server-side filter/sort/pagination; remove `pageSize: 10000`.
-7. **Rotate any secrets** found in `docs/cmds/` (and purge from history if committed). Do not store live keys in docs.
-8. **Fill `.env.example`** with key **names only** (no values): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` / `SUPABASE_DB_URL`, `ENCRYPTION_KEY` (align naming with code), future `STRIPE_*`.
+6. ~~**Fix products listing** — server-side filter/sort/pagination; remove `pageSize: 10000`.~~ — **resolved✅** (`/products` paginated; FeaturedProducts uses `isFeatured: true`, pageSize 12)
+7. ~~**Scrub secrets from docs**~~ — **resolved✅** (working tree stubbed); **you must still rotate the leaked key** and optionally purge git history (commands in `docs/[04] CMDs/README.md`).
+8. ~~**Fill `.env.example`** with key names only~~ — **resolved✅**; `ENCRYPTION_KEY` error strings aligned in `lib/utils/encryption.ts`.
 
 ### P1 — Correctness & security hardening
 
 9. ~~Validate auth callback `next` — allow only relative same-origin paths~~ — **resolved✅** (`lib/auth/safe-redirect.ts`)
 10. ~~Narrow `force-dynamic` to auth-aware layouts; allow caching for public catalog/home where safe.~~ — **resolved✅**
 11. ~~Fix carts admin N+1 query.~~ — **resolved✅**
-12. Move all Supabase access out of services/actions into repositories; add service-layer authz for admin domains that currently rely on service role alone.
-13. Prefer session client + admin RLS over service role except break-glass (user create, dumps).
+12. ~~Move all Supabase access out of services/actions into repositories; add service-layer authz for admin domains that currently rely on service role alone.~~ — **resolved✅** (`requireAdmin` on Q&A/contact/lead/analytics/dashboard/brand/product/review services; brand Storage + logout via services)
+13. ~~Prefer session client + admin RLS over service role except break-glass (user create, dumps).~~ — **resolved✅** (promo + shipping repos use session client; break-glass kept for guest cart/wishlist, checkout RPC, backups, user create, rate-limit, counters)
 14. ~~Add rate limiting for public inserts (contact, leads)~~ — **resolved✅**; still open for checkout / product views if needed.
 15. Wire promo codes into checkout; ~~redirect to `/order_details/[id]` after success~~ — **resolved✅**; order confirmation email still open.
 16. Password reset flow; decide Super Admin vs single admin and enforce consistently.
@@ -201,14 +201,14 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 20. Dedicated search (server-side); optional multi-step `/checkout` if desired.
 21. Fix ProfileActions dead links; finish or remove website-content admin.
 22. Implement or drop `moved_to_order` (`docs/todo.todo`).
-23. Add CI: `lint` + `build` (and later tests).
-24. Replace README with real setup (env, Supabase migrate, scripts).
-25. Sync bedrock/phase docs to actual folders (`app/(public)`, no `src/`).
-26. Add React Query provider **or** remove unused dependency; same for Zustand.
-27. Reduce `as any`; generate/use typed Supabase client properly.
-28. Add tests: RLS guest isolation, checkout ownership, admin authz on actions, open-redirect negatives, stock race.
-29. Route-level loading/error for heavy product/admin pages; expand a11y (skip links, focus traps).
-30. Add security headers / CSP when deploying (Vercel or `next.config`).
+23. ~~Add CI: `lint` + `build` (and later tests).~~ — **resolved✅** (`.github/workflows/ci.yml`: lint + vitest + build; Playwright deferred)
+24. ~~Replace README with real setup (env, Supabase migrate, scripts).~~ — **resolved✅**
+25. ~~Sync bedrock/phase docs to actual folders (`app/(public)`, no `src/`).~~ — **resolved✅**
+26. ~~Add React Query provider **or** remove unused dependency; same for Zustand.~~ — **resolved✅** (removed unused packages)
+27. ~~Reduce `as any`; generate/use typed Supabase client properly.~~ — **resolved✅** (middleware + order/cart/analytics; `types/supabase.ts` expanded)
+28. ~~Add tests: RLS guest isolation, checkout ownership, admin authz on actions, open-redirect negatives, stock race.~~ — **resolved✅** (Vitest; live RLS still via checklist)
+29. ~~Route-level loading/error for heavy product/admin pages; expand a11y (skip links, focus traps).~~ — **resolved✅**
+30. ~~Add security headers / CSP when deploying (Vercel or `next.config`).~~ — **resolved✅** (`next.config.ts` headers)
 
 ---
 
@@ -224,7 +224,7 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 | RLS | Yes | Yes (core + payments/shipping/promo/stats) | Guest via service role + cookie |
 | Storefront catalog | Yes | Yes | — |
 | Search page | Yes | **No** | Missing route |
-| Cart (guest + user) | Yes | Yes (server-side) | Docs still say localStorage/Zustand |
+| Cart (guest + user) | Yes | Yes (server-side) | — |
 | Wishlist | Yes | Yes | Guest via service role + session |
 | Checkout atomic | Yes | Yes | Ownership hardened |
 | Stripe payments | “Stripe-ready” | Place-order + pending (Stripe deferred) | Deferred |
@@ -237,8 +237,8 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 | Admin shipping / promocodes | Yes | Yes | Promo unused at checkout |
 | Website CMS | Planned | Stub | — |
 | Settings page | Planned | Missing | — |
-| Automated tests | Implied production | **None** | — |
-| CI / env example / README | Implied | Weak/empty | — |
+| Automated tests | Implied production | Vitest unit/feature in CI; Playwright smoke local-only | E2E not in CI yet |
+| CI / env example / README | Implied | Yes | — |
 
 ---
 
@@ -247,13 +247,13 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 | Rule (from project rules) | Status |
 |---------------------------|--------|
 | Components → no Supabase | **Pass** |
-| Services → no Supabase | **Fail** (`cart.service.ts`) |
-| Actions → thin orchestration only | **Partial fail** |
-| Repositories own data access | **Mostly**; undermined by service-role without authz |
-| Authz in middleware + RLS + service | **Pass** (core paths) — pages + `/api/admin` + admin actions gated; guest RLS fixed |
+| Services → no Supabase | **Pass** |
+| Actions → thin orchestration only | **Pass** (brand Storage + logout via services; identity helpers may call auth repo) |
+| Repositories own data access | **Pass** |
+| Authz in middleware + RLS + service | **Pass** — admin services gated with `requireAdmin`; promo/shipping use session + admin RLS |
 | Zod on inputs | **Partial pass** — strong on checkout/many forms; inconsistent on admin updates |
-| TanStack Query for client fetch | **Not used** |
-| Zustand for client UI state | **Not used** |
+| TanStack Query for client fetch | **N/A** — dependency removed; RSC/actions used |
+| Zustand for client UI state | **N/A** — dependency removed; React state used |
 
 ---
 
@@ -283,11 +283,11 @@ supabase/migrations/20260712100000_fix_guest_rls_and_checkout_ownership.sql
 supabase/migrations/20260712110000_rls_policies_payments_shipping_promo_stats.sql
 supabase/migrations/20260712110001_contact_leads_rate_limit.sql
 supabase/migrations/20260712200000_lock_get_user_role_search_path.sql
-docs/cmds/api_test_Stripe.txt   ← treat as compromised if key is real
+docs/[04] CMDs/api_test_Stripe.txt   ← stub only (no live keys); purge history if needed
 docs/summarization.txt          ← overstates readiness
 docs/todo.todo
-.env.example                    ← empty
-package.json                    ← no stripe, no test runner, unused query/zustand
+.env.example                    ← key names only (filled)
+package.json                    ← no stripe; Vitest present; RQ/Zustand removed
 ```
 
 ---
@@ -297,10 +297,10 @@ package.json                    ← no stripe, no test runner, unused query/zust
 1. ~~Guest RLS + checkout ownership~~ — **resolved✅**
 2. ~~Open redirect + place-order UX + order/backup/lead admin authz + extract lock~~ — **resolved✅**
 3. ~~Deny-all table RLS + contact/leads rate limit + `get_user_role` search_path~~ — **resolved✅**
-4. ~~Products pagination/filters server-side + drop global `force-dynamic`~~ — **resolved✅**
-5. Env example, README, CI, secret scrubbing
+4. ~~Products pagination/filters + FeaturedProducts (no 10k fetch) + force-dynamic~~ — **resolved✅**
+5. ~~`.env.example` + docs secret scrub~~ — **resolved✅**; rotate leaked key + history purge if desired; README/CI polish
 6. Real Stripe when ready; password reset, promo at checkout, confirmation email
-7. Architecture cleanup (`cart.service` Supabase leak) + tests
+7. ~~Architecture cleanup (service authz + promo/shipping session RLS)~~ — **resolved✅**; remaining admin-client demotions + tests still open
 
 ---
 

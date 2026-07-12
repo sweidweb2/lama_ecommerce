@@ -3,6 +3,7 @@
 import { ProductGrid } from './ProductGrid'
 import { SearchBar } from './SearchBar'
 import { MobileFilters } from './MobileFilters'
+import { ROUTES } from '@/lib/constants/routes'
 import type { ProductWithRelations, Category } from '@/types/product'
 
 interface ClientProductFilterProps {
@@ -41,7 +42,7 @@ export function ClientProductFilter({
             <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-4 bg-muted/30 p-2 rounded-xl border border-border/50 backdrop-blur-sm mb-6">
                 <div className="w-full flex items-center gap-2 md:gap-4">
                     <div className="flex-1">
-                        <SearchBar />
+                        <SearchBar href={ROUTES.PRODUCTS} />
                     </div>
                     <MobileFilters
                         categories={categories}

@@ -24,7 +24,7 @@ export async function createProductImage(
           url_image: input.url_image,
           is_primary: input.is_primary ?? false,
         },
-      ] as any)
+      ])
       .select("*")
       .single();
 
@@ -37,6 +37,59 @@ export async function createProductImage(
   } catch (error) {
     console.error("Unexpected error in createProductImage:", error);
     return null;
+  }
+}
+
+/**
+ * Get a single product image by id.
+ */
+export async function getProductImageById(
+  imageId: string,
+): Promise<ProductImage | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { data, error } = await supabase
+      .from("product_images")
+      .select("*")
+      .eq("id", imageId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching product image by id:", error);
+      return null;
+    }
+
+    return (data ?? null) as ProductImage | null;
+  } catch (error) {
+    console.error("Unexpected error in getProductImageById:", error);
+    return null;
+  }
+}
+
+/**
+ * Delete a product image row by id (table only).
+ */
+export async function deleteProductImageById(
+  imageId: string,
+): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { error } = await supabase
+      .from("product_images")
+      .delete()
+      .eq("id", imageId);
+
+    if (error) {
+      console.error("Error deleting product image row:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Unexpected error in deleteProductImageById:", error);
+    return false;
   }
 }
 
@@ -107,7 +160,7 @@ export async function setPrimaryProductImage(
     const supabase = await createSupabaseServerActionClient();
 
     // Clear existing primary flags for this product
-    const { error: clearError } = await (supabase as any)
+    const { error: clearError } = await supabase
       .from("product_images")
       .update({ is_primary: false })
       .eq("product_id", productId)
@@ -119,7 +172,7 @@ export async function setPrimaryProductImage(
     }
 
     // Set the requested image as primary
-    const { error: setError } = await (supabase as any)
+    const { error: setError } = await supabase
       .from("product_images")
       .update({ is_primary: true })
       .eq("product_id", productId)

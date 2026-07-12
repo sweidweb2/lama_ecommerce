@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getBrands,
   createBrand,
@@ -6,6 +7,12 @@ import {
   type CreateBrandInput,
   type UpdateBrandInput,
 } from "@/repositories/brand.repository";
+import {
+  extractStorageObjectPath,
+  getPublicUrl,
+  removeFiles,
+  uploadPublicFile,
+} from "@/repositories/storage.repository";
 import type { Brand } from "@/types/product";
 
 export async function getBrandsService(): Promise<Brand[]> {
@@ -21,38 +28,100 @@ export async function getBrandsService(): Promise<Brand[]> {
   }
 }
 
-export async function createBrandService(
-  input: CreateBrandInput,
-): Promise<Brand | null> {
+async function uploadBrandLogo(logoFile: File): Promise<string> {
+  const ext = logoFile.type.split("/")[1] || "png";
+  const filePath = `brands/${crypto.randomUUID()}.${ext}`;
+
+  const upload = await uploadPublicFile(
+    "brands",
+    filePath,
+    logoFile,
+    logoFile.type || "image/*",
+  );
+
+  if (!upload.success) {
+    throw new Error("Failed to upload brand logo");
+  }
+
+  const url = await getPublicUrl("brands", filePath);
+  if (!url) {
+    throw new Error("Failed to resolve brand logo URL");
+  }
+  return url;
+}
+
+async function removeBrandLogo(logoUrl: string | null | undefined): Promise<void> {
+  if (!logoUrl) return;
+  const objectPath = extractStorageObjectPath(logoUrl, "brands");
+  if (!objectPath) return;
+  const removed = await removeFiles("brands", [objectPath]);
+  if (!removed.success) {
+    console.error("Error deleting brand logo:", removed.error);
+  }
+}
+
+export async function createBrandService(input: {
+  name: string;
+  slug: string | null;
+  logoFile?: File | null;
+}): Promise<Brand | null> {
+  await requireAdmin();
   try {
-    const newBrand = await createBrand(input);
-    if (newBrand === null) {
-      return null;
+    let logo_image_url: string | null = null;
+    if (input.logoFile && input.logoFile.size > 0) {
+      logo_image_url = await uploadBrandLogo(input.logoFile);
     }
-    return newBrand;
+
+    const payload: CreateBrandInput = {
+      name: input.name,
+      slug: input.slug,
+      logo_image_url,
+    };
+
+    return await createBrand(payload);
   } catch (error) {
     console.error("Unexpected error in createBrandService:", error);
-    return null;
+    throw error;
   }
 }
 
-export async function updateBrandService(
-  input: UpdateBrandInput,
-): Promise<Brand | null> {
+export async function updateBrandService(input: {
+  id: string;
+  name: string;
+  slug: string | null;
+  currentLogoUrl?: string | null;
+  logoFile?: File | null;
+}): Promise<Brand | null> {
+  await requireAdmin();
   try {
-    const updated = await updateBrand(input);
-    if (updated === null) {
-      return null;
+    let logo_image_url: string | null = input.currentLogoUrl ?? null;
+
+    if (input.logoFile && input.logoFile.size > 0) {
+      await removeBrandLogo(input.currentLogoUrl);
+      logo_image_url = await uploadBrandLogo(input.logoFile);
     }
-    return updated;
+
+    const payload: UpdateBrandInput = {
+      id: input.id,
+      name: input.name,
+      slug: input.slug,
+      logo_image_url,
+    };
+
+    return await updateBrand(payload);
   } catch (error) {
     console.error("Unexpected error in updateBrandService:", error);
-    return null;
+    throw error;
   }
 }
 
-export async function deleteBrandService(id: string): Promise<boolean> {
+export async function deleteBrandService(
+  id: string,
+  logoUrl?: string | null,
+): Promise<boolean> {
+  await requireAdmin();
   try {
+    await removeBrandLogo(logoUrl);
     return await deleteBrand(id);
   } catch (error) {
     console.error("Unexpected error in deleteBrandService:", error);

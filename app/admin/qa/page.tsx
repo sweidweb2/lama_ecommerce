@@ -1,6 +1,6 @@
 import { getAllQuestionsAdmin } from "@/services/product_question.service";
-import { getAdminProducts } from "@/repositories/product.repository";
-import { getAllProfilesForAdmin } from "@/repositories/profile.repository";
+import { getAdminProductsService } from "@/services/product.service";
+import { getProfilesForAdmin } from "@/services/profile.service";
 import { QATable } from "@/components/admin/qa/qa-table";
 
 export default async function QAPage() {
@@ -11,8 +11,8 @@ export default async function QAPage() {
   try {
     const [questionsData, productsData, profilesData] = await Promise.all([
       getAllQuestionsAdmin(),
-      getAdminProducts(),
-      getAllProfilesForAdmin(),
+      getAdminProductsService(),
+      getProfilesForAdmin(),
     ]);
     questions = questionsData;
     products = productsData.map((p) => ({ id: p.id, name: p.name }));

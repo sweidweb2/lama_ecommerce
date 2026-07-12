@@ -6,9 +6,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface PaginationProps {
     totalPages: number
+    /** Base path for page links. Default: `/products` */
+    basePath?: string
 }
 
-export function Pagination({ totalPages }: PaginationProps) {
+export function Pagination({ totalPages, basePath = '/products' }: PaginationProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const currentPage = Number(searchParams.get('page')) || 1
@@ -20,7 +22,8 @@ export function Pagination({ totalPages }: PaginationProps) {
         } else {
             params.set('page', page.toString())
         }
-        router.push(`/products?${params.toString()}`)
+        const qs = params.toString()
+        router.push(qs ? `${basePath}?${qs}` : basePath)
     }
 
     if (totalPages <= 1) return null

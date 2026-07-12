@@ -22,7 +22,7 @@ Use this as the final checklist before marking Phase 2 (Authentication & Authori
 ### Frontend Auth Flows
 - [ ] Register, login, logout flows working end‑to‑end
 - [ ] Password reset (request + reset page) tested
-- [ ] Auth routes in `app/(storefront)/auth/*` wired up with Zod validation
+- [ ] Auth routes in `app/(public)/auth/*` wired up with Zod validation
 
 ### Session & State
 - [ ] `lib/supabase/client.ts` and `server.ts` in use
@@ -30,7 +30,7 @@ Use this as the final checklist before marking Phase 2 (Authentication & Authori
 - [ ] Client components rely on context/hooks instead of ad‑hoc Supabase calls
 
 ### Route Protection & Permissions
-- [ ] `middleware.ts` correctly protects `(account)` and `(admin)` routes
+- [ ] `middleware.ts` correctly protects `(useraccount)` and `admin` routes
 - [ ] Permission helpers in `lib/auth/permissions.ts` used in UI and server actions
 
 When all items are checked, Phase 2 is **done** and you can safely move on to Phase 3 (Storefront). 

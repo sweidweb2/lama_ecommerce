@@ -1,0 +1,107 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { adminProfile, userProfile } from "../helpers/mocks";
+
+const getCurrentUserProfile = vi.fn();
+const getAllContactMessages = vi.fn();
+const updateContactMessage = vi.fn();
+const deleteContactMessage = vi.fn();
+const getAdminQuestions = vi.fn();
+const createProductQuestion = vi.fn();
+const deleteProductQuestion = vi.fn();
+
+vi.mock("@/services/profile.service", () => ({
+  getCurrentUserProfile: (...args: unknown[]) => getCurrentUserProfile(...args),
+}));
+
+vi.mock("@/repositories/contact.repository", () => ({
+  createContactMessage: vi.fn(),
+  getAllContactMessages: (...args: unknown[]) => getAllContactMessages(...args),
+  getContactMessageById: vi.fn(),
+  updateContactMessage: (...args: unknown[]) => updateContactMessage(...args),
+  updateContactMessageStatus: vi.fn(),
+  deleteContactMessage: (...args: unknown[]) => deleteContactMessage(...args),
+}));
+
+vi.mock("@/repositories/product_question.repository", () => ({
+  getAdminQuestions: (...args: unknown[]) => getAdminQuestions(...args),
+  createProductQuestion: (...args: unknown[]) => createProductQuestion(...args),
+  updateProductQuestion: vi.fn(),
+  addProductAnswer: vi.fn(),
+  deleteProductQuestion: (...args: unknown[]) => deleteProductQuestion(...args),
+}));
+
+describe("contact_us.service admin gates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("getAllContactUs throws for non-admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(userProfile);
+    const { getAllContactUs } = await import("@/services/contact_us.service");
+    await expect(getAllContactUs()).rejects.toThrow("Unauthorized");
+    expect(getAllContactMessages).not.toHaveBeenCalled();
+  });
+
+  it("update/delete throw for non-admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(userProfile);
+    const { updateContactUs, deleteContactUs } = await import(
+      "@/services/contact_us.service"
+    );
+    await expect(
+      updateContactUs("1", {
+        full_name: "A",
+        email: "a@b.com",
+        message: "hi",
+      }),
+    ).rejects.toThrow("Unauthorized");
+    await expect(deleteContactUs("1")).rejects.toThrow("Unauthorized");
+  });
+
+  it("getAllContactUs reaches repo for admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    getAllContactMessages.mockResolvedValue([{ id: "c1" }]);
+    const { getAllContactUs } = await import("@/services/contact_us.service");
+    await expect(getAllContactUs()).resolves.toEqual([{ id: "c1" }]);
+  });
+});
+
+describe("product_question.service admin gates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("getAllQuestionsAdmin returns [] for non-admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(userProfile);
+    const { getAllQuestionsAdmin } = await import(
+      "@/services/product_question.service"
+    );
+    await expect(getAllQuestionsAdmin()).resolves.toEqual([]);
+    expect(getAdminQuestions).not.toHaveBeenCalled();
+  });
+
+  it("create/delete return null/false for non-admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(userProfile);
+    const { createQuestionAdmin, deleteQuestionAdmin } = await import(
+      "@/services/product_question.service"
+    );
+    await expect(
+      createQuestionAdmin({
+        product_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        question: "Q?",
+        is_approved: false,
+      }),
+    ).resolves.toBeNull();
+    await expect(deleteQuestionAdmin("1")).resolves.toBe(false);
+    expect(createProductQuestion).not.toHaveBeenCalled();
+    expect(deleteProductQuestion).not.toHaveBeenCalled();
+  });
+
+  it("getAllQuestionsAdmin reaches repo for admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    getAdminQuestions.mockResolvedValue([{ id: "q1" }]);
+    const { getAllQuestionsAdmin } = await import(
+      "@/services/product_question.service"
+    );
+    await expect(getAllQuestionsAdmin()).resolves.toEqual([{ id: "q1" }]);
+  });
+});

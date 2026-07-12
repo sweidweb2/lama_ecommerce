@@ -14,9 +14,9 @@ middleware.ts
 
 **Routing rules:**
 
-- `(storefront)` → public (no auth required)
-- `(account)` → **authenticated** users only
-- `(admin)` → **admin role** only
+- `(public)` → public (no auth required)
+- `(useraccount)` → **authenticated** users only
+- `admin` → **admin role** only
 
 **Checks performed by middleware:**
 
