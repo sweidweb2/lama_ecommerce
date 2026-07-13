@@ -499,6 +499,21 @@ export async function hardDeleteProduct(id: string): Promise<boolean> {
           "Cannot delete product: cart items still reference its variants. Remove them first.",
         );
       }
+
+      const { count: orderItemCount, error: orderItemError } = await supabase
+        .from("order_items")
+        .select("*", { count: "exact", head: true })
+        .in("customised_product_id", variantIds);
+
+      if (orderItemError) {
+        console.error("Error checking order_items before product delete:", orderItemError);
+        return false;
+      }
+      if ((orderItemCount ?? 0) > 0) {
+        throw new Error(
+          "Cannot delete product: order history still references its variants.",
+        );
+      }
     }
 
     const { error } = await supabase.from("products").delete().eq("id", id);

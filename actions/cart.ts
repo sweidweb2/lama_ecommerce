@@ -66,7 +66,6 @@ export async function mergeGuestCartOnLoginAction(): Promise<{
 
   if (result.success) {
     revalidatePath("/cart");
-    revalidatePath("/checkout");
   }
 
   return result;
@@ -100,7 +99,6 @@ export async function addItemToCartAction(input: {
 
     if (result.success) {
       revalidatePath("/cart");
-      revalidatePath("/checkout");
     }
 
     return result;
@@ -114,7 +112,6 @@ export async function addItemToCartAction(input: {
 
   if (result.success) {
     revalidatePath("/cart");
-    revalidatePath("/checkout");
   }
 
   return result;
@@ -208,7 +205,6 @@ export async function deleteCartItemAction(
 
   if (result.success) {
     revalidatePath("/cart");
-    revalidatePath("/checkout");
   }
 
   return result;
@@ -330,7 +326,6 @@ export async function updateCartItemQuantityAction(
 
     if (result.success) {
       revalidatePath("/cart");
-      revalidatePath("/checkout");
     }
 
     return result;

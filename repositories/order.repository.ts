@@ -324,6 +324,8 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
         address_snapshot,
         phone,
         email,
+        shipping_zone_id,
+        shipping_zone_name,
         created_at,
         updated_at
       `)
@@ -411,22 +413,25 @@ export async function getOrdersBySessionId(
 
 /**
  * Input for the process_checkout RPC function.
+ * Shipping fee is resolved inside SQL from shipping_zone_id; discount is forced to 0.
  */
 export interface ProcessCheckoutInput {
   cart_id: string;
   user_id: string | null;
   session_id: string | null;
-  shipping_fee: number;
-  discount: number;
+  shipping_zone_id: string;
   phone: string;
   email: string;
   address_snapshot: AddressSnapshot;
+  /** Optional; validated and applied inside process_checkout. */
+  promo_code?: string | null;
 }
 
 /**
  * Execute the atomic checkout PG function via Supabase RPC.
  * Uses service-role client (EXECUTE revoked from anon/authenticated).
  * Ownership is enforced inside process_checkout (user_id or session_id match).
+ * Shipping fee is resolved from p_shipping_zone_id inside the RPC.
  *
  * Returns the new order ID on success.
  */
@@ -440,11 +445,11 @@ export async function processCheckout(
       p_cart_id: input.cart_id,
       p_user_id: input.user_id,
       p_session_id: input.session_id,
-      p_shipping_fee: input.shipping_fee,
-      p_discount: input.discount,
+      p_shipping_zone_id: input.shipping_zone_id,
       p_phone: input.phone,
       p_email: input.email,
       p_address_snapshot: input.address_snapshot as unknown as import("@/types/supabase").JSON,
+      p_promo_code: input.promo_code?.trim() || null,
     });
 
     if (error) {
@@ -464,6 +469,16 @@ export async function processCheckout(
           "Some items went out of stock while you were checking out. Please review your cart.";
       } else if (errorMessage.includes("does not belong")) {
         errorMessage = "This cart does not belong to your account.";
+      } else if (errorMessage.includes("Invalid promo code")) {
+        errorMessage = "That promo code is not valid.";
+      } else if (errorMessage.includes("Promo code is inactive")) {
+        errorMessage = "That promo code is inactive.";
+      } else if (errorMessage.includes("Promo code has expired")) {
+        errorMessage = "That promo code has expired.";
+      } else if (errorMessage.includes("usage limit")) {
+        errorMessage = "That promo code has reached its usage limit.";
+      } else if (errorMessage.includes("Invalid shipping zone")) {
+        errorMessage = "Invalid shipping zone selected.";
       }
 
       return { success: false, error: errorMessage };
@@ -480,9 +495,107 @@ export async function processCheckout(
   }
 }
 
+export interface UpsertPaymentForOrderInput {
+  order_id: string;
+  status: Payment["status"];
+  amount?: number | null;
+  currency?: string | null;
+  transaction_id?: string | null;
+  paid_at?: string | null;
+  gateway?: string | null;
+  payment_method?: string | null;
+  payment_url?: string | null;
+}
+
+/**
+ * Insert or update the latest payment for an order, then sync orders.payment_status.
+ * Uses admin client (payments writes are not open to storefront users).
+ */
+export async function upsertPaymentForOrder(
+  input: UpsertPaymentForOrderInput,
+): Promise<{ success: boolean; error?: string; data?: Payment }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const existing = await getPaymentByOrderIdForAdmin(input.order_id);
+
+    const paidAt =
+      input.paid_at !== undefined
+        ? input.paid_at
+        : input.status === "paid"
+          ? new Date().toISOString()
+          : null;
+
+    const payload: Record<string, unknown> = {
+      status: input.status,
+      currency: input.currency?.trim() || "USD",
+      transaction_id: input.transaction_id?.trim() || null,
+      paid_at: paidAt,
+      gateway: input.gateway?.trim() || null,
+      payment_method: input.payment_method?.trim() || null,
+      payment_url: input.payment_url?.trim() || null,
+    };
+    if (input.amount !== undefined) {
+      payload.amount = input.amount;
+    }
+
+    let payment: Payment | null = null;
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from("payments")
+        .update(payload)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) {
+        console.error("Error updating payment:", error);
+        return { success: false, error: error.message || "Failed to update payment" };
+      }
+      payment = data as Payment;
+    } else {
+      const { data, error } = await supabase
+        .from("payments")
+        .insert({
+          order_id: input.order_id,
+          ...payload,
+        })
+        .select()
+        .single();
+      if (error) {
+        console.error("Error inserting payment:", error);
+        return { success: false, error: error.message || "Failed to create payment" };
+      }
+      payment = data as Payment;
+    }
+
+    const { error: orderError } = await supabase
+      .from("orders")
+      .update({ payment_status: input.status })
+      .eq("id", input.order_id);
+
+    if (orderError) {
+      console.error("Error syncing order payment_status:", orderError);
+      return {
+        success: false,
+        error: orderError.message || "Payment saved but order status sync failed",
+      };
+    }
+
+    return { success: true, data: payment ?? undefined };
+  } catch (error) {
+    console.error("Unexpected error in upsertPaymentForOrder:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
 /**
  * Update an order by ID (admin use).
  * Uses admin client to bypass RLS for admin operations.
+ * When payment_status is set, also upserts/syncs the payments row.
  */
 export async function updateOrder(
   orderId: string,
@@ -534,6 +647,21 @@ export async function updateOrder(
         success: false,
         error: error.message || "Failed to update order",
       };
+    }
+
+    if (input.payment_status !== undefined) {
+      const sync = await upsertPaymentForOrder({
+        order_id: orderId,
+        status: input.payment_status,
+        amount: (data as Order).total ?? null,
+      });
+      if (!sync.success) {
+        return {
+          success: false,
+          error: sync.error || "Order updated but payment sync failed",
+          data: data as Order,
+        };
+      }
     }
 
     return {

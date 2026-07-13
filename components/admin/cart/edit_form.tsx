@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { toast } from "sonner"
 
 // Dummy users for selection
 const DUMMY_USERS = [
@@ -48,7 +49,7 @@ export function EditCartDialog({ cart, showText = false }: EditCartDialogProps) 
 
     // Validation: user_id or session_id must be provided
     if (userId === NONE_VALUE && !sessionId.trim()) {
-      alert("Please provide either a user or a session ID")
+      toast.error("Please provide either a user or a session ID")
       return
     }
 

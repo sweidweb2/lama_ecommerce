@@ -55,13 +55,17 @@ export async function checkoutAction(
     address: input.address,
     phone: input.phone,
     email: input.email,
+    promo_code: input.promo_code ?? null,
+    save_address: Boolean(user && input.save_address),
   });
 
   // 4. Revalidate on success
   if (result.success) {
     revalidatePath("/cart");
-    revalidatePath("/checkout");
     revalidatePath("/orders");
+    if (input.save_address && user) {
+      revalidatePath("/account");
+    }
   }
 
   return result;

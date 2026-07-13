@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 // Dummy customised products for selection
 const DUMMY_CUSTOMISED_PRODUCTS = [
@@ -82,7 +83,7 @@ export function CreateOrderItemDialog({ orderId }: CreateOrderItemDialogProps) {
     e.preventDefault()
 
     if (!quantity || parseInt(quantity) <= 0) {
-      alert("Please enter a valid quantity")
+      toast.error("Please enter a valid quantity")
       return
     }
 

@@ -127,11 +127,11 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 
 | Sev | Issue | Evidence |
 |-----|--------|----------|
-| **Critical** | ~~Payment is simulated (2s delay → pending order)~~ — **resolved✅** (interim); Stripe/webhook/`payments` insert still deferred | Place-order flow; no fake delay; still no `stripe` dependency |
+| **Critical** | ~~Payment is simulated (2s delay → pending order)~~ — **resolved✅** (interim); Stripe/webhook still deferred | Place-order flow; `process_checkout` writes pending `payments` row; admin upsert syncs `orders.payment_status` |
 | **High** | No password-reset / forgot-password flow | Missing routes/actions vs plan |
 | **High** | No Super Admin role (only `user` / `admin`) | `lib/constants/roles.ts` |
-| **High** | No dedicated `/search` route; promo codes not applied at checkout (`discount: 0`) | Route tree; `services/checkout.service.ts` |
-| **High** | No order confirmation email / notification provider | Plan Phase 6; no email SDK |
+| **High** | No dedicated `/search` route; ~~promo codes not applied at checkout (`discount: 0`)~~ — **resolved✅** | Search still open; promo via `p_promo_code` in `process_checkout` |
+| **High** | ~~No order confirmation email / notification provider~~ — **resolved✅** | Resend + `sendOrderConfirmationEmailService` after checkout; set `RESEND_API_KEY` / `EMAIL_FROM` |
 | **Medium** | Account deep links broken (`/account/addresses`, `/account/payments`) | `components/(public)/profile/ProfileActions.tsx` |
 | **Medium** | Website content admin is a stub (sidebar entry commented out) | `app/admin/website-content/page.tsx` |
 | **Medium** | ~~Post-checkout redirects to empty cart instead of order confirmation~~ — **resolved✅** | Redirects to `/order_details/[encryptedId]` |
@@ -177,7 +177,7 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 2. ~~**Harden `process_checkout`** — require cart `user_id` **or** `session_id` match; set `search_path`; restrict `EXECUTE` grants.~~ — **resolved✅**
 3. ~~**`requireAdmin()` on order / backup / extract / leads / cart-admin / product_view**~~ — **resolved✅**
 4. ~~**Remove or lock down DB extract**~~ — **resolved✅** (admin-only on route + service + middleware)
-5. **Implement real payments (deferred)** — Stripe (or equivalent) + webhook; write `payments` rows; set `payment_status` only after confirmed payment. *(Fake delay / place-order UX — **resolved✅**.)*
+5. **Implement real payments (deferred)** — Stripe (or equivalent) + webhook. *(Fake delay / place-order UX — **resolved✅**. Pending `payments` row + admin sync — **resolved✅**. Stripe still deferred.)*
 6. ~~**Fix products listing** — server-side filter/sort/pagination; remove `pageSize: 10000`.~~ — **resolved✅** (`/products` paginated; FeaturedProducts uses `isFeatured: true`, pageSize 12)
 7. ~~**Scrub secrets from docs**~~ — **resolved✅** (working tree stubbed); **you must still rotate the leaked key** and optionally purge git history (commands in `docs/[04] CMDs/README.md`).
 8. ~~**Fill `.env.example`** with key names only~~ — **resolved✅**; `ENCRYPTION_KEY` error strings aligned in `lib/utils/encryption.ts`.
@@ -190,7 +190,7 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 12. ~~Move all Supabase access out of services/actions into repositories; add service-layer authz for admin domains that currently rely on service role alone.~~ — **resolved✅** (`requireAdmin` on Q&A/contact/lead/analytics/dashboard/brand/product/review services; brand Storage + logout via services)
 13. ~~Prefer session client + admin RLS over service role except break-glass (user create, dumps).~~ — **resolved✅** (promo + shipping repos use session client; break-glass kept for guest cart/wishlist, checkout RPC, backups, user create, rate-limit, counters)
 14. ~~Add rate limiting for public inserts (contact, leads)~~ — **resolved✅**; still open for checkout / product views if needed.
-15. Wire promo codes into checkout; ~~redirect to `/order_details/[id]` after success~~ — **resolved✅**; order confirmation email still open.
+15. ~~Wire promo codes into checkout~~ — **resolved✅**; ~~redirect to `/order_details/[id]` after success~~ — **resolved✅**; ~~order confirmation email~~ — **resolved✅** (Resend).
 16. Password reset flow; decide Super Admin vs single admin and enforce consistently.
 17. ~~Use `crypto.randomUUID()` (or better) for guest session IDs.~~ — **resolved✅**
 18. ~~Add least-privilege RLS for payments / shipments / shipping / promo / product_stats~~ — **resolved✅** (`20260712110000_…`)
@@ -227,14 +227,14 @@ Severity legend: **Critical** · **High** · **Medium** · **Low**
 | Cart (guest + user) | Yes | Yes (server-side) | — |
 | Wishlist | Yes | Yes | Guest via service role + session |
 | Checkout atomic | Yes | Yes | Ownership hardened |
-| Stripe payments | “Stripe-ready” | Place-order + pending (Stripe deferred) | Deferred |
-| Order emails | Yes | **No** | Missing |
-| Promo at checkout | Admin exists | **Not applied** | `discount: 0` |
+| Stripe payments | “Stripe-ready” | Place-order + pending `payments` row (Stripe deferred) | Deferred |
+| Order emails | Yes | **Yes** (confirmation via Resend) | Status/shipping emails still deferred |
+| Promo at checkout | Admin exists | **Applied in RPC** | `p_promo_code` + `orders.promo_code_id` |
 | Account dashboard | Full plan | Thin | Dead links |
 | Admin products/orders/users | Yes | Yes | — |
 | Admin analytics | Yes | Yes | — |
 | Admin backups | Yes | Yes | Authz **resolved✅** |
-| Admin shipping / promocodes | Yes | Yes | Promo unused at checkout |
+| Admin shipping / promocodes | Yes | Yes | Promo applied at checkout |
 | Website CMS | Planned | Stub | — |
 | Settings page | Planned | Missing | — |
 | Automated tests | Implied production | Vitest unit/feature in CI; Playwright smoke local-only | E2E not in CI yet |
@@ -299,8 +299,9 @@ package.json                    ← no stripe; Vitest present; RQ/Zustand remove
 3. ~~Deny-all table RLS + contact/leads rate limit + `get_user_role` search_path~~ — **resolved✅**
 4. ~~Products pagination/filters + FeaturedProducts (no 10k fetch) + force-dynamic~~ — **resolved✅**
 5. ~~`.env.example` + docs secret scrub~~ — **resolved✅**; rotate leaked key + history purge if desired; README/CI polish
-6. Real Stripe when ready; password reset, promo at checkout, confirmation email
+6. Real Stripe when ready; password reset; ~~confirmation email~~ — **resolved✅** (Resend)
 7. ~~Architecture cleanup (service authz + promo/shipping session RLS)~~ — **resolved✅**; remaining admin-client demotions + tests still open
+8. ~~Promo at checkout~~ — **resolved✅**
 
 ---
 

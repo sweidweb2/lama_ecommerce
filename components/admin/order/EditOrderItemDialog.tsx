@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { toast } from "sonner"
 import type { OrderItem } from "@/types/order"
 
 // Dummy customised products for selection
@@ -84,7 +85,7 @@ export function EditOrderItemDialog({ orderItem, showText = false }: EditOrderIt
     e.preventDefault()
 
     if (!productName || !price || !quantity || parseInt(quantity) <= 0) {
-      alert("Please fill in all required fields")
+      toast.error("Please fill in all required fields")
       return
     }
 

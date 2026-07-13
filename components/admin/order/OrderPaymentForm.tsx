@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import type { PaymentStatus, Payment } from '@/types/order'
 import { formatDate } from '@/lib/utils'
+import { upsertOrderPaymentAction } from '@/actions/order'
 
 const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
 
@@ -23,6 +26,7 @@ interface OrderPaymentFormProps {
 }
 
 export function OrderPaymentForm({ orderId, initialPayment }: OrderPaymentFormProps) {
+  const router = useRouter()
   const [status, setStatus] = useState<PaymentStatus>(initialPayment?.status || 'pending')
   const [transactionId, setTransactionId] = useState<string>(initialPayment?.transaction_id || '')
   const [amount, setAmount] = useState<string>(initialPayment?.amount?.toString() || '')
@@ -40,7 +44,7 @@ export function OrderPaymentForm({ orderId, initialPayment }: OrderPaymentFormPr
 
     setIsSubmitting(true)
     try {
-      const payload = {
+      const result = await upsertOrderPaymentAction({
         order_id: orderId,
         status,
         transaction_id: transactionId.trim() || null,
@@ -50,12 +54,23 @@ export function OrderPaymentForm({ orderId, initialPayment }: OrderPaymentFormPr
         gateway: gateway.trim() || null,
         payment_method: paymentMethod.trim() || null,
         payment_url: paymentUrl.trim() || null,
-      }
+      })
 
-      // TODO: Wire this up to a real admin payment action / API
-      console.log('Submitting payment:', payload)
+      if (result.success) {
+        toast.success('Payment saved', {
+          description: 'Payment row and order payment status are in sync.',
+        })
+        router.refresh()
+      } else {
+        toast.error('Could not save payment', {
+          description: result.error || 'Please try again.',
+        })
+      }
     } catch (error) {
       console.error('Error submitting payment:', error)
+      toast.error('Could not save payment', {
+        description: 'An unexpected error occurred.',
+      })
     } finally {
       setIsSubmitting(false)
     }

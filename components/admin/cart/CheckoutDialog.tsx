@@ -63,6 +63,7 @@ export function CheckoutDialog({
   // Contact
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [promoCode, setPromoCode] = useState('')
 
   // Load cart data and shipping zones when dialog opens
   useEffect(() => {
@@ -118,6 +119,7 @@ export function CheckoutDialog({
     setPostalCode('')
     setPhone('')
     setEmail('')
+    setPromoCode('')
   }
 
   // Derived values
@@ -150,6 +152,7 @@ export function CheckoutDialog({
         },
         phone: phone.trim(),
         email: email.trim(),
+        promo_code: promoCode.trim() || undefined,
       })
 
       if (result.success) {
@@ -249,6 +252,21 @@ export function CheckoutDialog({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Promo code */}
+            <div className="space-y-2 pt-1.5 border-t border-black/5">
+              <Label className="text-sm font-medium" htmlFor="admin-promo-code">
+                Promo code
+              </Label>
+              <Input
+                id="admin-promo-code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Optional"
+                className="h-8 text-sm"
+                autoComplete="off"
+              />
             </div>
 
             {/* Address Fields */}

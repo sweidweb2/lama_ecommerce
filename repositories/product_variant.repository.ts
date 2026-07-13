@@ -155,7 +155,7 @@ export async function getProductVariantsByProductId(
 
 /**
  * Hard delete a product variant.
- * Blocks when wishlists or cart_items still reference it.
+ * Blocks when wishlists, cart_items, or order_items still reference it.
  */
 export async function hardDeleteProductVariant(
   id: string,
@@ -190,6 +190,21 @@ export async function hardDeleteProductVariant(
     if ((cartItemCount ?? 0) > 0) {
       throw new Error(
         "Cannot delete variant: cart items still reference it. Remove them first.",
+      );
+    }
+
+    const { count: orderItemCount, error: orderItemError } = await supabase
+      .from("order_items")
+      .select("*", { count: "exact", head: true })
+      .eq("customised_product_id", id);
+
+    if (orderItemError) {
+      console.error("Error checking order_items before variant delete:", orderItemError);
+      return false;
+    }
+    if ((orderItemCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete variant: order history still references it.",
       );
     }
 

@@ -41,15 +41,28 @@ export function AddressList({ addresses: initialAddresses }: AddressListProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Remove this address?")) return;
-    const result = await deleteAddressAction(id);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
-    }
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
-    toast.success("Address removed");
-    refresh();
+    toast("Remove this address?", {
+      description: "This cannot be undone.",
+      action: {
+        label: "Remove",
+        onClick: () => {
+          void (async () => {
+            const result = await deleteAddressAction(id);
+            if (!result.success) {
+              toast.error(result.error);
+              return;
+            }
+            setAddresses((prev) => prev.filter((a) => a.id !== id));
+            toast.success("Address removed");
+            refresh();
+          })();
+        },
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+    });
   };
 
   const editingAddress = editingId

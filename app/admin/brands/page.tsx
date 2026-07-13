@@ -5,16 +5,20 @@ import {
   updateBrandAction,
   deleteBrandAction,
 } from "@/actions/brand"
+import { ProductsSectionBreadcrumbs } from "@/components/admin/AdminBreadcrumbs"
 
 export default async function AdminBrandsPage() {
   const brands = await getBrandsService()
 
   return (
-    <AdminBrandsClient
-      brands={brands}
-      createBrandAction={createBrandAction}
-      updateBrandAction={updateBrandAction}
-      deleteBrandAction={deleteBrandAction}
-    />
+    <div className="space-y-6">
+      <ProductsSectionBreadcrumbs current="Brands" />
+      <AdminBrandsClient
+        brands={brands}
+        createBrandAction={createBrandAction}
+        updateBrandAction={updateBrandAction}
+        deleteBrandAction={deleteBrandAction}
+      />
+    </div>
   )
 }

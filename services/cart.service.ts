@@ -93,6 +93,11 @@ export async function addItemToCartService(
       };
     }
 
+    // Increment add_to_cart_count in product_stats (fire and forget)
+    incrementProductAddToCartService(validated.customised_product_id).catch((error) => {
+      console.error("Failed to increment add_to_cart_count:", error);
+    });
+
     return {
       success: true,
       data: {

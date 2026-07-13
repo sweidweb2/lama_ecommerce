@@ -17,6 +17,7 @@ import { formatPrice } from "@/lib/utils";
 import { checkoutAction } from "@/actions/checkout";
 import { encryptOrderIdAction } from "@/actions/order";
 import { CheckoutModal } from "@/components/(public)/cart/CheckoutModal";
+import type { UserAddress } from "@/types/user";
 
 interface ShippingZoneOption {
   id: string;
@@ -25,28 +26,89 @@ interface ShippingZoneOption {
   fee: number | null;
 }
 
+const NEW_ADDRESS_VALUE = "__new__";
+
+function pickDefaultAddressId(addresses: UserAddress[]): string {
+  const defaultAddr = addresses.find((a) => a.is_default);
+  return defaultAddr?.id ?? addresses[0]?.id ?? NEW_ADDRESS_VALUE;
+}
+
+function fillFromAddress(addr: UserAddress) {
+  return {
+    country: addr.country ?? "",
+    city: addr.city ?? "",
+    address: addr.address ?? "",
+    postalCode: addr.postal_code ?? "",
+    phone: addr.phone ?? "",
+  };
+}
+
+function addressFieldsMatch(
+  addr: UserAddress,
+  fields: {
+    country: string;
+    city: string;
+    address: string;
+    postalCode: string;
+    phone: string;
+  },
+): boolean {
+  return (
+    (addr.country ?? "").trim() === fields.country.trim() &&
+    (addr.city ?? "").trim() === fields.city.trim() &&
+    (addr.address ?? "").trim() === fields.address.trim() &&
+    (addr.postal_code ?? "").trim() === fields.postalCode.trim() &&
+    (addr.phone ?? "").trim() === fields.phone.trim()
+  );
+}
+
 interface CartSidebarProps {
   subtotal: number;
   cartId: string;
   shippingZones: ShippingZoneOption[];
+  /** null = guest; array (possibly empty) = logged-in user */
+  savedAddresses?: UserAddress[] | null;
 }
 
-export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSidebarProps) {
+export function CartSidebar({
+  subtotal,
+  cartId,
+  shippingZones = [],
+  savedAddresses = null,
+}: CartSidebarProps) {
   const router = useRouter();
   const isProcessingRef = useRef(false);
+  const isLoggedIn = savedAddresses !== null;
+  const hasSavedAddresses = (savedAddresses?.length ?? 0) > 0;
+
+  const initialAddressId =
+    hasSavedAddresses && savedAddresses
+      ? pickDefaultAddressId(savedAddresses)
+      : NEW_ADDRESS_VALUE;
+  const initialFilled =
+    initialAddressId !== NEW_ADDRESS_VALUE && savedAddresses
+      ? fillFromAddress(
+          savedAddresses.find((a) => a.id === initialAddressId)!,
+        )
+      : null;
 
   // Shipping
   const [selectedZoneId, setSelectedZoneId] = useState<string>("");
 
+  // Saved address picker
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(initialAddressId);
+
   // Address
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-  const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState(initialFilled?.country ?? "");
+  const [city, setCity] = useState(initialFilled?.city ?? "");
+  const [address, setAddress] = useState(initialFilled?.address ?? "");
+  const [postalCode, setPostalCode] = useState(initialFilled?.postalCode ?? "");
 
   // Contact
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialFilled?.phone ?? "");
   const [email, setEmail] = useState("");
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
 
   // Validation errors
   const [errors, setErrors] = useState<{
@@ -70,13 +132,48 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
   const shippingFee = selectedZone?.fee ?? 0;
   const total = subtotal + shippingFee;
 
-  const isFormValid =
-    selectedZoneId &&
-    country.trim() &&
-    city.trim() &&
-    address.trim() &&
-    phone.trim().length >= 5 &&
-    email.includes("@");
+  const selectedSaved =
+    selectedAddressId !== NEW_ADDRESS_VALUE && savedAddresses
+      ? savedAddresses.find((a) => a.id === selectedAddressId)
+      : undefined;
+
+  const fieldsMatchSelected =
+    selectedSaved != null &&
+    addressFieldsMatch(selectedSaved, {
+      country,
+      city,
+      address,
+      postalCode,
+      phone,
+    });
+
+  const showSaveAddressCheckbox =
+    isLoggedIn &&
+    (!hasSavedAddresses ||
+      selectedAddressId === NEW_ADDRESS_VALUE ||
+      !fieldsMatchSelected);
+
+  const applySavedAddress = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    if (addressId === NEW_ADDRESS_VALUE || !savedAddresses) {
+      setCountry("");
+      setCity("");
+      setAddress("");
+      setPostalCode("");
+      setPhone("");
+      setSaveAddress(false);
+      return;
+    }
+    const addr = savedAddresses.find((a) => a.id === addressId);
+    if (!addr) return;
+    const filled = fillFromAddress(addr);
+    setCountry(filled.country);
+    setCity(filled.city);
+    setAddress(filled.address);
+    setPostalCode(filled.postalCode);
+    setPhone(filled.phone);
+    setSaveAddress(false);
+  };
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -165,6 +262,8 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
         },
         phone: phone.trim(),
         email: email.trim(),
+        save_address: showSaveAddressCheckbox && saveAddress,
+        promo_code: promoCode.trim() || undefined,
       });
 
       if (result.success && result.orderId) {
@@ -224,8 +323,8 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
             <Label className="text-sm font-medium" htmlFor="shipping-zone-select" id="shipping-zone-label">
               Shipping Zone <span className="text-destructive">*</span>
             </Label>
-            <Select 
-              value={selectedZoneId} 
+            <Select
+              value={selectedZoneId}
               onValueChange={(value) => {
                 setSelectedZoneId(value);
                 if (errors.shippingZone) {
@@ -233,7 +332,7 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
                 }
               }}
             >
-              <SelectTrigger 
+              <SelectTrigger
                 className={`w-full bg-[#f9f9f9] dark:bg-card ${errors.shippingZone ? "border-destructive" : ""}`}
                 id="shipping-zone-select"
                 aria-labelledby="shipping-zone-label"
@@ -283,9 +382,58 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
           )}
         </div>
 
+        {/* Promo code */}
+        <div className="space-y-2 pt-1.5 border-t border-black/5">
+          <Label className="text-sm font-medium" htmlFor="promo-code">
+            Promo code
+          </Label>
+          <Input
+            id="promo-code"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value)}
+            placeholder="Optional"
+            className="bg-[#f9f9f9] dark:bg-card"
+            autoComplete="off"
+            data-testid="promo-code-input"
+          />
+        </div>
+
         {/* Address Fields */}
         <div className="space-y-2 pt-1.5 border-t border-black/5">
           <p className="text-sm font-medium">Shipping Address</p>
+
+          {hasSavedAddresses && savedAddresses && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground" htmlFor="saved-address-select">
+                Saved address
+              </Label>
+              <Select
+                value={selectedAddressId}
+                onValueChange={applySavedAddress}
+              >
+                <SelectTrigger
+                  className="w-full bg-[#f9f9f9] dark:bg-card"
+                  id="saved-address-select"
+                  data-testid="saved-address-select"
+                  aria-label="Select saved address"
+                >
+                  <SelectValue placeholder="Choose a saved address" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map((addr) => (
+                    <SelectItem key={addr.id} value={addr.id}>
+                      {[addr.address, addr.city, addr.country]
+                        .filter(Boolean)
+                        .join(", ")}
+                      {addr.is_default ? " (default)" : ""}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={NEW_ADDRESS_VALUE}>Enter new address</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
@@ -361,6 +509,21 @@ export function CartSidebar({ subtotal, cartId, shippingZones = [] }: CartSideba
               id="postalCode"
             />
           </div>
+
+          {showSaveAddressCheckbox && (
+            <label className="flex items-center gap-2 pt-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveAddress}
+                onChange={(e) => setSaveAddress(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+                data-testid="save-address-checkbox"
+              />
+              <span className="text-xs text-muted-foreground">
+                Save this address to my account
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Contact Fields */}

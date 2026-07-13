@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Upload } from "lucide-react"
+import { toast } from "sonner"
 import { addProductImageAction } from "@/actions/product"
 
 interface AddImageFormProps {
@@ -52,6 +53,7 @@ export function AddImageForm({ productId }: AddImageFormProps) {
       setSelectedFile(null)
       setPreview(null)
       setOpen(false)
+      toast.success("Product image uploaded")
       
       // Refresh the page to show the new image
       router.refresh()
@@ -59,7 +61,7 @@ export function AddImageForm({ productId }: AddImageFormProps) {
       console.error("Error uploading image:", error)
       const message =
         error instanceof Error ? error.message : "Failed to upload image"
-      window.alert(message)
+      toast.error("Upload failed", { description: message })
     } finally {
       setIsUploading(false)
     }

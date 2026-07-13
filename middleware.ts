@@ -70,7 +70,6 @@ export async function middleware(request: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/products") ||
-    pathname.startsWith("/checkout") ||
     pathname.startsWith("/search");
 
   if (isPublicRoute) {

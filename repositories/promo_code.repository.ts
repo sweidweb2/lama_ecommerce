@@ -1,4 +1,5 @@
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Promo code row from DB (discount_type is PostgreSQL enum 'percentage' | 'fixed'). */
 export interface PromoCodeRow {
@@ -126,6 +127,31 @@ export async function updatePromoCode(
     return data as PromoCodeRow;
   } catch (error) {
     console.error("Unexpected error in updatePromoCode:", error);
+    return null;
+  }
+}
+
+export async function getPromoByCodeAdmin(
+  code: string,
+): Promise<PromoCodeRow | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return null;
+
+    const { data, error } = await (supabase as any)
+      .from("promo_codes")
+      .select("*")
+      .eq("code", normalized)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch promo by code:", error);
+      return null;
+    }
+    return (data as PromoCodeRow) ?? null;
+  } catch (error) {
+    console.error("Unexpected error in getPromoByCodeAdmin:", error);
     return null;
   }
 }

@@ -295,9 +295,13 @@ export type Database = {
           discount: number | null
           total: number | null
           payment_status: 'pending' | 'paid' | 'failed' | 'refunded'
+          promo_code_id: string | null
           address_snapshot: JSON | null
           phone: string | null
           email: string | null
+          shipping_zone_id: string | null
+          shipping_zone_name: string | null
+          stock_restored: boolean
           created_at: string
           updated_at: string
         }
@@ -311,9 +315,13 @@ export type Database = {
           discount?: number | null
           total?: number | null
           payment_status: 'pending' | 'paid' | 'failed' | 'refunded'
+          promo_code_id?: string | null
           address_snapshot?: JSON | null
           phone?: string | null
           email?: string | null
+          shipping_zone_id?: string | null
+          shipping_zone_name?: string | null
+          stock_restored?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -327,13 +335,32 @@ export type Database = {
           discount?: number | null
           total?: number | null
           payment_status?: 'pending' | 'paid' | 'failed' | 'refunded'
+          promo_code_id?: string | null
           address_snapshot?: JSON | null
           phone?: string | null
           email?: string | null
+          shipping_zone_id?: string | null
+          shipping_zone_name?: string | null
+          stock_restored?: boolean
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_shipping_zone_id_fkey"
+            columns: ["shipping_zone_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -370,6 +397,57 @@ export type Database = {
           size_snapshot?: string | null
           material_snapshot?: string | null
           color_snapshot?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_customised_product_id_fkey"
+            columns: ["customised_product_id"]
+            isOneToOne: false
+            referencedRelation: "customised_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_codes: {
+        Row: {
+          id: string
+          code: string
+          discount_type: 'percentage' | 'fixed'
+          discount_value: number | null
+          expires_at: string | null
+          max_uses: number | null
+          use_count: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          discount_type: 'percentage' | 'fixed'
+          discount_value?: number | null
+          expires_at?: string | null
+          max_uses?: number | null
+          use_count?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          discount_type?: 'percentage' | 'fixed'
+          discount_value?: number | null
+          expires_at?: string | null
+          max_uses?: number | null
+          use_count?: number
+          is_active?: boolean
           created_at?: string
         }
         Relationships: []
@@ -689,13 +767,13 @@ export type Database = {
       process_checkout: {
         Args: {
           p_cart_id: string
+          p_shipping_zone_id: string
           p_user_id?: string | null
           p_session_id?: string | null
-          p_shipping_fee?: number
-          p_discount?: number
           p_phone?: string | null
           p_email?: string | null
           p_address_snapshot?: JSON
+          p_promo_code?: string | null
         }
         Returns: string
       }

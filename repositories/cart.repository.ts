@@ -559,6 +559,7 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
           cart_id,
           quantity,
           customised_products (
+            price_override,
             products (
               price
             )
@@ -573,12 +574,17 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
         for (const row of (cartItems ?? []) as unknown as Array<{
           cart_id: string;
           quantity: number;
-          customised_products: { products: { price: number } | null } | null;
+          customised_products: {
+            price_override: number | null;
+            products: { price: number } | null;
+          } | null;
         }>) {
           const cartId = row.cart_id;
           const quantity = Number(row.quantity) || 0;
+          const basePrice = row.customised_products?.products?.price ?? 0;
+          const override = row.customised_products?.price_override;
           const price = Number(
-            row.customised_products?.products?.price ?? 0,
+            override !== null && override !== undefined ? override : basePrice,
           );
           const current = totalsByCartId.get(cartId) ?? {
             items: 0,

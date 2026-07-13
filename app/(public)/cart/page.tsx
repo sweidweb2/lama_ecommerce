@@ -10,7 +10,9 @@ import {
   getGuestCartWithItemsService,
 } from "@/services/cart.service";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
+import { getAddressesByUserId } from "@/services/address.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
+import type { UserAddress } from "@/types/user";
 
 export const metadata = {
   title: "Cart | LAMA",
@@ -65,14 +67,19 @@ export default async function CartPage() {
 
   const { cart, items } = cartResult.data;
 
-  // Calculate subtotal
+  // Calculate subtotal (unitPrice = COALESCE(price_override, base price))
   const subtotal = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 
   // Fetch shipping zones for the checkout form (fallback to empty array)
   const shippingZones = (await getPublicShippingZones()) ?? [];
+
+  // Logged-in users: load address book for checkout prefill (null = guest)
+  const savedAddresses: UserAddress[] | null = user
+    ? await getAddressesByUserId(user.id)
+    : null;
 
   return (
     <div className="container mx-auto px-4 pt-6 lg:pt-8">
@@ -107,6 +114,7 @@ export default async function CartPage() {
                   product={item.product}
                   quantity={item.quantity}
                   stock={item.stock}
+                  unitPrice={item.unitPrice}
                 />
               ))}
             </div>
@@ -127,6 +135,7 @@ export default async function CartPage() {
             subtotal={subtotal}
             cartId={cart.id}
             shippingZones={shippingZones}
+            savedAddresses={savedAddresses}
           />
         </div>
       </div>

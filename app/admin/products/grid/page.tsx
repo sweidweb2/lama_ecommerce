@@ -7,6 +7,7 @@ import { getAdminProductsService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
 import { getCategoriesService } from '@/services/categories.service'
 import { encryptOrderId } from '@/lib/utils/encryption'
+import { ProductsSectionBreadcrumbs } from '@/components/admin/AdminBreadcrumbs'
 
 interface GridProductsPageProps {
   searchParams: Promise<{
@@ -92,6 +93,7 @@ export default async function GridProductsPage({ searchParams }: GridProductsPag
 
   return (
     <div className="space-y-6">
+      <ProductsSectionBreadcrumbs current="Grid view" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Grid Products</h1>
         <p className="text-muted-foreground text-sm sm:text-base mt-2">

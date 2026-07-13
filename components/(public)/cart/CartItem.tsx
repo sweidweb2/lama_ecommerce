@@ -22,9 +22,17 @@ interface CartItemProps {
   product: ProductWithRelations;
   quantity: number;
   stock: number;
+  /** Checkout-effective unit price (price_override ?? base). */
+  unitPrice?: number;
 }
 
-export function CartItem({ id, product, quantity: initialQuantity, stock }: CartItemProps) {
+export function CartItem({
+  id,
+  product,
+  quantity: initialQuantity,
+  stock,
+  unitPrice,
+}: CartItemProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,6 +40,8 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
   const [isUpdating, setIsUpdating] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
   const isProcessingRef = useRef(false);
+
+  const lineUnitPrice = unitPrice ?? product.price;
 
   const primaryImage =
     product.images?.find((img) => img.is_primary) || product.images?.[0];
@@ -223,7 +233,7 @@ export function CartItem({ id, product, quantity: initialQuantity, stock }: Cart
               </div>
             </div>
             <p className="text-xs sm:text-sm font-bold" data-testid="cart-item-total">
-              {formatPrice(product.price * quantity)}
+              {formatPrice(lineUnitPrice * quantity)}
             </p>
           </div>
         </div>

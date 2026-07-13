@@ -5,17 +5,20 @@ import {
   updateCategoryAction,
   deleteCategoryAction,
 } from "@/actions/category";
+import { ProductsSectionBreadcrumbs } from "@/components/admin/AdminBreadcrumbs";
 
 export default async function AdminCategoriesPage() {
   const categories = await getCategoriesService();
-  console.log(categories);
 
   return (
-    <AdminCategoriesClient
-      categories={categories}
-      createCategoryAction={createCategoryAction}
-      updateCategoryAction={updateCategoryAction}
-      deleteCategoryAction={deleteCategoryAction}
-    />
+    <div className="space-y-6">
+      <ProductsSectionBreadcrumbs current="Categories" />
+      <AdminCategoriesClient
+        categories={categories}
+        createCategoryAction={createCategoryAction}
+        updateCategoryAction={updateCategoryAction}
+        deleteCategoryAction={deleteCategoryAction}
+      />
+    </div>
   );
 }

@@ -60,9 +60,9 @@ export default async function CartDetailsPage({
     ? await getProfileByUserId(cart.user_id)
     : null;
 
-  // Calculate subtotal
+  // Calculate subtotal (unitPrice = COALESCE(price_override, base price))
   const subtotal = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 
@@ -77,7 +77,7 @@ export default async function CartDetailsPage({
     color: item.color || undefined,
     size: item.size || undefined,
     material: item.material || undefined,
-    price: item.product.price,
+    price: item.unitPrice,
   }));
 
   return (

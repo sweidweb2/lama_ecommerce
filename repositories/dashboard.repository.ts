@@ -6,9 +6,14 @@ export interface DashboardStats {
   totalOrdersThisMonth: number;
   revenueThisMonth: number;
   pendingOrders: number;
+  processingOrders: number;
   lowStockItems: number;
+  outOfStockItems: number;
   unansweredQA: number;
   pendingReviews: number;
+  newContacts: number;
+  activeCarts: number;
+  newLeadsThisMonth: number;
 }
 
 export interface RecentOrder {
@@ -27,129 +32,181 @@ export interface RecentUser {
   created_at: string;
 }
 
+export interface LowStockItem {
+  id: string;
+  sku_variant: string | null;
+  quantity_stock: number;
+  productName: string;
+  productId: string;
+}
+
+export interface PendingReviewItem {
+  id: string;
+  rating: number;
+  title: string | null;
+  productName: string;
+  created_at: string;
+}
+
+export interface UnansweredQuestionItem {
+  id: string;
+  question: string;
+  productName: string;
+  created_at: string;
+}
+
+export interface RecentContactItem {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  subject: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface TopProductItem {
+  productName: string;
+  unitsSold: number;
+  revenue: number;
+}
+
+export interface OrderStatusBreakdown {
+  status: string;
+  count: number;
+}
+
+const EMPTY_STATS: DashboardStats = {
+  totalUsers: 0,
+  totalProducts: 0,
+  totalOrdersThisMonth: 0,
+  revenueThisMonth: 0,
+  pendingOrders: 0,
+  processingOrders: 0,
+  lowStockItems: 0,
+  outOfStockItems: 0,
+  unansweredQA: 0,
+  pendingReviews: 0,
+  newContacts: 0,
+  activeCarts: 0,
+  newLeadsThisMonth: 0,
+};
+
 /**
- * Get dashboard statistics
+ * Get dashboard statistics from live tables.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const supabase = createSupabaseAdminClient();
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    ).toISOString();
 
-    // Fetch all data in parallel
     const [
-      { count: totalUsers },
-      { count: totalProducts },
-      { data: ordersThisMonth },
-      { data: allOrders },
-      { data: lowStockVariants },
-      { data: questions },
-      { data: reviews },
+      usersRes,
+      productsRes,
+      ordersMonthRes,
+      ordersStatusRes,
+      lowStockRes,
+      outOfStockRes,
+      questionsRes,
+      answersRes,
+      reviewsRes,
+      contactsRes,
+      cartsRes,
+      leadsRes,
     ] = await Promise.all([
-      // Total active users
-      (supabase as any)
+      supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true),
-      
-      // Total active products
-      (supabase as any)
+      supabase
         .from("products")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true),
-      
-      // Orders this month
-      (supabase as any)
+      supabase
         .from("orders")
-        .select("total, created_at")
-        .gte("created_at", startOfMonth.toISOString()),
-      
-      // All orders for pending count
-      (supabase as any)
-        .from("orders")
-        .select("status"),
-      
-      // Low stock items (quantity <= 10 and > 0)
-      (supabase as any)
+        .select("total")
+        .gte("created_at", startOfMonth),
+      supabase.from("orders").select("status"),
+      supabase
         .from("customised_products")
-        .select("quantity_stock")
+        .select("id", { count: "exact", head: true })
         .gt("quantity_stock", 0)
         .lte("quantity_stock", 10),
-      
-      // All questions for unanswered count
-      (supabase as any)
-        .from("product_questions")
-        .select("answer"),
-      
-      // All reviews for pending count
-      (supabase as any)
+      supabase
+        .from("customised_products")
+        .select("id", { count: "exact", head: true })
+        .eq("quantity_stock", 0),
+      supabase.from("product_questions").select("id"),
+      supabase.from("product_answers").select("product_question_id"),
+      supabase
         .from("reviews")
-        .select("review_status"),
+        .select("id", { count: "exact", head: true })
+        .eq("review_status", "pending"),
+      supabase
+        .from("contact_us")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new"),
+      supabase.from("carts").select("id", { count: "exact", head: true }),
+      supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfMonth),
     ]);
 
-    // Calculate revenue this month
-    const revenueThisMonth = (ordersThisMonth || []).reduce(
-      (sum: number, order: any) => sum + parseFloat(order.total || 0),
-      0
+    const answeredIds = new Set(
+      (answersRes.data || []).map(
+        (a: { product_question_id: string }) => a.product_question_id,
+      ),
+    );
+    const unansweredQA = (questionsRes.data || []).filter(
+      (q: { id: string }) => !answeredIds.has(q.id),
+    ).length;
+
+    const revenueThisMonth = (ordersMonthRes.data || []).reduce(
+      (sum: number, order: { total: number | null }) =>
+        sum + Number(order.total || 0),
+      0,
     );
 
-    // Count pending orders
-    const pendingOrders = (allOrders || []).filter(
-      (order: any) => order.status === "pending"
+    const statuses = ordersStatusRes.data || [];
+    const pendingOrders = statuses.filter(
+      (o: { status: string }) => o.status === "pending",
     ).length;
-
-    // Count unanswered Q&A
-    const unansweredQA = (questions || []).filter(
-      (q: any) => !q.answer || q.answer.trim() === ""
-    ).length;
-
-    // Count pending reviews
-    const pendingReviews = (reviews || []).filter(
-      (r: any) => r.review_status === "pending"
+    const processingOrders = statuses.filter((o: { status: string }) =>
+      ["processing", "packed", "shipped"].includes(o.status),
     ).length;
 
     return {
-      totalUsers: totalUsers || 0,
-      totalProducts: totalProducts || 0,
-      totalOrdersThisMonth: ordersThisMonth?.length || 0,
+      totalUsers: usersRes.count || 0,
+      totalProducts: productsRes.count || 0,
+      totalOrdersThisMonth: ordersMonthRes.data?.length || 0,
       revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
       pendingOrders,
-      lowStockItems: lowStockVariants?.length || 0,
+      processingOrders,
+      lowStockItems: lowStockRes.count || 0,
+      outOfStockItems: outOfStockRes.count || 0,
       unansweredQA,
-      pendingReviews,
+      pendingReviews: reviewsRes.count || 0,
+      newContacts: contactsRes.count || 0,
+      activeCarts: cartsRes.count || 0,
+      newLeadsThisMonth: leadsRes.count || 0,
     };
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
-    return {
-      totalUsers: 0,
-      totalProducts: 0,
-      totalOrdersThisMonth: 0,
-      revenueThisMonth: 0,
-      pendingOrders: 0,
-      lowStockItems: 0,
-      unansweredQA: 0,
-      pendingReviews: 0,
-    };
+    return { ...EMPTY_STATS };
   }
 }
 
-/**
- * Get recent orders (last 5)
- */
 export async function getRecentOrders(limit: number = 5): Promise<RecentOrder[]> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    const { data: orders, error } = await (supabase as any)
+    const { data: orders, error } = await supabase
       .from("orders")
-      .select(`
-        id,
-        user_id,
-        total,
-        status,
-        payment_status,
-        created_at
-      `)
+      .select("id, user_id, total, status, payment_status, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -158,27 +215,31 @@ export async function getRecentOrders(limit: number = 5): Promise<RecentOrder[]>
       return [];
     }
 
-    // Get user names
-    const userIds = [...new Set(orders.map((o: any) => o.user_id).filter(Boolean))];
+    const userIds = [
+      ...new Set(
+        orders.map((o) => o.user_id).filter((id): id is string => Boolean(id)),
+      ),
+    ];
     const { data: profiles } = userIds.length
-      ? await (supabase as any)
+      ? await supabase
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", userIds)
       : { data: [] };
 
-    const profileMap = new Map<string, string>();
-    (profiles || []).forEach((p: { user_id: string; full_name: string | null }) => {
-      profileMap.set(p.user_id, p.full_name || "Unknown");
-    });
+    const profileMap = new Map(
+      (profiles || []).map((p) => [p.user_id, p.full_name || "Unknown"]),
+    );
 
-    return orders.map((order: any) => ({
+    return orders.map((order) => ({
       id: order.id,
-      total: parseFloat(order.total || 0),
+      total: Number(order.total || 0),
       status: order.status,
       payment_status: order.payment_status,
       created_at: order.created_at,
-      userName: order.user_id ? profileMap.get(order.user_id) || "Unknown" : "Guest",
+      userName: order.user_id
+        ? profileMap.get(order.user_id) || "Unknown"
+        : "Guest",
     }));
   } catch (error) {
     console.error("Error fetching recent orders:", error);
@@ -186,42 +247,39 @@ export async function getRecentOrders(limit: number = 5): Promise<RecentOrder[]>
   }
 }
 
-/**
- * Get recent users (last 5)
- */
 export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Try to use RPC function first to get emails
-    const { data: profilesWithEmail, error: rpcError } = await (supabase as any)
-      .rpc("get_admin_profiles");
+    const { data: profilesWithEmail, error: rpcError } = await supabase.rpc(
+      "get_admin_profiles",
+    );
 
     if (!rpcError && profilesWithEmail) {
-      // Sort by created_at and take the most recent
-      const sorted = (profilesWithEmail as any[])
-        .filter((p: any) => p.is_active !== false)
-        .sort((a: any, b: any) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      return (profilesWithEmail as Array<{
+        user_id: string;
+        full_name: string | null;
+        email: string | null;
+        created_at: string;
+        is_active?: boolean;
+      }>)
+        .filter((p) => p.is_active !== false)
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         )
-        .slice(0, limit);
-
-      return sorted.map((profile: any) => ({
-        user_id: profile.user_id,
-        full_name: profile.full_name,
-        email: profile.email || null,
-        created_at: profile.created_at,
-      }));
+        .slice(0, limit)
+        .map((profile) => ({
+          user_id: profile.user_id,
+          full_name: profile.full_name,
+          email: profile.email || null,
+          created_at: profile.created_at,
+        }));
     }
 
-    // Fallback: fetch profiles without email
-    const { data: profiles, error } = await (supabase as any)
+    const { data: profiles, error } = await supabase
       .from("profiles")
-      .select(`
-        user_id,
-        full_name,
-        created_at
-      `)
+      .select("user_id, full_name, created_at")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -231,7 +289,7 @@ export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
       return [];
     }
 
-    return profiles.map((profile: any) => ({
+    return profiles.map((profile) => ({
       user_id: profile.user_id,
       full_name: profile.full_name,
       email: null,
@@ -239,6 +297,236 @@ export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
     }));
   } catch (error) {
     console.error("Error fetching recent users:", error);
+    return [];
+  }
+}
+
+export async function getLowStockItems(
+  limit: number = 8,
+): Promise<LowStockItem[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("customised_products")
+      .select(
+        "id, sku_variant, quantity_stock, product_id, products(id, name)",
+      )
+      .gt("quantity_stock", 0)
+      .lte("quantity_stock", 10)
+      .order("quantity_stock", { ascending: true })
+      .limit(limit);
+
+    if (error || !data) {
+      console.error("Error fetching low stock items:", error);
+      return [];
+    }
+
+    return data.map((row) => {
+      const product = row.products as
+        | { id: string; name: string }
+        | { id: string; name: string }[]
+        | null;
+      const productRow = Array.isArray(product) ? product[0] : product;
+      return {
+        id: row.id,
+        sku_variant: row.sku_variant,
+        quantity_stock: row.quantity_stock,
+        productName: productRow?.name || "Unknown product",
+        productId: productRow?.id || row.product_id,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching low stock items:", error);
+    return [];
+  }
+}
+
+export async function getPendingReviewsPreview(
+  limit: number = 5,
+): Promise<PendingReviewItem[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, rating, title, created_at, product_id, products(name)")
+      .eq("review_status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) {
+      console.error("Error fetching pending reviews:", error);
+      return [];
+    }
+
+    return data.map((row) => {
+      const product = row.products as
+        | { name: string }
+        | { name: string }[]
+        | null;
+      const productRow = Array.isArray(product) ? product[0] : product;
+      return {
+        id: row.id,
+        rating: row.rating,
+        title: row.title,
+        productName: productRow?.name || "Unknown product",
+        created_at: row.created_at,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching pending reviews:", error);
+    return [];
+  }
+}
+
+export async function getUnansweredQuestionsPreview(
+  limit: number = 5,
+): Promise<UnansweredQuestionItem[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data: questions, error } = await supabase
+      .from("product_questions")
+      .select(
+        "id, question, created_at, product_id, products(name), product_answers(id)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error || !questions) {
+      console.error("Error fetching unanswered questions:", error);
+      return [];
+    }
+
+    return questions
+      .filter((q) => {
+        const answers = q.product_answers as { id: string }[] | null;
+        return !answers || answers.length === 0;
+      })
+      .slice(0, limit)
+      .map((row) => {
+        const product = row.products as
+          | { name: string }
+          | { name: string }[]
+          | null;
+        const productRow = Array.isArray(product) ? product[0] : product;
+        return {
+          id: row.id,
+          question: row.question,
+          productName: productRow?.name || "Unknown product",
+          created_at: row.created_at,
+        };
+      });
+  } catch (error) {
+    console.error("Error fetching unanswered questions:", error);
+    return [];
+  }
+}
+
+export async function getRecentContacts(
+  limit: number = 5,
+): Promise<RecentContactItem[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("contact_us")
+      .select("id, full_name, email, subject, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) {
+      console.error("Error fetching recent contacts:", error);
+      return [];
+    }
+
+    return data.map((row) => ({
+      id: row.id,
+      full_name: row.full_name,
+      email: row.email,
+      subject: row.subject,
+      status: row.status,
+      created_at: row.created_at,
+    }));
+  } catch (error) {
+    console.error("Error fetching recent contacts:", error);
+    return [];
+  }
+}
+
+export async function getTopSellingProducts(
+  limit: number = 5,
+): Promise<TopProductItem[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const startOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    ).toISOString();
+
+    const { data: orders, error: ordersError } = await supabase
+      .from("orders")
+      .select("id")
+      .gte("created_at", startOfMonth)
+      .neq("status", "cancelled");
+
+    if (ordersError || !orders?.length) {
+      return [];
+    }
+
+    const orderIds = orders.map((o) => o.id);
+    const { data: items, error } = await supabase
+      .from("order_items")
+      .select("product_name_snapshot, quantity, price_snapshot")
+      .in("order_id", orderIds);
+
+    if (error || !items) {
+      console.error("Error fetching top products:", error);
+      return [];
+    }
+
+    const map = new Map<string, { unitsSold: number; revenue: number }>();
+    for (const item of items) {
+      const name = item.product_name_snapshot || "Unknown";
+      const current = map.get(name) || { unitsSold: 0, revenue: 0 };
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.price_snapshot || 0);
+      current.unitsSold += qty;
+      current.revenue += qty * price;
+      map.set(name, current);
+    }
+
+    return [...map.entries()]
+      .map(([productName, stats]) => ({
+        productName,
+        unitsSold: stats.unitsSold,
+        revenue: Math.round(stats.revenue * 100) / 100,
+      }))
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("Error fetching top selling products:", error);
+    return [];
+  }
+}
+
+export async function getOrderStatusBreakdown(): Promise<OrderStatusBreakdown[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase.from("orders").select("status");
+    if (error || !data) {
+      console.error("Error fetching order status breakdown:", error);
+      return [];
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of data) {
+      counts.set(row.status, (counts.get(row.status) || 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
+  } catch (error) {
+    console.error("Error fetching order status breakdown:", error);
     return [];
   }
 }

@@ -105,6 +105,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             <OrderStatusStepper
               orderId={order.id}
               currentStatus={order.status}
+              hasShipment={Boolean(shipment)}
             />
           </CardContent>
         </Card>
@@ -242,6 +243,14 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                   <span className="text-muted-foreground">Shipping Fee</span>
                   <span className="font-medium">{formatPrice(order.shipping_fee || 0)}</span>
                 </div>
+                {order.shipping_zone_name && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Shipping Zone</span>
+                    <span className="font-medium truncate" title={order.shipping_zone_name}>
+                      {order.shipping_zone_name}
+                    </span>
+                  </div>
+                )}
                 {order.discount && order.discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>

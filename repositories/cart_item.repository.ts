@@ -176,6 +176,8 @@ export interface CartItemWithProduct {
   quantity: number;
   created_at: string;
   product: ProductWithRelations;
+  /** Unit price charged at checkout: COALESCE(price_override, products.price). */
+  unitPrice: number;
   stock: number; // Available stock for the customized product variant
   color?: string | null;
   size?: string | null;
@@ -196,6 +198,7 @@ interface CartItemProductJoinRow {
     size: string | null;
     material: string | null;
     quantity_stock: number;
+    price_override: number | string | null;
     products: {
       id: string;
       name: string;
@@ -222,6 +225,20 @@ interface CartItemProductJoinRow {
   } | null;
 }
 
+/**
+ * Checkout unit price: COALESCE(price_override, base products.price).
+ * Matches process_checkout RPC pricing.
+ */
+export function resolveCartUnitPrice(
+  priceOverride: number | string | null | undefined,
+  basePrice: number | string,
+): number {
+  if (priceOverride !== null && priceOverride !== undefined && priceOverride !== "") {
+    return parseFloat(String(priceOverride));
+  }
+  return parseFloat(String(basePrice));
+}
+
 function transformCartItemProductJoin(
   item: CartItemProductJoinRow,
 ): CartItemWithProduct | null {
@@ -230,12 +247,19 @@ function transformCartItemProductJoin(
     return null;
   }
 
+  const basePrice = parseFloat(String(productData.price));
+  const unitPrice = resolveCartUnitPrice(
+    item.customised_products?.price_override,
+    basePrice,
+  );
+
   const product: ProductWithRelations = {
     id: productData.id,
     name: productData.name,
     description: productData.description,
     slug: productData.slug,
-    price: parseFloat(String(productData.price)),
+    // Expose checkout-effective price so existing product.price consumers match RPC.
+    price: unitPrice,
     is_featured: productData.is_featured,
     is_trending: productData.is_trending,
     is_active: productData.is_active,
@@ -259,6 +283,7 @@ function transformCartItemProductJoin(
     quantity: item.quantity,
     created_at: item.created_at,
     product,
+    unitPrice,
     stock: item.customised_products?.quantity_stock || 0,
     color: item.customised_products?.color || null,
     size: item.customised_products?.size || null,
@@ -288,6 +313,7 @@ export async function getCartItemsWithProductsByCartId(
           size,
           material,
           quantity_stock,
+          price_override,
           products (
             id,
             name,
@@ -368,6 +394,7 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
           size,
           material,
           quantity_stock,
+          price_override,
           products (
             id,
             name,
@@ -423,7 +450,72 @@ export async function getCartItemsWithProductsByCartIdForAdmin(
 }
 
 /**
+ * Validate quantity against variant stock (same rules as upsert_cart_item).
+ */
+async function assertCartItemQuantityWithinStock(
+  supabase: SupabaseClient<Database>,
+  cartItemId: string,
+  quantity: number,
+  customisedProductIdOverride?: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (quantity < 1) {
+    return { success: false, error: "Quantity must be at least 1" };
+  }
+
+  const { data: cartItem, error: cartItemError } = await supabase
+    .from("cart_items")
+    .select("id, customised_product_id")
+    .eq("id", cartItemId)
+    .maybeSingle();
+
+  if (cartItemError) {
+    return {
+      success: false,
+      error: cartItemError.message || "Failed to fetch cart item",
+    };
+  }
+
+  if (!cartItem) {
+    return { success: false, error: "Cart item not found" };
+  }
+
+  const variantId =
+    customisedProductIdOverride ?? cartItem.customised_product_id;
+
+  const { data: variant, error: variantError } = await supabase
+    .from("customised_products")
+    .select("id, quantity_stock")
+    .eq("id", variantId)
+    .maybeSingle();
+
+  if (variantError) {
+    return {
+      success: false,
+      error: variantError.message || "Failed to fetch product stock",
+    };
+  }
+
+  if (!variant) {
+    return { success: false, error: "Product variant not found" };
+  }
+
+  if (variant.quantity_stock <= 0) {
+    return { success: false, error: "This product variant is out of stock" };
+  }
+
+  if (quantity > variant.quantity_stock) {
+    return {
+      success: false,
+      error: `Insufficient stock. Available: ${variant.quantity_stock}, Requested: ${quantity}`,
+    };
+  }
+
+  return { success: true };
+}
+
+/**
  * Update a cart item (typically quantity).
+ * Re-validates stock when quantity changes (same rules as upsert_cart_item).
  * RLS policy ensures users can only update items from their own carts.
  */
 export async function updateCartItem(
@@ -436,11 +528,14 @@ export async function updateCartItem(
     // Build update payload with only provided fields
     const updatePayload: Record<string, unknown> = {};
     if (input.quantity !== undefined) {
-      if (input.quantity < 1) {
-        return {
-          success: false,
-          error: "Quantity must be at least 1",
-        };
+      const stockCheck = await assertCartItemQuantityWithinStock(
+        supabase,
+        cartItemId,
+        input.quantity,
+        input.customised_product_id,
+      );
+      if (!stockCheck.success) {
+        return { success: false, error: stockCheck.error };
       }
       updatePayload.quantity = input.quantity;
     }
@@ -488,7 +583,7 @@ export async function updateCartItem(
 /**
  * Update a cart item (admin version).
  * Uses admin client to bypass RLS for admin access.
- * Typically used for updating quantity.
+ * Re-validates stock when quantity changes (same rules as upsert_cart_item).
  */
 export async function updateCartItemForAdmin(
   cartItemId: string,
@@ -500,11 +595,14 @@ export async function updateCartItemForAdmin(
     // Build update payload with only provided fields
     const updatePayload: Record<string, unknown> = {};
     if (input.quantity !== undefined) {
-      if (input.quantity < 1) {
-        return {
-          success: false,
-          error: "Quantity must be at least 1",
-        };
+      const stockCheck = await assertCartItemQuantityWithinStock(
+        supabase,
+        cartItemId,
+        input.quantity,
+        input.customised_product_id,
+      );
+      if (!stockCheck.success) {
+        return { success: false, error: stockCheck.error };
       }
       updatePayload.quantity = input.quantity;
     }

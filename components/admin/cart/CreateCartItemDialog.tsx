@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 // Dummy customised products for selection
 // In a real app, this would be fetched from the database
@@ -76,7 +77,7 @@ export function CreateCartItemDialog({ cartId }: CreateCartItemDialogProps) {
     e.preventDefault()
 
     if (!customisedProductId || !quantity || parseInt(quantity) <= 0) {
-      alert("Please select a product and enter a valid quantity")
+      toast.error("Please select a product and enter a valid quantity")
       return
     }
 

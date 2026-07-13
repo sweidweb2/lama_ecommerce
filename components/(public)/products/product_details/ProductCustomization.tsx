@@ -79,6 +79,7 @@ function isLightHexColor(hex: string): boolean {
  * Features:
  * - Color palette selection (visual swatches)
  * - Size selection
+ * - Material selection
  * - Quantity selector
  * - Add to cart functionality
  * - Stock validation
@@ -90,10 +91,12 @@ export function ProductCustomization({
   const { setSelectedVariantId } = useProductVariant()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
+  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [showColorAlert, setShowColorAlert] = useState(false)
   const [showSizeAlert, setShowSizeAlert] = useState(false)
+  const [showMaterialAlert, setShowMaterialAlert] = useState(false)
   // Ref to prevent double-click - faster than state updates
   const isProcessingRef = useRef(false)
 
@@ -106,33 +109,50 @@ export function ProductCustomization({
     return Array.from(new Set(variants.map((v) => v.size).filter(Boolean))) as string[]
   }, [variants])
 
+  const materials = useMemo(() => {
+    return Array.from(new Set(variants.map((v) => v.material).filter(Boolean))) as string[]
+  }, [variants])
+
+  const requiredOptionsLabel = useMemo(() => {
+    const parts: string[] = []
+    if (colors.length > 0) parts.push('color')
+    if (sizes.length > 0) parts.push('size')
+    if (materials.length > 0) parts.push('material')
+    if (parts.length === 0) return 'options'
+    if (parts.length === 1) return parts[0]
+    if (parts.length === 2) return `${parts[0]} and ${parts[1]}`
+    return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`
+  }, [colors.length, sizes.length, materials.length])
+
   // Find matching variant based on selections
-  // Require color selection if colors exist, require size selection if sizes exist
+  // Require each axis only when that axis has values on variants
   const selectedVariant = useMemo(() => {
-    // Check if all required selections are made
     const hasRequiredColor = colors.length === 0 || selectedColor !== null
     const hasRequiredSize = sizes.length === 0 || selectedSize !== null
-    
-    if (!hasRequiredColor || !hasRequiredSize) {
+    const hasRequiredMaterial = materials.length === 0 || selectedMaterial !== null
+
+    if (!hasRequiredColor || !hasRequiredSize || !hasRequiredMaterial) {
       return undefined
     }
 
     return variants.find((v) => {
       const colorMatch = colors.length === 0 || v.color === selectedColor
       const sizeMatch = sizes.length === 0 || v.size === selectedSize
+      const materialMatch = materials.length === 0 || v.material === selectedMaterial
       // We intentionally DO NOT filter by stock here so we can
       // show a clear \"Out of stock\" state for the selected variant.
-      return colorMatch && sizeMatch
+      return colorMatch && sizeMatch && materialMatch
     })
-  }, [variants, selectedColor, selectedSize, colors.length, sizes.length])
+  }, [variants, selectedColor, selectedSize, selectedMaterial, colors.length, sizes.length, materials.length])
 
   // Check if a variant option is available (for enabling/disabling options)
-  const isOptionAvailable = (type: 'color' | 'size', value: string) => {
+  const isOptionAvailable = (type: 'color' | 'size' | 'material', value: string) => {
     return variants.some((v) => {
       const matchesType = v[type] === value
       const matchesOtherSelections =
         (colors.length === 0 || !selectedColor || v.color === selectedColor || type === 'color') &&
-        (sizes.length === 0 || !selectedSize || v.size === selectedSize || type === 'size')
+        (sizes.length === 0 || !selectedSize || v.size === selectedSize || type === 'size') &&
+        (materials.length === 0 || !selectedMaterial || v.material === selectedMaterial || type === 'material')
       return matchesType && matchesOtherSelections && v.quantity_stock > 0
     })
   }
@@ -161,6 +181,16 @@ export function ProductCustomization({
     setShowSizeAlert(false) // Clear alert when size is selected
   }
 
+  const handleMaterialChange = (material: string) => {
+    if (selectedMaterial === material) {
+      setSelectedMaterial(null)
+    } else {
+      setSelectedMaterial(material)
+    }
+    setQuantity(1)
+    setShowMaterialAlert(false)
+  }
+
   // Update selected variant ID in context
   useEffect(() => {
     if (selectedVariant) {
@@ -172,8 +202,9 @@ export function ProductCustomization({
   const hasRequiredSelections = useMemo(() => {
     const hasColor = colors.length === 0 || selectedColor !== null
     const hasSize = sizes.length === 0 || selectedSize !== null
-    return hasColor && hasSize
-  }, [colors.length, sizes.length, selectedColor, selectedSize])
+    const hasMaterial = materials.length === 0 || selectedMaterial !== null
+    return hasColor && hasSize && hasMaterial
+  }, [colors.length, sizes.length, materials.length, selectedColor, selectedSize, selectedMaterial])
 
   const isAvailable = hasRequiredSelections && selectedVariant && selectedVariant.quantity_stock > 0
   const maxQuantity = selectedVariant?.quantity_stock || 0
@@ -192,12 +223,15 @@ export function ProductCustomization({
       if (sizes.length > 0 && !selectedSize) {
         setShowSizeAlert(true)
       }
+      if (materials.length > 0 && !selectedMaterial) {
+        setShowMaterialAlert(true)
+      }
       return
     }
 
     if (!selectedVariant) {
       toast.error('Please select options', {
-        description: 'Choose a color and size to continue.',
+        description: `Choose a ${requiredOptionsLabel} to continue.`,
         duration: 4000,
       })
       return
@@ -287,7 +321,7 @@ export function ProductCustomization({
 
     if (!selectedVariant) {
       toast.error('Please select options', {
-        description: 'Choose a color and size to add to wishlist.',
+        description: `Choose a ${requiredOptionsLabel} to add to wishlist.`,
       })
       return
     }
@@ -442,6 +476,38 @@ export function ProductCustomization({
           </div>
           {showSizeAlert && (
             <p className="text-sm text-destructive font-medium">Please select a size</p>
+          )}
+        </div>
+      )}
+
+      {/* Material Selection */}
+      {materials.length > 0 && (
+        <div className="space-y-3">
+          <Label className="text-base font-semibold">Material</Label>
+          <div className="flex flex-wrap gap-2">
+            {materials.map((material) => {
+              const isAvailable = isOptionAvailable('material', material)
+              const isSelected = selectedMaterial === material
+              return (
+                <Button
+                  key={material}
+                  type="button"
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleMaterialChange(material)}
+                  disabled={!isAvailable}
+                  className={cn(
+                    "min-w-[3rem]",
+                    !isAvailable && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {material}
+                </Button>
+              )
+            })}
+          </div>
+          {showMaterialAlert && (
+            <p className="text-sm text-destructive font-medium">Please select a material</p>
           )}
         </div>
       )}

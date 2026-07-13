@@ -49,7 +49,7 @@ describe("checkoutService", () => {
     expect(processCheckout).not.toHaveBeenCalled();
   });
 
-  it("passes server-resolved shipping fee into processCheckout", async () => {
+  it("passes shipping_zone_id into processCheckout (fee resolved in SQL)", async () => {
     getAllShippingZonesWithFee.mockResolvedValue([
       { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
     ]);
@@ -67,12 +67,13 @@ describe("checkoutService", () => {
         cart_id: baseInput.cart_id,
         user_id: baseInput.user_id,
         session_id: baseInput.session_id,
-        shipping_fee: 4.5,
-        discount: 0,
+        shipping_zone_id: baseInput.shipping_zone_id,
         email: baseInput.email,
       }),
     );
-    // Input has no client total/subtotal fields — only zone id drives fee
+    // Money fields must not be passed — RPC resolves fee from zone id
+    expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("shipping_fee");
+    expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("discount");
     expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("total");
     expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("subtotal");
   });
@@ -96,6 +97,7 @@ describe("checkoutService", () => {
         user_id: null,
         session_id: guestInput.session_id,
         cart_id: guestInput.cart_id,
+        shipping_zone_id: guestInput.shipping_zone_id,
       }),
     );
   });
@@ -134,7 +136,7 @@ describe("checkoutService", () => {
     });
   });
 
-  it("uses fee 0 when zone fee is null", async () => {
+  it("allows checkout when zone fee is null (SQL treats as 0)", async () => {
     getAllShippingZonesWithFee.mockResolvedValue([
       { id: baseInput.shipping_zone_id, name: "Free", fee: null },
     ]);
@@ -144,7 +146,10 @@ describe("checkoutService", () => {
     await checkoutService(baseInput);
 
     expect(processCheckout).toHaveBeenCalledWith(
-      expect.objectContaining({ shipping_fee: 0 }),
+      expect.objectContaining({
+        shipping_zone_id: baseInput.shipping_zone_id,
+      }),
     );
+    expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("shipping_fee");
   });
 });

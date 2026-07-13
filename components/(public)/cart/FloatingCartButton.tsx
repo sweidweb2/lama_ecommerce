@@ -26,7 +26,8 @@ export function FloatingCartButton() {
         const { items } = result.data;
         const itemCount = items.reduce((sum: number, item: CartItemWithProduct) => sum + item.quantity, 0);
         const total = items.reduce(
-          (sum: number, item: CartItemWithProduct) => sum + item.product.price * item.quantity,
+          (sum: number, item: CartItemWithProduct) =>
+            sum + item.unitPrice * item.quantity,
           0
         );
         setCartData({ itemCount, total });

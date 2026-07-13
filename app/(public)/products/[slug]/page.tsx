@@ -37,7 +37,7 @@ interface ProductPageProps {
  * - ProductPricing: Maps to products.price and customised_products.price_override
  * - ProductVariantSelector: Maps to customised_products (color, size, material)
  * - ProductAvailability: Maps to customised_products.quantity_stock
- * - ProductActions: Handles cart operations (maps to carts/cart_items)
+ * - ProductCustomization: Handles ATC / wishlist (maps to carts / cart_items / wishlists)
  * - ProductReviews: Maps to reviews table
  * - ProductRelated: Related products by priority (brand+category, then brand, then category, then rest)
  * - ProductMetadata: SKU, timestamps, etc.

@@ -11,6 +11,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
+import { ProductsSectionBreadcrumbs } from "@/components/admin/AdminBreadcrumbs";
 
 function formatNumber(num: number): string {
   return new Intl.NumberFormat("en-US").format(num);
@@ -36,6 +37,7 @@ export default async function ProductViewsPage({
 
   return (
     <div className="space-y-6">
+      <ProductsSectionBreadcrumbs current="Product Views" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Product Views</h1>
         <p className="text-muted-foreground text-sm sm:text-base">
