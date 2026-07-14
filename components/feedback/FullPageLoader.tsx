@@ -24,8 +24,8 @@ export function FullPageLoader() {
         <div className="flex min-h-0 w-full flex-1 items-center justify-center">
             <DNA
                 visible={true}
-                height="100"
-                width="100"
+                height="180"
+                width="180"
                 ariaLabel="dna-loading"
                 dnaColorOne={colorOne}
                 dnaColorTwo={colorTwo}

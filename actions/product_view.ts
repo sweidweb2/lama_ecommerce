@@ -6,6 +6,7 @@ import {
   getAllProductViewsForAdminService,
   getProductViewsByProductIdService,
   getProductViewsStatsService,
+  getProductViewsStatsByProductIdService,
   trackProductViewService,
 } from "@/services/product_view.service";
 import { getOrCreateGuestSessionId } from "@/lib/auth/guest-session";
@@ -74,4 +75,12 @@ export async function getProductViewsByProductIdAction(
 export async function getProductViewsStatsAction() {
   await requireAdmin();
   return getProductViewsStatsService();
+}
+
+/**
+ * Get product views statistics for a single product
+ */
+export async function getProductViewsStatsByProductIdAction(productId: string) {
+  await requireAdmin();
+  return getProductViewsStatsByProductIdService(productId);
 }

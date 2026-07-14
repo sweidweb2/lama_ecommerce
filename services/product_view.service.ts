@@ -2,6 +2,7 @@ import {
   getAllProductViewsForAdmin,
   getProductViewsByProductIdForAdmin,
   getProductViewsStats,
+  getProductViewsStatsByProductId,
   trackProductView,
   incrementProductViewsCount,
   incrementProductAddToCartCount,
@@ -9,6 +10,7 @@ import {
   getProductStatsByProductId,
   type AdminProductViewRow,
   type ProductViewsStats,
+  type ProductScopedViewsStats,
 } from "@/repositories/product_view.repository";
 import type { ProductStats } from "@/types/product_utf8";
 import { getProductVariantById } from "@/repositories/product_variant.repository";
@@ -27,6 +29,15 @@ const EMPTY_PRODUCT_VIEWS_STATS: ProductViewsStats = {
   totalViews: 0,
   uniqueProducts: 0,
   uniqueUsers: 0,
+  viewsToday: 0,
+  viewsThisWeek: 0,
+  viewsThisMonth: 0,
+};
+
+const EMPTY_PRODUCT_SCOPED_VIEWS_STATS: ProductScopedViewsStats = {
+  totalViews: 0,
+  uniqueUsers: 0,
+  guestViews: 0,
   viewsToday: 0,
   viewsThisWeek: 0,
   viewsThisMonth: 0,
@@ -85,6 +96,23 @@ export async function getProductViewsStatsService(): Promise<ProductViewsStats> 
     return EMPTY_PRODUCT_VIEWS_STATS;
   }
   return getProductViewsStats();
+}
+
+/**
+ * Get product views statistics for a single product
+ */
+export async function getProductViewsStatsByProductIdService(
+  productId: string,
+): Promise<ProductScopedViewsStats> {
+  try {
+    await requireAdmin();
+  } catch {
+    return EMPTY_PRODUCT_SCOPED_VIEWS_STATS;
+  }
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return EMPTY_PRODUCT_SCOPED_VIEWS_STATS;
+  }
+  return getProductViewsStatsByProductId(productId);
 }
 
 /**

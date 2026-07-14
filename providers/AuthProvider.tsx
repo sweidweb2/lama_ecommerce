@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { IdleSessionWatcher } from "@/components/auth/IdleSessionWatcher";
 import { supabase } from "@/lib/supabase/client";
 import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import type { Profile, ProfileRole } from "@/types/user";
@@ -104,7 +105,12 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     loading,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <IdleSessionWatcher enabled={Boolean(user)} />
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

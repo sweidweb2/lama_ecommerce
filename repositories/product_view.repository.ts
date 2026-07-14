@@ -685,3 +685,105 @@ export async function getProductViewsStats(): Promise<ProductViewsStats> {
     };
   }
 }
+
+/**
+ * Product-scoped views statistics (for product detail page)
+ */
+export interface ProductScopedViewsStats {
+  totalViews: number;
+  uniqueUsers: number;
+  guestViews: number;
+  viewsToday: number;
+  viewsThisWeek: number;
+  viewsThisMonth: number;
+}
+
+const EMPTY_PRODUCT_SCOPED_VIEWS_STATS: ProductScopedViewsStats = {
+  totalViews: 0,
+  uniqueUsers: 0,
+  guestViews: 0,
+  viewsToday: 0,
+  viewsThisWeek: 0,
+  viewsThisMonth: 0,
+};
+
+/**
+ * Get product views statistics for a single product
+ */
+export async function getProductViewsStatsByProductId(
+  productId: string,
+): Promise<ProductScopedViewsStats> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      { count: totalViews },
+      { data: uniqueUsersData },
+      { count: guestViews },
+      { count: viewsToday },
+      { count: viewsThisWeek },
+      { count: viewsThisMonth },
+    ] = await Promise.all([
+      (supabase as any)
+        .from("product_views")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", productId),
+
+      (supabase as any)
+        .from("product_views")
+        .select("user_id")
+        .eq("product_id", productId)
+        .not("user_id", "is", null)
+        .limit(10000),
+
+      (supabase as any)
+        .from("product_views")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", productId)
+        .is("user_id", null),
+
+      (supabase as any)
+        .from("product_views")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", productId)
+        .gte("viewed_at", startOfToday.toISOString()),
+
+      (supabase as any)
+        .from("product_views")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", productId)
+        .gte("viewed_at", startOfWeek.toISOString()),
+
+      (supabase as any)
+        .from("product_views")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", productId)
+        .gte("viewed_at", startOfMonth.toISOString()),
+    ]);
+
+    const uniqueUsers = new Set(
+      (uniqueUsersData || []).map((v: any) => v.user_id).filter(Boolean),
+    ).size;
+
+    return {
+      totalViews: totalViews || 0,
+      uniqueUsers,
+      guestViews: guestViews || 0,
+      viewsToday: viewsToday || 0,
+      viewsThisWeek: viewsThisWeek || 0,
+      viewsThisMonth: viewsThisMonth || 0,
+    };
+  } catch (error) {
+    console.error("Error fetching product-scoped views stats:", error);
+    return EMPTY_PRODUCT_SCOPED_VIEWS_STATS;
+  }
+}

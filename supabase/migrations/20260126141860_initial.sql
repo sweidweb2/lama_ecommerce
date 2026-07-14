@@ -1,3 +1,11 @@
+-- Consolidated schema migration (all prior migrations merged).
+-- Cron jobs remain in separate migrations.
+
+
+-- ============================================================
+-- Source: 20260126141860_initial.sql
+-- ============================================================
+
 -- Consolidated schema migration
 -- Merged from 30 migration files
 -- Generated: 2026-07-12
@@ -488,7 +496,7 @@ alter table promo_codes         enable row level security;
 -- Goal: Database enforces access; frontend cannot bypass it.
 --
 -- Global Auth Assumptions:
--- - auth.uid() → current authenticated user ID
+-- - auth.uid() â†’ current authenticated user ID
 -- - User role is read from profiles.role
 -- - Never trust a role coming from the frontend
 --------------------------------------------------
@@ -1613,7 +1621,7 @@ with check (public.get_user_role() = 'admin'::profile_role);
 -- =============================================================================
 
 --------------------------------------------------
--- Checkout Function – Atomic Order Creation
+-- Checkout Function â€“ Atomic Order Creation
 --
 -- Goal:
 -- - Validate stock for all cart items
@@ -2014,4 +2022,2090 @@ create policy "Public can read categories"
 on categories
 for select
 using (true);
+
+
+
+
+
+-- ============================================================
+-- Source: 20260712100000_fix_guest_rls_and_checkout_ownership.sql
+-- ============================================================
+
+--------------------------------------------------
+-- Fix guest RLS + checkout ownership
+--
+-- Goal:
+-- - Remove world-readable/writable guest bypasses (user_id IS NULL)
+-- - Authenticated users keep user_id = auth.uid() access
+-- - Guest rows are accessed only via service_role from the app
+--   (after validating the httpOnly guest_session_id cookie)
+-- - Harden process_checkout ownership; revoke anon EXECUTE
+-- - Revoke upsert_cart_item from anon
+--------------------------------------------------
+
+--------------------------------------------------
+-- CARTS TABLE POLICIES
+--------------------------------------------------
+
+drop policy if exists "Users can read own carts" on carts;
+create policy "Users can read own carts"
+on carts
+for select
+using (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can insert own carts" on carts;
+create policy "Users can insert own carts"
+on carts
+for insert
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can update own carts" on carts;
+create policy "Users can update own carts"
+on carts
+for update
+using (
+  user_id = auth.uid()
+)
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can delete own carts" on carts;
+create policy "Users can delete own carts"
+on carts
+for delete
+using (
+  user_id = auth.uid()
+);
+
+--------------------------------------------------
+-- CART ITEMS TABLE POLICIES
+--------------------------------------------------
+
+drop policy if exists "Users can read own cart items" on cart_items;
+create policy "Users can read own cart items"
+on cart_items
+for select
+using (
+  exists (
+    select 1
+    from carts c
+    where c.id = cart_items.cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can insert own cart items" on cart_items;
+create policy "Users can insert own cart items"
+on cart_items
+for insert
+with check (
+  exists (
+    select 1
+    from carts c
+    where c.id = cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can update own cart items" on cart_items;
+create policy "Users can update own cart items"
+on cart_items
+for update
+using (
+  exists (
+    select 1
+    from carts c
+    where c.id = cart_id
+      and c.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from carts c
+    where c.id = cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can delete own cart items" on cart_items;
+create policy "Users can delete own cart items"
+on cart_items
+for delete
+using (
+  exists (
+    select 1
+    from carts c
+    where c.id = cart_id
+      and c.user_id = auth.uid()
+  )
+);
+
+--------------------------------------------------
+-- ORDERS TABLE POLICIES
+--------------------------------------------------
+
+drop policy if exists "Users can read own orders" on orders;
+create policy "Users can read own orders"
+on orders
+for select
+using (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can insert own orders" on orders;
+create policy "Users can insert own orders"
+on orders
+for insert
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can update own orders" on orders;
+create policy "Users can update own orders"
+on orders
+for update
+using (
+  user_id = auth.uid()
+)
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can delete own orders" on orders;
+create policy "Users can delete own orders"
+on orders
+for delete
+using (
+  user_id = auth.uid()
+);
+
+--------------------------------------------------
+-- ORDER ITEMS TABLE POLICIES
+--------------------------------------------------
+
+drop policy if exists "Users can read own order items" on order_items;
+create policy "Users can read own order items"
+on order_items
+for select
+using (
+  exists (
+    select 1
+    from orders o
+    where o.id = order_items.order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can insert own order items" on order_items;
+create policy "Users can insert own order items"
+on order_items
+for insert
+with check (
+  exists (
+    select 1
+    from orders o
+    where o.id = order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can update own order items" on order_items;
+create policy "Users can update own order items"
+on order_items
+for update
+using (
+  exists (
+    select 1
+    from orders o
+    where o.id = order_id
+      and o.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from orders o
+    where o.id = order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can delete own order items" on order_items;
+create policy "Users can delete own order items"
+on order_items
+for delete
+using (
+  exists (
+    select 1
+    from orders o
+    where o.id = order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+--------------------------------------------------
+-- WISHLIST POLICIES
+--------------------------------------------------
+
+drop policy if exists "Users and guests can read wishlist items" on wishlists;
+drop policy if exists "Users and guests can insert wishlist items" on wishlists;
+drop policy if exists "Users and guests can delete wishlist items" on wishlists;
+drop policy if exists "Users can view own wishlist items" on wishlists;
+drop policy if exists "Users can insert own wishlist items" on wishlists;
+drop policy if exists "Users can delete own wishlist items" on wishlists;
+
+create policy "Users can read own wishlist items"
+on wishlists
+for select
+using (
+  user_id = auth.uid()
+);
+
+create policy "Users can insert own wishlist items"
+on wishlists
+for insert
+with check (
+  user_id = auth.uid()
+);
+
+create policy "Users can delete own wishlist items"
+on wishlists
+for delete
+using (
+  user_id = auth.uid()
+);
+
+--------------------------------------------------
+-- HARDEN process_checkout
+--------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.process_checkout(
+  p_cart_id       uuid,
+  p_user_id       uuid       DEFAULT NULL,
+  p_session_id    text       DEFAULT NULL,
+  p_shipping_fee  numeric    DEFAULT 0,
+  p_discount      numeric    DEFAULT 0,
+  p_phone         text       DEFAULT NULL,
+  p_email         text       DEFAULT NULL,
+  p_address_snapshot jsonb   DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cart           RECORD;
+  v_item           RECORD;
+  v_subtotal       numeric := 0;
+  v_total          numeric;
+  v_order_id       uuid;
+  v_price          numeric;
+  v_item_count     integer := 0;
+BEGIN
+  -- 1. Validate cart exists and is active
+  SELECT * INTO v_cart
+  FROM carts
+  WHERE id = p_cart_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cart not found';
+  END IF;
+
+  -- 2. Validate ownership (authenticated cart OR guest session cart)
+  IF v_cart.user_id IS NOT NULL THEN
+    IF p_user_id IS NULL OR v_cart.user_id <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+  ELSIF v_cart.session_id IS NOT NULL THEN
+    IF p_session_id IS NULL OR v_cart.session_id <> p_session_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this session';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Cart has no owner';
+  END IF;
+
+  -- 3. First pass: validate stock for ALL items before any mutation
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp
+      ON cp.id = ci.customised_product_id
+    JOIN products p
+      ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+     
+  LOOP
+    v_item_count := v_item_count + 1;
+
+    IF v_item.quantity > v_item.quantity_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": requested %, available %',
+        v_item.product_name, v_item.quantity, v_item.quantity_stock;
+    END IF;
+
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+    v_subtotal := v_subtotal + (v_price * v_item.quantity);
+  END LOOP;
+
+  IF v_item_count = 0 THEN
+    RAISE EXCEPTION 'Cart is empty';
+  END IF;
+
+  -- 4. Calculate total
+  v_total := v_subtotal + COALESCE(p_shipping_fee, 0) - COALESCE(p_discount, 0);
+  IF v_total < 0 THEN
+    v_total := 0;
+  END IF;
+
+  -- 5. Create order
+  INSERT INTO orders (
+    user_id, session_id, status,
+    subtotal, shipping_fee, discount, total,
+    payment_status,
+    address_snapshot, phone, email
+  )
+  VALUES (
+    p_user_id, p_session_id, 'pending',
+    v_subtotal, COALESCE(p_shipping_fee, 0), COALESCE(p_discount, 0), v_total,
+    'pending',
+    p_address_snapshot, p_phone, p_email
+  )
+  RETURNING id INTO v_order_id;
+
+  -- 6. Second pass: create order_items (snapshots) + decrement stock
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp
+      ON cp.id = ci.customised_product_id
+    JOIN products p
+      ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+     
+  LOOP
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+
+    INSERT INTO order_items (
+      order_id, customised_product_id, quantity,
+      price_snapshot, product_name_snapshot,
+      size_snapshot, material_snapshot, color_snapshot
+    )
+    VALUES (
+      v_order_id, v_item.customised_product_id, v_item.quantity,
+      v_price, v_item.product_name,
+      v_item.size, v_item.material, v_item.color
+    );
+
+    UPDATE customised_products
+    SET quantity_stock = quantity_stock - v_item.quantity
+    WHERE id = v_item.customised_product_id
+      AND quantity_stock >= v_item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Stock race condition for "%": stock changed since validation',
+        v_item.product_name;
+    END IF;
+  END LOOP;
+
+  -- 7. Hard-delete cart (cart_items CASCADE)
+  DELETE FROM carts
+  WHERE id = p_cart_id;
+
+  RETURN v_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, text, numeric, numeric, text, text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, text, numeric, numeric, text, text, jsonb) FROM anon;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, text, numeric, numeric, text, text, jsonb) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_checkout(uuid, uuid, text, numeric, numeric, text, text, jsonb) TO service_role;
+
+--------------------------------------------------
+-- REVOKE upsert_cart_item FROM anon
+--------------------------------------------------
+
+REVOKE ALL ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) FROM anon;
+GRANT EXECUTE ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) TO service_role;
+
+NOTIFY pgrst, 'reload schema';
+
+
+
+
+-- ============================================================
+-- Source: 20260712110000_rls_policies_payments_shipping_promo_stats.sql
+-- ============================================================
+
+--------------------------------------------------
+-- RLS policies for tables that had RLS enabled
+-- but no policies (deny-all for session clients).
+--
+-- Tables: payments, shipments, shipping_zones,
+--         shipping_fees, promo_codes, product_stats
+--------------------------------------------------
+
+--------------------------------------------------
+-- PAYMENTS
+--------------------------------------------------
+drop policy if exists "Users can read own payments" on payments;
+create policy "Users can read own payments"
+on payments
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from orders o
+    where o.id = payments.order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Admins can manage payments" on payments;
+create policy "Admins can manage payments"
+on payments
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- SHIPMENTS
+--------------------------------------------------
+drop policy if exists "Users can read own shipments" on shipments;
+create policy "Users can read own shipments"
+on shipments
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from orders o
+    where o.id = shipments.order_id
+      and o.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Admins can manage shipments" on shipments;
+create policy "Admins can manage shipments"
+on shipments
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- SHIPPING ZONES (public read for checkout)
+--------------------------------------------------
+drop policy if exists "Public can read shipping zones" on shipping_zones;
+create policy "Public can read shipping zones"
+on shipping_zones
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Admins can manage shipping zones" on shipping_zones;
+create policy "Admins can manage shipping zones"
+on shipping_zones
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- SHIPPING FEES (public read for checkout)
+--------------------------------------------------
+drop policy if exists "Public can read shipping fees" on shipping_fees;
+create policy "Public can read shipping fees"
+on shipping_fees
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Admins can manage shipping fees" on shipping_fees;
+create policy "Admins can manage shipping fees"
+on shipping_fees
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- PROMO CODES (admin only â€” no public read)
+--------------------------------------------------
+drop policy if exists "Admins can manage promo codes" on promo_codes;
+create policy "Admins can manage promo codes"
+on promo_codes
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- PRODUCT STATS (admin only; increments via service role)
+--------------------------------------------------
+drop policy if exists "Admins can manage product stats" on product_stats;
+create policy "Admins can manage product stats"
+on product_stats
+for all
+to authenticated
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+
+
+
+-- ============================================================
+-- Source: 20260712110001_contact_leads_rate_limit.sql
+-- ============================================================
+
+--------------------------------------------------
+-- Close open public INSERT on contact_us / leads
+-- and add DB-backed form rate-limit counters.
+--------------------------------------------------
+
+-- Drop public insert policies (WITH CHECK true was spam-open via anon key)
+drop policy if exists "Public can submit contact form" on contact_us;
+drop policy if exists "Public can insert leads" on leads;
+
+-- Rate-limit counters (service-role only; RLS on, no policies)
+create table if not exists public.form_rate_limits (
+  key text primary key,
+  window_started_at timestamptz not null default now(),
+  hit_count int not null default 0
+);
+
+alter table public.form_rate_limits enable row level security;
+
+
+
+
+-- ============================================================
+-- Source: 20260712200000_lock_get_user_role_search_path.sql
+-- ============================================================
+
+--------------------------------------------------
+-- Lock search_path on get_user_role()
+--
+-- SECURITY DEFINER helpers must pin search_path to avoid
+-- search_path hijacking / object shadowing attacks.
+--------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS profile_role
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  user_role profile_role;
+BEGIN
+  SELECT role INTO user_role
+  FROM public.profiles
+  WHERE user_id = auth.uid()
+  LIMIT 1;
+
+  RETURN coalesce(user_role, 'user'::profile_role);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_user_role() TO authenticated;
+
+
+
+
+-- ============================================================
+-- Source: 20260712210000_remove_soft_deletes.sql
+-- ============================================================
+
+--------------------------------------------------
+-- Forward migration: remove soft deletes
+-- For DBs that already applied older migrations with deleted_at.
+-- Fresh installs (db reset) get the cleaned baseline and skip
+-- column drops that no longer exist (IF EXISTS).
+--------------------------------------------------
+
+-- 1. Profiles: is_active from deleted_at
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS is_active boolean not null default true;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'deleted_at'
+  ) THEN
+    UPDATE profiles SET is_active = (deleted_at IS NULL);
+  END IF;
+END $$;
+
+-- 2. Purge soft-deleted rows (order matters for FKs)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'cart_items' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM cart_items WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'carts' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM carts WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'wishlists' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM wishlists WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM reviews WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'user_addresses' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM user_addresses WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'order_items' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM order_items WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'payments' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM payments WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'shipments' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM shipments WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  -- Orders with soft-delete: remove payments/shipments first then orders
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE deleted_at IS NOT NULL);
+    DELETE FROM shipments WHERE order_id IN (SELECT id FROM orders WHERE deleted_at IS NOT NULL);
+    DELETE FROM orders WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'customised_products' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM wishlists WHERE customised_product_id IN (
+      SELECT id FROM customised_products WHERE deleted_at IS NOT NULL
+    );
+    DELETE FROM cart_items WHERE customised_product_id IN (
+      SELECT id FROM customised_products WHERE deleted_at IS NOT NULL
+    );
+    DELETE FROM customised_products WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'deleted_at'
+  ) THEN
+    DELETE FROM product_questions WHERE product_id IN (SELECT id FROM products WHERE deleted_at IS NOT NULL);
+    DELETE FROM product_views WHERE product_id IN (SELECT id FROM products WHERE deleted_at IS NOT NULL);
+    DELETE FROM product_stats WHERE product_id IN (SELECT id FROM products WHERE deleted_at IS NOT NULL);
+    DELETE FROM products WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'categories' AND column_name = 'deleted_at'
+  ) THEN
+    UPDATE products SET category_id = NULL WHERE category_id IN (
+      SELECT id FROM categories WHERE deleted_at IS NOT NULL
+    );
+    UPDATE categories SET parent_id = NULL WHERE parent_id IN (
+      SELECT id FROM categories WHERE deleted_at IS NOT NULL
+    );
+    DELETE FROM categories WHERE deleted_at IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'brands' AND column_name = 'deleted_at'
+  ) THEN
+    UPDATE products SET brand_id = NULL WHERE brand_id IN (
+      SELECT id FROM brands WHERE deleted_at IS NOT NULL
+    );
+    DELETE FROM brands WHERE deleted_at IS NOT NULL;
+  END IF;
+END $$;
+
+-- 3. Cart items unique index (full, not partial)
+DROP INDEX IF EXISTS cart_items_unique_active;
+DROP INDEX IF EXISTS cart_items_unique_cart_variant;
+CREATE UNIQUE INDEX cart_items_unique_cart_variant
+ON cart_items (cart_id, customised_product_id);
+
+-- 4. Drop policies that still reference deleted_at (must happen BEFORE DROP COLUMN)
+DROP POLICY IF EXISTS "Public can read categories" ON categories;
+DROP POLICY IF EXISTS "Public can read product variants" ON customised_products;
+DROP POLICY IF EXISTS "Users can read reviews" ON reviews;
+
+DROP POLICY IF EXISTS "Users can read own carts" ON carts;
+DROP POLICY IF EXISTS "Users can insert own carts" ON carts;
+DROP POLICY IF EXISTS "Users can update own carts" ON carts;
+DROP POLICY IF EXISTS "Users can delete own carts" ON carts;
+
+DROP POLICY IF EXISTS "Users can read own cart items" ON cart_items;
+DROP POLICY IF EXISTS "Users can insert own cart items" ON cart_items;
+DROP POLICY IF EXISTS "Users can update own cart items" ON cart_items;
+DROP POLICY IF EXISTS "Users can delete own cart items" ON cart_items;
+
+DROP POLICY IF EXISTS "Users can read own orders" ON orders;
+DROP POLICY IF EXISTS "Users can insert own orders" ON orders;
+DROP POLICY IF EXISTS "Users can update own orders" ON orders;
+DROP POLICY IF EXISTS "Users can delete own orders" ON orders;
+
+DROP POLICY IF EXISTS "Users can read own order items" ON order_items;
+DROP POLICY IF EXISTS "Users can insert own order items" ON order_items;
+DROP POLICY IF EXISTS "Users can update own order items" ON order_items;
+DROP POLICY IF EXISTS "Users can delete own order items" ON order_items;
+
+DROP POLICY IF EXISTS "Users and guests can read wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users and guests can insert wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users and guests can delete wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users can view own wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users can insert own wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users can delete own wishlist items" ON wishlists;
+DROP POLICY IF EXISTS "Users can read own wishlist items" ON wishlists;
+
+DROP POLICY IF EXISTS "Users can read own payments" ON payments;
+DROP POLICY IF EXISTS "Users can read own shipments" ON shipments;
+
+-- 5. Drop deleted_at columns (CASCADE covers any remaining dependents)
+ALTER TABLE IF EXISTS profiles DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS user_addresses DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS brands DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS categories DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS products DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS customised_products DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS wishlists DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS carts DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS cart_items DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS reviews DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS orders DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS order_items DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS payments DROP COLUMN IF EXISTS deleted_at CASCADE;
+ALTER TABLE IF EXISTS shipments DROP COLUMN IF EXISTS deleted_at CASCADE;
+
+-- 5. Recreate get_admin_profiles with is_active
+-- Must DROP first: CREATE OR REPLACE cannot change RETURNS TABLE shape
+DROP FUNCTION IF EXISTS public.get_admin_profiles();
+CREATE OR REPLACE FUNCTION public.get_admin_profiles()
+RETURNS TABLE (
+  id uuid,
+  user_id uuid,
+  full_name text,
+  role profile_role,
+  created_at timestamptz,
+  is_active boolean,
+  email text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF public.get_user_role() != 'admin'::profile_role THEN
+    RETURN;
+  END IF;
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.user_id,
+    p.full_name,
+    p.role,
+    p.created_at,
+    p.is_active,
+    u.email::text
+  FROM public.profiles p
+  JOIN auth.users u ON u.id = p.user_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_profiles() TO authenticated;
+
+-- 6. Recreate upsert_cart_item without deleted_at
+-- DROP first: SETOF cart_items shape changed after column drop
+DROP FUNCTION IF EXISTS public.upsert_cart_item(uuid, uuid, integer);
+CREATE OR REPLACE FUNCTION public.upsert_cart_item(
+  p_cart_id uuid,
+  p_customised_product_id uuid,
+  p_quantity integer
+)
+RETURNS SETOF cart_items
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_available_stock integer;
+  v_result RECORD;
+BEGIN
+  SELECT quantity_stock INTO v_available_stock
+  FROM customised_products
+  WHERE id = p_customised_product_id;
+
+  IF v_available_stock IS NULL THEN
+    RAISE EXCEPTION 'Product variant not found';
+  END IF;
+
+  IF v_available_stock <= 0 THEN
+    RAISE EXCEPTION 'Product variant is out of stock';
+  END IF;
+
+  UPDATE cart_items
+  SET quantity = quantity + p_quantity
+  WHERE cart_id = p_cart_id
+    AND customised_product_id = p_customised_product_id
+  RETURNING * INTO v_result;
+
+  IF NOT FOUND THEN
+    IF p_quantity > v_available_stock THEN
+      RAISE EXCEPTION 'Insufficient stock. Available: %, Requested: %',
+        v_available_stock, p_quantity;
+    END IF;
+
+    INSERT INTO cart_items (cart_id, customised_product_id, quantity)
+    VALUES (p_cart_id, p_customised_product_id, p_quantity)
+    RETURNING * INTO v_result;
+  ELSE
+    IF v_result.quantity > v_available_stock THEN
+      RAISE EXCEPTION 'Insufficient stock. Available: %, Requested: %',
+        v_available_stock, v_result.quantity;
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT *
+  FROM cart_items
+  WHERE id = v_result.id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.upsert_cart_item(uuid, uuid, integer) FROM anon;
+
+-- 7. process_checkout: hard-delete cart (preserve ownership checks from prior migration)
+CREATE OR REPLACE FUNCTION public.process_checkout(
+  p_cart_id       uuid,
+  p_user_id       uuid       DEFAULT NULL,
+  p_session_id    text       DEFAULT NULL,
+  p_shipping_fee  numeric    DEFAULT 0,
+  p_discount      numeric    DEFAULT 0,
+  p_phone         text       DEFAULT NULL,
+  p_email         text       DEFAULT NULL,
+  p_address_snapshot jsonb   DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cart           RECORD;
+  v_item           RECORD;
+  v_subtotal       numeric := 0;
+  v_total          numeric;
+  v_order_id       uuid;
+  v_price          numeric;
+  v_item_count     integer := 0;
+BEGIN
+  SELECT * INTO v_cart
+  FROM carts
+  WHERE id = p_cart_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cart not found';
+  END IF;
+
+  IF v_cart.user_id IS NOT NULL THEN
+    IF p_user_id IS NULL OR v_cart.user_id <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+  ELSIF v_cart.session_id IS NOT NULL THEN
+    IF p_session_id IS NULL OR v_cart.session_id <> p_session_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this session';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Cart has no owner';
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_item_count := v_item_count + 1;
+
+    IF v_item.quantity > v_item.quantity_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": requested %, available %',
+        v_item.product_name, v_item.quantity, v_item.quantity_stock;
+    END IF;
+
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+    v_subtotal := v_subtotal + (v_price * v_item.quantity);
+  END LOOP;
+
+  IF v_item_count = 0 THEN
+    RAISE EXCEPTION 'Cart is empty';
+  END IF;
+
+  v_total := v_subtotal + COALESCE(p_shipping_fee, 0) - COALESCE(p_discount, 0);
+  IF v_total < 0 THEN
+    v_total := 0;
+  END IF;
+
+  INSERT INTO orders (
+    user_id, session_id, status,
+    subtotal, shipping_fee, discount, total,
+    payment_status,
+    address_snapshot, phone, email
+  )
+  VALUES (
+    p_user_id, p_session_id, 'pending',
+    v_subtotal, COALESCE(p_shipping_fee, 0), COALESCE(p_discount, 0), v_total,
+    'pending',
+    p_address_snapshot, p_phone, p_email
+  )
+  RETURNING id INTO v_order_id;
+
+  FOR v_item IN
+    SELECT
+      ci.customised_product_id,
+      ci.quantity,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price AS base_price,
+      p.name AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+
+    INSERT INTO order_items (
+      order_id, customised_product_id, quantity,
+      price_snapshot, product_name_snapshot,
+      size_snapshot, material_snapshot, color_snapshot
+    )
+    VALUES (
+      v_order_id, v_item.customised_product_id, v_item.quantity,
+      v_price, v_item.product_name,
+      v_item.size, v_item.material, v_item.color
+    );
+
+    UPDATE customised_products
+    SET quantity_stock = quantity_stock - v_item.quantity
+    WHERE id = v_item.customised_product_id
+      AND quantity_stock >= v_item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Stock race condition for "%": stock changed since validation',
+        v_item.product_name;
+    END IF;
+  END LOOP;
+
+  DELETE FROM carts WHERE id = p_cart_id;
+
+  RETURN v_order_id;
+END;
+$$;
+
+-- 8. Recreate RLS policies without deleted_at
+CREATE POLICY "Public can read categories"
+ON categories FOR SELECT
+USING (true);
+
+CREATE POLICY "Public can read product variants"
+ON customised_products FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM products
+    WHERE products.id = customised_products.product_id
+      AND products.is_active = true
+  )
+);
+
+CREATE POLICY "Users can read reviews"
+ON reviews FOR SELECT
+USING (
+  review_status = 'approved'
+  OR auth.uid() = user_id
+);
+
+CREATE POLICY "Users can read own carts"
+ON carts FOR SELECT
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own carts"
+ON carts FOR INSERT
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own carts"
+ON carts FOR UPDATE
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own carts"
+ON carts FOR DELETE
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can read own cart items"
+ON cart_items FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM carts c
+    WHERE c.id = cart_items.cart_id AND c.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can insert own cart items"
+ON cart_items FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM carts c
+    WHERE c.id = cart_id AND c.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update own cart items"
+ON cart_items FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM carts c
+    WHERE c.id = cart_id AND c.user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM carts c
+    WHERE c.id = cart_id AND c.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete own cart items"
+ON cart_items FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM carts c
+    WHERE c.id = cart_id AND c.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can read own orders"
+ON orders FOR SELECT
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own orders"
+ON orders FOR INSERT
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own orders"
+ON orders FOR UPDATE
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own orders"
+ON orders FOR DELETE
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can read own order items"
+ON order_items FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_items.order_id AND o.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can insert own order items"
+ON order_items FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id AND o.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update own order items"
+ON order_items FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id AND o.user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id AND o.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete own order items"
+ON order_items FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = order_id AND o.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can read own wishlist items"
+ON wishlists FOR SELECT
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own wishlist items"
+ON wishlists FOR INSERT
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own wishlist items"
+ON wishlists FOR DELETE
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can read own payments"
+ON payments FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = payments.order_id AND o.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can read own shipments"
+ON shipments FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.id = shipments.order_id AND o.user_id = auth.uid()
+  )
+);
+
+NOTIFY pgrst, 'reload schema';
+
+
+
+
+-- ============================================================
+-- Source: 20260712220000_restore_product_image_policies.sql
+-- ============================================================
+
+--------------------------------------------------
+-- Ensure product image storage + table policies
+-- after soft-delete CASCADE may have dropped
+-- policies that referenced products.deleted_at.
+--------------------------------------------------
+
+-- Public storefront product read (if CASCADE dropped it)
+DROP POLICY IF EXISTS "Public can read active products" ON products;
+CREATE POLICY "Public can read active products"
+ON products FOR SELECT
+USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public can read product images" ON product_images;
+CREATE POLICY "Public can read product images"
+ON product_images FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM products
+    WHERE products.id = product_images.product_id
+      AND products.is_active = true
+  )
+);
+
+-- Admin table CRUD (idempotent)
+DROP POLICY IF EXISTS "Admins can manage product_images" ON product_images;
+CREATE POLICY "Admins can manage product_images"
+ON product_images FOR ALL
+USING (public.get_user_role() = 'admin'::profile_role)
+WITH CHECK (public.get_user_role() = 'admin'::profile_role);
+
+-- Storage: admin upload / delete / update; public read
+DROP POLICY IF EXISTS "Admins can upload product images" ON storage.objects;
+CREATE POLICY "Admins can upload product images"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'products'
+  AND auth.role() = 'authenticated'
+  AND public.get_user_role() = 'admin'::profile_role
+);
+
+DROP POLICY IF EXISTS "Admins can delete product images" ON storage.objects;
+CREATE POLICY "Admins can delete product images"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'products'
+  AND auth.role() = 'authenticated'
+  AND public.get_user_role() = 'admin'::profile_role
+);
+
+DROP POLICY IF EXISTS "Admins can update product images" ON storage.objects;
+CREATE POLICY "Admins can update product images"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'products'
+  AND auth.role() = 'authenticated'
+  AND public.get_user_role() = 'admin'::profile_role
+);
+
+DROP POLICY IF EXISTS "Public can read product storage" ON storage.objects;
+CREATE POLICY "Public can read product storage"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'products');
+
+NOTIFY pgrst, 'reload schema';
+
+
+
+
+-- ============================================================
+-- Source: 20260713120000_restock_on_order_cancel.sql
+-- ============================================================
+
+-- Restock inventory when an order is cancelled or payment fails/refunds.
+-- process_checkout decrements stock at place-order (payment still pending);
+-- without this, cancelled/failed/refunded orders permanently lose stock.
+--
+-- Idempotent via orders.stock_restored so cancel + refund does not double-restock.
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS stock_restored boolean NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN public.orders.stock_restored IS
+  'True after order line quantities have been returned to customised_products.quantity_stock';
+
+CREATE OR REPLACE FUNCTION public.restock_order_inventory()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  should_restock boolean := false;
+BEGIN
+  -- Already restored (e.g. cancelled then later marked refunded)
+  IF OLD.stock_restored THEN
+    NEW.stock_restored := true;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled' THEN
+    should_restock := true;
+  END IF;
+
+  IF NEW.payment_status IN ('failed', 'refunded')
+     AND OLD.payment_status IS DISTINCT FROM NEW.payment_status THEN
+    should_restock := true;
+  END IF;
+
+  IF should_restock THEN
+    UPDATE public.customised_products cp
+    SET quantity_stock = cp.quantity_stock + oi.quantity
+    FROM public.order_items oi
+    WHERE oi.order_id = NEW.id
+      AND oi.customised_product_id IS NOT NULL
+      AND cp.id = oi.customised_product_id;
+
+    NEW.stock_restored := true;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_restock_order_inventory ON public.orders;
+
+CREATE TRIGGER trg_restock_order_inventory
+  BEFORE UPDATE OF status, payment_status ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.restock_order_inventory();
+
+
+
+
+-- ============================================================
+-- Source: 20260713130000_process_checkout_resolve_shipping.sql
+-- ============================================================
+
+-- Harden process_checkout: resolve shipping fee from zone id inside SQL.
+-- Remove trusted p_shipping_fee / p_discount money args; force discount = 0
+-- until promo codes are wired into checkout.
+
+DROP FUNCTION IF EXISTS public.process_checkout(uuid, uuid, text, numeric, numeric, text, text, jsonb);
+
+CREATE OR REPLACE FUNCTION public.process_checkout(
+  p_cart_id            uuid,
+  p_shipping_zone_id   uuid,
+  p_user_id            uuid       DEFAULT NULL,
+  p_session_id         text       DEFAULT NULL,
+  p_phone              text       DEFAULT NULL,
+  p_email              text       DEFAULT NULL,
+  p_address_snapshot   jsonb      DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cart           RECORD;
+  v_item           RECORD;
+  v_subtotal       numeric := 0;
+  v_shipping_fee   numeric := 0;
+  v_discount       numeric := 0;
+  v_total          numeric;
+  v_order_id       uuid;
+  v_price          numeric;
+  v_item_count     integer := 0;
+BEGIN
+  SELECT * INTO v_cart
+  FROM carts
+  WHERE id = p_cart_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cart not found';
+  END IF;
+
+  IF v_cart.user_id IS NOT NULL THEN
+    IF p_user_id IS NULL OR v_cart.user_id <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+  ELSIF v_cart.session_id IS NOT NULL THEN
+    IF p_session_id IS NULL OR v_cart.session_id <> p_session_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this session';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Cart has no owner';
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_item_count := v_item_count + 1;
+
+    IF v_item.quantity > v_item.quantity_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": requested %, available %',
+        v_item.product_name, v_item.quantity, v_item.quantity_stock;
+    END IF;
+
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+    v_subtotal := v_subtotal + (v_price * v_item.quantity);
+  END LOOP;
+
+  IF v_item_count = 0 THEN
+    RAISE EXCEPTION 'Cart is empty';
+  END IF;
+
+  -- Resolve shipping fee from zone (first fee row by created_at ASC)
+  SELECT COALESCE(sf.fee, 0)
+  INTO v_shipping_fee
+  FROM shipping_zones sz
+  LEFT JOIN LATERAL (
+    SELECT fee
+    FROM shipping_fees
+    WHERE zone_id = sz.id
+    ORDER BY created_at ASC
+    LIMIT 1
+  ) sf ON true
+  WHERE sz.id = p_shipping_zone_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid shipping zone';
+  END IF;
+
+  -- Promo codes not wired into checkout yet
+  v_discount := 0;
+
+  v_total := v_subtotal + v_shipping_fee - v_discount;
+  IF v_total < 0 THEN
+    v_total := 0;
+  END IF;
+
+  INSERT INTO orders (
+    user_id, session_id, status,
+    subtotal, shipping_fee, discount, total,
+    payment_status,
+    address_snapshot, phone, email
+  )
+  VALUES (
+    p_user_id, p_session_id, 'pending',
+    v_subtotal, v_shipping_fee, v_discount, v_total,
+    'pending',
+    p_address_snapshot, p_phone, p_email
+  )
+  RETURNING id INTO v_order_id;
+
+  FOR v_item IN
+    SELECT
+      ci.customised_product_id,
+      ci.quantity,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price AS base_price,
+      p.name AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+
+    INSERT INTO order_items (
+      order_id, customised_product_id, quantity,
+      price_snapshot, product_name_snapshot,
+      size_snapshot, material_snapshot, color_snapshot
+    )
+    VALUES (
+      v_order_id, v_item.customised_product_id, v_item.quantity,
+      v_price, v_item.product_name,
+      v_item.size, v_item.material, v_item.color
+    );
+
+    UPDATE customised_products
+    SET quantity_stock = quantity_stock - v_item.quantity
+    WHERE id = v_item.customised_product_id
+      AND quantity_stock >= v_item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Stock race condition for "%": stock changed since validation',
+        v_item.product_name;
+    END IF;
+  END LOOP;
+
+  DELETE FROM carts WHERE id = p_cart_id;
+
+  RETURN v_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb) FROM anon;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb) TO service_role;
+
+
+
+
+-- ============================================================
+-- Source: 20260713140000_checkout_payments_and_promos.sql
+-- ============================================================
+
+-- Checkout: pending payments row + promo codes at place-order.
+-- Extends process_checkout (zone-resolved shipping) with optional p_promo_code,
+-- inserts payments(status=pending), stores orders.promo_code_id, bumps use_count.
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS promo_code_id uuid
+  REFERENCES public.promo_codes(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_orders_promo_code_id ON public.orders(promo_code_id);
+
+DROP FUNCTION IF EXISTS public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb);
+
+CREATE OR REPLACE FUNCTION public.process_checkout(
+  p_cart_id            uuid,
+  p_shipping_zone_id   uuid,
+  p_user_id            uuid       DEFAULT NULL,
+  p_session_id         text       DEFAULT NULL,
+  p_phone              text       DEFAULT NULL,
+  p_email              text       DEFAULT NULL,
+  p_address_snapshot   jsonb      DEFAULT NULL,
+  p_promo_code         text       DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cart           RECORD;
+  v_item           RECORD;
+  v_promo          RECORD;
+  v_subtotal       numeric := 0;
+  v_shipping_fee   numeric := 0;
+  v_discount       numeric := 0;
+  v_promo_id       uuid := NULL;
+  v_total          numeric;
+  v_order_id       uuid;
+  v_price          numeric;
+  v_item_count     integer := 0;
+  v_code           text;
+BEGIN
+  SELECT * INTO v_cart
+  FROM carts
+  WHERE id = p_cart_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cart not found';
+  END IF;
+
+  IF v_cart.user_id IS NOT NULL THEN
+    IF p_user_id IS NULL OR v_cart.user_id <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+  ELSIF v_cart.session_id IS NOT NULL THEN
+    IF p_session_id IS NULL OR v_cart.session_id <> p_session_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this session';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Cart has no owner';
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_item_count := v_item_count + 1;
+
+    IF v_item.quantity > v_item.quantity_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": requested %, available %',
+        v_item.product_name, v_item.quantity, v_item.quantity_stock;
+    END IF;
+
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+    v_subtotal := v_subtotal + (v_price * v_item.quantity);
+  END LOOP;
+
+  IF v_item_count = 0 THEN
+    RAISE EXCEPTION 'Cart is empty';
+  END IF;
+
+  -- Resolve shipping fee from zone (first fee row by created_at ASC)
+  SELECT COALESCE(sf.fee, 0)
+  INTO v_shipping_fee
+  FROM shipping_zones sz
+  LEFT JOIN LATERAL (
+    SELECT fee
+    FROM shipping_fees
+    WHERE zone_id = sz.id
+    ORDER BY created_at ASC
+    LIMIT 1
+  ) sf ON true
+  WHERE sz.id = p_shipping_zone_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid shipping zone';
+  END IF;
+
+  -- Optional promo: validate + compute discount server-side (never trust client money)
+  v_code := NULLIF(upper(trim(COALESCE(p_promo_code, ''))), '');
+  IF v_code IS NOT NULL THEN
+    SELECT *
+    INTO v_promo
+    FROM promo_codes
+    WHERE code = v_code
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid promo code';
+    END IF;
+
+    IF v_promo.is_active IS NOT TRUE THEN
+      RAISE EXCEPTION 'Promo code is inactive';
+    END IF;
+
+    IF v_promo.expires_at IS NOT NULL AND v_promo.expires_at <= now() THEN
+      RAISE EXCEPTION 'Promo code has expired';
+    END IF;
+
+    IF v_promo.max_uses IS NOT NULL AND v_promo.use_count >= v_promo.max_uses THEN
+      RAISE EXCEPTION 'Promo code has reached its usage limit';
+    END IF;
+
+    IF v_promo.discount_type = 'percentage' THEN
+      v_discount := round(v_subtotal * COALESCE(v_promo.discount_value, 0) / 100.0, 2);
+    ELSE
+      -- fixed
+      v_discount := LEAST(COALESCE(v_promo.discount_value, 0), v_subtotal);
+    END IF;
+
+    IF v_discount < 0 THEN
+      v_discount := 0;
+    END IF;
+
+    v_promo_id := v_promo.id;
+  END IF;
+
+  v_total := v_subtotal + v_shipping_fee - v_discount;
+  IF v_total < 0 THEN
+    v_total := 0;
+  END IF;
+
+  INSERT INTO orders (
+    user_id, session_id, status,
+    subtotal, shipping_fee, discount, total,
+    payment_status,
+    address_snapshot, phone, email,
+    promo_code_id
+  )
+  VALUES (
+    p_user_id, p_session_id, 'pending',
+    v_subtotal, v_shipping_fee, v_discount, v_total,
+    'pending',
+    p_address_snapshot, p_phone, p_email,
+    v_promo_id
+  )
+  RETURNING id INTO v_order_id;
+
+  IF v_promo_id IS NOT NULL THEN
+    UPDATE promo_codes
+    SET use_count = use_count + 1
+    WHERE id = v_promo_id;
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.customised_product_id,
+      ci.quantity,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price AS base_price,
+      p.name AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+
+    INSERT INTO order_items (
+      order_id, customised_product_id, quantity,
+      price_snapshot, product_name_snapshot,
+      size_snapshot, material_snapshot, color_snapshot
+    )
+    VALUES (
+      v_order_id, v_item.customised_product_id, v_item.quantity,
+      v_price, v_item.product_name,
+      v_item.size, v_item.material, v_item.color
+    );
+
+    UPDATE customised_products
+    SET quantity_stock = quantity_stock - v_item.quantity
+    WHERE id = v_item.customised_product_id
+      AND quantity_stock >= v_item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Stock race condition for "%": stock changed since validation',
+        v_item.product_name;
+    END IF;
+  END LOOP;
+
+  -- Dual source of truth: always create a pending payments row with order total
+  INSERT INTO payments (
+    order_id,
+    status,
+    amount,
+    currency
+  )
+  VALUES (
+    v_order_id,
+    'pending',
+    v_total,
+    'USD'
+  );
+
+  DELETE FROM carts WHERE id = p_cart_id;
+
+  RETURN v_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM anon;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) TO service_role;
+
+
+
+
+-- ============================================================
+-- Source: 20260713150000_orders_shipping_zone_persist.sql
+-- ============================================================
+
+-- Persist shipping zone id + name snapshot on orders at checkout.
+-- Fee was already resolved in SQL from p_shipping_zone_id; columns were missing.
+-- Shipment rows are created later at fulfillment (admin marks shipped).
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS shipping_zone_id uuid
+    REFERENCES public.shipping_zones(id) ON DELETE SET NULL;
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS shipping_zone_name text;
+
+COMMENT ON COLUMN public.orders.shipping_zone_id IS
+  'Shipping zone selected at checkout; SET NULL if zone is deleted.';
+
+COMMENT ON COLUMN public.orders.shipping_zone_name IS
+  'Immutable zone name snapshot at checkout (survives zone rename/delete).';
+
+-- Replace process_checkout (latest signature includes optional p_promo_code)
+DROP FUNCTION IF EXISTS public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text);
+
+CREATE OR REPLACE FUNCTION public.process_checkout(
+  p_cart_id            uuid,
+  p_shipping_zone_id   uuid,
+  p_user_id            uuid       DEFAULT NULL,
+  p_session_id         text       DEFAULT NULL,
+  p_phone              text       DEFAULT NULL,
+  p_email              text       DEFAULT NULL,
+  p_address_snapshot   jsonb      DEFAULT NULL,
+  p_promo_code         text       DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cart           RECORD;
+  v_item           RECORD;
+  v_promo          RECORD;
+  v_subtotal       numeric := 0;
+  v_shipping_fee   numeric := 0;
+  v_zone_name      text := NULL;
+  v_discount       numeric := 0;
+  v_promo_id       uuid := NULL;
+  v_total          numeric;
+  v_order_id       uuid;
+  v_price          numeric;
+  v_item_count     integer := 0;
+  v_code           text;
+BEGIN
+  SELECT * INTO v_cart
+  FROM carts
+  WHERE id = p_cart_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cart not found';
+  END IF;
+
+  IF v_cart.user_id IS NOT NULL THEN
+    IF p_user_id IS NULL OR v_cart.user_id <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this user';
+    END IF;
+  ELSIF v_cart.session_id IS NOT NULL THEN
+    IF p_session_id IS NULL OR v_cart.session_id <> p_session_id THEN
+      RAISE EXCEPTION 'Cart does not belong to this session';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Cart has no owner';
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.id            AS ci_id,
+      ci.customised_product_id,
+      ci.quantity,
+      cp.quantity_stock,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price          AS base_price,
+      p.name           AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_item_count := v_item_count + 1;
+
+    IF v_item.quantity > v_item.quantity_stock THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": requested %, available %',
+        v_item.product_name, v_item.quantity, v_item.quantity_stock;
+    END IF;
+
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+    v_subtotal := v_subtotal + (v_price * v_item.quantity);
+  END LOOP;
+
+  IF v_item_count = 0 THEN
+    RAISE EXCEPTION 'Cart is empty';
+  END IF;
+
+  -- Resolve shipping fee + zone name from zone (first fee row by created_at ASC)
+  SELECT COALESCE(sf.fee, 0), sz.name
+  INTO v_shipping_fee, v_zone_name
+  FROM shipping_zones sz
+  LEFT JOIN LATERAL (
+    SELECT fee
+    FROM shipping_fees
+    WHERE zone_id = sz.id
+    ORDER BY created_at ASC
+    LIMIT 1
+  ) sf ON true
+  WHERE sz.id = p_shipping_zone_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid shipping zone';
+  END IF;
+
+  -- Optional promo: validate + compute discount server-side (never trust client money)
+  v_code := NULLIF(upper(trim(COALESCE(p_promo_code, ''))), '');
+  IF v_code IS NOT NULL THEN
+    SELECT *
+    INTO v_promo
+    FROM promo_codes
+    WHERE code = v_code
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid promo code';
+    END IF;
+
+    IF v_promo.is_active IS NOT TRUE THEN
+      RAISE EXCEPTION 'Promo code is inactive';
+    END IF;
+
+    IF v_promo.expires_at IS NOT NULL AND v_promo.expires_at <= now() THEN
+      RAISE EXCEPTION 'Promo code has expired';
+    END IF;
+
+    IF v_promo.max_uses IS NOT NULL AND v_promo.use_count >= v_promo.max_uses THEN
+      RAISE EXCEPTION 'Promo code has reached its usage limit';
+    END IF;
+
+    IF v_promo.discount_type = 'percentage' THEN
+      v_discount := round(v_subtotal * COALESCE(v_promo.discount_value, 0) / 100.0, 2);
+    ELSE
+      -- fixed
+      v_discount := LEAST(COALESCE(v_promo.discount_value, 0), v_subtotal);
+    END IF;
+
+    IF v_discount < 0 THEN
+      v_discount := 0;
+    END IF;
+
+    v_promo_id := v_promo.id;
+  END IF;
+
+  v_total := v_subtotal + v_shipping_fee - v_discount;
+  IF v_total < 0 THEN
+    v_total := 0;
+  END IF;
+
+  INSERT INTO orders (
+    user_id, session_id, status,
+    subtotal, shipping_fee, discount, total,
+    payment_status,
+    address_snapshot, phone, email,
+    promo_code_id,
+    shipping_zone_id, shipping_zone_name
+  )
+  VALUES (
+    p_user_id, p_session_id, 'pending',
+    v_subtotal, v_shipping_fee, v_discount, v_total,
+    'pending',
+    p_address_snapshot, p_phone, p_email,
+    v_promo_id,
+    p_shipping_zone_id, v_zone_name
+  )
+  RETURNING id INTO v_order_id;
+
+  IF v_promo_id IS NOT NULL THEN
+    UPDATE promo_codes
+    SET use_count = use_count + 1
+    WHERE id = v_promo_id;
+  END IF;
+
+  FOR v_item IN
+    SELECT
+      ci.customised_product_id,
+      ci.quantity,
+      cp.color,
+      cp.size,
+      cp.material,
+      cp.price_override,
+      p.price AS base_price,
+      p.name AS product_name
+    FROM cart_items ci
+    JOIN customised_products cp ON cp.id = ci.customised_product_id
+    JOIN products p ON p.id = cp.product_id
+    WHERE ci.cart_id = p_cart_id
+  LOOP
+    v_price := COALESCE(v_item.price_override, v_item.base_price);
+
+    INSERT INTO order_items (
+      order_id, customised_product_id, quantity,
+      price_snapshot, product_name_snapshot,
+      size_snapshot, material_snapshot, color_snapshot
+    )
+    VALUES (
+      v_order_id, v_item.customised_product_id, v_item.quantity,
+      v_price, v_item.product_name,
+      v_item.size, v_item.material, v_item.color
+    );
+
+    UPDATE customised_products
+    SET quantity_stock = quantity_stock - v_item.quantity
+    WHERE id = v_item.customised_product_id
+      AND quantity_stock >= v_item.quantity;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Stock race condition for "%": stock changed since validation',
+        v_item.product_name;
+    END IF;
+  END LOOP;
+
+  -- Dual source of truth: always create a pending payments row with order total
+  INSERT INTO payments (
+    order_id,
+    status,
+    amount,
+    currency
+  )
+  VALUES (
+    v_order_id,
+    'pending',
+    v_total,
+    'USD'
+  );
+
+  DELETE FROM carts WHERE id = p_cart_id;
+
+  RETURN v_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM anon;
+REVOKE ALL ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_checkout(uuid, uuid, uuid, text, text, text, jsonb, text) TO service_role;
+
+
+
+
+-- ============================================================
+-- Source: 20260713160000_order_items_variant_fk.sql
+-- ============================================================
+
+-- Prevent hard-delete of sold variants: order_items keep a live FK for restock-on-cancel.
+-- Display continues to use denormalized snapshots; customised_product_id stays nullable.
+
+ALTER TABLE public.order_items
+  ADD CONSTRAINT order_items_customised_product_id_fkey
+  FOREIGN KEY (customised_product_id)
+  REFERENCES public.customised_products(id)
+  ON DELETE RESTRICT;
+
+
 

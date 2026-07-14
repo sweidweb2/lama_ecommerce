@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { EyeIcon, EyeOffIcon, Loader2Icon, MailIcon, LockIcon } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/lib/validators/auth/auth";
 import { loginService } from "@/services/auth.service";
-import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import { ROUTES } from "@/lib/constants/routes";
 import { ROLES } from "@/lib/constants/roles";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
@@ -51,6 +50,7 @@ export function LoginForm() {
           description: result.error,
         });
         form.setError("root", { message: result.error });
+        setIsLoading(false);
         return;
       }
 
@@ -58,36 +58,17 @@ export function LoginForm() {
         description: "You've been successfully logged in.",
       });
 
-      // Merge any guest cart into the authenticated user's cart
-      try {
-        await mergeGuestCartOnLoginAction();
-      } catch (mergeError) {
-        // Don't block login if cart merge fails – log and move on
-        console.error("Guest cart merge failed:", mergeError);
-      }
+      // Cart merge runs in AuthProvider on SIGNED_IN — do not block redirect.
+      const redirectQuery = searchParams.get("redirect");
+      const destination = redirectQuery
+        ? safeRedirectPath(redirectQuery, ROUTES.HOME)
+        : result.role === ROLES.ADMIN
+          ? ROUTES.ADMIN
+          : ROUTES.HOME;
 
-      // Fetch user profile to check role
-      try {
-        const profileResponse = await fetch("/api/auth/profile");
-        if (profileResponse.ok) {
-          const { profile } = await profileResponse.json();
-          
-          // If user is admin, redirect to admin panel
-          if (profile?.role === ROLES.ADMIN) {
-            router.push(ROUTES.ADMIN);
-            router.refresh();
-            return;
-          }
-        }
-      } catch (error) {
-        // If profile fetch fails, continue with normal redirect
-        console.error("Failed to fetch profile:", error);
-      }
-
-      // Redirect to a safe same-origin path (or home)
-      const redirectTo = safeRedirectPath(searchParams.get("redirect"), ROUTES.HOME);
-      router.push(redirectTo);
-      router.refresh(); // Refresh to update server-side state
+      // Leave login immediately; panel/account loading UI covers the handoff.
+      router.replace(destination);
+      router.refresh();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
@@ -95,7 +76,6 @@ export function LoginForm() {
         description: errorMessage,
       });
       form.setError("root", { message: errorMessage });
-    } finally {
       setIsLoading(false);
     }
   };

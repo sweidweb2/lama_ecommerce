@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import type { ProfileRole } from "@/types/user";
 
 /**
  * Sign in with email and password (client-side only).
@@ -9,6 +10,22 @@ export async function signInWithPassword(credentials: {
   password: string;
 }) {
   return supabase.auth.signInWithPassword(credentials);
+}
+
+/**
+ * Read the signed-in user's role from profiles (client session / RLS).
+ */
+export async function getOwnProfileRole(
+  userId: string,
+): Promise<ProfileRole | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data.role as ProfileRole;
 }
 
 /**
@@ -40,4 +57,3 @@ export async function signOut() {
 export async function updatePassword(newPassword: string) {
   return supabase.auth.updateUser({ password: newPassword });
 }
-

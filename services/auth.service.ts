@@ -9,14 +9,17 @@ import {
   signInWithPassword as repoSignIn,
   signUp as repoSignUp,
   signOut as repoSignOut,
+  getOwnProfileRole as repoGetOwnProfileRole,
 } from "@/repositories/auth.client.repository";
 import type { LoginInput, SignupInput } from "@/lib/validators/auth/auth";
 import { ROUTES } from "@/lib/constants/routes";
+import type { ProfileRole } from "@/types/user";
 
 export interface LoginResult {
   success: boolean;
   error?: string;
   user?: any;
+  role?: ProfileRole | null;
 }
 
 export interface SignupResult {
@@ -48,7 +51,11 @@ export async function loginService(
       return { success: false, error: errorMessage };
     }
 
-    return { success: true, user: data.user };
+    const role = data.user?.id
+      ? await repoGetOwnProfileRole(data.user.id)
+      : null;
+
+    return { success: true, user: data.user, role };
   } catch (error) {
     return {
       success: false,

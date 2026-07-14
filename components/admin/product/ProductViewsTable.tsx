@@ -12,19 +12,46 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProductViewsByProductIdAction } from "@/actions/product_view";
-import type { AdminProductViewRow } from "@/repositories/product_view.repository";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  getProductViewsByProductIdAction,
+  getProductViewsStatsByProductIdAction,
+} from "@/actions/product_view";
+import type {
+  AdminProductViewRow,
+  ProductScopedViewsStats,
+} from "@/repositories/product_view.repository";
+import { ProductViewsStatCard } from "@/components/admin/product_view/ProductViewsStatCard";
+import { ProductViewDetailsDialog } from "@/components/admin/product/ProductViewDetailsDialog";
+import {
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Eye,
+  Users,
+} from "lucide-react";
 
 interface ProductViewsTableProps {
   productId: string;
 }
 
 const VIEWS_PER_PAGE = 20;
-const MAX_PAGES = 500;
+
+const EMPTY_STATS: ProductScopedViewsStats = {
+  totalViews: 0,
+  uniqueUsers: 0,
+  guestViews: 0,
+  viewsToday: 0,
+  viewsThisWeek: 0,
+  viewsThisMonth: 0,
+};
+
+function formatNumber(num: number): string {
+  return new Intl.NumberFormat("en-US").format(num);
+}
 
 export function ProductViewsTable({ productId }: ProductViewsTableProps) {
   const [views, setViews] = useState<AdminProductViewRow[]>([]);
+  const [stats, setStats] = useState<ProductScopedViewsStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,22 +61,38 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
   // Filters
   const [userNameFilter, setUserNameFilter] = useState("");
   const [sessionIdFilter, setSessionIdFilter] = useState("");
-  const [viewerTypeFilter, setViewerTypeFilter] = useState<string>("all"); // "all" | "user" | "guest"
+  const [viewerTypeFilter, setViewerTypeFilter] = useState<string>("all");
 
-  // Fetch views
+  // Fetch stats once per product
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const statsResult =
+          await getProductViewsStatsByProductIdAction(productId);
+        setStats(statsResult);
+      } catch (err) {
+        console.error("Error fetching product view stats:", err);
+        setStats(EMPTY_STATS);
+      }
+    }
+
+    fetchStats();
+  }, [productId]);
+
+  // Fetch paginated views
   useEffect(() => {
     async function fetchViews() {
       setLoading(true);
       setError(null);
       try {
-        const result = await getProductViewsByProductIdAction(
+        const viewsResult = await getProductViewsByProductIdAction(
           productId,
           currentPage,
           VIEWS_PER_PAGE,
         );
-        setViews(result.data);
-        setTotal(result.total);
-        setTotalPages(result.totalPages);
+        setViews(viewsResult.data);
+        setTotal(viewsResult.total);
+        setTotalPages(viewsResult.totalPages);
       } catch (err) {
         console.error("Error fetching product views:", err);
         setError("Failed to load product views");
@@ -65,19 +108,16 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
   // Filter views (client-side filtering on fetched data)
   const filteredViews = useMemo(() => {
     return views.filter((view) => {
-      // User name filter
       const userName = view.user_name || "";
       const matchesUserName =
         !userNameFilter ||
         userName.toLowerCase().includes(userNameFilter.toLowerCase());
 
-      // Session ID filter
       const sessionId = view.session_id || "";
       const matchesSessionId =
         !sessionIdFilter ||
         sessionId.toLowerCase().includes(sessionIdFilter.toLowerCase());
 
-      // Viewer type filter
       let matchesViewerType = true;
       if (viewerTypeFilter === "user") {
         matchesViewerType = view.user_id !== null;
@@ -92,7 +132,6 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const clearFilters = () => {
@@ -161,6 +200,24 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
         <CardTitle>Product Views</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Statistics */}
+        <div className="grid gap-3 grid-cols-2">
+          <ProductViewsStatCard
+            title="Total Views"
+            value={formatNumber(stats.totalViews)}
+            description="All time"
+            icon={Eye}
+            borderColor="#3b82f6"
+          />
+          <ProductViewsStatCard
+            title="Unique Users"
+            value={formatNumber(stats.uniqueUsers)}
+            description="Registered"
+            icon={Users}
+            borderColor="#f59e0b"
+          />
+        </div>
+
         {/* Filters */}
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
@@ -223,6 +280,7 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
                     <TableHead className="w-[200px]">User</TableHead>
                     <TableHead className="w-[200px]">Session ID</TableHead>
                     <TableHead className="w-[200px]">Viewed At</TableHead>
+                    <TableHead className="w-[80px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,7 +309,9 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
                           className="truncate block max-w-[200px] font-mono text-xs"
                           title={view.session_id || "—"}
                         >
-                          {view.session_id ? truncateText(view.session_id, 25) : "—"}
+                          {view.session_id
+                            ? truncateText(view.session_id, 25)
+                            : "—"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -261,6 +321,9 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
                         >
                           {formatDate(view.viewed_at)}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ProductViewDetailsDialog view={view} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -272,7 +335,8 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
             {totalPages > 1 && (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Showing page {currentPage} of {totalPages} ({total} total views)
+                  Showing page {currentPage} of {totalPages} ({total} total
+                  views)
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -298,7 +362,9 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
                       return (
                         <Button
                           key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
+                          variant={
+                            currentPage === pageNum ? "default" : "outline"
+                          }
                           size="sm"
                           onClick={() => handlePageChange(pageNum)}
                         >
