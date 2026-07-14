@@ -51,7 +51,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             "!bg-destructive/10 !text-destructive !border-0 !border-l-[3px] !border-l-destructive dark:!bg-destructive/20 [&_[data-icon]]:!text-destructive [&_[data-description]]:!text-destructive/80",
           warning:
             "!bg-amber-50 !text-amber-800 !border-0 !border-l-[3px] !border-l-amber-500 dark:!bg-amber-950/40 dark:!text-amber-200 [&_[data-icon]]:!text-amber-600 dark:[&_[data-icon]]:!text-amber-400",
-          info: "!bg-sky-50 !text-sky-800 !border-0 !border-l-[3px] !border-l-sky-500 dark:!bg-sky-950/40 dark:!text-sky-200 [&_[data-icon]]:!text-sky-600 dark:[&_[data-icon]]:!text-sky-400",
+          info: "!bg-muted !text-foreground !border-0 !border-l-[3px] !border-l-primary [&_[data-icon]]:!text-primary [&_[data-description]]:!text-muted-foreground",
         },
       }}
       icons={{
@@ -73,6 +73,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--error-bg": "hsl(var(--destructive) / 0.1)",
           "--error-text": "hsl(var(--destructive))",
           "--error-border": "hsl(var(--destructive) / 0.4)",
+          "--info-bg": "hsl(var(--muted))",
+          "--info-text": "hsl(var(--foreground))",
+          "--info-border": "hsl(var(--primary))",
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }

@@ -21,11 +21,11 @@ export function FullPageLoader() {
     const colorTwo = isDark ? '#B8A896' : '#847562'
 
     return (
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div className="flex min-h-[calc(100svh-8rem)] w-full flex-1 items-center justify-center self-stretch">
             <DNA
                 visible={true}
-                height="180"
-                width="180"
+                height="220"
+                width="220"
                 ariaLabel="dna-loading"
                 dnaColorOne={colorOne}
                 dnaColorTwo={colorTwo}

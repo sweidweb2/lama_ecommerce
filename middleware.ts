@@ -4,6 +4,35 @@ import { ROLES } from "@/lib/constants/roles";
 import { ROUTES } from "@/lib/constants/routes";
 import type { Profile } from "@/types/user";
 
+/** Keep in sync with `lib/auth/guest-session.ts` (do not import that file here — it uses next/headers). */
+const GUEST_SESSION_COOKIE = "guest_session_id";
+const GUEST_SESSION_MAX_AGE = 14 * 24 * 60 * 60;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Ensure a guest_session_id cookie exists on storefront routes.
+ * Minting here avoids Server Actions writing cookies later (which soft-refresh RSC pages).
+ */
+function ensureGuestSessionCookie(
+  request: NextRequest,
+  response: NextResponse,
+): NextResponse {
+  const existing = request.cookies.get(GUEST_SESSION_COOKIE)?.value;
+  if (existing && UUID_RE.test(existing)) {
+    return response;
+  }
+
+  response.cookies.set(GUEST_SESSION_COOKIE, crypto.randomUUID(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: GUEST_SESSION_MAX_AGE,
+    path: "/",
+  });
+  return response;
+}
+
 /**
  * Middleware helper: Get the current user's profile and role from session.
  * Returns { profile, user } or { profile: null, user: null } if not authenticated.
@@ -73,17 +102,17 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/search");
 
   if (isPublicRoute) {
-    return NextResponse.next();
+    return ensureGuestSessionCookie(request, NextResponse.next());
   }
 
   // Cart - accessible by both authenticated users and guests
   if (pathname.startsWith("/cart")) {
-    return NextResponse.next();
+    return ensureGuestSessionCookie(request, NextResponse.next());
   }
 
   // Wishlist - accessible by both authenticated users and guests
   if (pathname.startsWith("/wishlist")) {
-    return NextResponse.next();
+    return ensureGuestSessionCookie(request, NextResponse.next());
   }
 
   // Account routes - require authenticated user with active profile

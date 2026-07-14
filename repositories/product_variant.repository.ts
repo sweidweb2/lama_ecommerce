@@ -62,6 +62,71 @@ export async function createProductVariant(
 }
 
 /**
+ * Sum of order_items.quantity for a variant (all-time order history).
+ */
+export async function getVariantOrderedQuantity(
+  variantId: string,
+): Promise<number> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data, error } = await supabase
+      .from("order_items")
+      .select("quantity")
+      .eq("customised_product_id", variantId);
+
+    if (error) {
+      console.error("Error summing ordered quantity for variant:", error);
+      throw new Error("Failed to check order history for this variant.");
+    }
+
+    return (data ?? []).reduce(
+      (sum, row) => sum + (typeof row.quantity === "number" ? row.quantity : 0),
+      0,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Failed to check")) {
+      throw error;
+    }
+    console.error("Unexpected error in getVariantOrderedQuantity:", error);
+    throw new Error("Failed to check order history for this variant.");
+  }
+}
+
+/**
+ * Sum of cart_items.quantity currently reserved for a variant.
+ */
+export async function getVariantCartReservedQuantity(
+  variantId: string,
+): Promise<number> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data, error } = await supabase
+      .from("cart_items")
+      .select("quantity")
+      .eq("customised_product_id", variantId);
+
+    if (error) {
+      console.error("Error summing cart quantity for variant:", error);
+      throw new Error("Failed to check cart reservations for this variant.");
+    }
+
+    return (data ?? []).reduce(
+      (sum, row) => sum + (typeof row.quantity === "number" ? row.quantity : 0),
+      0,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Failed to check")) {
+      throw error;
+    }
+    console.error(
+      "Unexpected error in getVariantCartReservedQuantity:",
+      error,
+    );
+    throw new Error("Failed to check cart reservations for this variant.");
+  }
+}
+
+/**
  * Update an existing product variant.
  */
 export async function updateProductVariant(
@@ -71,31 +136,54 @@ export async function updateProductVariant(
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (input.product_id !== undefined) updateData.product_id = input.product_id;
     if (input.color !== undefined) updateData.color = input.color;
     if (input.size !== undefined) updateData.size = input.size;
     if (input.material !== undefined) updateData.material = input.material;
-    if (input.quantity_stock !== undefined) updateData.quantity_stock = input.quantity_stock;
+    if (input.quantity_stock !== undefined) {
+      updateData.quantity_stock = input.quantity_stock;
+    }
     if (input.sku_variant !== undefined) updateData.sku_variant = input.sku_variant;
-    if (input.price_override !== undefined) updateData.price_override = input.price_override;
+    if (input.price_override !== undefined) {
+      updateData.price_override = input.price_override;
+    }
 
-    const { data, error } = await (supabase as any)
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No variant fields to update.");
+    }
+
+    const { data, error } = await supabase
       .from("customised_products")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", id)
       .select("*")
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        throw new Error(
+          "SKU variant must be unique. Another variant already uses this SKU.",
+        );
+      }
       console.error("Error updating product variant:", error);
-      return null;
+      throw new Error(error.message || "Failed to update product variant.");
     }
 
     return (data ?? null) as ProductVariant | null;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith("SKU variant") ||
+        error.message.startsWith("No variant") ||
+        error.message.startsWith("Failed to update"))
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in updateProductVariant:", error);
-    return null;
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to update product variant.");
   }
 }
 
@@ -106,7 +194,7 @@ export async function getProductVariantById(
   id: string,
 ): Promise<ProductVariant | null> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = await createSupabaseServerActionClient();
 
     const { data, error } = await supabase
       .from("customised_products")

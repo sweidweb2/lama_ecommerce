@@ -8,21 +8,40 @@ import type { AdminContact } from "./create_form"
 
 interface ViewContactDialogProps {
   contact: AdminContact
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  showTrigger?: boolean
 }
 
-export function ViewContactDialog({ contact }: ViewContactDialogProps) {
-  const [open, setOpen] = useState(false)
+export function ViewContactDialog({
+  contact,
+  open: controlledOpen,
+  onOpenChange,
+  showTrigger = true,
+}: ViewContactDialogProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : uncontrolledOpen
+
+  const setOpen = (next: boolean) => {
+    if (!isControlled) {
+      setUncontrolledOpen(next)
+    }
+    onOpenChange?.(next)
+  }
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setOpen(true)}
-        aria-label={`View contact from ${contact.full_name || contact.email || contact.id}`}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
+      {showTrigger && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setOpen(true)}
+          aria-label={`View contact from ${contact.full_name || contact.email || contact.id}`}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
@@ -70,4 +89,3 @@ export function ViewContactDialog({ contact }: ViewContactDialogProps) {
     </>
   )
 }
-

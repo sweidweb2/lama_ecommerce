@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -22,13 +23,20 @@ import { TableWrapper } from "@/components/admin/table-wrapper"
 import Link from "@/components/ui/link"
 import { EditOrderDialog, type AdminOrder } from "./edit_form"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
-import { formatPrice, formatDate } from "@/lib/utils"
+import { formatPrice, formatDate, truncateText } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus } from "@/types/order"
+
+const MAX_CHARS = {
+  id: 10,
+  user: 24,
+} as const
 
 export type { AdminOrder }
 
+type AdminOrderRow = AdminOrder & { encryptedId?: string }
+
 interface OrdersTableProps {
-  orders: AdminOrder[]
+  orders: AdminOrderRow[]
 }
 
 const ORDERS_PER_PAGE = 20
@@ -60,9 +68,17 @@ const getStatusVariant = (status: string) => {
 }
 
 export function OrdersTable({ orders }: OrdersTableProps) {
+  const router = useRouter()
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
+
+  const getOrderHref = (order: AdminOrderRow) =>
+    `/admin/orders/${order.encryptedId || order.id}`
+
+  const openOrder = (order: AdminOrderRow) => {
+    router.push(getOrderHref(order))
+  }
 
   // Filter orders (on full orders data)
   const filteredOrders = useMemo(() => {
@@ -80,10 +96,9 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     return filteredOrders.slice(0, maxOrdersToShow)
   }, [filteredOrders, maxOrdersToShow])
 
-  const totalFilteredOrders = filteredOrders.length
   const totalPages = useMemo(() => {
     return Math.min(
-      Math.ceil(limitedFilteredOrders.length / ORDERS_PER_PAGE),
+      Math.max(1, Math.ceil(limitedFilteredOrders.length / ORDERS_PER_PAGE)),
       MAX_PAGES
     )
   }, [limitedFilteredOrders.length])
@@ -117,10 +132,6 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     setCurrentPage(page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  const showingStart = paginatedOrders.length > 0 ? (currentPage - 1) * ORDERS_PER_PAGE + 1 : 0
-  const showingEnd = (currentPage - 1) * ORDERS_PER_PAGE + paginatedOrders.length
-  const totalShowing = limitedFilteredOrders.length
 
   return (
     <div className="space-y-6">
@@ -249,42 +260,77 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium font-mono text-xs">
-                    {order.id.slice(0, 8)}...
-                  </TableCell>
-                  <TableCell>
-                    {order.userName || (order.user_id ? `User ${order.user_id}` : "Guest")}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(order.status)}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(order.payment_status)}>
-                      {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {order.total ? formatPrice(order.total) : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {order.created_at ? formatDate(order.created_at) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/admin/orders/${(order as any).encryptedId || order.id}`}>
-                        <Button variant="ghost" size="icon" aria-label={`View order ${order.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <EditOrderDialog order={order} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedOrders.map((order) => {
+                const href = getOrderHref(order)
+                const userLabel =
+                  order.userName ||
+                  (order.user_id ? `User ${order.user_id}` : "Guest")
+
+                return (
+                  <TableRow
+                    key={order.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openOrder(order)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        openOrder(order)
+                      }
+                    }}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`View order ${order.id}`}
+                  >
+                    <TableCell className="font-medium font-mono text-xs">
+                      <span title={order.id}>
+                        {truncateText(order.id, MAX_CHARS.id)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className="block max-w-[160px] truncate"
+                        title={userLabel}
+                      >
+                        {truncateText(userLabel, MAX_CHARS.user)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(order.status)}>
+                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(order.payment_status)}>
+                        {order.payment_status.charAt(0).toUpperCase() +
+                          order.payment_status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {order.total ? formatPrice(order.total) : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {order.created_at ? formatDate(order.created_at) : "—"}
+                    </TableCell>
+                    <TableCell
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={href}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`View order ${order.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <EditOrderDialog order={order} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

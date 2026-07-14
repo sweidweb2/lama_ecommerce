@@ -19,3 +19,13 @@ export function formatDate(dateString: string) {
     day: "numeric",
   })
 }
+
+/** Truncate display text with ellipsis; empty/null becomes "—". */
+export function truncateText(
+  text: string | null | undefined,
+  maxLength: number,
+): string {
+  if (!text) return "—"
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength)}...`
+}

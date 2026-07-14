@@ -61,14 +61,14 @@ describe("guest-session", () => {
     expect(del).toHaveBeenCalledWith(GUEST_SESSION_COOKIE);
   });
 
-  it("getOrCreateGuestSessionId reuses valid cookie", async () => {
+  it("getOrCreateGuestSessionId reuses valid cookie without rewriting it", async () => {
     const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     get.mockReturnValue({ value: id });
     const { getOrCreateGuestSessionId } = await import(
       "@/lib/auth/guest-session"
     );
     await expect(getOrCreateGuestSessionId()).resolves.toBe(id);
-    expect(set).toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
   });
 
   it("getOrCreateGuestSessionId mints UUID when cookie invalid", async () => {

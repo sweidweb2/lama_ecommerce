@@ -117,7 +117,12 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
       formData.set("sku_variant", parsed.data.sku_variant ?? "")
       formData.set("price_override", parsed.data.price_override?.toString() ?? "")
 
-      await createProductVariantAction(formData)
+      const result = await createProductVariantAction(formData)
+
+      if (!result.success) {
+        setErrors({ quantity_stock: result.error })
+        return
+      }
 
       // Reset form
       setColorHex("")

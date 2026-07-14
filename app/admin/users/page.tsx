@@ -1,15 +1,5 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { TableWrapper } from "@/components/admin/table-wrapper"
-import { EditUserDialog } from "@/components/admin/user/edit_form"
 import { CreateUserDialog } from "@/components/admin/user/create_from"
+import { UsersTable } from "@/components/admin/user/UsersTable"
 import { getAdminUsersAction } from "@/actions/profile"
 import type { AdminUser } from "@/components/admin/user/edit_form"
 
@@ -48,50 +38,7 @@ export default async function UsersPage() {
         </div>
       </div>
 
-      <TableWrapper>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No users found. Sign in as an admin to see all users.
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === "Admin" ? "default" : "secondary"}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={user.status === "Active" ? "default" : "secondary"}
-                    >
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <EditUserDialog user={user} />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableWrapper>
+      <UsersTable users={users} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
+import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getAllProductViewsForAdminService,
@@ -15,13 +15,16 @@ import { getOrCreateGuestSessionId } from "@/lib/auth/guest-session";
  * Track a product view.
  * For authenticated users: uses user_id
  * For guests: uses session_id (from cookie or generates new one)
+ *
+ * Uses the read-only auth helper so a normal view never mutates auth cookies
+ * (cookie writes from Server Actions soft-refresh the product page).
  */
 export async function trackProductViewAction(
   productId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get current user
-    const user = await getCurrentAuthUserFromAction();
+    // Read-only: must not refresh/write auth cookies during background tracking.
+    const user = await getCurrentAuthUserFromComponent();
 
     let userId: string | null = null;
     let sessionId: string | null = null;
@@ -32,7 +35,6 @@ export async function trackProductViewAction(
       sessionId = await getOrCreateGuestSessionId();
     }
 
-    // Track the view
     const result = await trackProductViewService(productId, userId, sessionId);
 
     return result;

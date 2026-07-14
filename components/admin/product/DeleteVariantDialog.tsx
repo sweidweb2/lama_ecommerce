@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { deleteProductVariantAction } from "@/actions/product"
+import { toast } from "sonner"
 import type { ProductVariant } from "./VariantsTable"
 
 interface DeleteVariantDialogProps {
@@ -16,22 +17,35 @@ export function DeleteVariantDialog({ variant }: DeleteVariantDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async () => {
     setIsDeleting(true)
+    setError(null)
     try {
       const formData = new FormData()
       formData.set("variant_id", variant.id)
       formData.set("product_id", variant.product_id)
 
-      await deleteProductVariantAction(formData)
+      const result = await deleteProductVariantAction(formData)
 
-      // Refresh to show updated variant list
+      if (!result.success) {
+        setError(result.error)
+        toast.error(result.error)
+        return
+      }
+
+      toast.success("Variant deleted")
       router.refresh()
       setOpen(false)
-    } catch (error) {
-      console.error("Error deleting variant:", error)
-      // Keep dialog open on error so user can try again
+    } catch (err) {
+      console.error("Error deleting variant:", err)
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to delete variant. Please try again."
+      setError(message)
+      toast.error(message)
     } finally {
       setIsDeleting(false)
     }
@@ -48,7 +62,10 @@ export function DeleteVariantDialog({ variant }: DeleteVariantDialogProps) {
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setError(null)
+          setOpen(true)
+        }}
         aria-label={`Delete variant ${variant.id}`}
       >
         <Trash2 className="h-4 w-4" />
@@ -64,7 +81,13 @@ export function DeleteVariantDialog({ variant }: DeleteVariantDialogProps) {
               Are you sure you want to delete this variant?
             </p>
             <p className="font-semibold text-foreground">{variantDescription}</p>
-            <p>This action cannot be undone. All associated data will be permanently removed.</p>
+            <p>
+              This action cannot be undone. Variants with order history, cart
+              items, or wishlist items cannot be deleted.
+            </p>
+            {error && (
+              <p className="text-sm text-destructive font-medium">{error}</p>
+            )}
           </div>
           <DialogFooter className="mt-4 flex justify-end gap-2">
             <Button

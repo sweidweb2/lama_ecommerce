@@ -54,12 +54,16 @@ export async function clearGuestSessionCookie(): Promise<void> {
 /**
  * Return existing guest session id, or mint a new UUID and set the cookie.
  * Invalid/legacy cookie values are ignored and replaced.
+ * Only writes the cookie when creating/replacing — never on reuse
+ * (cookie writes from Server Actions soft-refresh the current page).
  */
 export async function getOrCreateGuestSessionId(): Promise<string> {
-  let sessionId = await getGuestSessionId();
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
+  const existing = await getGuestSessionId();
+  if (existing) {
+    return existing;
   }
+
+  const sessionId = crypto.randomUUID();
   await setGuestSessionCookie(sessionId);
   return sessionId;
 }

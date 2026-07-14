@@ -314,11 +314,11 @@ export async function deleteProductImageAction(
 
 export async function createProductVariantAction(
   formData: FormData,
-): Promise<void> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const raw = {
@@ -331,7 +331,7 @@ export async function createProductVariantAction(
       price_override: formData.get("price_override")?.toString(),
     };
 
-    const parsed = createProductVariantSchema.parse({
+    const parsed = createProductVariantSchema.safeParse({
       product_id: raw.product_id,
       color: raw.color ? raw.color.trim() || null : null,
       size: raw.size ? raw.size.trim() || null : null,
@@ -343,32 +343,48 @@ export async function createProductVariantAction(
         : null,
     });
 
-    const created = await createProductVariantService(parsed);
-    if (!created) {
-      throw new Error("Failed to create product variant");
+    if (!parsed.success) {
+      const first =
+        parsed.error.issues[0]?.message ?? "Invalid variant data";
+      return { success: false, error: first };
     }
 
-    // Revalidate the products list and the specific product details page
-    revalidatePath("/admin/products");
-    revalidatePath(`/admin/products/${parsed.product_id}`);
+    const created = await createProductVariantService(parsed.data);
+    if (!created) {
+      return { success: false, error: "Failed to create product variant" };
+    }
+
+    revalidatePath("/admin/products", "layout");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in createProductVariantAction:", error);
-    throw error;
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create product variant",
+    };
   }
 }
 
 export async function updateProductVariantAction(
   formData: FormData,
-): Promise<void> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const variantIdRaw = formData.get("variant_id")?.toString();
     if (!variantIdRaw) {
-      throw new Error("Variant ID is required");
+      return { success: false, error: "Variant ID is required" };
+    }
+
+    const variantIdParsed = idSchema.safeParse(variantIdRaw);
+    if (!variantIdParsed.success) {
+      return { success: false, error: "Invalid variant ID" };
     }
 
     const raw = {
@@ -381,79 +397,93 @@ export async function updateProductVariantAction(
       price_override: formData.get("price_override")?.toString(),
     };
 
-    // Build update object with only provided fields
-    const updateData: any = {};
-    if (raw.product_id !== undefined) updateData.product_id = raw.product_id;
-    if (raw.color !== undefined) {
-      updateData.color = raw.color ? raw.color.trim() || null : null;
-    }
-    if (raw.size !== undefined) {
-      updateData.size = raw.size ? raw.size.trim() || null : null;
-    }
-    if (raw.material !== undefined) {
-      updateData.material = raw.material ? raw.material.trim() || null : null;
-    }
-    if (raw.quantity_stock !== undefined) {
-      updateData.quantity_stock = raw.quantity_stock ? Number(raw.quantity_stock) : 0;
-    }
-    if (raw.sku_variant !== undefined) {
-      updateData.sku_variant = raw.sku_variant ? raw.sku_variant.trim() || null : null;
-    }
-    if (raw.price_override !== undefined) {
-      updateData.price_override = raw.price_override
-        ? Number(raw.price_override)
-        : null;
+    const hasQuantityStock = formData.has("quantity_stock");
+    const hasPriceOverride = formData.has("price_override");
+
+    const updateData: {
+      product_id?: string;
+      color: string | null;
+      size: string | null;
+      material: string | null;
+      quantity_stock?: number;
+      sku_variant: string | null;
+      price_override?: number | null;
+    } = {
+      product_id: raw.product_id,
+      color: raw.color ? raw.color.trim() || null : null,
+      size: raw.size ? raw.size.trim() || null : null,
+      material: raw.material ? raw.material.trim() || null : null,
+      sku_variant: raw.sku_variant ? raw.sku_variant.trim() || null : null,
+    };
+
+    if (hasQuantityStock) {
+      const stockRaw = raw.quantity_stock?.trim() ?? "";
+      updateData.quantity_stock = stockRaw === "" ? 0 : Number(stockRaw);
     }
 
-    const parsed = updateProductVariantSchema.parse(updateData);
-
-    const updated = await updateProductVariantService(variantIdRaw, parsed);
-    if (!updated) {
-      throw new Error("Failed to update product variant");
+    if (hasPriceOverride) {
+      const priceRaw = raw.price_override?.trim() ?? "";
+      updateData.price_override = priceRaw === "" ? null : Number(priceRaw);
     }
 
-    // Revalidate the products list and the specific product details page
-    revalidatePath("/admin/products");
-    // Use the product_id from the variant (it should be in the update data or we can fetch it)
-    const productId = parsed.product_id || raw.product_id;
-    if (productId) {
-      revalidatePath(`/admin/products/${productId}`);
+    const parsed = updateProductVariantSchema.safeParse(updateData);
+    if (!parsed.success) {
+      const first =
+        parsed.error.issues[0]?.message ?? "Invalid variant data";
+      return { success: false, error: first };
     }
+
+    await updateProductVariantService(variantIdParsed.data, parsed.data);
+
+    revalidatePath("/admin/products", "layout");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in updateProductVariantAction:", error);
-    throw error;
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update product variant",
+    };
   }
 }
 
 export async function deleteProductVariantAction(
   formData: FormData,
-): Promise<void> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const variantIdRaw = formData.get("variant_id")?.toString();
-    const productIdRaw = formData.get("product_id")?.toString();
-
     if (!variantIdRaw) {
-      throw new Error("Variant ID is required");
+      return { success: false, error: "Variant ID is required" };
     }
 
-    const deleted = await deleteProductVariantService(variantIdRaw);
+    const variantIdParsed = idSchema.safeParse(variantIdRaw);
+    if (!variantIdParsed.success) {
+      return { success: false, error: "Invalid variant ID" };
+    }
+
+    const deleted = await deleteProductVariantService(variantIdParsed.data);
     if (!deleted) {
-      throw new Error("Failed to delete product variant");
+      return { success: false, error: "Failed to delete product variant" };
     }
 
-    // Revalidate the products list and the specific product details page
-    revalidatePath("/admin/products");
-    if (productIdRaw) {
-      revalidatePath(`/admin/products/${productIdRaw}`);
-    }
+    revalidatePath("/admin/products", "layout");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in deleteProductVariantAction:", error);
-    throw error;
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete product variant",
+    };
   }
 }
 

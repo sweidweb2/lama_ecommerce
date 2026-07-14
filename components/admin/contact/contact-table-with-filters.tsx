@@ -21,11 +21,18 @@ import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
 import { ContactStatusToggle } from "./contact-status-toggle"
-import { Download } from "lucide-react"
+import { Download, X } from "lucide-react"
 import { toast } from "sonner"
+import { truncateText } from "@/lib/utils"
 import type { ContactMessage } from "@/types/user"
 
 const ROWS_PER_PAGE = 20
+
+const MAX_CHARS = {
+  name: 24,
+  email: 28,
+  subject: 36,
+} as const
 
 const getStatusVariant = (status: AdminContact["status"]) => {
   switch (status) {
@@ -81,6 +88,7 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
   const [page, setPage] = useState(1)
+  const [viewingContact, setViewingContact] = useState<ContactMessage | null>(null)
 
   const filteredContacts = useMemo(
     () => filterContacts(contacts, name, email, from, to),
@@ -102,6 +110,17 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount) return
     setPage(nextPage)
+  }
+
+  const hasActiveFilters =
+    name.trim() !== "" || email.trim() !== "" || from !== "" || to !== ""
+
+  const clearFilters = () => {
+    setName("")
+    setEmail("")
+    setFrom("")
+    setTo("")
+    setPage(1)
   }
 
   const handleExportToCSV = () => {
@@ -214,11 +233,19 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             type="date"
             value={to}
             onChange={(e) => {
-            setTo(e.target.value)
-            setPage(1)
-          }}
+              setTo(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
+        {hasActiveFilters && (
+          <div className="md:col-span-4">
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="mr-2 h-4 w-4" />
+              Clear filters
+            </Button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -249,49 +276,94 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedContacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium w-[15%]">
-                    <div className="truncate" title={contact.full_name || "—"}>{contact.full_name || "—"}</div>
-                  </TableCell>
-                  <TableCell className="w-[18%]">
-                    <div className="truncate" title={contact.email || "—"}>{contact.email || "—"}</div>
-                  </TableCell>
-                  <TableCell className="w-[20%]">
-                    <div className="truncate" title={contact.subject || "—"}>{contact.subject || "—"}</div>
-                  </TableCell>
-                  <TableCell className="w-[15%]">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getStatusVariant(contact.status)} className="capitalize">
-                        {contact.status}
-                      </Badge>
-                      <ContactStatusToggle
-                        contactId={contact.id}
-                        currentStatus={contact.status}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-[15%]">
-                    {contact.created_at
-                      ? format(new Date(contact.created_at), "MMM d, yyyy")
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="w-[17%] text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <ViewContactDialog contact={contact as AdminContact} />
-                      <EditContactDialog contact={contact as AdminContact} />
-                      <DeleteContactDialog
-                        contact={{
-                          id: contact.id,
-                          full_name: contact.full_name,
-                          email: contact.email,
-                          subject: contact.subject,
-                        }}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedContacts.map((contact) => {
+                const nameLabel = contact.full_name || "—"
+                const emailLabel = contact.email || "—"
+                const subjectLabel = contact.subject || "—"
+
+                return (
+                  <TableRow
+                    key={contact.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setViewingContact(contact)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        setViewingContact(contact)
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View contact from ${nameLabel}`}
+                  >
+                    <TableCell className="font-medium w-[15%]">
+                      <div className="truncate" title={nameLabel}>
+                        {truncateText(nameLabel, MAX_CHARS.name)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[18%]">
+                      <div className="truncate" title={emailLabel}>
+                        {truncateText(emailLabel, MAX_CHARS.email)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[20%]">
+                      <div className="truncate" title={subjectLabel}>
+                        {truncateText(subjectLabel, MAX_CHARS.subject)}
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className="w-[15%]"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={getStatusVariant(contact.status)}
+                          className="capitalize"
+                        >
+                          {contact.status}
+                        </Badge>
+                        <ContactStatusToggle
+                          contactId={contact.id}
+                          currentStatus={contact.status}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[15%]">
+                      {contact.created_at
+                        ? format(new Date(contact.created_at), "MMM d, yyyy")
+                        : "—"}
+                    </TableCell>
+                    <TableCell
+                      className="w-[17%] text-right"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        <ViewContactDialog
+                          contact={contact as AdminContact}
+                          open={viewingContact?.id === contact.id}
+                          onOpenChange={(next) => {
+                            if (next) setViewingContact(contact)
+                            else if (viewingContact?.id === contact.id) {
+                              setViewingContact(null)
+                            }
+                          }}
+                        />
+                        <EditContactDialog contact={contact as AdminContact} />
+                        <DeleteContactDialog
+                          contact={{
+                            id: contact.id,
+                            full_name: contact.full_name,
+                            email: contact.email,
+                            subject: contact.subject,
+                          }}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

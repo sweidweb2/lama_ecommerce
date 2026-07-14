@@ -12,6 +12,7 @@ import { updateProductVariantAction } from "@/actions/product"
 import { z } from "zod"
 import { updateProductVariantSchema } from "@/lib/validators/product_variant/update"
 import { ChromePicker } from "react-color"
+import { toast } from "sonner"
 import type { ProductVariant } from "./VariantsTable"
 
 interface EditVariantDialogProps {
@@ -68,12 +69,16 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
   const [skuVariant, setSkuVariant] = useState("")
   const [priceOverride, setPriceOverride] = useState("")
   const [errors, setErrors] = useState<Partial<Record<keyof z.input<typeof updateProductVariantSchema>, string>>>({})
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Initialize form with variant data
   useEffect(() => {
     if (open) {
-      // Check if variant color matches any palette color
-      const paletteMatch = COLOR_PALETTE.find(c => c.hex.toUpperCase() === variant.color?.toUpperCase())
+      const paletteMatch = COLOR_PALETTE.find(
+        (c) =>
+          c.hex.toUpperCase() === variant.color?.toUpperCase() ||
+          c.name.toLowerCase() === variant.color?.toLowerCase(),
+      )
       if (paletteMatch) {
         setColorHex(paletteMatch.hex)
         setCustomColorHex("")
@@ -85,7 +90,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
         setCustomColorHex("")
       }
 
-      // Check if variant size matches any predefined size
       const allSizes = [...CLOTHING_SIZES, ...SHOE_SIZES, ...NUMERIC_SIZES, ...ALPHABETIC_SIZES]
       if (variant.size && allSizes.includes(variant.size)) {
         setSize(variant.size)
@@ -100,12 +104,14 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
       setSkuVariant(variant.sku_variant || "")
       setPriceOverride(variant.price_override?.toString() || "")
       setErrors({})
+      setFormError(null)
     }
   }, [open, variant])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors({})
+    setFormError(null)
 
     const finalSize = customSize.trim() || size || null
     const trimmedMaterial = material.trim() || null
@@ -117,9 +123,9 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
       color: finalColor,
       size: finalSize,
       material: trimmedMaterial,
-      quantity_stock: quantityStock ? Number(quantityStock) : undefined,
+      quantity_stock: quantityStock.trim() === "" ? 0 : Number(quantityStock),
       sku_variant: trimmedSkuVariant,
-      price_override: priceOverride ? Number(priceOverride) : null,
+      price_override: priceOverride.trim() === "" ? null : Number(priceOverride),
     }
 
     const parsed = updateProductVariantSchema.safeParse(candidate)
@@ -145,33 +151,41 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
       const formData = new FormData()
       formData.set("variant_id", variant.id)
       formData.set("product_id", variant.product_id)
-      if (parsed.data.color !== undefined) {
-        formData.set("color", parsed.data.color ?? "")
-      }
-      if (parsed.data.size !== undefined) {
-        formData.set("size", parsed.data.size ?? "")
-      }
-      if (parsed.data.material !== undefined) {
-        formData.set("material", parsed.data.material ?? "")
-      }
-      if (parsed.data.quantity_stock !== undefined) {
-        formData.set("quantity_stock", parsed.data.quantity_stock.toString())
-      }
-      if (parsed.data.sku_variant !== undefined) {
-        formData.set("sku_variant", parsed.data.sku_variant ?? "")
-      }
-      if (parsed.data.price_override !== undefined) {
-        formData.set("price_override", parsed.data.price_override?.toString() ?? "")
+      formData.set("color", parsed.data.color ?? "")
+      formData.set("size", parsed.data.size ?? "")
+      formData.set("material", parsed.data.material ?? "")
+      formData.set(
+        "quantity_stock",
+        (parsed.data.quantity_stock ?? 0).toString(),
+      )
+      formData.set("sku_variant", parsed.data.sku_variant ?? "")
+      formData.set(
+        "price_override",
+        parsed.data.price_override?.toString() ?? "",
+      )
+
+      const result = await updateProductVariantAction(formData)
+
+      if (!result.success) {
+        setFormError(result.error)
+        if (result.error.toLowerCase().includes("stock")) {
+          setErrors({ quantity_stock: result.error })
+        }
+        toast.error(result.error)
+        return
       }
 
-      await updateProductVariantAction(formData)
-
-      // Refresh to show updated variant
+      toast.success("Variant updated")
       router.refresh()
       setOpen(false)
     } catch (error) {
       console.error("Error updating variant:", error)
-      setErrors({ quantity_stock: "Failed to update variant. Please try again." })
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update variant. Please try again."
+      setFormError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -213,7 +227,10 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Color Palette */}
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
+            )}
+
             <div className="space-y-2">
               <Label>Color</Label>
               <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
@@ -243,8 +260,7 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                   </button>
                 ))}
               </div>
-              
-              {/* Custom Hex Color Input */}
+
               <div className="space-y-2">
                 <Label htmlFor="custom-color" className="text-xs text-muted-foreground">
                   Or enter custom hex color
@@ -285,7 +301,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 )}
               </div>
 
-              {/* Color Picker Overlay */}
               {colorPickerOpen && (
                 <div
                   className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
@@ -297,8 +312,7 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                   >
                     <ChromePicker
                       color={customColorHex || "#000000"}
-                      // `updated` comes from react-color (untyped here), treat as any to avoid implicit any error.
-                      onChange={(updated: any) => {
+                      onChange={(updated: { hex: string }) => {
                         const hex = updated.hex.toUpperCase()
                         setCustomColorHex(hex)
                         setColorHex("")
@@ -307,7 +321,7 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                   </div>
                 </div>
               )}
-              
+
               {(colorHex || customColorHex) && (
                 <p className="text-sm text-muted-foreground">
                   Selected: <span className="font-medium font-mono" style={{ color: customColorHex || colorHex }}>
@@ -320,11 +334,9 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               )}
             </div>
 
-            {/* Size Selection */}
             <div className="space-y-4">
               <Label>Size</Label>
-              
-              {/* Clothing Sizes */}
+
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Clothing Sizes</Label>
                 <div className="flex flex-wrap gap-2">
@@ -342,7 +354,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 </div>
               </div>
 
-              {/* Shoe Sizes */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Shoe Sizes</Label>
                 <div className="flex flex-wrap gap-2">
@@ -360,7 +371,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 </div>
               </div>
 
-              {/* Numeric Sizes */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Numeric Sizes</Label>
                 <div className="flex flex-wrap gap-2">
@@ -378,7 +388,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 </div>
               </div>
 
-              {/* Alphabetic Sizes */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Alphabetic Sizes</Label>
                 <div className="flex flex-wrap gap-2">
@@ -396,7 +405,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 </div>
               </div>
 
-              {/* Custom Size Input */}
               <div className="space-y-2">
                 <Label htmlFor="custom-size" className="text-xs text-muted-foreground">Custom Size</Label>
                 <Input
@@ -418,7 +426,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               )}
             </div>
 
-            {/* Material */}
             <div className="space-y-2">
               <Label htmlFor="material">Material</Label>
               <Input
@@ -433,7 +440,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               )}
             </div>
 
-            {/* Stock Quantity */}
             <div className="space-y-2">
               <Label htmlFor="quantity-stock">
                 Stock Quantity <span className="text-destructive">*</span>
@@ -448,12 +454,15 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
                 placeholder="0"
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                If this variant has orders, stock can only be increased. Stock
+                also cannot go below units currently in carts.
+              </p>
               {errors.quantity_stock && (
                 <p className="text-xs text-destructive">{errors.quantity_stock}</p>
               )}
             </div>
 
-            {/* SKU Variant */}
             <div className="space-y-2">
               <Label htmlFor="sku-variant">SKU Variant</Label>
               <Input
@@ -468,7 +477,6 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               )}
             </div>
 
-            {/* Price Override */}
             <div className="space-y-2">
               <Label htmlFor="price-override">Price Override</Label>
               <Input
