@@ -21,19 +21,15 @@ export function FullPageLoader() {
     const colorTwo = isDark ? '#B8A896' : '#847562'
 
     return (
-        <div className="flex items-center justify-center h-screen w-screen">
-            <div className="w-full h-full">
-                <DNA
-                    visible={true}
-                    height="100"
-                    width="100"
-                    ariaLabel="dna-loading"
-                    dnaColorOne={colorOne}
-                    dnaColorTwo={colorTwo}
-                    wrapperStyle={{}}
-                    wrapperClass="w-full h-full flex items-center justify-center"
-                />
-            </div>
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+            <DNA
+                visible={true}
+                height="100"
+                width="100"
+                ariaLabel="dna-loading"
+                dnaColorOne={colorOne}
+                dnaColorTwo={colorTwo}
+            />
         </div>
     )
 }

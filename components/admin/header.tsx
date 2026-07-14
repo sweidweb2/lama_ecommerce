@@ -4,7 +4,12 @@ import { ModeToggle } from "@/components/theme/mode-toggle"
 import { Search, User, LogOut, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { MobileSidebar } from "./mobile-sidebar"
+import { Separator } from "@/components/ui/separator"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  Avatar,
+  AvatarFallback,
+} from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +48,7 @@ const ADMIN_PAGES = [
   { href: "/admin/promocodes", label: "Promo Codes" },
 ]
 
-export function Header() {
+export function AdminHeader() {
   const { user, profile } = useAuth()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -57,13 +62,16 @@ export function Header() {
     return ADMIN_PAGES.filter(
       (p) =>
         p.label.toLowerCase().includes(q) ||
-        p.href.toLowerCase().includes(q)
+        p.href.toLowerCase().includes(q),
     )
   }, [searchQuery])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
         setIsSearchOpen(false)
       }
     }
@@ -97,7 +105,8 @@ export function Header() {
       router.refresh()
     } catch (error) {
       toast.error("An unexpected error occurred", {
-        description: error instanceof Error ? error.message : "Please try again",
+        description:
+          error instanceof Error ? error.message : "Please try again",
       })
     } finally {
       setIsLoggingOut(false)
@@ -124,8 +133,10 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-background px-4 md:px-6">
-      <MobileSidebar />
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+      <SidebarTrigger className="-ml-1" />
+      <Separator orientation="vertical" className="mr-2 h-4" />
+
       <div className="flex flex-1 items-center gap-2 md:gap-4">
         <div className="relative flex-1 max-w-md" ref={searchRef}>
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
@@ -162,20 +173,23 @@ export function Header() {
           )}
         </div>
       </div>
+
       <div className="flex items-center gap-1 md:gap-2">
         <ModeToggle />
 
-        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-background hover:border-primary/50 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            <Button
+              variant="ghost"
+              className="relative h-9 w-9 rounded-full p-0"
             >
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-xs font-semibold">
-                {getUserInitials()}
-              </div>
+              <Avatar size="default">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
               <span className="sr-only">Open user menu</span>
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
@@ -198,7 +212,12 @@ export function Header() {
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href={ROUTES.HOME} target="_blank" rel="noopener noreferrer" className="flex items-center cursor-pointer">
+              <a
+                href={ROUTES.HOME}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center cursor-pointer"
+              >
                 <ExternalLink className="mr-2 h-4 w-4" />
                 View website
               </a>
