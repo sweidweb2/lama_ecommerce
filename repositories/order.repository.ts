@@ -525,7 +525,7 @@ export async function upsertPaymentForOrder(
           ? new Date().toISOString()
           : null;
 
-    const payload: Record<string, unknown> = {
+    const payload = {
       status: input.status,
       currency: input.currency?.trim() || "USD",
       transaction_id: input.transaction_id?.trim() || null,
@@ -533,10 +533,8 @@ export async function upsertPaymentForOrder(
       gateway: input.gateway?.trim() || null,
       payment_method: input.payment_method?.trim() || null,
       payment_url: input.payment_url?.trim() || null,
+      ...(input.amount !== undefined ? { amount: input.amount } : {}),
     };
-    if (input.amount !== undefined) {
-      payload.amount = input.amount;
-    }
 
     let payment: Payment | null = null;
 
@@ -557,7 +555,14 @@ export async function upsertPaymentForOrder(
         .from("payments")
         .insert({
           order_id: input.order_id,
-          ...payload,
+          status: payload.status,
+          currency: payload.currency,
+          transaction_id: payload.transaction_id,
+          paid_at: payload.paid_at,
+          gateway: payload.gateway,
+          payment_method: payload.payment_method,
+          payment_url: payload.payment_url,
+          ...(input.amount !== undefined ? { amount: input.amount } : {}),
         })
         .select()
         .single();

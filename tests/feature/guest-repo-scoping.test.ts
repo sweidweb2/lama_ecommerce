@@ -21,8 +21,7 @@ function resetCartChain() {
 const createSupabaseAdminClient = vi.fn(() => ({ from }));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdminClient: (...args: unknown[]) =>
-    createSupabaseAdminClient(...args),
+  createSupabaseAdminClient: () => createSupabaseAdminClient(),
 }));
 
 describe("guest cart session scoping", () => {

@@ -256,13 +256,7 @@ export async function getRecentUsers(limit: number = 5): Promise<RecentUser[]> {
     );
 
     if (!rpcError && profilesWithEmail) {
-      return (profilesWithEmail as Array<{
-        user_id: string;
-        full_name: string | null;
-        email: string | null;
-        created_at: string;
-        is_active?: boolean;
-      }>)
+      return profilesWithEmail
         .filter((p) => p.is_active !== false)
         .sort(
           (a, b) =>

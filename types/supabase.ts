@@ -552,7 +552,47 @@ export type Database = {
           review_status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wishlists: {
+        Row: {
+          id: string
+          user_id: string | null
+          session_id: string | null
+          customised_product_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          session_id?: string | null
+          customised_product_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          session_id?: string | null
+          customised_product_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlists_customised_product_id_fkey"
+            columns: ["customised_product_id"]
+            isOneToOne: false
+            referencedRelation: "customised_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_us: {
         Row: {
@@ -674,7 +714,15 @@ export type Database = {
           is_approved?: boolean
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_questions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_answers: {
         Row: {
@@ -698,7 +746,15 @@ export type Database = {
           answer?: string
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_answers_product_question_id_fkey"
+            columns: ["product_question_id"]
+            isOneToOne: false
+            referencedRelation: "product_questions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_views: {
         Row: {
@@ -776,6 +832,18 @@ export type Database = {
           p_promo_code?: string | null
         }
         Returns: string
+      }
+      get_admin_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          user_id: string
+          full_name: string | null
+          role: 'user' | 'admin'
+          created_at: string
+          is_active: boolean
+          email: string | null
+        }[]
       }
     }
     Enums: {

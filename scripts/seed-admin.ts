@@ -7,11 +7,14 @@
  * Usage:
  *   npm run seed:admin
  */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
 const EMAIL = "admin@example.com";
 const PASSWORD = "password";
 const FULL_NAME = "Admin";
+
+type AdminClient = SupabaseClient<Database>;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -21,10 +24,7 @@ function requireEnv(name: string): string {
   return value;
 }
 
-async function findUserByEmail(
-  supabase: ReturnType<typeof createClient>,
-  email: string
-) {
+async function findUserByEmail(supabase: AdminClient, email: string) {
   const normalized = email.trim().toLowerCase();
   let page = 1;
   const perPage = 200;
@@ -41,10 +41,7 @@ async function findUserByEmail(
   }
 }
 
-async function upsertAdminProfile(
-  supabase: ReturnType<typeof createClient>,
-  userId: string
-) {
+async function upsertAdminProfile(supabase: AdminClient, userId: string) {
   const { data: existing, error: selectError } = await supabase
     .from("profiles")
     .select("id")
@@ -79,7 +76,7 @@ async function main() {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
-  const supabase = createClient(url, serviceRoleKey, {
+  const supabase = createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
