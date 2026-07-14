@@ -805,7 +805,15 @@ export type Database = {
           add_to_cart_count?: number
           purchase_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_stats_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

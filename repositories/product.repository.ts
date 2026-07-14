@@ -469,21 +469,19 @@ export async function createProduct(
 
     const { data, error } = await supabase
       .from("products")
-      .insert([
-        {
-          name: input.name,
-          description: input.description ?? undefined,
-          slug: input.slug,
-          brand_id: input.brand_id ?? undefined,
-          category_id: input.category_id ?? undefined,
-          sku: input.sku ?? undefined,
-          price: input.price,
-          is_featured: input.is_featured ?? false,
-          is_trending: input.is_trending ?? false,
-          is_active: input.is_active ?? true,
-          owner_id: input.owner_id,
-        },
-      ] as any)
+      .insert({
+        name: input.name,
+        description: input.description ?? undefined,
+        slug: input.slug,
+        brand_id: input.brand_id ?? undefined,
+        category_id: input.category_id ?? undefined,
+        sku: input.sku ?? undefined,
+        price: input.price,
+        is_featured: input.is_featured ?? false,
+        is_trending: input.is_trending ?? false,
+        is_active: input.is_active ?? true,
+        owner_id: input.owner_id,
+      })
       .select("*")
       .single();
 

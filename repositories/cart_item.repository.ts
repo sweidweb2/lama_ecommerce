@@ -203,7 +203,7 @@ interface CartItemProductJoinRow {
       id: string;
       name: string;
       description: string | null;
-      slug: string | null;
+      slug: string;
       price: number | string;
       is_featured: boolean;
       is_trending: boolean;

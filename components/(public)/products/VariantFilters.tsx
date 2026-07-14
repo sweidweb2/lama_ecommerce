@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -16,6 +15,14 @@ interface VariantFiltersProps {
     availableColors?: string[]
 }
 
+function parseColorsParam(raw: string | null): string[] {
+    if (!raw) return []
+    return raw
+        .split(',')
+        .map((c) => normalizeColorValue(c))
+        .filter(Boolean)
+}
+
 export function VariantFilters({
     value,
     onChange,
@@ -24,26 +31,8 @@ export function VariantFilters({
     const router = useRouter()
     const searchParams = useSearchParams()
 
-    const [localColors, setLocalColors] = useState<string[]>([])
-
-    // Sync from URL if not controlled
-    useEffect(() => {
-        if (value === undefined) {
-            const colorsParam = searchParams.get('colors')
-            if (!colorsParam) {
-                setLocalColors([])
-            } else {
-                setLocalColors(
-                    colorsParam
-                        .split(',')
-                        .map((c) => normalizeColorValue(c))
-                        .filter(Boolean),
-                )
-            }
-        }
-    }, [searchParams, value])
-
-    const selectedColors = value !== undefined ? value : localColors
+    const selectedColors =
+        value !== undefined ? value : parseColorsParam(searchParams.get('colors'))
 
     if (availableColors.length === 0) {
         return null
@@ -54,6 +43,19 @@ export function VariantFilters({
         return selectedColors.some(
             (c) => normalizeColorValue(c).toUpperCase() === key,
         )
+    }
+
+    const updateURL = (colors: string[]) => {
+        const params = new URLSearchParams(searchParams.toString())
+
+        if (colors.length === 0) {
+            params.delete('colors')
+        } else {
+            params.set('colors', colors.map(normalizeColorValue).join(','))
+        }
+
+        params.delete('page')
+        router.push(`/products?${params.toString()}`)
     }
 
     const toggleColor = (color: string) => {
@@ -71,33 +73,15 @@ export function VariantFilters({
         if (onChange) {
             onChange(newColors)
         } else {
-            setLocalColors(newColors)
             updateURL(newColors)
         }
-    }
-
-    const updateURL = (colors: string[]) => {
-        const params = new URLSearchParams(searchParams.toString())
-
-        if (colors.length === 0) {
-            params.delete('colors')
-        } else {
-            params.set('colors', colors.map(normalizeColorValue).join(','))
-        }
-
-        params.delete('page')
-        router.push(`/products?${params.toString()}`)
     }
 
     const handleClearAll = () => {
         if (onChange) {
             onChange([])
         } else {
-            setLocalColors([])
-            const params = new URLSearchParams(searchParams.toString())
-            params.delete('colors')
-            params.delete('page')
-            router.push(`/products?${params.toString()}`)
+            updateURL([])
         }
     }
 

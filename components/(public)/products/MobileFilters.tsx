@@ -16,8 +16,6 @@ import { VariantFilters } from './VariantFilters'
 import { SizeFilter } from './SizeFilter'
 import { Category } from '@/types/product'
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
 
 interface MobileFiltersProps {
     categories: Category[]
@@ -55,12 +53,13 @@ export function MobileFilters({
     onSizesChange,
 }: MobileFiltersProps) {
     const [open, setOpen] = useState(false)
-    const searchParams = useSearchParams()
 
-    // Close sheet when filters change
-    useEffect(() => {
-        setOpen(false)
-    }, [searchParams])
+    const closeAnd = <T extends unknown[]>(fn: (...args: T) => void) => {
+        return (...args: T) => {
+            setOpen(false)
+            fn(...args)
+        }
+    }
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -78,24 +77,24 @@ export function MobileFilters({
                     <CategoryFiltering
                         categories={categories}
                         selectedCategory={selectedCategory}
-                        onCategoryChange={onCategoryChange}
+                        onCategoryChange={closeAnd(onCategoryChange)}
                     />
-                    <Sorting value={sort} onChange={onSortChange} />
+                    <Sorting value={sort} onChange={closeAnd(onSortChange)} />
                     <PriceFilter
                         minPrice={priceBoundsMin}
                         maxPrice={priceBoundsMax}
                         value={priceRange}
-                        onChange={onPriceChange}
+                        onChange={closeAnd(onPriceChange)}
                     />
                     <VariantFilters
                         availableColors={availableColors}
                         value={selectedColors}
-                        onChange={onColorsChange}
+                        onChange={closeAnd(onColorsChange)}
                     />
                     <SizeFilter
                         availableSizes={availableSizes}
                         selectedSizes={selectedSizes}
-                        onSizesChange={onSizesChange}
+                        onSizesChange={closeAnd(onSizesChange)}
                     />
                 </div>
             </SheetContent>

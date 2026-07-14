@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,6 +10,14 @@ interface SizeFilterProps {
     onSizesChange?: (sizes: string[]) => void
 }
 
+function parseSizesParam(raw: string | null): string[] {
+    if (!raw) return []
+    return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+}
+
 export function SizeFilter({
     availableSizes = [],
     selectedSizes: controlledSizes,
@@ -18,27 +25,11 @@ export function SizeFilter({
 }: SizeFilterProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const [localSizes, setLocalSizes] = useState<string[]>([])
 
     const selectedSizes =
-        controlledSizes !== undefined ? controlledSizes : localSizes
-
-    // Sync from URL only if not controlled
-    useEffect(() => {
-        if (controlledSizes === undefined) {
-            const sizesParam = searchParams.get('sizes')
-            if (!sizesParam) {
-                setLocalSizes([])
-            } else {
-                setLocalSizes(
-                    sizesParam
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                )
-            }
-        }
-    }, [searchParams, controlledSizes])
+        controlledSizes !== undefined
+            ? controlledSizes
+            : parseSizesParam(searchParams.get('sizes'))
 
     const isSelected = (size: string) => {
         const key = size.trim().toUpperCase()
@@ -68,7 +59,6 @@ export function SizeFilter({
         if (onSizesChange) {
             onSizesChange(newSizes)
         } else {
-            setLocalSizes(newSizes)
             updateURL(newSizes)
         }
     }
@@ -77,7 +67,6 @@ export function SizeFilter({
         if (onSizesChange) {
             onSizesChange([])
         } else {
-            setLocalSizes([])
             updateURL([])
         }
     }
