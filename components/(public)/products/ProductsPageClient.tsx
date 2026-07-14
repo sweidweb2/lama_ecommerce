@@ -5,8 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { PriceFilter } from '@/components/(public)/products/PriceFilter'
+import { VariantFilters } from '@/components/(public)/products/VariantFilters'
+import { SizeFilter } from '@/components/(public)/products/SizeFilter'
 import { ClientProductFilter } from '@/components/(public)/products/ClientProductFilter'
 import { Separator } from '@/components/ui/separator'
+import { normalizeColorValue } from '@/lib/constants/color-palette'
 import type { ProductWithRelations, Category } from '@/types/product'
 
 interface ProductsPageClientProps {
@@ -21,6 +24,10 @@ interface ProductsPageClientProps {
     priceBoundsMax: number
     priceRange: [number, number]
     search: string
+    availableColors: string[]
+    availableSizes: string[]
+    selectedColors: string[]
+    selectedSizes: string[]
 }
 
 export function ProductsPageClient({
@@ -35,6 +42,10 @@ export function ProductsPageClient({
     priceBoundsMax,
     priceRange,
     search,
+    availableColors,
+    availableSizes,
+    selectedColors,
+    selectedSizes,
 }: ProductsPageClientProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -72,6 +83,22 @@ export function ProductsPageClient({
         })
     }
 
+    const handleColorsChange = (colors: string[]) => {
+        pushParams((params) => {
+            if (colors.length === 0) params.delete('colors')
+            else params.set('colors', colors.map(normalizeColorValue).join(','))
+            params.delete('page')
+        })
+    }
+
+    const handleSizesChange = (sizes: string[]) => {
+        pushParams((params) => {
+            if (sizes.length === 0) params.delete('sizes')
+            else params.set('sizes', sizes.join(','))
+            params.delete('page')
+        })
+    }
+
     const handlePageChange = (page: number) => {
         pushParams((params) => {
             if (page <= 1) params.delete('page')
@@ -104,6 +131,16 @@ export function ProductsPageClient({
                                 maxPrice={priceBoundsMax}
                                 value={priceRange}
                                 onChange={handlePriceChange}
+                            />
+                            <VariantFilters
+                                availableColors={availableColors}
+                                value={selectedColors}
+                                onChange={handleColorsChange}
+                            />
+                            <SizeFilter
+                                availableSizes={availableSizes}
+                                selectedSizes={selectedSizes}
+                                onSizesChange={handleSizesChange}
                             />
                         </div>
                     </div>
@@ -141,6 +178,12 @@ export function ProductsPageClient({
                         onCategoryChange={handleCategoryChange}
                         onSortChange={handleSortChange}
                         onPriceChange={handlePriceChange}
+                        availableColors={availableColors}
+                        availableSizes={availableSizes}
+                        selectedColors={selectedColors}
+                        selectedSizes={selectedSizes}
+                        onColorsChange={handleColorsChange}
+                        onSizesChange={handleSizesChange}
                     />
                 </main>
             </div>

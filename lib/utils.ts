@@ -12,6 +12,23 @@ export function formatPrice(price: number) {
   }).format(price)
 }
 
+/**
+ * Storefront listing price: "From $X" when variant effective prices differ.
+ * Falls back to base `price` when min/max columns are missing.
+ */
+export function formatListingPrice(product: {
+  price: number
+  min_effective_price?: number | null
+  max_effective_price?: number | null
+}): string {
+  const min = Number(product.min_effective_price ?? product.price)
+  const max = Number(product.max_effective_price ?? product.price)
+  if (min !== max) {
+    return `From ${formatPrice(min)}`
+  }
+  return formatPrice(min)
+}
+
 export function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("en-US", {
     year: "numeric",

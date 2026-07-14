@@ -41,11 +41,13 @@ export type Database = {
           id: string
           name: string
           description: string | null
-          slug: string | null
+          slug: string
           brand_id: string | null
           category_id: string | null
           sku: string | null
           price: number
+          min_effective_price: number
+          max_effective_price: number
           is_featured: boolean
           is_trending: boolean
           is_active: boolean
@@ -57,11 +59,13 @@ export type Database = {
           id?: string
           name: string
           description?: string | null
-          slug?: string | null
+          slug: string
           brand_id?: string | null
           category_id?: string | null
           sku?: string | null
           price: number
+          min_effective_price?: number
+          max_effective_price?: number
           is_featured?: boolean
           is_trending?: boolean
           is_active?: boolean
@@ -73,11 +77,13 @@ export type Database = {
           id?: string
           name?: string
           description?: string | null
-          slug?: string | null
+          slug?: string
           brand_id?: string | null
           category_id?: string | null
           sku?: string | null
           price?: number
+          min_effective_price?: number
+          max_effective_price?: number
           is_featured?: boolean
           is_trending?: boolean
           is_active?: boolean

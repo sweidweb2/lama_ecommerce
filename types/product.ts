@@ -31,11 +31,15 @@ export interface Product {
   id: UUID;
   name: string;
   description: string | null;
-  slug: string | null;
+  slug: string;
   brand_id: UUID | null;
   category_id: UUID | null;
   sku: string | null;
   price: number; // numeric(10,2)
+  /** Min COALESCE(variant price_override, base) — used for list/filter/sort */
+  min_effective_price: number;
+  /** Max COALESCE(variant price_override, base) — used for list filter overlap */
+  max_effective_price: number;
   is_featured: boolean;
   is_trending: boolean;
   is_active: boolean;

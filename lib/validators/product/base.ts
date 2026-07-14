@@ -21,7 +21,7 @@ export const productBaseSchema = z.object({
     .nullable()
     .optional(),
 
-  // Optional slug; when provided, must be URL friendly and a realistic length
+  // Required URL-friendly slug (storefront PDP is /products/[slug])
   slug: z
     .string()
     .min(3, "Slug must be at least 3 characters")
@@ -29,9 +29,7 @@ export const productBaseSchema = z.object({
     .regex(
       slugRegex,
       "Slug can only contain lowercase letters, numbers, and single hyphens between segments",
-    )
-    .nullable()
-    .optional(),
+    ),
 
   // Optional foreign keys
   brand_id: z.string().uuid().nullable().optional(),

@@ -195,7 +195,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Slug</label>
-                      <p className="text-sm font-medium mt-1 truncate">{product.slug || '—'}</p>
+                      <p className="text-sm font-medium mt-1 truncate">{product.slug}</p>
                     </div>
                   </div>
                 </div>

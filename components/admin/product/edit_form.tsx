@@ -24,7 +24,7 @@ export type AdminProduct = {
   id: string
   name: string
   description?: string | null
-  slug?: string | null
+  slug: string
   brand_id?: string | null
   category_id?: string | null
   sku?: string | null
@@ -55,7 +55,7 @@ export function EditProductDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description || "")
-  const [slug, setSlug] = useState(product.slug || "")
+  const [slug, setSlug] = useState(product.slug)
   const [brandId, setBrandId] = useState(product.brand_id || NONE_VALUE)
   const [categoryId, setCategoryId] = useState(product.category_id || NONE_VALUE)
   const [sku, setSku] = useState(product.sku || "")
@@ -79,11 +79,9 @@ export function EditProductDialog({
       name: trimmedName,
       description: trimmedDescription ? trimmedDescription : null,
       slug: trimmedSlug
-        ? trimmedSlug
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, "")
-            .slice(0, 40)
-        : null,
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "")
+        .slice(0, 40),
       brand_id: brandId === NONE_VALUE ? null : brandId,
       category_id: categoryId === NONE_VALUE ? null : categoryId,
       sku: trimmedSku ? trimmedSku.toUpperCase().slice(0, 32) : null,
@@ -119,7 +117,7 @@ export function EditProductDialog({
       formData.set("id", product.id)
       formData.set("name", parsed.data.name)
       formData.set("description", parsed.data.description ?? "")
-      formData.set("slug", parsed.data.slug ?? "")
+      formData.set("slug", parsed.data.slug)
       formData.set("brand_id", parsed.data.brand_id ?? "")
       formData.set("category_id", parsed.data.category_id ?? "")
       formData.set("sku", parsed.data.sku ?? "")
@@ -146,7 +144,7 @@ export function EditProductDialog({
     // Reset to original values on cancel
     setName(product.name)
     setDescription(product.description || "")
-    setSlug(product.slug || "")
+    setSlug(product.slug)
     setBrandId(product.brand_id || NONE_VALUE)
     setCategoryId(product.category_id || NONE_VALUE)
     setSku(product.sku || "")
@@ -193,12 +191,23 @@ export function EditProductDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={`product-slug-${product.id}`}>Slug</Label>
+              <Label htmlFor={`product-slug-${product.id}`}>
+                Slug <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id={`product-slug-${product.id}`}
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "")
+                      .slice(0, 40),
+                  )
+                }
                 placeholder="product-slug"
+                maxLength={40}
+                required
               />
               {errors.slug && (
                 <p className="text-xs text-destructive">{errors.slug}</p>

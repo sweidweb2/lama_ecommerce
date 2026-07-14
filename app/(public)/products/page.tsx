@@ -1,10 +1,16 @@
-import { getProducts, getProductPriceBoundsService } from '@/services/product.service'
+import {
+    getProducts,
+    getProductPriceBoundsService,
+    getProductVariantFacetsService,
+} from '@/services/product.service'
 import { getCategoriesService } from '@/services/categories.service'
 import { ProductsPageClient } from '@/components/(public)/products/ProductsPageClient'
+import { normalizeColorValue } from '@/lib/constants/color-palette'
 
 interface ProductsPageProps {
     searchParams: Promise<{
         category?: string
+        brand?: string
         sort?: string
         page?: string
         search?: string
@@ -17,24 +23,38 @@ interface ProductsPageProps {
 
 const PAGE_SIZE = 12
 
+function parseListParam(raw: string | undefined): string[] {
+    if (!raw) return []
+    return raw
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)
+}
+
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
     const params = await searchParams
 
     const page = Math.max(1, parseInt(params.page || '1', 10) || 1)
     const minPrice = params.minPrice != null ? parseFloat(params.minPrice) : undefined
     const maxPrice = params.maxPrice != null ? parseFloat(params.maxPrice) : undefined
+    const colors = parseListParam(params.colors).map(normalizeColorValue).filter(Boolean)
+    const sizes = parseListParam(params.sizes)
 
-    const [categories, bounds, productsResult] = await Promise.all([
+    const [categories, bounds, facets, productsResult] = await Promise.all([
         getCategoriesService(),
         getProductPriceBoundsService(),
+        getProductVariantFacetsService(),
         getProducts({
             categorySlug: params.category || undefined,
+            brandSlug: params.brand || undefined,
             sort: params.sort || 'created_at-desc',
             page,
             pageSize: PAGE_SIZE,
             search: params.search || undefined,
             minPrice: minPrice != null && !Number.isNaN(minPrice) ? minPrice : undefined,
             maxPrice: maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : undefined,
+            colors: colors.length > 0 ? colors : undefined,
+            sizes: sizes.length > 0 ? sizes : undefined,
         }),
     ])
 
@@ -56,6 +76,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : bounds.maxPrice,
             ]}
             search={params.search || ''}
+            availableColors={facets.colors}
+            availableSizes={facets.sizes}
+            selectedColors={colors}
+            selectedSizes={sizes}
         />
     )
 }

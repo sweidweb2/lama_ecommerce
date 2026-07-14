@@ -12,6 +12,8 @@ import {
 import { CategoryFiltering } from './CategoryFiltering'
 import { Sorting } from './Sorting'
 import { PriceFilter } from './PriceFilter'
+import { VariantFilters } from './VariantFilters'
+import { SizeFilter } from './SizeFilter'
 import { Category } from '@/types/product'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -27,6 +29,12 @@ interface MobileFiltersProps {
     onCategoryChange: (category: string | null) => void
     onSortChange: (value: string) => void
     onPriceChange: (range: [number, number]) => void
+    availableColors: string[]
+    availableSizes: string[]
+    selectedColors: string[]
+    selectedSizes: string[]
+    onColorsChange: (colors: string[]) => void
+    onSizesChange: (sizes: string[]) => void
 }
 
 export function MobileFilters({
@@ -39,6 +47,12 @@ export function MobileFilters({
     onCategoryChange,
     onSortChange,
     onPriceChange,
+    availableColors,
+    availableSizes,
+    selectedColors,
+    selectedSizes,
+    onColorsChange,
+    onSizesChange,
 }: MobileFiltersProps) {
     const [open, setOpen] = useState(false)
     const searchParams = useSearchParams()
@@ -72,6 +86,16 @@ export function MobileFilters({
                         maxPrice={priceBoundsMax}
                         value={priceRange}
                         onChange={onPriceChange}
+                    />
+                    <VariantFilters
+                        availableColors={availableColors}
+                        value={selectedColors}
+                        onChange={onColorsChange}
+                    />
+                    <SizeFilter
+                        availableSizes={availableSizes}
+                        selectedSizes={selectedSizes}
+                        onSizesChange={onSizesChange}
                     />
                 </div>
             </SheetContent>

@@ -2,7 +2,7 @@ import Link from "@/components/ui/link"
 import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatPrice } from '@/lib/utils'
+import { formatListingPrice } from '@/lib/utils'
 import { ImageIcon } from 'lucide-react'
 import type { ProductWithRelations } from '@/types/product_utf8'
 
@@ -67,7 +67,7 @@ export function ProductRelated({ products }: ProductRelatedProps) {
                     {product.name}
                   </h3>
                   <p className="text-base font-bold text-primary">
-                    {formatPrice(product.price)}
+                    {formatListingPrice(product)}
                   </p>
                 </div>
               </Card>

@@ -14,8 +14,10 @@ const sortOptions = [
     { label: 'Price: Low to High', value: 'price-asc' },
     { label: 'Price: High to Low', value: 'price-desc' },
     { label: 'Name: A-Z', value: 'name-asc' },
-    { label: 'Size: XS-XL', value: 'size-asc' },
 ]
+
+const ALLOWED_SORT_VALUES = new Set(sortOptions.map((o) => o.value))
+const DEFAULT_SORT = 'created_at-desc'
 
 interface SortingProps {
     value?: string
@@ -25,7 +27,8 @@ interface SortingProps {
 export function Sorting({ value, onChange }: SortingProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const currentSort = value !== undefined ? value : (searchParams.get('sort') || 'created_at-desc')
+    const rawSort = value !== undefined ? value : (searchParams.get('sort') || DEFAULT_SORT)
+    const currentSort = ALLOWED_SORT_VALUES.has(rawSort) ? rawSort : DEFAULT_SORT
 
     const handleSortChange = (newValue: string) => {
         if (onChange) {

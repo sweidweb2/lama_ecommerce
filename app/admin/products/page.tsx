@@ -26,7 +26,7 @@ export default async function ProductsPage() {
         id: p.id,
         name: p.name,
         description: p.description,
-        slug: p.slug ?? undefined,
+        slug: p.slug,
         brand_id: p.brand_id ?? undefined,
         category_id: p.category_id ?? undefined,
         sku: p.sku ?? undefined,

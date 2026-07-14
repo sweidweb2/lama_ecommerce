@@ -1,4 +1,7 @@
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerActionClient,
+  createSupabaseServerComponentClient,
+} from "@/lib/supabase/server";
 import type { Brand } from "@/types/product";
 
 export async function getBrands(): Promise<Brand[]> {
@@ -19,6 +22,25 @@ export async function getBrands(): Promise<Brand[]> {
   } catch (error) {
     console.error("Unexpected error in getBrands:", error);
     return [];
+  }
+}
+
+/**
+ * Fetch a brand id by slug (for filtering products).
+ */
+export async function getBrandIdBySlug(slug: string): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await supabase
+      .from("brands")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return (data as { id: string }).id;
+  } catch {
+    return null;
   }
 }
 

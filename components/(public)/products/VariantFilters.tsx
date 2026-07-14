@@ -4,39 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-
-function getColorValue(colorName: string): string {
-    const colorMap: Record<string, string> = {
-        red: '#ef4444',
-        blue: '#3b82f6',
-        green: '#22c55e',
-        yellow: '#eab308',
-        black: '#000000',
-        white: '#ffffff',
-        gray: '#6b7280',
-        grey: '#6b7280',
-        purple: '#a855f7',
-        pink: '#ec4899',
-        orange: '#f97316',
-        brown: '#92400e',
-        navy: '#1e3a8a',
-        beige: '#f5f5dc',
-        tan: '#d2b48c',
-    }
-
-    const normalized = colorName.toLowerCase().trim()
-    return colorMap[normalized] || '#6b7280'
-}
-
-/**
- * Capitalize first letter of each word in a string
- */
-function capitalizeColor(color: string): string {
-    return color
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
-}
+import {
+    getColorLabel,
+    getColorSwatch,
+    normalizeColorValue,
+} from '@/lib/constants/color-palette'
 
 interface VariantFiltersProps {
     value?: string[]
@@ -44,7 +16,11 @@ interface VariantFiltersProps {
     availableColors?: string[]
 }
 
-export function VariantFilters({ value, onChange, availableColors = [] }: VariantFiltersProps) {
+export function VariantFilters({
+    value,
+    onChange,
+    availableColors = [],
+}: VariantFiltersProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -60,7 +36,7 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
                 setLocalColors(
                     colorsParam
                         .split(',')
-                        .map((c) => c.trim().toLowerCase())
+                        .map((c) => normalizeColorValue(c))
                         .filter(Boolean),
                 )
             }
@@ -69,15 +45,27 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
 
     const selectedColors = value !== undefined ? value : localColors
 
-    // If no available colors provided, don't render
     if (availableColors.length === 0) {
         return null
     }
 
+    const isSelected = (color: string) => {
+        const key = normalizeColorValue(color).toUpperCase()
+        return selectedColors.some(
+            (c) => normalizeColorValue(c).toUpperCase() === key,
+        )
+    }
+
     const toggleColor = (color: string) => {
-        const normalized = color.toLowerCase()
-        const newColors = selectedColors.includes(normalized)
-            ? selectedColors.filter((c) => c !== normalized)
+        const normalized = normalizeColorValue(color)
+        const key = normalized.toUpperCase()
+        const alreadySelected = selectedColors.some(
+            (c) => normalizeColorValue(c).toUpperCase() === key,
+        )
+        const newColors = alreadySelected
+            ? selectedColors.filter(
+                  (c) => normalizeColorValue(c).toUpperCase() !== key,
+              )
             : [...selectedColors, normalized]
 
         if (onChange) {
@@ -94,10 +82,9 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
         if (colors.length === 0) {
             params.delete('colors')
         } else {
-            params.set('colors', colors.join(','))
+            params.set('colors', colors.map(normalizeColorValue).join(','))
         }
 
-        // Reset page when filtering
         params.delete('page')
         router.push(`/products?${params.toString()}`)
     }
@@ -118,7 +105,6 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
 
     return (
         <div className="space-y-4">
-            {/* Colors */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -138,10 +124,9 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     {availableColors.map((color) => {
-                        const normalized = color.toLowerCase()
-                        const isSelected = selectedColors.includes(normalized)
-                        const colorValue = getColorValue(color)
-                        const displayName = capitalizeColor(color)
+                        const selected = isSelected(color)
+                        const displayName = getColorLabel(color)
+                        const swatch = getColorSwatch(color)
 
                         return (
                             <button
@@ -150,16 +135,14 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
                                 onClick={() => toggleColor(color)}
                                 className={cn(
                                     'flex items-center gap-2 px-2 py-1.5 border rounded-lg text-xs font-medium transition-all',
-                                    isSelected
+                                    selected
                                         ? 'border-primary bg-primary/5'
                                         : 'border-border bg-background hover:border-primary/60',
                                 )}
                             >
                                 <span
                                     className="w-4 h-4 rounded-full border border-black/10 shrink-0"
-                                    style={{
-                                        backgroundColor: colorValue,
-                                    }}
+                                    style={{ backgroundColor: swatch }}
                                 />
                                 <span className="truncate">{displayName}</span>
                             </button>
@@ -167,7 +150,6 @@ export function VariantFilters({ value, onChange, availableColors = [] }: Varian
                     })}
                 </div>
             </div>
-
         </div>
     )
 }

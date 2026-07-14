@@ -10,15 +10,18 @@ import {
   getAdminProducts,
   getProducts as getProductsRepo,
   getProductPriceBounds,
+  getProductVariantFacets,
   getRelatedProducts,
   type CreateProductRepoInput,
   type GetProductsRepoParams,
+  type ProductVariantFacets,
   updateProduct,
   type UpdateProductRepoInput,
   hardDeleteProduct,
   getProductById,
 } from "@/repositories/product.repository";
 import { getCategoryIdBySlug } from "@/repositories/categories.repository";
+import { getBrandIdBySlug } from "@/repositories/brand.repository";
 import type { Product, ProductWithRelations } from "@/types/product";
 
 /**
@@ -34,7 +37,7 @@ export async function createProductService(
   const repoInput: CreateProductRepoInput = {
     name: payload.name,
     description: payload.description ?? null,
-    slug: payload.slug ?? null,
+    slug: payload.slug,
     brand_id: payload.brand_id ?? null,
     category_id: payload.category_id ?? null,
     sku: payload.sku ?? null,
@@ -61,7 +64,7 @@ export async function updateProductService(
     name: payload.name,
     description:
       payload.description === undefined ? undefined : payload.description ?? null,
-    slug: payload.slug === undefined ? undefined : payload.slug ?? null,
+    slug: payload.slug === undefined ? undefined : payload.slug,
     brand_id: payload.brand_id === undefined ? undefined : payload.brand_id ?? null,
     category_id:
       payload.category_id === undefined ? undefined : payload.category_id ?? null,
@@ -116,6 +119,7 @@ export async function deleteProductService(id: string): Promise<boolean> {
 
 export interface GetProductsServiceParams {
   categorySlug?: string;
+  brandSlug?: string;
   sort?: string;
   page?: number;
   pageSize?: number;
@@ -124,6 +128,8 @@ export interface GetProductsServiceParams {
   maxPrice?: number;
   isFeatured?: boolean;
   isTrending?: boolean;
+  colors?: string[];
+  sizes?: string[];
 }
 
 /**
@@ -134,6 +140,7 @@ export async function getProducts(
 ): Promise<{ data: ProductWithRelations[]; count: number }> {
   const {
     categorySlug,
+    brandSlug,
     sort,
     page = 1,
     pageSize = 12,
@@ -142,16 +149,30 @@ export async function getProducts(
     maxPrice,
     isFeatured,
     isTrending,
+    colors,
+    sizes,
   } = params;
 
   let categoryId: string | null = null;
+  let brandId: string | null = null;
 
   if (categorySlug) {
     categoryId = await getCategoryIdBySlug(categorySlug);
+    if (!categoryId) {
+      return { data: [], count: 0 };
+    }
+  }
+
+  if (brandSlug) {
+    brandId = await getBrandIdBySlug(brandSlug);
+    if (!brandId) {
+      return { data: [], count: 0 };
+    }
   }
 
   const repoParams: GetProductsRepoParams = {
     categoryId,
+    brandId,
     sort,
     page,
     pageSize,
@@ -160,9 +181,18 @@ export async function getProducts(
     maxPrice,
     isFeatured,
     isTrending,
+    colors,
+    sizes,
   };
 
   return getProductsRepo(repoParams);
+}
+
+/**
+ * Distinct color / size facet values for the storefront filters.
+ */
+export async function getProductVariantFacetsService(): Promise<ProductVariantFacets> {
+  return getProductVariantFacets();
 }
 
 /**

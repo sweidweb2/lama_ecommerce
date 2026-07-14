@@ -4,6 +4,7 @@ import { createProductSchema } from "@/lib/validators/product/create";
 describe("createProductSchema", () => {
   const valid = {
     name: "Linen Shirt",
+    slug: "linen-shirt",
     price: 29.99,
   };
 
@@ -22,6 +23,15 @@ describe("createProductSchema", () => {
     ).toBe(false);
     expect(
       createProductSchema.safeParse({ ...valid, price: 0 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects missing slug", () => {
+    expect(
+      createProductSchema.safeParse({
+        name: "Linen Shirt",
+        price: 29.99,
+      }).success,
     ).toBe(false);
   });
 

@@ -94,7 +94,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public routes - no protection needed (storefront, auth pages, etc.)
+  // Logged-in users cannot open login / signup until they log out
+  const isAuthEntryPage =
+    pathname === ROUTES.LOGIN ||
+    pathname === ROUTES.SIGNUP ||
+    pathname.startsWith(`${ROUTES.LOGIN}/`) ||
+    pathname.startsWith(`${ROUTES.SIGNUP}/`);
+
+  if (isAuthEntryPage) {
+    const { profile, user, response } = await getProfileFromSession(request);
+    if (user && profile?.is_active) {
+      const destination =
+        profile.role === ROLES.ADMIN ? ROUTES.ADMIN : ROUTES.HOME;
+      const redirectResponse = NextResponse.redirect(
+        new URL(destination, request.url),
+      );
+      // Preserve any session cookies refreshed by getProfileFromSession
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
+    }
+    return ensureGuestSessionCookie(request, response);
+  }
+
+  // Public routes - no protection needed (storefront, other auth pages, etc.)
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/auth") ||

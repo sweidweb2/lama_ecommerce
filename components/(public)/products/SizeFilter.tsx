@@ -5,41 +5,23 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-// Category-specific size mappings
-const CATEGORY_SIZES: Record<string, string[]> = {
-    'electronics': [], // Electronics typically don't have sizes
-    'fashion': ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'], // Standard clothing sizes
-    'home-garden': ['Small', 'Medium', 'Large'], // Home items might have generic sizes
-    'beauty': [], // Beauty products typically don't have sizes
-    'sports': ['XS', 'S', 'M', 'L', 'XL', 'XXL'], // Sportswear sizes
-    'toys': ['Small', 'Medium', 'Large'], // Toys might have generic sizes
-}
-
-// Default sizes when no category is selected
-const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
-
 interface SizeFilterProps {
-    categorySlug?: string | null
+    availableSizes?: string[]
     selectedSizes?: string[]
     onSizesChange?: (sizes: string[]) => void
 }
 
-export function SizeFilter({ 
-    categorySlug, 
+export function SizeFilter({
+    availableSizes = [],
     selectedSizes: controlledSizes,
-    onSizesChange 
+    onSizesChange,
 }: SizeFilterProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [localSizes, setLocalSizes] = useState<string[]>([])
 
-    // Get available sizes based on category
-    const availableSizes = categorySlug 
-        ? (CATEGORY_SIZES[categorySlug] || DEFAULT_SIZES)
-        : DEFAULT_SIZES
-
-    // Use controlled value if provided, otherwise use local state
-    const selectedSizes = controlledSizes !== undefined ? controlledSizes : localSizes
+    const selectedSizes =
+        controlledSizes !== undefined ? controlledSizes : localSizes
 
     // Sync from URL only if not controlled
     useEffect(() => {
@@ -51,23 +33,43 @@ export function SizeFilter({
                 setLocalSizes(
                     sizesParam
                         .split(',')
-                        .map((s) => s.trim().toUpperCase())
+                        .map((s) => s.trim())
                         .filter(Boolean),
                 )
             }
         }
     }, [searchParams, controlledSizes])
 
+    const isSelected = (size: string) => {
+        const key = size.trim().toUpperCase()
+        return selectedSizes.some((s) => s.trim().toUpperCase() === key)
+    }
+
+    const updateURL = (sizes: string[]) => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (sizes.length === 0) {
+            params.delete('sizes')
+        } else {
+            params.set('sizes', sizes.join(','))
+        }
+        params.delete('page')
+        router.push(`/products?${params.toString()}`)
+    }
+
     const toggleSize = (size: string) => {
-        const normalized = size.toUpperCase()
-        const newSizes = selectedSizes.includes(normalized)
-            ? selectedSizes.filter((s) => s !== normalized)
-            : [...selectedSizes, normalized]
+        const key = size.trim().toUpperCase()
+        const alreadySelected = selectedSizes.some(
+            (s) => s.trim().toUpperCase() === key,
+        )
+        const newSizes = alreadySelected
+            ? selectedSizes.filter((s) => s.trim().toUpperCase() !== key)
+            : [...selectedSizes, size.trim()]
 
         if (onSizesChange) {
             onSizesChange(newSizes)
         } else {
             setLocalSizes(newSizes)
+            updateURL(newSizes)
         }
     }
 
@@ -76,10 +78,10 @@ export function SizeFilter({
             onSizesChange([])
         } else {
             setLocalSizes([])
+            updateURL([])
         }
     }
 
-    // Don't render if no sizes available for this category
     if (availableSizes.length === 0) {
         return null
     }
@@ -104,8 +106,7 @@ export function SizeFilter({
             </div>
             <div className="flex flex-wrap gap-2">
                 {availableSizes.map((size) => {
-                    const normalized = size.toUpperCase()
-                    const isSelected = selectedSizes.includes(normalized)
+                    const selected = isSelected(size)
 
                     return (
                         <button
@@ -114,7 +115,7 @@ export function SizeFilter({
                             onClick={() => toggleSize(size)}
                             className={cn(
                                 'h-8 px-3 flex items-center justify-center border rounded-lg text-xs font-semibold transition-all',
-                                isSelected
+                                selected
                                     ? 'border-primary bg-primary/5'
                                     : 'border-border bg-background hover:border-primary/60',
                             )}

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "@/components/ui/link";
 import { Eye, ImageIcon } from "lucide-react";
 import { getProducts } from "@/services/product.service";
-import { formatPrice } from "@/lib/utils";
+import { formatListingPrice } from "@/lib/utils";
 
 async function getFeaturedProducts() {
     try {
@@ -69,7 +69,7 @@ export async function FeaturedProducts() {
                                     <CardDescription className="text-xs leading-tight mt-1">{product.category?.name || "Uncategorized"}</CardDescription>
                                 </CardHeader>
                                 <CardFooter className="px-3 py-2 pt-1.5 flex justify-between items-center">
-                                    <span className="font-bold text-base leading-tight">{formatPrice(product.price)}</span>
+                                    <span className="font-bold text-base leading-tight">{formatListingPrice(product)}</span>
                                     <Button size="icon" className="h-8 w-8 rounded-full hover:scale-110 transition-transform">
                                         <Eye className="h-4 w-4" />
                                     </Button>

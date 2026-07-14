@@ -16,18 +16,36 @@ export interface GetProductsRepoParams {
   brandId?: string | null;
   isFeatured?: boolean;
   isTrending?: boolean;
+  colors?: string[];
+  sizes?: string[];
+}
+
+export interface ProductVariantFacets {
+  colors: string[];
+  sizes: string[];
 }
 
 // Common select used for product detail / listing where we only need
-// the core product data plus brand, category, and images.
-// (Variants are currently handled as dummy data in the admin UI.)
+// the core product data plus brand, category, images, and public stats.
 const PRODUCT_SELECT =
-  "*, brand:brands(*), category:categories(*), images:product_images(*)";
+  "*, brand:brands(*), category:categories(*), images:product_images(*), stats:product_stats(*)";
+
+function expandCaseVariants(values: string[]): string[] {
+  const set = new Set<string>();
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    set.add(trimmed);
+    set.add(trimmed.toUpperCase());
+    set.add(trimmed.toLowerCase());
+  }
+  return [...set];
+}
 
 export interface CreateProductRepoInput {
   name: string;
   description: string | null;
-  slug: string | null;
+  slug: string;
   brand_id: string | null;
   category_id: string | null;
   sku: string | null;
@@ -41,7 +59,7 @@ export interface CreateProductRepoInput {
 export interface UpdateProductRepoInput {
   name?: string;
   description?: string | null;
-  slug?: string | null;
+  slug?: string;
   brand_id?: string | null;
   category_id?: string | null;
   sku?: string | null;
@@ -93,16 +111,63 @@ export async function getProducts(
     brandId,
     isFeatured,
     isTrending,
+    colors,
+    sizes,
   } = params;
 
   const pageSize = Math.min(Math.max(1, rawPageSize), 48);
+  const hasColorFilter = (colors?.length ?? 0) > 0;
+  const hasSizeFilter = (sizes?.length ?? 0) > 0;
 
   try {
     const supabase = await createSupabaseServerComponentClient();
+
+    let matchingProductIds: string[] | null = null;
+    if (hasColorFilter || hasSizeFilter) {
+      let variantQuery = supabase
+        .from("customised_products")
+        .select("product_id");
+
+      if (hasColorFilter) {
+        variantQuery = variantQuery.in(
+          "color",
+          expandCaseVariants(colors!),
+        );
+      }
+      if (hasSizeFilter) {
+        variantQuery = variantQuery.in(
+          "size",
+          expandCaseVariants(sizes!),
+        );
+      }
+
+      const { data: variantRows, error: variantError } = await variantQuery;
+      if (variantError) {
+        console.error("Error filtering products by variants:", variantError);
+        return { data: [], count: 0 };
+      }
+
+      matchingProductIds = [
+        ...new Set(
+          (variantRows ?? [])
+            .map((row) => (row as { product_id: string }).product_id)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (matchingProductIds.length === 0) {
+        return { data: [], count: 0 };
+      }
+    }
+
     let query = supabase
       .from("products")
       .select(PRODUCT_SELECT, { count: "exact" })
       .eq("is_active", true);
+
+    if (matchingProductIds) {
+      query = query.in("id", matchingProductIds);
+    }
 
     if (categoryId) {
       query = query.eq("category_id", categoryId);
@@ -128,20 +193,26 @@ export async function getProducts(
       query = query.ilike("name", `%${search}%`);
     }
 
+    // Range overlap with variant-aware [min_effective_price, max_effective_price]
     if (minPrice !== undefined && !Number.isNaN(minPrice)) {
-      query = query.gte("price", minPrice);
+      query = query.gte("max_effective_price", minPrice);
     }
 
     if (maxPrice !== undefined && !Number.isNaN(maxPrice)) {
-      query = query.lte("price", maxPrice);
+      query = query.lte("min_effective_price", maxPrice);
     }
 
     if (sort) {
       const [field, order] = sort.split("-");
-      // Only allow known sortable columns
-      const allowed = new Set(["created_at", "price", "name"]);
-      if (allowed.has(field)) {
-        query = query.order(field, { ascending: order === "asc" });
+      // Only allow known sortable columns; price → min_effective_price
+      const column =
+        field === "price"
+          ? "min_effective_price"
+          : field === "created_at" || field === "name"
+            ? field
+            : null;
+      if (column) {
+        query = query.order(column, { ascending: order === "asc" });
       } else {
         query = query.order("created_at", { ascending: false });
       }
@@ -169,7 +240,56 @@ export async function getProducts(
 }
 
 /**
- * Min/max active product prices for the storefront price slider.
+ * Distinct color / size values from variants of active products (storefront facets).
+ */
+export async function getProductVariantFacets(): Promise<ProductVariantFacets> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    // Public RLS already limits reads to variants of active products.
+    const { data, error } = await supabase
+      .from("customised_products")
+      .select("color, size");
+
+    if (error) {
+      console.error("Error fetching variant facets:", error);
+      return { colors: [], sizes: [] };
+    }
+
+    const colorSet = new Map<string, string>();
+    const sizeSet = new Map<string, string>();
+
+    for (const row of data ?? []) {
+      const color = (row as { color: string | null }).color?.trim();
+      if (color) {
+        const key = color.toUpperCase();
+        if (!colorSet.has(key)) colorSet.set(key, color);
+      }
+      const size = (row as { size: string | null }).size?.trim();
+      if (size) {
+        const key = size.toUpperCase();
+        if (!sizeSet.has(key)) sizeSet.set(key, size);
+      }
+    }
+
+    return {
+      colors: [...colorSet.values()].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" }),
+      ),
+      sizes: [...sizeSet.values()].sort((a, b) =>
+        a.localeCompare(b, undefined, {
+          sensitivity: "base",
+          numeric: true,
+        }),
+      ),
+    };
+  } catch (error) {
+    console.error("Unexpected error in getProductVariantFacets:", error);
+    return { colors: [], sizes: [] };
+  }
+}
+
+/**
+ * Min/max active product effective prices for the storefront price slider.
  */
 export async function getProductPriceBounds(): Promise<{
   minPrice: number;
@@ -181,22 +301,28 @@ export async function getProductPriceBounds(): Promise<{
     const [{ data: minRow }, { data: maxRow }] = await Promise.all([
       supabase
         .from("products")
-        .select("price")
+        .select("min_effective_price")
         .eq("is_active", true)
-        .order("price", { ascending: true })
+        .order("min_effective_price", { ascending: true })
         .limit(1)
         .maybeSingle(),
       supabase
         .from("products")
-        .select("price")
+        .select("max_effective_price")
         .eq("is_active", true)
-        .order("price", { ascending: false })
+        .order("max_effective_price", { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);
 
-    const minPrice = minRow?.price != null ? Math.floor(Number(minRow.price)) : 0;
-    const maxPrice = maxRow?.price != null ? Math.ceil(Number(maxRow.price)) : 1000;
+    const minPrice =
+      minRow?.min_effective_price != null
+        ? Math.floor(Number(minRow.min_effective_price))
+        : 0;
+    const maxPrice =
+      maxRow?.max_effective_price != null
+        ? Math.ceil(Number(maxRow.max_effective_price))
+        : 1000;
 
     return {
       minPrice,
@@ -347,7 +473,7 @@ export async function createProduct(
         {
           name: input.name,
           description: input.description ?? undefined,
-          slug: input.slug ?? undefined,
+          slug: input.slug,
           brand_id: input.brand_id ?? undefined,
           category_id: input.category_id ?? undefined,
           sku: input.sku ?? undefined,

@@ -57,7 +57,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       description: raw.description
         ? raw.description.toString().trim() || null
         : null,
-      slug: raw.slug ? raw.slug.toString().trim() || null : null,
+      slug: raw.slug?.toString().trim() ?? "",
       brand_id: raw.brand_id
         ? raw.brand_id.toString().trim() || null
         : null,
@@ -137,7 +137,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       slug:
         raw.slug === null || raw.slug === undefined
           ? undefined
-          : raw.slug.toString().trim() || null,
+          : raw.slug.toString().trim(),
       brand_id:
         raw.brand_id === null || raw.brand_id === undefined
           ? undefined

@@ -131,11 +131,15 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
               />
 
               {/* Product Customization (Color, Size, Quantity, Add to Cart) */}
-              {variants.length > 0 && (
+              {variants.length > 0 ? (
                 <ProductCustomization
                   productId={product.id}
                   variants={variants}
                 />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No purchase options available for this product.
+                </p>
               )}
 
               {/* Metadata */}

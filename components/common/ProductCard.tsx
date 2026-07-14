@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductWithRelations } from '@/types/product'
-import { formatPrice } from '@/lib/utils'
+import { formatListingPrice } from '@/lib/utils'
 import { ImageIcon } from 'lucide-react'
 
 interface ProductCardProps {
@@ -14,7 +14,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
     const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0]
     const hasImage = primaryImage?.url_image
-    const productSlug = product.slug || product.id
+    const productSlug = product.slug
 
     return (
         <Link
@@ -62,7 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
                         {product.name}
                     </h3>
                     <p className="text-base font-bold text-primary">
-                        {formatPrice(product.price)}
+                        {formatListingPrice(product)}
                     </p>
                 </div>
             </Card>

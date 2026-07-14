@@ -42,6 +42,7 @@ export async function getCategoryIdBySlug(slug: string): Promise<string | null> 
       .from("categories")
       .select("id")
       .eq("slug", slug)
+      .eq("is_active", true)
       .maybeSingle();
 
     if (error || !data) return null;

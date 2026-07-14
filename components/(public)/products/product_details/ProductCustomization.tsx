@@ -191,10 +191,12 @@ export function ProductCustomization({
     setShowMaterialAlert(false)
   }
 
-  // Update selected variant ID in context
+  // Update selected variant ID in context (clear on deselect so price resets)
   useEffect(() => {
     if (selectedVariant) {
       setSelectedVariantId(selectedVariant.id)
+    } else {
+      setSelectedVariantId(null)
     }
   }, [selectedVariant, setSelectedVariantId])
 

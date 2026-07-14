@@ -60,7 +60,7 @@ export function CreateProductForm({
     const candidate: CreateProductSchemaInput = {
       name: trimmedName,
       description: trimmedDescription ? trimmedDescription : null,
-      slug: trimmedSlug ? trimmedSlug : null,
+      slug: trimmedSlug,
       brand_id: brandId === NONE_VALUE ? null : brandId,
       category_id: categoryId === NONE_VALUE ? null : categoryId,
       sku: trimmedSku ? trimmedSku.toUpperCase() : null,
@@ -94,7 +94,7 @@ export function CreateProductForm({
 
       formData.set("name", parsed.data.name)
       formData.set("description", parsed.data.description ?? "")
-      formData.set("slug", parsed.data.slug ?? "")
+      formData.set("slug", parsed.data.slug)
       formData.set("brand_id", parsed.data.brand_id ?? "")
       formData.set("category_id", parsed.data.category_id ?? "")
       formData.set("sku", parsed.data.sku ?? "")
@@ -161,7 +161,9 @@ export function CreateProductForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
+            <Label htmlFor="slug">
+              Slug <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="slug"
               name="slug"
@@ -176,6 +178,7 @@ export function CreateProductForm({
               }
               placeholder="product-slug"
               maxLength={40}
+              required
             />
             {errors.slug && (
               <p className="text-xs text-destructive">{errors.slug}</p>

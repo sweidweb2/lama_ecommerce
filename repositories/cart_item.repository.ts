@@ -260,6 +260,8 @@ function transformCartItemProductJoin(
     slug: productData.slug,
     // Expose checkout-effective price so existing product.price consumers match RPC.
     price: unitPrice,
+    min_effective_price: unitPrice,
+    max_effective_price: unitPrice,
     is_featured: productData.is_featured,
     is_trending: productData.is_trending,
     is_active: productData.is_active,

@@ -20,6 +20,12 @@ interface ClientProductFilterProps {
     onCategoryChange: (category: string | null) => void
     onSortChange: (value: string) => void
     onPriceChange: (range: [number, number]) => void
+    availableColors: string[]
+    availableSizes: string[]
+    selectedColors: string[]
+    selectedSizes: string[]
+    onColorsChange: (colors: string[]) => void
+    onSizesChange: (sizes: string[]) => void
 }
 
 export function ClientProductFilter({
@@ -36,6 +42,12 @@ export function ClientProductFilter({
     onCategoryChange,
     onSortChange,
     onPriceChange,
+    availableColors,
+    availableSizes,
+    selectedColors,
+    selectedSizes,
+    onColorsChange,
+    onSizesChange,
 }: ClientProductFilterProps) {
     return (
         <>
@@ -54,6 +66,12 @@ export function ClientProductFilter({
                         onCategoryChange={onCategoryChange}
                         onSortChange={onSortChange}
                         onPriceChange={onPriceChange}
+                        availableColors={availableColors}
+                        availableSizes={availableSizes}
+                        selectedColors={selectedColors}
+                        selectedSizes={selectedSizes}
+                        onColorsChange={onColorsChange}
+                        onSizesChange={onSizesChange}
                     />
                 </div>
             </div>

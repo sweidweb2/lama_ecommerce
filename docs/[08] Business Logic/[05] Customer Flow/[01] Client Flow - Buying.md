@@ -3,7 +3,7 @@
 **Scope:** Choose product → add to cart → place order (virtual / pending payment).  
 **Stripe / 3rd-party gateway:** deferred (listed at the end, not a “broken today” bug).
 
-**Verdict:** Not all good. Place-order works end-to-end (including guests). Correctness gaps, incomplete features, and dead/stale paths remain — use the checklists below to fix.
+**Verdict:** Buying path is in good shape end-to-end (including guests). P0/P1 and DX cleanup items below are done. Remaining work is deferred payment integration (Stripe / client pay UI), not place-order correctness.
 
 ---
 
@@ -85,33 +85,37 @@ PDP → ATC (upsert_cart_item)
 
 ## P2 — DX / dead / stale
 
-- [ ] **Stale `/checkout` references**  
+- [x] ✅ **Stale `/checkout` references**  
   No checkout page; checkout lives on `/cart`. Middleware / revalidate still mention `/checkout`.  
   **Where:** `middleware.ts`, `actions/cart.ts`, `actions/checkout.ts`.  
-  **Do:** Remove or add a real `/checkout` route and point everything there.
+  **Do:** Remove or add a real `/checkout` route and point everything there.  
+  **Done:** No `/checkout` route refs remain in middleware or cart/checkout actions. `checkoutAction` revalidates `/cart`, `/orders`, and `/account`. Checkout UI lives on cart sidebar + admin `CheckoutDialog`.
 
-- [ ] **Dead fake ATC**  
+- [x] ✅ **Dead fake ATC**  
   `ProductActions.tsx` has a simulated add-to-cart; PDP uses `ProductCustomization` only.  
   **Where:** `components/(public)/products/product_details/ProductActions.tsx`.  
-  **Do:** Wire to real ATC or delete/stop exporting as live ATC.
+  **Do:** Wire to real ATC or delete/stop exporting as live ATC.  
+  **Done:** `ProductActions.tsx` removed. PDP uses `ProductCustomization` → `addItemToCartAction` only.
 
-- [x] **Material not selectable on storefront**  
+- [x] ✅ **Material not selectable on storefront**  
   Variant picker is color/size only; material variants can collide or be ignored.  
   **Where:** `ProductCustomization.tsx`.  
-  **Do:** Include material (and any other variant axes) in selection.
+  **Do:** Include material (and any other variant axes) in selection.  
+  **Done:** `ProductCustomization` (and `ProductVariantSelector`) expose material chips when variants have materials; selection must match color/size/material before ATC.
 
-- [x] **Auth ATC skips add-to-cart stats**  
+- [x] ✅ **Auth ATC skips add-to-cart stats**  
   Guest/admin paths bump `product_stats.add_to_cart_count`; logged-in ATC may not.  
   **Where:** `services/cart.service.ts`.  
-  **Do:** Call the same increment for authenticated ATC.
+  **Do:** Call the same increment for authenticated ATC.  
+  **Done:** Auth, guest, and admin ATC paths all call `incrementProductAddToCartService` after a successful add.
 
-- [x] **No order confirmation email**  
+- [x] ✅ **No order confirmation email**  
   Place-order does not send mail.  
   **Where:** `actions/checkout.ts` / post-checkout hooks.  
   **Do:** Add provider + send after successful RPC.  
   **Done:** Resend via `lib/email` + `sendOrderConfirmationEmailService` fire-and-forget from `checkoutService` after successful RPC. Set `RESEND_API_KEY` and `EMAIL_FROM`.
 
-- [x] **Sold variants can be hard-deleted**  
+- [x] ✅ **Sold variants can be hard-deleted**  
   `order_items.customised_product_id` has no FK; delete checks cart/wishlist only, not order history.  
   **Where:** `repositories/product_variant.repository.ts`; schema.  
   **Do:** Block delete if referenced by `order_items`, or add FK / keep snapshots-only policy documented.  
@@ -134,7 +138,7 @@ PDP → ATC (upsert_cart_item)
 | `carts` / `cart_items` | Active cart; cart deleted after checkout |
 | `orders` / `order_items` | Pending order + line snapshots |
 | `shipping_zones` / `shipping_fees` | Fee lookup at checkout |
-| `product_stats` | ATC / purchase counters (partial) |
+| `product_stats` | ATC / purchase counters |
 | `user_addresses` | Account + checkout prefill / optional save |
 | `promo_codes` | Optional at checkout (`orders.promo_code_id`) |
 | `payments` | Pending row created at place-order |

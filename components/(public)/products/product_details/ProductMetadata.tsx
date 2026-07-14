@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 
 interface ProductMetadataProps {
   sku: string | null
-  slug: string | null
+  slug: string
 }
 
 /**
@@ -32,13 +32,11 @@ export function ProductMetadata({ sku, slug }: ProductMetadataProps) {
   }
 
   const handleCopyLink = () => {
-    if (slug) {
-      const url = `${window.location.origin}/products/${slug}`
-      navigator.clipboard.writeText(url)
-      toast.success('Copied', {
-        description: 'Product link copied to clipboard',
-      })
-    }
+    const url = `${window.location.origin}/products/${slug}`
+    navigator.clipboard.writeText(url)
+    toast.success('Copied', {
+      description: 'Product link copied to clipboard',
+    })
   }
 
   return (
@@ -66,23 +64,21 @@ export function ProductMetadata({ sku, slug }: ProductMetadataProps) {
           </div>
         )}
 
-        {slug && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Product ID:</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs">{slug}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleCopyLink}
-                className="h-6 w-6 p-0"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Product ID:</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs">{slug}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyLink}
+              className="h-6 w-6 p-0"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
