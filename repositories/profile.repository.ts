@@ -17,6 +17,34 @@ export interface AdminProfileRow {
 }
 
 /**
+ * Fetch profile by user_id using the service-role client (no request cookies).
+ * Use from auth callback after exchangeCodeForSession where SC cookies are stale.
+ */
+export async function getProfileByUserIdAdmin(
+  userId: string,
+): Promise<Profile | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch profile by user_id (admin):", error);
+      return null;
+    }
+
+    return data as Profile | null;
+  } catch (error) {
+    console.error("Unexpected error in getProfileByUserIdAdmin:", error);
+    return null;
+  }
+}
+
+/**
  * Fetch the current user profile by `user_id`.
  *
  * Uses the server Supabase client and queries `public.profiles`,

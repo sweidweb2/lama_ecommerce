@@ -24,6 +24,15 @@ describe("requireAdmin", () => {
     await expect(requireAdmin()).rejects.toThrow("Unauthorized");
   });
 
+  it("throws Unauthorized for an inactive admin", async () => {
+    getCurrentUserProfile.mockResolvedValue({
+      ...adminProfile,
+      is_active: false,
+    });
+    const { requireAdmin } = await import("@/lib/auth/require-admin");
+    await expect(requireAdmin()).rejects.toThrow("Unauthorized");
+  });
+
   it("throws Unauthorized when no profile", async () => {
     getCurrentUserProfile.mockResolvedValue(null);
     const { requireAdmin } = await import("@/lib/auth/require-admin");

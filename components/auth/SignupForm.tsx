@@ -265,6 +265,9 @@ export function SignupForm() {
                   </div>
                 </FormControl>
                 <FormMessage />
+                <p className="text-xs text-muted-foreground">
+                  At least 8 characters required. Strength tips below are optional.
+                </p>
                 {passwordValue && passwordStrength && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -294,7 +297,7 @@ export function SignupForm() {
                     </div>
                     {passwordStrength.feedback.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        Add: {passwordStrength.feedback.join(", ")}
+                        Suggested: {passwordStrength.feedback.join(", ")}
                       </p>
                     )}
                   </div>

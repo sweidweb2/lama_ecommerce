@@ -7,7 +7,7 @@ import {
   type AdminProfileRow,
 } from "@/repositories/profile.repository";
 import { getUserIdsWithActiveCarts } from "@/repositories/cart.repository";
-import { getCurrentAuthUserFromComponent, signOutFromAction } from "@/repositories/auth.repository";
+import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { ROLES } from "@/lib/constants/roles";
 
 /**
@@ -131,14 +131,4 @@ export async function createUserAdmin(params: {
       email: params.email.trim().toLowerCase(),
     },
   };
-}
-
-/**
- * Server-side logout (Server Action context). Clears the auth session cookies.
- */
-export async function logoutServerService(): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  return signOutFromAction();
 }

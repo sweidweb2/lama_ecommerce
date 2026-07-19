@@ -365,3 +365,111 @@ export async function isInWishlistForGuest(
     return false;
   }
 }
+
+/**
+ * Claim guest wishlist rows onto a user account (login handoff).
+ * Service role — RLS only allows user_id = auth.uid() and has no UPDATE policy.
+ * Dupes (same customised_product_id already on user) are deleted; others move to user_id.
+ */
+export async function claimWishlistBySessionId(
+  sessionId: string,
+  userId: string,
+): Promise<{ success: boolean; error?: string; claimedCount: number }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data: guestRows, error: guestError } = await (supabase as any)
+      .from("wishlists")
+      .select("id, customised_product_id")
+      .eq("session_id", sessionId)
+      .is("user_id", null);
+
+    if (guestError) {
+      console.error("Error loading guest wishlist for claim:", guestError);
+      return {
+        success: false,
+        error: guestError.message || "Failed to claim guest wishlist",
+        claimedCount: 0,
+      };
+    }
+
+    const guests = (guestRows ?? []) as {
+      id: string;
+      customised_product_id: string;
+    }[];
+
+    if (guests.length === 0) {
+      return { success: true, claimedCount: 0 };
+    }
+
+    const { data: userRows, error: userError } = await (supabase as any)
+      .from("wishlists")
+      .select("customised_product_id")
+      .eq("user_id", userId);
+
+    if (userError) {
+      console.error("Error loading user wishlist for claim:", userError);
+      return {
+        success: false,
+        error: userError.message || "Failed to claim guest wishlist",
+        claimedCount: 0,
+      };
+    }
+
+    const userVariantIds = new Set(
+      ((userRows ?? []) as { customised_product_id: string }[]).map(
+        (r) => r.customised_product_id,
+      ),
+    );
+
+    let claimedCount = 0;
+
+    for (const row of guests) {
+      if (userVariantIds.has(row.customised_product_id)) {
+        const { error: deleteError } = await (supabase as any)
+          .from("wishlists")
+          .delete()
+          .eq("id", row.id)
+          .is("user_id", null);
+
+        if (deleteError) {
+          console.error("Error deleting duplicate guest wishlist row:", deleteError);
+          return {
+            success: false,
+            error: deleteError.message || "Failed to claim guest wishlist",
+            claimedCount,
+          };
+        }
+      } else {
+        const { error: updateError } = await (supabase as any)
+          .from("wishlists")
+          .update({ user_id: userId, session_id: null })
+          .eq("id", row.id)
+          .is("user_id", null);
+
+        if (updateError) {
+          console.error("Error claiming guest wishlist row:", updateError);
+          return {
+            success: false,
+            error: updateError.message || "Failed to claim guest wishlist",
+            claimedCount,
+          };
+        }
+        userVariantIds.add(row.customised_product_id);
+        claimedCount += 1;
+      }
+    }
+
+    return { success: true, claimedCount };
+  } catch (error) {
+    console.error("Unexpected error in claimWishlistBySessionId:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to claim guest wishlist",
+      claimedCount: 0,
+    };
+  }
+}

@@ -1,0 +1,152 @@
+# Client Flow — Checkout Saved Addresses
+
+**Scope:** Logged-in customer `flow.md` bullet: place order with **saved addresses** / **save address after checkout**.  
+**Out of scope:** Guest free-text checkout (Guest Buying); full address CRUD on `/account` (Account doc); Stripe / payment UI (Buying deferred); cart pricing/stock (Client Buying).
+
+**Verdict:** Select + prefill + optional “Save this address” **work** for authenticated users. Gaps: **email never prefilled** from account, save is **fire-and-forget / silent on failure**, **no dedupe**, checkout save never sets **default**, and cart page may omit **`itemCount`** (empty-cart Place order gating weak).
+
+---
+
+## Happy path (what works today)
+
+1. Auth user opens `/cart` → `getAddressesByUserId` → `savedAddresses` (guest gets `null` → no picker).
+2. `CartSidebar`: default = `is_default` else first; prefills country/city/address/postal/phone.
+3. User may pick another saved address or “Enter new address”; fields stay editable.
+4. Save checkbox when logged in and (no addresses **or** new **or** fields ≠ selected).
+5. Place order → `checkoutAction` → `process_checkout`; if `save_address && user`, `createAddressForUser(..., is_default: false)` after success (async, errors logged only).
+6. Order stores **address snapshot** (no `user_address_id` FK). Address book remains on `/account`.
+
+```text
+/cart (auth)
+  → getAddressesByUserId
+  → CartSidebar select / prefill / save checkbox
+  → checkoutAction(save_address?)
+  → process_checkout (snapshot on order)
+  → optional createAddressForUser (non-blocking, is_default: false)
+```
+
+---
+
+## Capability checklist
+
+| Capability | Status | Notes |
+|------------|--------|--------|
+| Load saved addresses on cart | Yes | Auth only |
+| Prefill default / first address | Yes | Phone from address |
+| Prefill email from auth user | **No** | Starts empty |
+| Select saved → place order | Yes | Snapshot |
+| Edit fields after select | Yes | Save checkbox appears |
+| Save new address after checkout | Yes | Silent fail; never default |
+| Guest save checkbox | Hidden | `savedAddresses === null` |
+
+---
+
+## P0 — Correctness (fix first)
+
+_None verified that fully blocks “pick a saved address and place a valid order” when the cart has lines and the form is complete._
+
+---
+
+## P1 — Incomplete / wrong saved-address checkout
+
+- [ ] **Email not prefilled from account**  
+  `email` state starts `""`; auth `user.email` never passed into sidebar. Phone only from address (profile has no phone).  
+  **Where:** `app/(public)/cart/page.tsx`; `CartSidebar.tsx`.  
+  **Do:** Pass `user.email` (and optional last-used phone) as initial contact.
+
+- [ ] **`itemCount` missing on cart page**  
+  `CartSidebar` expects `itemCount`; page does not pass it → Place order may not disable when `items.length === 0`.  
+  **Where:** `app/(public)/cart/page.tsx` vs `CartSidebarProps`.  
+  **Do:** Pass `itemCount={items.length}` (or equivalent).
+
+- [ ] **Save-after-checkout failures are silent**  
+  Order succeeds; `createAddressForUser` `.catch(console.error)`; no toast — user thinks it saved.  
+  **Where:** `services/checkout.service.ts`.  
+  **Do:** Await + surface result, or toast on failure.
+
+- [ ] **No dedupe on save**  
+  Same street/city/phone can create many `user_addresses` rows.  
+  **Where:** checkout save path; `createAddress`.  
+  **Do:** Match existing row or upsert; skip identical insert.
+
+- [ ] **Checkout save never becomes default**  
+  Always `is_default: false`; first-ever address from checkout is non-default.  
+  **Where:** `checkout.service.ts`.  
+  **Do:** `is_default: true` when user has zero addresses, or “Make default” checkbox.
+
+---
+
+## P2 — DX / polish
+
+- [ ] No “update this address” — edits only create a new row if save is checked  
+- [ ] Checkout phone rules (8–15 digits) vs address-book Zod (min 5) can diverge  
+- [ ] No feature tests for saved-address select / `save_address`  
+- [ ] Revalidate `/account` on save is enough; no cart toast for “Address saved”
+
+---
+
+## Deferred / works-as-implemented
+
+| Behavior | Why OK |
+|----------|--------|
+| Guest: free-text only, no save | `savedAddresses === null` |
+| Order uses address snapshot, not live address id | Snapshot design |
+| Address CRUD / default races on `/account` | Account `[03]` |
+| Stripe / client pay UI | Buying deferred |
+| Prefers `is_default` then first | `pickDefaultAddressId` |
+
+---
+
+## Edge-case matrix
+
+| Case | Status |
+|------|--------|
+| Auth + ≥1 address, default set | Prefills default |
+| Auth + addresses, no default | Prefills first |
+| Auth + zero addresses | No select; save checkbox shown |
+| Select saved → place order | Works (snapshot) |
+| Select → edit fields | Save checkbox appears |
+| “Enter new address” | Clears fields; save checkbox |
+| Check save → order OK | Inserts non-default (async) |
+| Check save → insert fails | Order OK; address missing; silent |
+| Save duplicate of existing | New row (no dedupe) |
+| Prefill email from account | **No** |
+| Prefill phone without address | **No** |
+| Guest checkout | No picker / save |
+| Empty cart + Place order | **Weak** if `itemCount` omitted |
+
+---
+
+## Guest vs User checkout (addresses only)
+
+| | Guest | User |
+|--|-------|------|
+| Address fields | Free text | Free text + optional saved select |
+| Save after order | No | Optional checkbox |
+| Prefill | None | Address book (not email) |
+| Order storage | Snapshot | Snapshot |
+
+---
+
+## Key file map
+
+| Concern | Path |
+|---------|------|
+| Load addresses | `app/(public)/cart/page.tsx` |
+| UI select / save checkbox | `components/(public)/cart/CartSidebar.tsx` |
+| Action flag | `actions/checkout.ts` |
+| Save after order | `services/checkout.service.ts` |
+| Address create | `services/address.service.ts`, `repositories/address.repository.ts` |
+| Account address UI | `components/account/AddressList.tsx` |
+| Validators | `lib/validators/checkout/checkout.ts`, `lib/validators/user_address/*` |
+
+---
+
+## Related docs
+
+- Index: `flow.md` (User → Place order with saved addresses…)
+- Full buying path: `[01] Client Flow - Buying.md`
+- Address CRUD: `[03] Client Flow - Account.md`
+- Guest checkout: `[02] Guest Flow/[02] Guest Flow - Buying.md`
+
+**Highest-impact remaining:** pass `itemCount` + prefill email → toast/await save failures → dedupe / first-address default → optional “make default”.

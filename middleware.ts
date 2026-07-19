@@ -7,6 +7,8 @@ import {
 } from "@/lib/auth/guest-session.constants";
 import { resolveGuestSessionCookie } from "@/lib/auth/apply-guest-session-cookie";
 import type { Profile } from "@/types/user";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
 /**
  * Ensure a guest_session_id cookie exists on storefront routes.
@@ -23,9 +25,47 @@ function ensureGuestSessionCookie(
   return response;
 }
 
+function copyCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value);
+  });
+}
+
+/**
+ * Sign out inactive session and redirect to login with reason=inactive.
+ */
+async function rejectInactiveHtml(
+  request: NextRequest,
+  supabase: SupabaseClient<Database>,
+  sessionResponse: NextResponse,
+): Promise<NextResponse> {
+  await supabase.auth.signOut();
+  const loginUrl = new URL(ROUTES.LOGIN, request.url);
+  loginUrl.searchParams.set("reason", "inactive");
+  const redirectResponse = NextResponse.redirect(loginUrl);
+  copyCookies(sessionResponse, redirectResponse);
+  return redirectResponse;
+}
+
+/**
+ * Sign out inactive session and return JSON 403 for admin APIs.
+ */
+async function rejectInactiveApi(
+  supabase: SupabaseClient<Database>,
+  sessionResponse: NextResponse,
+): Promise<NextResponse> {
+  await supabase.auth.signOut();
+  const jsonResponse = NextResponse.json(
+    { error: "Account inactive" },
+    { status: 403 },
+  );
+  copyCookies(sessionResponse, jsonResponse);
+  return jsonResponse;
+}
+
 /**
  * Middleware helper: Get the current user's profile and role from session.
- * Returns { profile, user } or { profile: null, user: null } if not authenticated.
+ * Returns supabase so inactive handling can sign out on the same client.
  */
 async function getProfileFromSession(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
@@ -36,10 +76,9 @@ async function getProfileFromSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { profile: null, user: null, response };
+    return { profile: null, user: null, response, supabase };
   }
 
-  // Fetch profile from database
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
@@ -47,13 +86,14 @@ async function getProfileFromSession(request: NextRequest) {
     .maybeSingle();
 
   if (profileError || !profile) {
-    return { profile: null, user, response };
+    return { profile: null, user, response, supabase };
   }
 
   return {
     profile: profile as Profile,
     user,
     response,
+    supabase,
   };
 }
 
@@ -67,10 +107,15 @@ export async function middleware(request: NextRequest) {
     }
 
     if (pathname.startsWith("/api/admin")) {
-      const { profile, user, response } = await getProfileFromSession(request);
+      const { profile, user, response, supabase } =
+        await getProfileFromSession(request);
 
       if (!user || !profile) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      if (!profile.is_active) {
+        return rejectInactiveApi(supabase, response);
       }
 
       if (profile.role !== ROLES.ADMIN) {
@@ -100,9 +145,7 @@ export async function middleware(request: NextRequest) {
         new URL(destination, request.url),
       );
       // Preserve any session cookies refreshed by getProfileFromSession
-      response.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
+      copyCookies(response, redirectResponse);
       return redirectResponse;
     }
     return ensureGuestSessionCookie(request, response);
@@ -139,7 +182,8 @@ export async function middleware(request: NextRequest) {
 
   // Account routes - require authenticated user with active profile
   if (pathname.startsWith("/account")) {
-    const { profile, user, response } = await getProfileFromSession(request);
+    const { profile, user, response, supabase } =
+      await getProfileFromSession(request);
 
     if (!user || !profile) {
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
@@ -147,11 +191,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Inactive users cannot access account
     if (!profile.is_active) {
-      const loginUrl = new URL(ROUTES.LOGIN, request.url);
-      loginUrl.searchParams.set("reason", "inactive");
-      return NextResponse.redirect(loginUrl);
+      return rejectInactiveHtml(request, supabase, response);
     }
 
     return response;
@@ -160,7 +201,8 @@ export async function middleware(request: NextRequest) {
   // Profile routes - only the profile owner (logged-in user) or an admin may access
   // /profile and /profile/setting always show the current user's own profile
   if (pathname.startsWith("/profile")) {
-    const { profile, user, response } = await getProfileFromSession(request);
+    const { profile, user, response, supabase } =
+      await getProfileFromSession(request);
 
     if (!user || !profile) {
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
@@ -168,35 +210,32 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Inactive users cannot access profile
     if (!profile.is_active) {
-      const loginUrl = new URL(ROUTES.LOGIN, request.url);
-      loginUrl.searchParams.set("reason", "inactive");
-      return NextResponse.redirect(loginUrl);
+      return rejectInactiveHtml(request, supabase, response);
     }
 
-    // Authenticated user (owner) or admin - allow access to their own profile
     return response;
   }
 
-  // Admin routes - require admin role
+  // Admin routes - require active admin role
   if (pathname.startsWith("/admin")) {
-    const { profile, user, response } = await getProfileFromSession(request);
+    const { profile, user, response, supabase } =
+      await getProfileFromSession(request);
 
     if (!user || !profile) {
-      // Not authenticated, redirect to login
       const loginUrl = new URL(ROUTES.LOGIN, request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // Check if user has admin role using ROLES constant
+    if (!profile.is_active) {
+      return rejectInactiveHtml(request, supabase, response);
+    }
+
     if (profile.role !== ROLES.ADMIN) {
-      // Not an admin, redirect to home or unauthorized page
       return NextResponse.redirect(new URL("/", request.url));
     }
 
-    // User is admin, allow access
     return response;
   }
 

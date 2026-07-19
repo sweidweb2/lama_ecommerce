@@ -20,6 +20,7 @@ import {
   getCartWithItemsForAdminService,
 } from "@/services/cart.service";
 import { claimGuestOrdersService } from "@/services/order.service";
+import { claimGuestWishlistService } from "@/services/wishlist.service";
 import {
   clearGuestSessionCookie,
   getGuestSessionId,
@@ -28,51 +29,57 @@ import {
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { revalidatePath } from "next/cache";
 
-/**
- * Claim guest orders and merge guest cart into the authenticated user's cart.
- * Called right after login so the user keeps guest cart items and order history.
- *
- * Flow:
- * 1. Verify the caller is authenticated.
- * 2. Read the guest_session_id cookie.
- * 3. If no session cookie → nothing to do, return early.
- * 4. Claim guest orders (session_id → user_id) via service role.
- * 5. Merge guest cart into the user's cart.
- * 6. Clear guest_session_id only after both claim and merge succeed.
- * 7. Revalidate /cart and /orders.
- */
-export async function mergeGuestCartOnLoginAction(): Promise<{
+type GuestHandoffResult = {
   success: boolean;
   error?: string;
   merged: boolean;
-}> {
-  const user = await getCurrentAuthUserFromAction();
+  /** True when guest_session_id was cleared after a full successful handoff. */
+  clearedGuestCookie?: boolean;
+};
 
-  if (!user) {
-    return { success: false, error: "Not authenticated", merged: false };
-  }
-
+/**
+ * Claim guest orders, merge guest cart, and claim guest wishlist for a known user.
+ * Used by the login action and the auth email-confirm callback (where auth cookies
+ * are on the redirect response, so the action's getUser would miss the new session).
+ *
+ * Clears guest_session_id only after all three succeed.
+ */
+export async function performGuestSessionHandoff(
+  userId: string,
+): Promise<GuestHandoffResult> {
   const sessionId = await getGuestSessionId();
 
   if (!sessionId) {
-    return { success: true, merged: false };
+    return { success: true, merged: false, clearedGuestCookie: false };
   }
 
-  const claimResult = await claimGuestOrdersService(user.id, sessionId);
+  const claimResult = await claimGuestOrdersService(userId, sessionId);
   if (!claimResult.success) {
     return {
       success: false,
       error: claimResult.error || "Failed to claim guest orders",
       merged: false,
+      clearedGuestCookie: false,
     };
   }
 
-  const mergeResult = await mergeGuestCartToUserService(user.id, sessionId);
+  const mergeResult = await mergeGuestCartToUserService(userId, sessionId);
   if (!mergeResult.success) {
     return {
       success: false,
       error: mergeResult.error || "Failed to merge guest cart",
       merged: false,
+      clearedGuestCookie: false,
+    };
+  }
+
+  const wishlistResult = await claimGuestWishlistService(userId, sessionId);
+  if (!wishlistResult.success) {
+    return {
+      success: false,
+      error: wishlistResult.error || "Failed to claim guest wishlist",
+      merged: false,
+      clearedGuestCookie: false,
     };
   }
 
@@ -80,8 +87,33 @@ export async function mergeGuestCartOnLoginAction(): Promise<{
   revalidatePath("/cart");
   revalidatePath("/orders");
   revalidatePath("/order_details");
+  revalidatePath("/wishlist");
 
-  return mergeResult;
+  return { ...mergeResult, clearedGuestCookie: true };
+}
+
+/**
+ * Claim guest orders, merge guest cart, and claim guest wishlist onto the
+ * authenticated user. Called after login / email confirm so guest data is kept.
+ *
+ * Flow:
+ * 1. Verify the caller is authenticated.
+ * 2. Read the guest_session_id cookie.
+ * 3. If no session cookie → nothing to do, return early.
+ * 4. Claim guest orders (session_id → user_id) via service role.
+ * 5. Merge guest cart into the user's cart.
+ * 6. Claim guest wishlist onto the user (delete dupes).
+ * 7. Clear guest_session_id only after all three succeed.
+ * 8. Revalidate cart, orders, and wishlist paths.
+ */
+export async function mergeGuestCartOnLoginAction(): Promise<GuestHandoffResult> {
+  const user = await getCurrentAuthUserFromAction();
+
+  if (!user) {
+    return { success: false, error: "Not authenticated", merged: false };
+  }
+
+  return performGuestSessionHandoff(user.id);
 }
 
 /**

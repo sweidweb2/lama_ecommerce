@@ -8,6 +8,7 @@ import {
   removeWishlistItemByVariantForGuest,
   isInWishlist,
   isInWishlistForGuest,
+  claimWishlistBySessionId,
 } from "@/repositories/wishlist.repository";
 
 /**
@@ -22,6 +23,17 @@ export async function getWishlistItems(userId: string): Promise<any[]> {
  */
 export async function getWishlistItemsForGuest(sessionId: string): Promise<any[]> {
   return getWishlistItemsBySessionId(sessionId);
+}
+
+/**
+ * Attach guest wishlist rows for a session to a user account (login handoff).
+ * Idempotent; uses service-role claim under the hood.
+ */
+export async function claimGuestWishlistService(
+  userId: string,
+  sessionId: string,
+): Promise<{ success: boolean; error?: string; claimedCount: number }> {
+  return claimWishlistBySessionId(sessionId, userId);
 }
 
 /**

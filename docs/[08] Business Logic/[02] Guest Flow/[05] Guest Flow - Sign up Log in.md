@@ -3,7 +3,7 @@
 **Scope:** Guest → sign up / log in / log out / auth callback / guest cart merge / middleware redirects.  
 **OAuth / social login:** deferred (listed at the end, not a “broken today” bug).
 
-**Verdict:** Not all good. Password login, logout, and guest **cart** merge on client `SIGNED_IN` work. Correctness gaps remain (profile auto-create not in migrations; inactive users can still authenticate; admin gates ignore `is_active`). Incomplete features and DX issues — use the checklists below to fix.
+**Verdict:** Not all good. Password login, logout, and guest **cart / orders / wishlist** handoff on login work (client `SIGNED_IN` / `INITIAL_SESSION` + auth callback). Correctness gaps remain (profile auto-create not in migrations; inactive users can still authenticate; admin gates ignore `is_active`). Incomplete features and DX issues — use the checklists below to fix.
 
 ---
 
@@ -15,7 +15,7 @@
 4. If email confirm **on**: “Check your email” UI; click link → callback `exchangeCodeForSession` → session cookies → redirect.
 5. If email confirm **off**: session created → toast → `/` + refresh; `AuthProvider` gets `SIGNED_IN` → `mergeGuestCartOnLoginAction`.
 6. **Log in** (`/auth/login` → `LoginForm` → `loginService` → `signInWithPassword`) → role from `profiles` → redirect (`?redirect=` via `safeRedirectPath`, else admin → `/admin`, else `/`).
-7. On `SIGNED_IN`: claim guest orders → merge guest cart → clear `guest_session_id` (only on full success) → revalidate `/cart` + `/orders`.
+7. On handoff (`SIGNED_IN`, `INITIAL_SESSION` with user, or auth callback after `exchangeCodeForSession`): claim guest orders → merge guest cart → claim guest wishlist → clear `guest_session_id` (only on full success) → revalidate `/cart`, `/orders`, `/wishlist`.
 8. **Log out** (Navbar / admin header / idle watcher → `logoutService`) → home + refresh (idle → login).
 9. Active logged-in users hitting `/auth/login` or `/auth/signup` are redirected away by middleware.
 
@@ -24,9 +24,10 @@ Guest (guest_session_id)
   → /auth/signup OR /auth/login
   → signupService / loginService (browser Supabase cookies)
   → [email confirm?] callback exchangeCodeForSession
-  → AuthProvider SIGNED_IN → mergeGuestCartOnLoginAction
-       → claimGuestOrdersService → mergeGuestCartToUserService
-       → clearGuestSessionCookie (only if both succeed)
+       → performGuestSessionHandoff (orders + cart + wishlist; cookie clear on success)
+  → AuthProvider SIGNED_IN | INITIAL_SESSION → mergeGuestCartOnLoginAction (idempotent retry)
+       → claimGuestOrdersService → mergeGuestCartToUserService → claimGuestWishlistService
+       → clearGuestSessionCookie (only if all three succeed)
   → HOME or ADMIN (or safe ?redirect=)
   → logout / idle → signOut → HOME (idle → LOGIN)
 ```
@@ -40,71 +41,78 @@ Guest (guest_session_id)
   **Where:** `docs/[05] Phases/phase_2/fragment 2.1/`; `supabase/migrations/`; `services/auth.service.ts`; `repositories/profile.repository.ts` (`createUserAndProfile`).  
   **Do:** Add migration for `security definer` trigger reading `raw_user_meta_data->>'full_name'`, or create profile in app after signup with a privileged path.
 
-- [ ] **Inactive users can still log in; admin ignores `is_active`**  
+- [x] ✅ **Inactive users can still log in; admin ignores `is_active`** done✅  
   Intended: “User deactivation prevents login.” `loginService` never reads `is_active`. Middleware blocks inactive on `/account` and `/profile` (`reason=inactive`) but **`/admin` and `/api/admin` only check role**, not `is_active`. `requireAdmin` also skips `is_active`. Deactivated customer still gets a session + storefront; deactivated admin still reaches admin UI/APIs.  
   **Where:** `services/auth.service.ts`; `middleware.ts` (account ~152–157 vs admin ~185–202); `lib/auth/require-admin.ts`.  
-  **Do:** After successful password sign-in (and in middleware/admin gates), if `!profile.is_active` → sign out + show inactive message; apply same check on `/admin` and `requireAdmin`.
+  **Do:** After successful password sign-in (and in middleware/admin gates), if `!profile.is_active` → sign out + show inactive message; apply same check on `/admin` and `requireAdmin`.  
+  **Done:** `loginService` loads `is_active` and signs out on inactive; middleware signs out + redirects/403 on `/account`, `/profile`, `/admin`, `/api/admin`; `requireAdmin` requires `is_active`; login banner for `reason=inactive`.
 
 ---
 
 ## P1 — Incomplete auth features
 
-- [ ] **Forgot password is a dead link**  
+- [x] ✅ **Forgot password is a dead link** done✅  
   `LoginForm` links to `ROUTES.RESET_PASSWORD` (`/auth/reset-password`). Constants also define `/auth/reset-password/confirm`. **No** `app/(public)/auth/reset-password` pages. Logged-in change-password exists (`ChangePasswordForm` via account dialog).  
   **Where:** `components/auth/LoginForm.tsx`; `lib/constants/routes.ts`; missing pages under `app/(public)/auth/`.  
-  **Do:** Implement reset request + confirm (Supabase recovery) or remove the link until ready.
+  **Do:** Implement reset request + confirm (Supabase recovery) or remove the link until ready.  
+  **Done:** Request + confirm pages; `resetPasswordForEmail` → `/auth/callback?next=/auth/reset-password/confirm` → `updateUser` password. Ensure Supabase Auth URL allow-list includes site origin and `/auth/callback`.
 
-- [ ] **Guest wishlist not merged or claimed on login**  
+- [x] ✅ **Guest wishlist not merged or claimed on login** done✅  
   Cart merges and guest orders are claimed on `SIGNED_IN`. Guest wishlist rows stay on old `session_id`; after cookie clear, `/wishlist` shows **user** list only.  
   **Where:** `providers/AuthProvider.tsx`; `actions/cart.ts` (`mergeGuestCartOnLoginAction`); wishlist services (no merge).  
-  **Do:** Merge/claim wishlist before clearing cookie; or clear cookie only after all handoffs.
+  **Do:** Merge/claim wishlist before clearing cookie; or clear cookie only after all handoffs.  
+  **Done:** `claimGuestWishlistService` / `claimWishlistBySessionId` run in handoff before cookie clear; unique indexes on owner+variant.
 
-- [ ] **Cart merge may not run after email-confirm callback**  
+- [x] ✅ **Cart merge may not run after email-confirm callback** done✅  
   Merge runs only on `onAuthStateChange` event `SIGNED_IN`. Password login fires that. Callback sets session via cookies then full navigation; typical event is `INITIAL_SESSION` (supabase-js 2.x), which is **not** handled for merge. Guest cart can remain unmerged after confirm-email.  
   **Where:** `providers/AuthProvider.tsx`; `app/(public)/auth/callback/route.ts`.  
-  **Do:** Also call merge on first authenticated session after load (or from callback after exchange), idempotently.
+  **Do:** Also call merge on first authenticated session after load (or from callback after exchange), idempotently.  
+  **Done:** Callback awaits `performGuestSessionHandoff` after `exchangeCodeForSession`; AuthProvider also runs handoff on `INITIAL_SESSION` when `session.user` is set.
 
-- [ ] **Auth callback admin redirect likely ineffective**  
+- [x] ✅ **Auth callback admin redirect likely ineffective** done✅  
   After `exchangeCodeForSession`, cookies are written onto the **redirect `NextResponse`**, then `getCurrentUserProfile()` uses the Server Component client reading **request** `cookies()` — not those new cookies. Admin check often fails silently → user lands on `next`/HOME. Password login admin redirect in `LoginForm` is fine.  
   **Where:** `app/(public)/auth/callback/route.ts`; `services/profile.service.ts` → `getCurrentAuthUserFromComponent`.  
-  **Do:** Resolve role with the same Supabase client that just exchanged the code (or read profile via that session).
+  **Do:** Resolve role with the same Supabase client that just exchanged the code (or read profile via that session).  
+  **Done:** Callback uses exchange-client `getUser` + `getProfileByUserIdAdmin`, then redirects to `/admin` or `next` with session cookies on the final response.
 
-- [ ] **Login UI ignores `reason=inactive` and `error=auth_callback_error`**  
+- [x] ✅ **Login UI ignores `reason=inactive` and `error=auth_callback_error`** done✅  
   Middleware / callback set query params; `LoginForm` never reads them → user sees a blank login form with no explanation.  
   **Where:** `middleware.ts`; `app/(public)/auth/callback/route.ts`; `components/auth/LoginForm.tsx`.  
-  **Do:** Show banners for inactive / callback failure.
+  **Do:** Show banners for inactive / callback failure.  
+  **Done:** `LoginForm` shows destructive banners via `getLoginAuthBannerMessage` for inactive and callback errors.
 
 - [x] ✅ **Failed cart merge still clears guest cookie** done✅  
   Comment is intentional; failed merge cannot be retried with the same session id.  
   **Where:** `actions/cart.ts` (`mergeGuestCartOnLoginAction` ~64–65).  
   **Do:** Clear cookie only on successful merge (or when there was no guest cart).  
-  **Done:** Cookie cleared only after `claimGuestOrdersService` and `mergeGuestCartToUserService` both succeed; AuthProvider can retry with the same guest session.
+  **Done:** Cookie cleared only after `claimGuestOrdersService`, `mergeGuestCartToUserService`, and `claimGuestWishlistService` all succeed; AuthProvider can retry with the same guest session.
 
 ---
 
 ## P2 — DX / dead / stale
 
-- [ ] **`LogoutButton` unused**  
+- [x] ✅ **`LogoutButton` unused** done✅  
   Navbar / admin header / idle watcher call `logoutService` directly. `actions/auth.ts` `logout` server action also unused by UI.  
   **Where:** `components/auth/LogoutButton.tsx`; `actions/auth.ts`; `components/common/Navbar.tsx`.  
-  **Do:** Wire one logout path or delete dead exports.
+  **Do:** Wire one logout path or delete dead exports.  
+  **Done:** Deleted unused `LogoutButton`, `actions/auth.ts`, and orphaned `logoutServerService` / `signOutFromAction`. Live logout stays on `logoutService` (Navbar, admin header, idle watcher).
 
 - [ ] **Stale auth docs**  
   `docs/[03] Bedrock/AUTHENTICATION_EXPLANATION.md` still mentions `@supabase/auth-helpers-nextjs` and layout initial profile; app uses `@supabase/ssr` and `AuthProvider` without relying on `initialProfile`. Phase checklist still lists `/auth/register`, password reset, OAuth.  
   **Where:** docs under `docs/[03]`, `docs/[05] Phases/01_main_plan.md`.  
   **Do:** Align docs with `login` / `signup` + current clients.
 
-- [ ] **Signup password UX stricter than Zod**  
+- [x] ✅ **Signup password UX stricter than Zod** done✅  
   UI strength meter pushes uppercase / number / special; `signupSchema` only requires length ≥ 8. Weak passwords still submit.  
   **Where:** `components/auth/SignupForm.tsx`; `lib/validators/auth/auth.ts`.  
-  **Do:** Align schema with displayed rules if those are required.
+  **Do:** Align schema with displayed rules if those are required.  
+  **Done:** Kept schema at length ≥ 8; meter copy is advisory (“Suggested…”) with an explicit 8+ required hint.
 
 ---
 
 ## Deferred (not bugs — planned later)
 
 - [ ] OAuth / social login (`signInWithOAuth`; callback exists mainly for email links)
-- [ ] Full forgot-password product (until pages exist, treat link as incomplete — see P1)
 - [ ] Claiming historical guest orders by email match (product decision; same-session claim on login is done)
 
 ---
@@ -133,7 +141,7 @@ Guest (guest_session_id)
 | `auth.users` | Supabase Auth identity |
 | `profiles` | `role`, `full_name`, `is_active`; expected on signup |
 | `carts` / `cart_items` | Guest `session_id` → merge into `user_id` cart |
-| `wishlists` | Guest vs user; **no** merge on login |
+| `wishlists` | Guest vs user; claimed onto `user_id` on login (dupes deleted) |
 | `orders` | Guest `session_id` + `user_id IS NULL`; claimed onto `user_id` on login |
 
 
@@ -145,10 +153,10 @@ Guest (guest_session_id)
 |--|------|--------|
 | Session | Supabase cookies | `guest_session_id` HttpOnly |
 | Cart | `user_id` (+ merge on `SIGNED_IN`) | `session_id` |
-| Wishlist | `user_id` | `session_id` (orphaned if cookie cleared) |
+| Wishlist | `user_id` (+ claim on login handoff) | `session_id` |
 | Orders list | by `user_id` | by `session_id` (lost after cookie clear) |
 | `/account`, `/profile` | active profile required | → login |
-| `/admin` | `role === admin` (**no** `is_active`) | → login |
+| `/admin` | `role === admin` **and** `is_active` | → login |
 | Login / signup pages | active users redirected | allowed (+ guest cookie kept) |
 
 ---

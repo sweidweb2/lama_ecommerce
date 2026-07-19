@@ -40,27 +40,5 @@ export async function getCurrentAuthUserFromAction(): Promise<User | null> {
   }
 }
 
-/**
- * Sign out the current user from a Server Action context.
- */
-export async function signOutFromAction(): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  try {
-    const client = await createSupabaseServerActionClient();
-    const { error } = await client.auth.signOut();
-    if (error) {
-      return { success: false, error: error.message };
-    }
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Logout failed",
-    };
-  }
-}
-
 // Note: client-side auth helpers (signIn, signUp, signOut) live in
 // `auth.client.repository.ts` to keep this file server-only.

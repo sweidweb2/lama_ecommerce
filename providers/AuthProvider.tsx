@@ -53,6 +53,26 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       }
     };
 
+    const runGuestHandoff = () => {
+      mergeGuestCartOnLoginAction()
+        .then((result) => {
+          if (!result.success) {
+            toast.error("Couldn't transfer your cart, orders, or wishlist", {
+              description:
+                "Refresh the page or sign in again to retry. Your guest session is still saved.",
+            });
+            console.error("Guest session handoff failed:", result.error);
+          }
+        })
+        .catch((err) => {
+          toast.error("Couldn't transfer your cart, orders, or wishlist", {
+            description:
+              "Refresh the page or sign in again to retry. Your guest session is still saved.",
+          });
+          console.error("Guest session handoff failed:", err);
+        });
+    };
+
     // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
@@ -60,28 +80,15 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchProfile();
 
-        // Claim guest orders + merge cart; cookie cleared only on full success
+        // Claim orders + merge cart + claim wishlist; cookie cleared only on full success
         if (event === "SIGNED_IN") {
-          mergeGuestCartOnLoginAction()
-            .then((result) => {
-              if (!result.success) {
-                toast.error("Couldn't transfer your cart or orders", {
-                  description:
-                    "Refresh the page or sign in again to retry. Your guest session is still saved.",
-                });
-                console.error(
-                  "Guest session handoff failed:",
-                  result.error,
-                );
-              }
-            })
-            .catch((err) => {
-              toast.error("Couldn't transfer your cart or orders", {
-                description:
-                  "Refresh the page or sign in again to retry. Your guest session is still saved.",
-              });
-              console.error("Guest session handoff failed:", err);
-            });
+          runGuestHandoff();
+        }
+      } else if (event === "INITIAL_SESSION") {
+        // Email-confirm / hard refresh: often INITIAL_SESSION instead of SIGNED_IN.
+        // No-ops when there is no guest cookie.
+        if (session?.user) {
+          runGuestHandoff();
         }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);

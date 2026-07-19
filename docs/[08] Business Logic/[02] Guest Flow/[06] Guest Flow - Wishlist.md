@@ -3,7 +3,7 @@
 **Scope:** Add / remove wishlist items as a guest (session cookie), view public `/wishlist`, PDP heart toggle.  
 **Out of scope:** Cart merge (separate), auth account UX beyond login merge gap, admin CRUD of wishlists.
 
-**Verdict:** Not all good. Guests can toggle wishlist on the PDP and see items on `/wishlist` (service-role + `guest_session_id`). Correctness gaps: **no merge on login**, **no remove on list**, broken filters/stats, and duplicate-risk without a unique constraint. Use the checklists below to fix.
+**Verdict:** Not all good. Guests can toggle wishlist on the PDP and see items on `/wishlist` (service-role + `guest_session_id`). Guest wishlist is **claimed on login** (with cart/orders handoff). Remaining gaps: **no remove on list**, broken filters/stats. Use the checklists below to fix.
 
 ---
 
@@ -26,24 +26,28 @@ PDP (variant selected)
 
 Auth path (same UI): `user_id` + session Supabase client + RLS `user_id = auth.uid()` (no service role).
 
+On login / email confirm: `performGuestSessionHandoff` → `claimGuestWishlistService` moves non-dupes to `user_id` (deletes guest rows that already exist on the user) before clearing `guest_session_id`.
+
 ---
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Guest wishlist not merged on login**  
+- [x] ✅ **Guest wishlist not merged on login** done✅  
   Cart merges on `SIGNED_IN` (`mergeGuestCartOnLoginAction`); wishlist does not. Guest saves items → logs in → `/wishlist` shows **user** list only; guest rows stay orphaned under the old `session_id`.  
   **Where:** `providers/AuthProvider.tsx`; `actions/cart.ts` (cart only); no `mergeGuestWishlist*` in `services/wishlist.service.ts` / `repositories/wishlist.repository.ts`.  
-  **Do:** On login, claim guest wishlist rows (set `user_id`, clear `session_id`) or upsert into user wishlist then delete guest duplicates; clear/ignore cookie session wishlist after claim.
+  **Do:** On login, claim guest wishlist rows (set `user_id`, clear `session_id`) or upsert into user wishlist then delete guest duplicates; clear/ignore cookie session wishlist after claim.  
+  **Done:** `claimWishlistBySessionId` + `claimGuestWishlistService` in login handoff (orders → cart → wishlist → cookie clear); also auth callback + `INITIAL_SESSION`.
 
 - [ ] **Wishlist page cannot remove items**  
   `/wishlist` (and `/account/wishlist`) render `ProductCard` only. Comments admit a remove button is missing. Removal requires returning to PDP, selecting the **same** variant, and toggling again. Wrong variant = looks like “still in wishlist” / new row.  
   **Where:** `app/(public)/wishlist/page.tsx`; `app/(useraccount)/account/wishlist/page.tsx`; unused `removeFromWishlist` / `removeWishlistItemById`.  
   **Do:** Per-row remove (by `wishlist_id` or `customised_product_id`) + show saved variant (color/size/material).
 
-- [ ] **No DB unique on owner + variant → duplicate rows**  
+- [x] ✅ **No DB unique on owner + variant → duplicate rows** done✅  
   App does existence check then insert; no unique on `(user_id, customised_product_id)` or `(session_id, customised_product_id)`. Concurrent double-clicks / races can insert duplicates. Toggle-remove deletes by variant and clears all matches, but list still shows multi-card until fixed.  
   **Where:** `wishlists` schema (`supabase/migrations/20260126141860_initial.sql`); `addWishlistItem` / `addWishlistItemForGuest`.  
-  **Do:** Partial unique indexes (user vs guest) + treat conflict as success / idempotent add.
+  **Do:** Partial unique indexes (user vs guest) + treat conflict as success / idempotent add.  
+  **Done:** Migration `20260719170000_wishlists_unique_owner_variant.sql` (dedupe + unique indexes for user and guest session).
 
 ---
 
@@ -153,11 +157,11 @@ Auth path (same UI): `user_id` + session Supabase client + RLS `user_id = auth.u
 | Writes | Session client + RLS | Service role after cookie in action |
 | Reads | Session client + RLS | Service role scoped by `session_id` |
 | Toggle entry | Same `toggleWishlistAction` | Same |
-| Login | — | **No wishlist merge** (cart only) |
+| Login | — | Claim onto `user_id` in handoff (with cart/orders) |
 | Routes | `/wishlist`, `/account/wishlist` | `/wishlist` public |
 
-Guests can add/remove and view wishlist **without** signing in. Signing in without a merge **drops the guest list from the UI**.
+Guests can add/remove and view wishlist **without** signing in. Signing in claims guest rows onto the account before clearing the session cookie.
 
 ---
 
-**Highest-impact fixes:** merge guest wishlist on login → remove + show variant on `/wishlist` → unique constraint → fix featured/trending select + real categories → delete or wire `WishlistButton`.
+**Highest-impact remaining fixes:** remove + show variant on `/wishlist` → fix featured/trending select + real categories → delete or wire `WishlistButton`.

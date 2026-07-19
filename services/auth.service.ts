@@ -9,11 +9,19 @@ import {
   signInWithPassword as repoSignIn,
   signUp as repoSignUp,
   signOut as repoSignOut,
-  getOwnProfileRole as repoGetOwnProfileRole,
+  getOwnProfileAuth as repoGetOwnProfileAuth,
+  resetPasswordForEmail as repoResetPasswordForEmail,
 } from "@/repositories/auth.client.repository";
-import type { LoginInput, SignupInput } from "@/lib/validators/auth/auth";
+import type {
+  LoginInput,
+  SignupInput,
+  RequestPasswordResetInput,
+} from "@/lib/validators/auth/auth";
 import { ROUTES } from "@/lib/constants/routes";
 import type { ProfileRole } from "@/types/user";
+
+const ACCOUNT_INACTIVE_ERROR =
+  "Your account has been deactivated. Please contact support.";
 
 export interface LoginResult {
   success: boolean;
@@ -51,11 +59,19 @@ export async function loginService(
       return { success: false, error: errorMessage };
     }
 
-    const role = data.user?.id
-      ? await repoGetOwnProfileRole(data.user.id)
-      : null;
+    const userId = data.user?.id;
+    if (!userId) {
+      await repoSignOut();
+      return { success: false, error: ACCOUNT_INACTIVE_ERROR };
+    }
 
-    return { success: true, user: data.user, role };
+    const profileAuth = await repoGetOwnProfileAuth(userId);
+    if (!profileAuth || !profileAuth.is_active) {
+      await repoSignOut();
+      return { success: false, error: ACCOUNT_INACTIVE_ERROR };
+    }
+
+    return { success: true, user: data.user, role: profileAuth.role };
   } catch (error) {
     return {
       success: false,
@@ -126,6 +142,35 @@ export async function logoutService(): Promise<{
   try {
     const { error } = await repoSignOut();
     if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Request a password-reset email. Call from a client component.
+ * Always returns success on a completed request so emails are not enumerable.
+ */
+export async function requestPasswordResetService(
+  data: RequestPasswordResetInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const email = data.email.trim().toLowerCase();
+    const redirectTo = `${window.location.origin}${ROUTES.CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD_CONFIRM)}`;
+    const { error } = await repoResetPasswordForEmail(email, redirectTo);
+
+    if (error) {
+      return {
+        success: false,
+        error: "Unable to send reset email. Please try again.",
+      };
+    }
+
     return { success: true };
   } catch (error) {
     return {

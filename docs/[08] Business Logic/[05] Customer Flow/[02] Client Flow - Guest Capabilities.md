@@ -44,7 +44,7 @@ Guest session (cookie)
 |------------------|-------------|--------|
 | Browse home / catalog / search / PDP | Yes | Public routes; no role check. Shared Guest Browse gaps apply. |
 | Add / update cart / checkout | Yes (auth path) | `user.id`; `session_id` null when auth. See Client Buying. |
-| Wishlist add/remove | Yes (auth path) | Same UI; **no merge on login**. Shared Guest Wishlist gaps apply. |
+| Wishlist add/remove | Yes (auth path) | Same UI; **claim on login** via `claimGuestWishlistService`. List-remove / filters: see Client Wishlist. |
 | View order details (guest path) | Mostly yes | Claim-on-login attaches guest orders. Details: auth **or** cookie fallthrough. `/orders` list: **auth only**. |
 | Sign up / log in | N/A → redirect | Active session → middleware → `HOME`. |
 | Contact us submit | Yes | Public action; no auth/role gate. |
@@ -52,19 +52,13 @@ Guest session (cookie)
 | Read static pages | Yes | about / terms / privacy / shipping terms. |
 | **Cart merge on login** | Yes | `mergeGuestCartOnLoginAction` |
 | **Order claim on login** | Yes | Before cart merge; cookie cleared only after both OK |
-| **Wishlist merge on login** | No | Guest Wishlist / Sign up gap |
+| **Wishlist claim on login** | Yes | `performGuestSessionHandoff` → `claimGuestWishlistService` before cookie clear |
 
 ---
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Guest wishlist still not merged on login**  
-  Cart + orders are claimed; wishlist is not. Success path **clears** `guest_session_id` → middleware remints a **new** cookie → guest hearts under the old `session_id` are orphaned; `/wishlist` shows user list only.  
-  **Where:** `providers/AuthProvider.tsx`; `actions/cart.ts` (`mergeGuestCartOnLoginAction`); no `mergeGuestWishlist*` in wishlist service/repo.  
-  **Do:** Claim/upsert guest wishlist rows into `user_id` before clearing cookie (same order as orders → cart).  
-  **Also tracked:** `[02] Guest Flow/[06] Guest Flow - Wishlist.md`, `[05] Guest Flow - Sign up Log in.md`.
-
-_No other User-only P0 that denies guest shopping capabilities._ Shared auth P0s (`is_active` ignored on login, profile trigger, etc.) → Guest Sign up.
+_None verified that deny an active user guest shopping capabilities after handoff._ Shared auth P0s (`is_active` ignored on login, profile trigger, etc.) → Guest Sign up. Wishlist **list remove** is a shared UI gap — Client Wishlist / Guest Wishlist (not a login-claim failure).
 
 ---
 
@@ -116,7 +110,7 @@ _No other User-only P0 that denies guest shopping capabilities._ Shared auth P0s
 |-----------|--------|
 | Guest ATC → user password login | Works — claim + merge + clear cookie |
 | Guest checkout → login | Works — orders claimed; details by ownership |
-| Guest wishlist → login | **Gap** — no merge; hearts orphaned after cookie clear |
+| Guest wishlist → login | Works — `claimGuestWishlistService` in handoff |
 | Both user + guest carts | Works — items moved; guest cart deleted |
 | Guest cart only (no user cart) | Works — creates user cart, moves items |
 | No guest cookie | Early success `merged: false` |
@@ -143,7 +137,7 @@ _No other User-only P0 that denies guest shopping capabilities._ Shared auth P0s
 | Browse / buy / wishlist / contact / newsletter / static | Yes | Yes | Yes |
 | Cart owner | `session_id` | `user_id` | `user_id` |
 | Cart merge + order claim on login | — | Yes | Yes |
-| Wishlist merge on login | — | **No** | **No** |
+| Wishlist claim on login | — | **Yes** | **Yes** (same handoff) |
 | Default password login | — | **`/`** | **`/admin`** |
 | Re-open login while active | — | → `/` | → `/admin` |
 | Idle logout | — | 10 min | 10 min |
@@ -175,4 +169,4 @@ _No other User-only P0 that denies guest shopping capabilities._ Shared auth P0s
 - Authenticated buying detail: `[05] Customer Flow/[01] Client Flow - Buying.md`
 - Admin inheritance mirror: `[04] Admin Flows/[01] Admin Flow - Storefront User Capabilities.md`
 
-**Highest-impact remaining:** wishlist merge before cookie clear → `/orders` union or wait-for-claim → merge on email-confirm / `INITIAL_SESSION`.
+**Highest-impact remaining:** `/orders` union or wait-for-claim → ensure handoff runs on all auth entry paths → list wishlist remove (Client Wishlist).

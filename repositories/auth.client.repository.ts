@@ -12,20 +12,38 @@ export async function signInWithPassword(credentials: {
   return supabase.auth.signInWithPassword(credentials);
 }
 
+export type OwnProfileAuth = {
+  role: ProfileRole;
+  is_active: boolean;
+};
+
 /**
- * Read the signed-in user's role from profiles (client session / RLS).
+ * Read the signed-in user's role + active flag from profiles (client session / RLS).
  */
-export async function getOwnProfileRole(
+export async function getOwnProfileAuth(
   userId: string,
-): Promise<ProfileRole | null> {
+): Promise<OwnProfileAuth | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_active")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data.role as ProfileRole;
+  return {
+    role: data.role as ProfileRole,
+    is_active: Boolean(data.is_active),
+  };
+}
+
+/**
+ * @deprecated Prefer getOwnProfileAuth — kept for callers that only need role.
+ */
+export async function getOwnProfileRole(
+  userId: string,
+): Promise<ProfileRole | null> {
+  const profile = await getOwnProfileAuth(userId);
+  return profile?.role ?? null;
 }
 
 /**
@@ -56,4 +74,22 @@ export async function signOut() {
  */
 export async function updatePassword(newPassword: string) {
   return supabase.auth.updateUser({ password: newPassword });
+}
+
+/**
+ * Send a password-recovery email (client-side only).
+ * redirectTo should point at /auth/callback?next=/auth/reset-password/confirm.
+ */
+export async function resetPasswordForEmail(
+  email: string,
+  redirectTo: string,
+) {
+  return supabase.auth.resetPasswordForEmail(email, { redirectTo });
+}
+
+/**
+ * Read the current browser session (client-side only).
+ */
+export async function getSession() {
+  return supabase.auth.getSession();
 }

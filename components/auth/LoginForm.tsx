@@ -12,6 +12,7 @@ import { loginService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
 import { ROLES } from "@/lib/constants/roles";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import { getLoginAuthBannerMessage } from "@/lib/auth/login-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,6 +30,11 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const authBanner = getLoginAuthBannerMessage({
+    reason: searchParams.get("reason"),
+    error: searchParams.get("error"),
+  });
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -88,6 +94,12 @@ export function LoginForm() {
           Enter your email and password to continue
         </p>
       </div>
+
+      {authBanner ? (
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+          <p className="text-sm text-destructive">{authBanner}</p>
+        </div>
+      ) : null}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

@@ -8,7 +8,7 @@ import type { Profile } from "@/types/user";
  */
 export async function requireAdmin(): Promise<Profile> {
   const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) {
+  if (!profile || !canAccessAdmin(profile.role) || !profile.is_active) {
     throw new Error("Unauthorized");
   }
   return profile;
