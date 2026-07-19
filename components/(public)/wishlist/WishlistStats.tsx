@@ -5,14 +5,28 @@ import { Heart, Package, DollarSign, TrendingUp } from 'lucide-react'
 import type { ProductWithRelations } from '@/types/product'
 
 interface WishlistStatsProps {
-    items: Array<{ product: ProductWithRelations }>
+    items: Array<{
+        product: ProductWithRelations | null
+        isUnavailable?: boolean
+        unitPrice: number
+    }>
 }
 
 export function WishlistStats({ items }: WishlistStatsProps) {
     const totalItems = items.length
-    const totalValue = items.reduce((sum, item) => sum + item.product.price, 0)
-    const uniqueCategories = new Set(items.map(item => item.product.category_id)).size
-    const featuredCount = items.filter(item => item.product.is_featured).length
+    const available = items.filter(
+        (item) => !item.isUnavailable && item.product,
+    )
+    const totalValue = available.reduce(
+        (sum, item) => sum + (item.unitPrice ?? 0),
+        0,
+    )
+    const uniqueCategories = new Set(
+        available.map((item) => item.product!.category_id),
+    ).size
+    const featuredCount = available.filter(
+        (item) => item.product!.is_featured,
+    ).length
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

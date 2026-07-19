@@ -1,13 +1,15 @@
 import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems, getWishlistItemsForGuest } from '@/services/wishlist.service'
-import { ProductCard } from '@/components/common/ProductCard'
-import { Heart, ArrowRight } from 'lucide-react'
+import { UnavailableWishlistCard } from '@/components/(public)/wishlist/UnavailableWishlistCard'
+import { WishlistItemCard } from '@/components/(public)/wishlist/WishlistItemCard'
+import { Heart, ArrowRight, AlertCircle } from 'lucide-react'
 import Link from "@/components/ui/link"
 import { Button } from '@/components/ui/button'
 import { WishlistStats } from '@/components/(public)/wishlist/WishlistStats'
 import { WishlistFilters } from '@/components/(public)/wishlist/WishlistFilters'
 import { WishlistPagination } from '@/components/(public)/wishlist/WishlistPagination'
 import { getGuestSessionId } from '@/lib/auth/guest-session'
+import { filterWishlistItems } from '@/lib/wishlist/filter-wishlist-items'
 import type { ProductWithRelations } from '@/types/product'
 
 export const metadata = {
@@ -24,7 +26,9 @@ interface WishlistPageItem {
         size: string | null
         material: string | null
     }
-    product: ProductWithRelations
+    product: ProductWithRelations | null
+    isUnavailable: boolean
+    unitPrice: number
 }
 
 interface WishlistPageProps {
@@ -37,65 +41,85 @@ interface WishlistPageProps {
     }>
 }
 
+function categoriesFromWishlistItems(items: WishlistPageItem[]) {
+    const byValue = new Map<string, string>()
+
+    for (const item of items) {
+        if (item.isUnavailable || !item.product?.category) continue
+
+        const category = item.product.category
+        const value = category.slug?.trim() || category.id
+        if (!value || byValue.has(value)) continue
+
+        byValue.set(value, category.name)
+    }
+
+    return [...byValue.entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+}
+
 export default async function WishlistPage({ searchParams }: WishlistPageProps) {
     const params = await searchParams
     const user = await getCurrentAuthUserFromComponent()
 
-    // Get wishlist items based on authentication status
     let wishlistItems: WishlistPageItem[] = []
-    
+    let loadError: string | null = null
+
     if (user) {
-        // Authenticated user → fetch wishlist by user_id
-        wishlistItems = (await getWishlistItems(user.id)) as WishlistPageItem[]
+        const result = await getWishlistItems(user.id)
+        if (!result.success) {
+            loadError = result.error
+        } else {
+            wishlistItems = result.data as WishlistPageItem[]
+        }
     } else {
-        // Guest → read session cookie and fetch wishlist by session_id
         const sessionId = await getGuestSessionId()
 
         if (sessionId) {
-            wishlistItems = (await getWishlistItemsForGuest(sessionId)) as WishlistPageItem[]
+            const result = await getWishlistItemsForGuest(sessionId)
+            if (!result.success) {
+                loadError = result.error
+            } else {
+                wishlistItems = result.data as WishlistPageItem[]
+            }
         }
     }
 
-    // Use real wishlist items (no dummy data)
+    if (loadError) {
+        return (
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+                <div className="mb-10">
+                    <h1 className="text-4xl font-black tracking-tight text-foreground">
+                        My Wishlist
+                    </h1>
+                    <p className="text-muted-foreground mt-2">
+                        The pieces you love, all in one place.
+                    </p>
+                </div>
+                <div className="bg-muted/30 rounded-[2rem] border border-dashed border-border/60 py-20 text-center px-4">
+                    <div className="max-w-sm mx-auto space-y-6">
+                        <div className="bg-background w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm border border-border/40">
+                            <AlertCircle className="h-8 w-8 text-destructive/70" />
+                        </div>
+                        <h2 className="text-xl font-bold">Couldn&apos;t load your wishlist</h2>
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                            {loadError}
+                        </p>
+                        <Link href="/wishlist" className="inline-block mt-4">
+                            <Button size="lg" className="rounded-xl px-8">
+                                Try again
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     const allItems = wishlistItems
-
-    // Apply filters
-    let filteredItems = [...allItems]
-
-    // Category filter
-    if (params.category && params.category !== 'all') {
-        filteredItems = filteredItems.filter(item => {
-            const categorySlug = item.product.category?.slug
-            const categoryId = item.product.category?.id || item.product.category_id
-            return categorySlug === params.category || 
-                   categoryId === params.category ||
-                   String(categoryId) === params.category
-        })
-    }
-
-    // Featured filter
-    if (params.featured && params.featured !== 'all') {
-        const isFeatured = params.featured === 'true'
-        filteredItems = filteredItems.filter(item => item.product.is_featured === isFeatured)
-    }
-
-    // Trending filter
-    if (params.trending && params.trending !== 'all') {
-        const isTrending = params.trending === 'true'
-        filteredItems = filteredItems.filter(item => item.product.is_trending === isTrending)
-    }
-
-    // Price range filter
-    if (params.priceRange && params.priceRange !== 'all') {
-        const [min, max] = params.priceRange.split('-').map(v => v.replace('+', ''))
-        const minPrice = min ? parseFloat(min) : 0
-        const maxPrice = max ? parseFloat(max) : Infinity
-
-        filteredItems = filteredItems.filter(item => {
-            const price = item.product.price
-            return price >= minPrice && price <= maxPrice
-        })
-    }
+    const categoryOptions = categoriesFromWishlistItems(allItems)
+    const filteredItems = filterWishlistItems(allItems, params)
 
     // Pagination
     const itemsPerPage = 15
@@ -133,11 +157,9 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
                 )}
             </div>
 
-            {/* Statistical Cards */}
             {allItems.length > 0 && <WishlistStats items={allItems} />}
 
-            {/* Filters */}
-            {allItems.length > 0 && <WishlistFilters />}
+            {allItems.length > 0 && <WishlistFilters categories={categoryOptions} />}
 
             {allItems.length === 0 ? (
                 <div className="bg-muted/30 rounded-[2rem] border border-dashed border-border/60 py-20 text-center px-4">
@@ -171,12 +193,22 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
             ) : (
                 <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
-                        {paginatedItems.map((item) => (
-                            <div key={item.wishlist_id} className="group relative">
-                                <ProductCard product={item.product} />
-                                {/* Note: In a real app we might want to add a "Remove" button specifically for the wishlist view */}
-                            </div>
-                        ))}
+                        {paginatedItems.map((item) =>
+                            item.isUnavailable || !item.product ? (
+                                <UnavailableWishlistCard
+                                    key={item.wishlist_id}
+                                    wishlistId={item.wishlist_id}
+                                />
+                            ) : (
+                                <WishlistItemCard
+                                    key={item.wishlist_id}
+                                    wishlistId={item.wishlist_id}
+                                    customisedProductId={item.customised_product_id}
+                                    product={item.product}
+                                    variant={item.variant}
+                                />
+                            ),
+                        )}
                     </div>
                     <WishlistPagination totalPages={totalPages} />
                 </>

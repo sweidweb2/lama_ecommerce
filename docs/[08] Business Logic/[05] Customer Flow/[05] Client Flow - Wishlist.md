@@ -3,7 +3,7 @@
 **Scope:** Logged-in customer wishlist from `flow.md`: public `/wishlist`, account `/account/wishlist`, PDP heart (auth path), guest → user claim on login.  
 **Out of scope:** Guest-only cookie path details (Guest Wishlist); admin wishlist CRUD (none).
 
-**Verdict:** Auth **add/remove on PDP** and **list on `/wishlist`** work. **Guest wishlist claim on login is implemented** (`claimGuestWishlistService` inside `performGuestSessionHandoff` — before cookie clear). Remaining gaps: **no remove on list pages**, duplicate `/wishlist` vs `/account/wishlist`, broken filters/stats (shared with public page). Guest Flow docs that still say “no merge” are **stale** relative to current code.
+**Verdict:** Auth **add/remove on PDP**, **list + remove on `/wishlist`**, and **saved variant display** work. **Guest wishlist claim on login is implemented** (`claimGuestWishlistService` inside `performGuestSessionHandoff` — before cookie clear). Remaining gaps: broken filters/stats (shared with public page). `/account/wishlist` redirects to `/wishlist`.
 
 ---
 
@@ -11,15 +11,18 @@
 
 1. Logged-in user opens PDP → picks variant → heart (`ProductCustomization` → `toggleWishlistAction`).
 2. Auth branch: `checkIfInWishlist` → `addToWishlist` / `removeFromWishlistByVariant` (session client + RLS `user_id`).
-3. `revalidatePath('/wishlist')`, `/products` (not `/account/wishlist`).
-4. `/wishlist`: `getWishlistItems(user.id)` → filters/stats/pagination → `ProductCard` grid.
-5. `/account/wishlist`: middleware auth + `is_active` → same fetch → simpler grid (no filters/stats).
-6. Guest hearts → login / email-confirm callback: `performGuestSessionHandoff` → claim orders → merge cart → **`claimGuestWishlistService`** (dedupe + attach `user_id`) → clear cookie → revalidate `/wishlist`.
+3. `revalidatePath('/wishlist')`, `/account/wishlist`, `/products`.
+4. `/wishlist`: `getWishlistItems(user.id)` → filters/stats/pagination → `WishlistItemCard` (variant + remove).
+5. `/account/wishlist`: permanent redirect to `/wishlist`.
+6. List remove → `removeWishlistItemAction(wishlist_id)` → `removeFromWishlist(userId, id)`.
+7. Guest hearts → login / email-confirm callback: `performGuestSessionHandoff` → claim orders → merge cart → **`claimGuestWishlistService`** (dedupe + attach `user_id`) → clear cookie → revalidate `/wishlist`.
 
 ```text
 PDP heart → toggleWishlistAction(user_id)
   → add|remove wishlists (RLS)
-  → /wishlist | /account/wishlist list by user_id
+  → /wishlist list by user_id (WishlistItemCard)
+
+List remove → removeWishlistItemAction(wishlist_id)
 
 Login / auth callback → performGuestSessionHandoff
   → orders → cart → claimGuestWishlistService → clear cookie
@@ -33,8 +36,8 @@ Login / auth callback → performGuestSessionHandoff
 |------------|--------|--------|
 | PDP add / remove (auth) | Yes | Same UI as guest; `user_id` path |
 | List on `/wishlist` | Yes | Filters/stats buggy |
-| List on `/account/wishlist` | Yes | No nav link; simpler UI |
-| Remove from list page | **No** | PDP toggle only |
+| List on `/account/wishlist` | Redirect | → `/wishlist` |
+| Remove from list page | **Yes** | `removeWishlistItemAction` + `WishlistItemCard` |
 | Guest → user claim on login | **Yes** | `claimGuestWishlistService` |
 | Unique (owner, variant) | Yes | Migration `20260719170000` |
 
@@ -42,11 +45,12 @@ Login / auth callback → performGuestSessionHandoff
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Wishlist list pages cannot remove items**  
+- [x] ✅ **Wishlist list pages cannot remove items** done✅  
   Both `/wishlist` and `/account/wishlist` render `ProductCard` only. Removal requires PDP + same variant. Wrong variant looks “still wishlisted” / risk of new row.  
   **Where:** `app/(public)/wishlist/page.tsx`; `app/(useraccount)/account/wishlist/page.tsx`; unused `removeFromWishlist` / `removeWishlistItemById`.  
   **Do:** Per-row remove by `wishlist_id`; show saved variant on the card.  
-  **Also tracked:** Guest Wishlist P0 (shared UI).
+  **Also tracked:** Guest Wishlist P0 (shared UI).  
+  **Done:** `WishlistItemCard` + `removeWishlistItemAction` (auth by id); variant color/size/material line; account page redirects to `/wishlist`.
 
 ---
 
@@ -66,9 +70,10 @@ Login / auth callback → performGuestSessionHandoff
   **Where:** `WishlistFilters.tsx`.  
   **Do:** Options from wishlist items / live categories.
 
-- [ ] **List hides saved variant**  
+- [x] ✅ **List hides saved variant** done✅  
   Repo maps `variant`; UI ignores it.  
-  **Do:** Badge / variant-aware card; optional ATC from list.
+  **Do:** Badge / variant-aware card; optional ATC from list.  
+  **Done:** `WishlistItemCard` shows color · size · material + ATC for that `customised_product_id`.
 
 - [ ] **Inactive products vanish silently**  
   RLS null embed → filtered out.  
@@ -83,9 +88,9 @@ Login / auth callback → performGuestSessionHandoff
 
 ## P2 — DX / polish
 
-- [ ] Dead `WishlistButton`; no navbar wishlist count  
-- [ ] Stats ignore `price_override`  
-- [ ] Errors → empty list (no error banner)  
+- [x] ✅ Dead `WishlistButton`; no navbar wishlist count — see Guest Wishlist P1 (deleted button + navbar badge)
+- [x] ✅ Stats ignore `price_override` — `unitPrice` via `resolveCartUnitPrice`; stats + price filter use it
+- [x] ✅ Errors → empty list (no error banner) — list getters return Result; `/wishlist` error + retry UI
 - [ ] `/account/wishlist` soft login UI unreachable under middleware  
 
 ---
@@ -112,7 +117,7 @@ Login / auth callback → performGuestSessionHandoff
 | Guest wishlist → password login | Works (claim in handoff) |
 | Guest wishlist → email confirm | Works if callback runs `performGuestSessionHandoff` |
 | Duplicate variant on claim | Deduped |
-| Remove from list page | **Gap** (P0) |
+| Remove from list page | Works (`removeWishlistItemAction`) |
 | Wrong variant on PDP after save | Confusing / new row risk |
 | Inactive product on list | Silent drop |
 | Logged out `/account/wishlist` | Middleware → login |
@@ -127,7 +132,7 @@ Login / auth callback → performGuestSessionHandoff
 | Writes | Service role after cookie check | Session + RLS |
 | List | `/wishlist` | `/wishlist` + `/account/wishlist` |
 | Claim on login | — | **Yes** (current code) |
-| List remove | No | No |
+| List remove | Yes | Yes |
 
 ---
 
@@ -153,4 +158,4 @@ Login / auth callback → performGuestSessionHandoff
 - Guest capabilities inheritance: `[02] Client Flow - Guest Capabilities.md` (update merge row if still open there)
 - Account shell: `[03] Client Flow - Account.md`
 
-**Highest-impact remaining:** list-page remove + show variant → unify `/wishlist` vs account → fix filters/stats → toast/tests include wishlist claim.
+**Highest-impact remaining:** fix filters/stats → toast/tests include wishlist claim.

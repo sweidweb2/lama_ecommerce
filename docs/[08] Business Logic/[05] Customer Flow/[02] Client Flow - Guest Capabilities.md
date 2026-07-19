@@ -3,7 +3,7 @@
 **Scope:** Logged-in customer (`profiles.role = user`) inheriting Guest capabilities from `flow.md`, plus **cart merge / order claim on login** (`AuthProvider` → `mergeGuestCartOnLoginAction`).  
 **Out of scope:** Account profile / password / addresses, profile settings, reviews, User-only wishlist polish — later Customer Flow bullets. Shared browse/buying/wishlist/contact/newsletter bugs stay in Guest Flow docs unless behavior differs when authenticated.
 
-**Verdict:** The claim **holds for shopping identity**. Middleware does not lock users out of guest storefront routes; ATC / cart / checkout / wishlist / contact / newsletter / static pages key off auth presence (`user_id`) or stay public — never `role === user`. Password login defaults to **`/`**. Cart merge + guest-order claim on `SIGNED_IN` work (cookie cleared only on full success). Login handoff is **incomplete for wishlist** (still no merge; cookie clear orphans guest hearts). `/orders` list ignores the guest cookie while auth (unlike order details).
+**Verdict:** The claim **holds for shopping identity**. Middleware does not lock users out of guest storefront routes; ATC / cart / checkout / wishlist / contact / newsletter / static pages key off auth presence (`user_id`) or stay public — never `role === user`. Password login defaults to **`/`**. On login/callback, `performGuestSessionHandoff` claims orders, merges cart, and **claims wishlist** before clearing the guest cookie. `/orders` list still ignores the guest cookie while auth (unlike order details). Wishlist **list remove** remains a shared UI gap (Client Wishlist).
 
 ---
 
@@ -11,24 +11,26 @@
 
 1. Guest browses / ATC / wishlists / optionally places a guest order (`guest_session_id` cookie).
 2. User signs in (`/auth/login` → `LoginForm` → `loginService`) → default redirect **`/`** (or `?redirect=` via `safeRedirectPath`).
-3. `AuthProvider` on `SIGNED_IN` → `mergeGuestCartOnLoginAction`:
+3. `AuthProvider` on `SIGNED_IN` (and auth callback after exchange) → `performGuestSessionHandoff` / `mergeGuestCartOnLoginAction`:
    - claim guest orders (`session_id` → `user_id`)
    - merge guest cart into user cart
-   - clear `guest_session_id` **only if both succeed**
+   - claim guest wishlist into `user_id`
+   - clear `guest_session_id` **only if all succeed**
 4. Storefront continues on auth path: ATC / qty / checkout use `user.id` → `process_checkout` with `p_user_id`.
 5. `/orders` + `/order_details/[id]` show **own** orders by `user_id`; details still allow guest-cookie fallback for **unclaimed** guest rows.
-6. Wishlist toggle/list uses `user_id` — guest rows from before login are **not** transferred.
+6. Wishlist toggle/list uses `user_id` (claimed guest hearts appear after successful handoff).
 7. Contact / newsletter / static pages remain public (no role gate).
 8. Re-open `/auth/login` or `/auth/signup` while active → middleware redirects to **`/`**.
 9. Idle logout (10 min) via `IdleSessionWatcher` → `/auth/login`.
 
 ```text
 Guest session (cookie)
-  → /auth/login (user)
+  → /auth/login (user)  or  /auth/callback
   → default HOME  (or ?redirect=…)
-  → AuthProvider SIGNED_IN
+  → performGuestSessionHandoff
        → claimGuestOrdersService
        → mergeGuestCartToUserService
+       → claimGuestWishlistService
        → clearGuestSessionCookie (full success only)
   → browse / ATC / checkout / wishlist (user_id)
   → /orders + /order_details (own; guest cookie fallback on details)
@@ -69,10 +71,10 @@ _None verified that deny an active user guest shopping capabilities after handof
   **Where:** `app/(public)/orders/page.tsx` vs `app/(public)/order_details/[id]/page.tsx` + `getOrderDetails`.  
   **Do:** Union session orders (unclaimed) with user orders while cookie present, or wait for claim / surface merge-failure toast.
 
-- [ ] **Cart/order merge may skip after email-confirm callback**  
-  Merge listens only for `SIGNED_IN`. Password login fires it; confirm-email callback often yields `INITIAL_SESSION` only → guest cart/orders can remain unmerged.  
+- [ ] **Cart/order/wishlist handoff may still skip if only `INITIAL_SESSION` fires and callback did not run handoff**  
+  Password login uses `SIGNED_IN` → AuthProvider handoff. Email-confirm callback now calls `performGuestSessionHandoff` after exchange. Residual risk: other auth entry paths that neither fire `SIGNED_IN` nor hit the callback handoff.  
   **Where:** `providers/AuthProvider.tsx`; `app/(public)/auth/callback/route.ts`.  
-  **Do:** Idempotent merge on first authenticated session (see Guest Sign up **Do:**).
+  **Do:** Keep callback handoff; optionally also run idempotent handoff on first authenticated session load.
 
 ---
 
@@ -124,7 +126,7 @@ _None verified that deny an active user guest shopping capabilities after handof
 | Inactive user on storefront | Can still shop today (shared Guest Sign up gap) |
 | Auth + unclaimed guest order URL + matching cookie | Works — details fallthrough |
 | Auth `/orders` + unclaimed guest orders + cookie | **Does not list** guest rows |
-| Email-confirm then land HOME | Merge may **not** run (`INITIAL_SESSION`) |
+| Email-confirm then land HOME | Handoff runs from callback when cookie present |
 | Idle 10 min | Logout → `/auth/login` |
 | `role === user` gate blocking ATC/wishlist/checkout | **None found** |
 
@@ -155,7 +157,8 @@ _None verified that deny an active user guest shopping capabilities after handof
 | Cart merge service | `services/cart.service.ts` (`mergeGuestCartToUserService`) |
 | Order claim | `services/order.service.ts` / `repositories/order.repository.ts` |
 | Checkout auth path | `actions/checkout.ts`, `services/checkout.service.ts` |
-| Wishlist auth (no merge) | `actions/wishlist.ts`, `services/wishlist.service.ts` |
+| Wishlist auth + claim | `actions/wishlist.ts`, `services/wishlist.service.ts` (`claimGuestWishlistService`) |
+| Handoff | `actions/cart.ts` (`performGuestSessionHandoff`, `mergeGuestCartOnLoginAction`) |
 | Orders list vs details | `app/(public)/orders/page.tsx`, `order_details/[id]/page.tsx` |
 | Guest cookie | `lib/auth/guest-session.ts`, middleware mint |
 | Merge tests | `tests/feature/merge-guest-on-login.test.ts` |

@@ -10,9 +10,17 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { X } from 'lucide-react'
-import { DUMMY_CATEGORIES } from '@/lib/constants/dummy-data'
 
-export function WishlistFilters() {
+export type WishlistCategoryOption = {
+    value: string
+    label: string
+}
+
+type WishlistFiltersProps = {
+    categories: WishlistCategoryOption[]
+}
+
+export function WishlistFilters({ categories }: WishlistFiltersProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -67,9 +75,9 @@ export function WishlistFilters() {
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {DUMMY_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.slug || cat.id}>
-                            {cat.name}
+                    {categories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
                         </SelectItem>
                     ))}
                 </SelectContent>

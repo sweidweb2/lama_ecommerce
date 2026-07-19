@@ -1,6 +1,7 @@
 import { createSupabaseServerComponentClient } from "@/lib/supabase/server";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveCartUnitPrice } from "@/repositories/cart_item.repository";
 
 const WISHLIST_SELECT = `
   id,
@@ -11,6 +12,7 @@ const WISHLIST_SELECT = `
     color,
     size,
     material,
+    price_override,
     products (
       id,
       name,
@@ -18,6 +20,8 @@ const WISHLIST_SELECT = `
       description,
       price,
       is_active,
+      is_featured,
+      is_trending,
       brand_id,
       category_id,
       brands (
@@ -39,12 +43,96 @@ const WISHLIST_SELECT = `
   )
 `;
 
+export type MappedWishlistItem = {
+  wishlist_id: string;
+  customised_product_id: string;
+  variant: {
+    id: string;
+    color: string | null;
+    size: string | null;
+    material: string | null;
+  };
+  product: Record<string, unknown> | null;
+  isUnavailable: boolean;
+  /** COALESCE(price_override, products.price); 0 when unavailable. */
+  unitPrice: number;
+};
+
+export type WishlistListResult =
+  | { success: true; data: MappedWishlistItem[] }
+  | { success: false; error: string; data: [] };
+
+/**
+ * Map a wishlist join row. Keeps inactive / RLS-hidden products as unavailable
+ * placeholders; drops only when the customised_products join is missing.
+ */
+export function mapWishlistJoinRow(item: {
+  id: string;
+  customised_product_id: string;
+  customised_products?: {
+    id: string;
+    color: string | null;
+    size: string | null;
+    material: string | null;
+    price_override?: number | string | null;
+    products?: Record<string, unknown> | null;
+  } | null;
+}): MappedWishlistItem | null {
+  const customised = item.customised_products;
+  if (!customised) return null;
+
+  const variant = {
+    id: customised.id,
+    color: customised.color,
+    size: customised.size,
+    material: customised.material,
+  };
+
+  const productData = customised.products;
+  if (!productData || productData.is_active === false) {
+    return {
+      wishlist_id: item.id,
+      customised_product_id: item.customised_product_id,
+      variant,
+      product: null,
+      isUnavailable: true,
+      unitPrice: 0,
+    };
+  }
+
+  const unitPrice = resolveCartUnitPrice(
+    customised.price_override,
+    productData.price as number | string,
+  );
+
+  return {
+    wishlist_id: item.id,
+    customised_product_id: item.customised_product_id,
+    variant,
+    product: {
+      ...productData,
+      brand: productData.brands,
+      category: productData.categories,
+      images: productData.product_images,
+    },
+    isUnavailable: false,
+    unitPrice,
+  };
+}
+
+function mapWishlistRows(data: unknown[] | null): MappedWishlistItem[] {
+  return (data ?? [])
+    .map((item) => mapWishlistJoinRow(item as Parameters<typeof mapWishlistJoinRow>[0]))
+    .filter((item): item is MappedWishlistItem => item !== null);
+}
+
 /**
  * Fetch wishlist items for a user (Server Component context).
+ * Empty wishlist is success with `data: []`; DB failures are `success: false`.
  */
 export async function getWishlistItemsByUserId(
   userId: string,
-): Promise<any[]> {
+): Promise<WishlistListResult> {
   try {
     const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await (supabase as any)
@@ -53,33 +141,50 @@ export async function getWishlistItemsByUserId(
       .eq("user_id", userId);
 
     if (error) {
-      console.error("Error fetching wishlist:", error);
-      return [];
+      console.error("Error fetching wishlist:", { userId, error });
+      return {
+        success: false,
+        error: "Failed to load wishlist. Please try again.",
+        data: [],
+      };
     }
 
-    return (data ?? []).map((item: any) => {
-      const productData = item.customised_products?.products;
-      if (!productData) return null;
-      return {
-        wishlist_id: item.id,
-        customised_product_id: item.customised_product_id,
-        variant: {
-          id: item.customised_products.id,
-          color: item.customised_products.color,
-          size: item.customised_products.size,
-          material: item.customised_products.material,
-        },
-        product: {
-          ...productData,
-          brand: productData.brands,
-          category: productData.categories,
-          images: productData.product_images,
-        },
-      };
-    }).filter(Boolean);
+    return { success: true, data: mapWishlistRows(data) };
   } catch (error) {
-    console.error("Unexpected error in getWishlistItemsByUserId:", error);
-    return [];
+    console.error("Unexpected error in getWishlistItemsByUserId:", {
+      userId,
+      error,
+    });
+    return {
+      success: false,
+      error: "Failed to load wishlist. Please try again.",
+      data: [],
+    };
+  }
+}
+
+/**
+ * Count wishlist rows for a user (Server Component / Action context).
+ */
+export async function countWishlistItemsByUserId(
+  userId: string,
+): Promise<number> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { count, error } = await (supabase as any)
+      .from("wishlists")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error counting wishlist:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (error) {
+    console.error("Unexpected error in countWishlistItemsByUserId:", error);
+    return 0;
   }
 }
 
@@ -138,15 +243,19 @@ export async function removeWishlistItemById(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("wishlists")
       .delete()
       .eq("id", wishlistId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("id");
 
     if (error) {
       console.error("Error removing from wishlist:", error);
       return { success: false, error: error.message };
+    }
+    if (!data?.length) {
+      return { success: false, error: "Item not in wishlist" };
     }
     return { success: true };
   } catch (error) {
@@ -167,15 +276,19 @@ export async function removeWishlistItemByVariant(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("wishlists")
       .delete()
       .eq("user_id", userId)
-      .eq("customised_product_id", customisedProductId);
+      .eq("customised_product_id", customisedProductId)
+      .select("id");
 
     if (error) {
       console.error("Error removing from wishlist by variant:", error);
       return { success: false, error: error.message };
+    }
+    if (!data?.length) {
+      return { success: false, error: "Item not in wishlist" };
     }
     return { success: true };
   } catch (error) {
@@ -217,10 +330,11 @@ export async function isInWishlist(
 /**
  * Fetch wishlist items for a guest by session_id (Server Component context).
  * Uses service-role client; always filters by session_id.
+ * Empty wishlist is success with `data: []`; DB failures are `success: false`.
  */
 export async function getWishlistItemsBySessionId(
   sessionId: string,
-): Promise<any[]> {
+): Promise<WishlistListResult> {
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await (supabase as any)
@@ -230,33 +344,51 @@ export async function getWishlistItemsBySessionId(
       .is("user_id", null);
 
     if (error) {
-      console.error("Error fetching guest wishlist:", error);
-      return [];
+      console.error("Error fetching guest wishlist:", { sessionId, error });
+      return {
+        success: false,
+        error: "Failed to load wishlist. Please try again.",
+        data: [],
+      };
     }
 
-    return (data ?? []).map((item: any) => {
-      const productData = item.customised_products?.products;
-      if (!productData) return null;
-      return {
-        wishlist_id: item.id,
-        customised_product_id: item.customised_product_id,
-        variant: {
-          id: item.customised_products.id,
-          color: item.customised_products.color,
-          size: item.customised_products.size,
-          material: item.customised_products.material,
-        },
-        product: {
-          ...productData,
-          brand: productData.brands,
-          category: productData.categories,
-          images: productData.product_images,
-        },
-      };
-    }).filter(Boolean);
+    return { success: true, data: mapWishlistRows(data) };
   } catch (error) {
-    console.error("Unexpected error in getWishlistItemsBySessionId:", error);
-    return [];
+    console.error("Unexpected error in getWishlistItemsBySessionId:", {
+      sessionId,
+      error,
+    });
+    return {
+      success: false,
+      error: "Failed to load wishlist. Please try again.",
+      data: [],
+    };
+  }
+}
+
+/**
+ * Count guest wishlist rows for a session (service role).
+ */
+export async function countWishlistItemsBySessionId(
+  sessionId: string,
+): Promise<number> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { count, error } = await (supabase as any)
+      .from("wishlists")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .is("user_id", null);
+
+    if (error) {
+      console.error("Error counting guest wishlist:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (error) {
+    console.error("Unexpected error in countWishlistItemsBySessionId:", error);
+    return 0;
   }
 }
 
@@ -317,20 +449,58 @@ export async function removeWishlistItemByVariantForGuest(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("wishlists")
       .delete()
       .eq("session_id", sessionId)
       .is("user_id", null)
-      .eq("customised_product_id", customisedProductId);
+      .eq("customised_product_id", customisedProductId)
+      .select("id");
 
     if (error) {
       console.error("Error removing from guest wishlist by variant:", error);
       return { success: false, error: error.message };
     }
+    if (!data?.length) {
+      return { success: false, error: "Item not in wishlist" };
+    }
     return { success: true };
   } catch (error) {
     console.error("Unexpected error in removeWishlistItemByVariantForGuest:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unexpected error",
+    };
+  }
+}
+
+/**
+ * Remove a wishlist item by id for guest (service role + session ownership).
+ */
+export async function removeWishlistItemByIdForGuest(
+  sessionId: string,
+  wishlistId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await (supabase as any)
+      .from("wishlists")
+      .delete()
+      .eq("id", wishlistId)
+      .eq("session_id", sessionId)
+      .is("user_id", null)
+      .select("id");
+
+    if (error) {
+      console.error("Error removing guest wishlist item by id:", error);
+      return { success: false, error: error.message };
+    }
+    if (!data?.length) {
+      return { success: false, error: "Item not in wishlist" };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error in removeWishlistItemByIdForGuest:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unexpected error",

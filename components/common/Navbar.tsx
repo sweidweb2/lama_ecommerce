@@ -39,6 +39,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
 import { SearchBar } from "@/components/(public)/products/SearchBar";
+import { getWishlistCountAction } from "@/actions/wishlist";
 
 const NAV_LINKS_BASE = [
   { label: "Home", href: ROUTES.HOME },
@@ -47,6 +48,11 @@ const NAV_LINKS_BASE = [
   { label: "Contact", href: "/contact-us" },
 ];
 const ORDERS_LINK = { label: "Orders", href: "/orders" };
+
+function formatWishlistBadge(count: number): string {
+  if (count > 99) return "99+";
+  return String(count);
+}
 
 // Light logo used only in navbar/footer; site favicon stays /aviora-logo.png
 const LOGO_LIGHT = "/aviora-logo-nav-footer-light.png";
@@ -64,6 +70,7 @@ export function Navbar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const { user, profile, role, loading } = useAuth();
 
@@ -78,6 +85,22 @@ export function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWishlistCount() {
+      try {
+        const count = await getWishlistCountAction();
+        if (!cancelled) setWishlistCount(count);
+      } catch {
+        if (!cancelled) setWishlistCount(0);
+      }
+    }
+    void loadWishlistCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, user?.id]);
 
   // Hide navbar on admin routes
   if (pathname?.startsWith("/admin")) {
@@ -206,9 +229,21 @@ export function Navbar() {
 
             {/* Wishlist - accessible to both authenticated users and guests */}
             <Link href="/wishlist">
-              <Button variant="ghost" size="icon" className="hidden sm:flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hidden sm:flex"
+              >
                 <Heart className="h-5 w-5" />
-                <span className="sr-only">Wishlist</span>
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                    {formatWishlistBadge(wishlistCount)}
+                  </span>
+                )}
+                <span className="sr-only">
+                  Wishlist
+                  {wishlistCount > 0 ? `, ${wishlistCount} items` : ""}
+                </span>
               </Button>
             </Link>
 
@@ -375,8 +410,20 @@ export function Navbar() {
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
                   >
-                    <Heart className="h-5 w-5" />
+                    <span className="relative inline-flex">
+                      <Heart className="h-5 w-5" />
+                      {wishlistCount > 0 && (
+                        <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                          {formatWishlistBadge(wishlistCount)}
+                        </span>
+                      )}
+                    </span>
                     Wishlist
+                    {wishlistCount > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        ({formatWishlistBadge(wishlistCount)})
+                      </span>
+                    )}
                   </Link>
                   
                   {/* Theme Toggle - matching desktop */}

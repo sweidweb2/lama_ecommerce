@@ -215,6 +215,40 @@ export async function getProductVariantById(
 }
 
 /**
+ * Load a variant with parent product `is_active` (for wishlist buyability checks).
+ * Returns null when the variant does not exist.
+ */
+export async function getVariantWithParentActive(
+  customisedProductId: string,
+): Promise<{ id: string; productIsActive: boolean } | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { data, error } = await supabase
+      .from("customised_products")
+      .select("id, products!inner(is_active)")
+      .eq("id", customisedProductId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching variant with parent active:", error);
+      return null;
+    }
+    if (!data) return null;
+
+    const products = (data as { products?: { is_active?: boolean } | null })
+      .products;
+    return {
+      id: (data as { id: string }).id,
+      productIsActive: Boolean(products?.is_active),
+    };
+  } catch (error) {
+    console.error("Unexpected error in getVariantWithParentActive:", error);
+    return null;
+  }
+}
+
+/**
  * Get all variants for a specific product.
  */
 export async function getProductVariantsByProductId(

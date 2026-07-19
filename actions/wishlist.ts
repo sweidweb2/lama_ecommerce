@@ -1,117 +1,147 @@
-'use server'
-
-import { getCurrentAuthUserFromAction } from '@/repositories/auth.repository'
-import {
-  addToWishlist,
-  addToWishlistForGuest,
-  removeFromWishlistByVariant,
-  removeFromWishlistByVariantForGuest,
-  checkIfInWishlist,
-  checkIfInWishlistForGuest,
-} from '@/services/wishlist.service'
-import { revalidatePath } from 'next/cache'
-import { createWishlistItemSchema } from '@/lib/validators/wishlist/create'
-import {
-  getGuestSessionId,
-  getOrCreateGuestSessionId,
-} from '@/lib/auth/guest-session'
-
-/**
- * Toggle wishlist item action.
- * This is the server action called from client components.
- *
- * Flow:
- * 1. Validate input
- * 2. Check if user is authenticated
- * 3a. Authenticated → use existing wishlist services (user_id based)
- * 3b. Guest → cookie session + guest wishlist services
- */
-export async function toggleWishlistAction(customisedProductId: string) {
-  // Validate input
-  const validation = createWishlistItemSchema.safeParse({
-    customised_product_id: customisedProductId,
-  })
-
-  if (!validation.success) {
-    return {
-      success: false,
-      error: 'Invalid product variant ID',
-    }
-  }
-
-  // Check if user is authenticated
-  const user = await getCurrentAuthUserFromAction()
-
-  if (user) {
-    // ── Authenticated user flow ──
-    const inWishlist = await checkIfInWishlist(user.id, customisedProductId)
-    const result = inWishlist
-      ? await removeFromWishlistByVariant(user.id, customisedProductId)
-      : await addToWishlist(user.id, customisedProductId)
-
-    if (result.success) {
-      revalidatePath('/wishlist')
-      revalidatePath('/products')
-    }
-
-    return result
-  }
-
-  // ── Guest user flow ──
-  const sessionId = await getOrCreateGuestSessionId()
-
-  // Check if item is in wishlist
-  const inWishlist = await checkIfInWishlistForGuest(sessionId, customisedProductId)
-
-  // Toggle wishlist item
-  const result = inWishlist
-    ? await removeFromWishlistByVariantForGuest(sessionId, customisedProductId)
-    : await addToWishlistForGuest(sessionId, customisedProductId)
-
-  if (result.success) {
-    revalidatePath('/wishlist')
-    revalidatePath('/products')
-  }
-
-  return result
-}
-
-/**
- * Check if a product variant is in the wishlist (for authenticated users or guests).
- */
-export async function checkWishlistStatusAction(customisedProductId: string): Promise<{
-  success: boolean
-  inWishlist: boolean
-  error?: string
-}> {
-  // Validate input
-  const validation = createWishlistItemSchema.safeParse({
-    customised_product_id: customisedProductId,
-  })
-
-  if (!validation.success) {
-    return {
-      success: false,
-      inWishlist: false,
-      error: 'Invalid product variant ID',
-    }
-  }
-
-  // Check if user is authenticated
-  const user = await getCurrentAuthUserFromAction()
-
-  if (user) {
-    // ── Authenticated user flow ──
-    const inWishlist = await checkIfInWishlist(user.id, customisedProductId)
-    return { success: true, inWishlist }
-  }
-
-  // ── Guest user flow ──
-  const sessionId = await getGuestSessionId()
-  if (!sessionId) {
-    return { success: true, inWishlist: false }
-  }
-
-  const inWishlist = await checkIfInWishlistForGuest(sessionId, customisedProductId)
-  return { success: true, inWishlist }
-}
+'use server'
+
+import { z } from 'zod'
+import { getCurrentAuthUserFromAction } from '@/repositories/auth.repository'
+import {
+  removeFromWishlist,
+  removeFromWishlistForGuest,
+  checkIfInWishlist,
+  checkIfInWishlistForGuest,
+  getWishlistCount,
+  getWishlistCountForGuest,
+  toggleWishlistForUser,
+  toggleWishlistForGuest,
+} from '@/services/wishlist.service'
+import { revalidatePath } from 'next/cache'
+import { createWishlistItemSchema } from '@/lib/validators/wishlist/create'
+import {
+  getGuestSessionId,
+  getOrCreateGuestSessionId,
+} from '@/lib/auth/guest-session'
+
+const wishlistIdSchema = z.string().uuid()
+
+/**
+ * Toggle wishlist item action.
+ * Resolves caller identity, then delegates toggle rules to the service.
+ */
+export async function toggleWishlistAction(customisedProductId: string) {
+  const validation = createWishlistItemSchema.safeParse({
+    customised_product_id: customisedProductId,
+  })
+
+  if (!validation.success) {
+    return {
+      success: false,
+      error: 'Invalid product variant ID',
+    }
+  }
+
+  const user = await getCurrentAuthUserFromAction()
+
+  const result = user
+    ? await toggleWishlistForUser(user.id, validation.data.customised_product_id)
+    : await toggleWishlistForGuest(
+        await getOrCreateGuestSessionId(),
+        validation.data.customised_product_id,
+      )
+
+  if (result.success) {
+    revalidatePath('/wishlist')
+    revalidatePath('/account/wishlist')
+    revalidatePath('/products')
+  }
+
+  return result
+}
+
+/**
+ * Remove a wishlist row by id (list page). Auth or guest cookie.
+ */
+export async function removeWishlistItemAction(wishlistId: string) {
+  const parsed = wishlistIdSchema.safeParse(wishlistId)
+  if (!parsed.success) {
+    return { success: false as const, error: 'Invalid wishlist item' }
+  }
+
+  const user = await getCurrentAuthUserFromAction()
+
+  if (user) {
+    const result = await removeFromWishlist(user.id, parsed.data)
+    if (result.success) {
+      revalidatePath('/wishlist')
+      revalidatePath('/account/wishlist')
+    }
+    return result
+  }
+
+  const sessionId = await getGuestSessionId()
+  if (!sessionId) {
+    return { success: false as const, error: 'No active guest session' }
+  }
+
+  const result = await removeFromWishlistForGuest(sessionId, parsed.data)
+  if (result.success) {
+    revalidatePath('/wishlist')
+    revalidatePath('/account/wishlist')
+  }
+  return result
+}
+
+/**
+ * Check if a product variant is in the wishlist (for authenticated users or guests).
+ */
+export async function checkWishlistStatusAction(customisedProductId: string): Promise<{
+  success: boolean
+  inWishlist: boolean
+  error?: string
+}> {
+  const validation = createWishlistItemSchema.safeParse({
+    customised_product_id: customisedProductId,
+  })
+
+  if (!validation.success) {
+    return {
+      success: false,
+      inWishlist: false,
+      error: 'Invalid product variant ID',
+    }
+  }
+
+  const user = await getCurrentAuthUserFromAction()
+
+  if (user) {
+    const inWishlist = await checkIfInWishlist(
+      user.id,
+      validation.data.customised_product_id,
+    )
+    return { success: true, inWishlist }
+  }
+
+  const sessionId = await getGuestSessionId()
+  if (!sessionId) {
+    return { success: true, inWishlist: false }
+  }
+
+  const inWishlist = await checkIfInWishlistForGuest(
+    sessionId,
+    validation.data.customised_product_id,
+  )
+  return { success: true, inWishlist }
+}
+
+/**
+ * Wishlist item count for Navbar badge (auth user or guest cookie).
+ */
+export async function getWishlistCountAction(): Promise<number> {
+  const user = await getCurrentAuthUserFromAction()
+  if (user) {
+    return getWishlistCount(user.id)
+  }
+
+  const sessionId = await getGuestSessionId()
+  if (!sessionId) return 0
+
+  return getWishlistCountForGuest(sessionId)
+}
+
