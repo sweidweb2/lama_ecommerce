@@ -12,8 +12,11 @@ import { upsertPaymentSchema } from "@/lib/validators/payment/upsert";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 /**
- * Server action to encrypt an order ID.
- * Used by client components that need to encrypt order IDs for URLs.
+ * Unauthenticated URL helper: encrypt an order ID for client-side redirects
+ * (e.g. post-checkout navigation to `/order_details/{ciphertext}`).
+ *
+ * Anyone can call this to build a URL; encryption alone is **not** access control.
+ * Order details still require ownership (auth user or matching guest session).
  */
 export async function encryptOrderIdAction(orderId: string): Promise<string> {
   try {

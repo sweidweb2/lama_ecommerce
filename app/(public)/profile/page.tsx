@@ -2,15 +2,17 @@ import { ProfileHeader } from '@/components/(public)/profile/ProfileHeader'
 import { ProfileStats } from '@/components/(public)/profile/ProfileStats'
 import { ProfileActions } from '@/components/(public)/profile/ProfileActions'
 import { ProfileOrders } from '@/components/(public)/profile/ProfileOrders'
+import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
+import { getUserOrders } from '@/services/order.service'
+import { encryptOrderId } from '@/lib/utils/encryption'
 import type { Profile } from '@/types/user'
-import type { Order } from '@/types/order'
 
 export const metadata = {
     title: 'My Profile',
     description: 'View and manage your profile, orders, and preferences.',
 }
 
-// Dummy data
+// Dummy data (header / stats only — orders are real)
 const dummyProfile: Profile = {
     id: '550e8400-e29b-41d4-a716-446655440000',
     user_id: '550e8400-e29b-41d4-a716-446655440001',
@@ -22,93 +24,17 @@ const dummyProfile: Profile = {
 
 const dummyEmail = 'john.doe@example.com'
 
-const dummyOrders: Order[] = [
-    {
-        id: '550e8400-e29b-41d4-a716-446655440010',
-        user_id: '550e8400-e29b-41d4-a716-446655440001',
-        session_id: null,
-        status: 'delivered',
-        subtotal: 299.99,
-        shipping_fee: 15.00,
-        discount: 30.00,
-        total: 284.99,
-        payment_status: 'paid',
-        address_snapshot: null,
-        phone: '+1234567890',
-        email: 'john.doe@example.com',
-        created_at: '2024-12-01T14:30:00Z',
-        updated_at: '2024-12-05T10:00:00Z',
-    },
-    {
-        id: '550e8400-e29b-41d4-a716-446655440011',
-        user_id: '550e8400-e29b-41d4-a716-446655440001',
-        session_id: null,
-        status: 'shipped',
-        subtotal: 149.99,
-        shipping_fee: 10.00,
-        discount: 0,
-        total: 159.99,
-        payment_status: 'paid',
-        address_snapshot: null,
-        phone: '+1234567890',
-        email: 'john.doe@example.com',
-        created_at: '2024-11-25T09:15:00Z',
-        updated_at: '2024-11-28T16:45:00Z',
-    },
-    {
-        id: '550e8400-e29b-41d4-a716-446655440012',
-        user_id: '550e8400-e29b-41d4-a716-446655440001',
-        session_id: null,
-        status: 'processing',
-        subtotal: 89.99,
-        shipping_fee: 8.00,
-        discount: 10.00,
-        total: 87.99,
-        payment_status: 'paid',
-        address_snapshot: null,
-        phone: '+1234567890',
-        email: 'john.doe@example.com',
-        created_at: '2024-11-20T11:20:00Z',
-        updated_at: '2024-11-20T11:25:00Z',
-    },
-    {
-        id: '550e8400-e29b-41d4-a716-446655440013',
-        user_id: '550e8400-e29b-41d4-a716-446655440001',
-        session_id: null,
-        status: 'pending',
-        subtotal: 199.99,
-        shipping_fee: 12.00,
-        discount: 0,
-        total: 211.99,
-        payment_status: 'pending',
-        address_snapshot: null,
-        phone: '+1234567890',
-        email: 'john.doe@example.com',
-        created_at: '2024-11-18T15:45:00Z',
-        updated_at: '2024-11-18T15:45:00Z',
-    },
-    {
-        id: '550e8400-e29b-41d4-a716-446655440014',
-        user_id: '550e8400-e29b-41d4-a716-446655440001',
-        session_id: null,
-        status: 'packed',
-        subtotal: 79.99,
-        shipping_fee: 9.00,
-        discount: 5.00,
-        total: 83.99,
-        payment_status: 'paid',
-        address_snapshot: null,
-        phone: '+1234567890',
-        email: 'john.doe@example.com',
-        created_at: '2024-11-15T08:30:00Z',
-        updated_at: '2024-11-17T14:20:00Z',
-    },
-]
-
 const dummyOrderCount = 12
 const dummyWishlistCount = 8
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+    const user = await getCurrentAuthUserFromComponent()
+    const orders = user ? await getUserOrders(user.id, 6) : []
+    const ordersWithEncryptedIds = orders.map((order) => ({
+        ...order,
+        encryptedId: encryptOrderId(order.id),
+    }))
+
     return (
         <div className="container mx-auto px-4 py-12">
             <div className="mb-10">
@@ -134,9 +60,8 @@ export default function ProfilePage() {
                 <ProfileActions />
 
                 {/* Recent Orders */}
-                <ProfileOrders orders={dummyOrders} />
+                <ProfileOrders orders={ordersWithEncryptedIds} />
             </div>
         </div>
     )
 }
-

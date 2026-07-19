@@ -1,6 +1,7 @@
 import Link from "@/components/ui/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -20,12 +21,21 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { OrderBreadcrumbs } from "@/components/(public)/orders/OrderBreadcrumbs";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { getOrderDetails } from "@/services/order.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
 import { decryptOrderId } from "@/lib/utils/encryption";
+import {
+  formatOrderCurrency,
+  formatShortOrderId,
+  getOrderRestockMessage,
+  getShipmentEmptyCopy,
+  getShipmentEmptyKind,
+  shouldShowOrderStatusBanner,
+} from "@/lib/orders/order-display";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 export const metadata = {
@@ -75,21 +85,9 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const formatCurrency = (amount: number | null) => {
-  if (!amount) return "$0.00";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-};
-
-const formatOrderId = (id: string) => {
-  return id.substring(0, 8).toUpperCase();
-};
-
 interface OrderDetailsPageProps {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: string; t?: string }>;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -114,19 +112,24 @@ export default async function OrderDetailsPage({
   // can still open unclaimed guest orders via cookie fallback.
   const user = await getCurrentAuthUserFromComponent();
   const sessionId = await getGuestSessionId();
+  const accessToken =
+    typeof resolvedSearchParams?.t === "string"
+      ? resolvedSearchParams.t
+      : null;
 
   // Fetch order details with ownership check
   const details = await getOrderDetails(
     orderId,
     user?.id ?? null,
     sessionId,
+    accessToken,
   );
 
   if (!details) {
     notFound();
   }
 
-  const { order, items, payment, shipment } = details;
+  const { order, items, payment, shipment, promo_code } = details;
 
   // Order items pagination (max 20 pages, 20 items per page)
   const maxItemsToShow = ITEMS_PER_PAGE * MAX_ITEM_PAGES;
@@ -162,6 +165,17 @@ export default async function OrderDetailsPage({
     postal_code?: string;
   } | null;
 
+  const showStatusBanner = shouldShowOrderStatusBanner({
+    status: order.status,
+    payment_status: order.payment_status,
+  });
+  const restockMessage = showStatusBanner
+    ? getOrderRestockMessage(order.stock_restored)
+    : null;
+  const shipmentEmpty = !shipment
+    ? getShipmentEmptyCopy(getShipmentEmptyKind(order.status))
+    : null;
+
   return (
     <div>
       {/* Breadcrumbs */}
@@ -169,17 +183,17 @@ export default async function OrderDetailsPage({
 
       <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-16 lg:pb-20 xl:pb-24">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-4xl font-black tracking-tight text-foreground">
                 Order Details
               </h1>
               <p className="text-muted-foreground mt-2">
-                Order #{formatOrderId(order.id)}
+                Order #{formatShortOrderId(order.id)}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant={getOrderStatusVariant(order.status)}>
                 {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
               </Badge>
@@ -187,8 +201,25 @@ export default async function OrderDetailsPage({
                 {order.payment_status.charAt(0).toUpperCase() +
                   order.payment_status.slice(1)}
               </Badge>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/orders/${order.id}/invoice`}>View Invoice</Link>
+              </Button>
             </div>
           </div>
+          {showStatusBanner && (
+            <div className="rounded-md border border-border/60 bg-muted/40 px-4 py-3 text-sm">
+              <p className="font-medium text-foreground">
+                {order.status === "cancelled"
+                  ? "This order was cancelled."
+                  : order.payment_status === "refunded"
+                    ? "Payment for this order was refunded."
+                    : "Payment for this order failed."}
+              </p>
+              {restockMessage ? (
+                <p className="mt-1 text-muted-foreground">{restockMessage}</p>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
@@ -227,8 +258,8 @@ export default async function OrderDetailsPage({
                           const size = item.size_snapshot ?? "N/A";
                           const color = item.color_snapshot ?? "N/A";
                           const material = item.material_snapshot ?? "N/A";
-                          const priceLabel = formatCurrency(item.price_snapshot);
-                          const subtotalLabel = formatCurrency(
+                          const priceLabel = formatOrderCurrency(item.price_snapshot);
+                          const subtotalLabel = formatOrderCurrency(
                             (item.price_snapshot ?? 0) * item.quantity,
                           );
 
@@ -415,24 +446,36 @@ export default async function OrderDetailsPage({
                     <div>
                       <p className="text-sm text-muted-foreground">Amount</p>
                       <p className="font-medium mt-1">
-                        {formatCurrency(payment.amount)}
+                        {formatOrderCurrency(payment.amount)}
                       </p>
                     </div>
                   </div>
+                  {payment.payment_url && payment.status === "pending" && (
+                    <Button asChild className="w-full gap-2">
+                      <a
+                        href={payment.payment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Pay now
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             {/* Shipping Information */}
-            {shipment && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
-                    Shipping Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Shipping Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {shipment ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Carrier</p>
@@ -457,9 +500,16 @@ export default async function OrderDetailsPage({
                       </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : shipmentEmpty ? (
+                  <div>
+                    <p className="font-medium">{shipmentEmpty.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {shipmentEmpty.description}
+                    </p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -474,27 +524,35 @@ export default async function OrderDetailsPage({
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">
-                      {formatCurrency(order.subtotal)}
+                      {formatOrderCurrency(order.subtotal)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-muted-foreground">
+                      Shipping
+                      {order.shipping_zone_name
+                        ? ` (${order.shipping_zone_name})`
+                        : ""}
+                    </span>
                     <span className="font-medium">
-                      {formatCurrency(order.shipping_fee)}
+                      {formatOrderCurrency(order.shipping_fee)}
                     </span>
                   </div>
                   {order.discount && order.discount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-muted-foreground">
+                        Discount
+                        {promo_code ? ` (${promo_code})` : ""}
+                      </span>
                       <span className="font-medium text-green-600">
-                        -{formatCurrency(order.discount)}
+                        -{formatOrderCurrency(order.discount)}
                       </span>
                     </div>
                   )}
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-semibold">Total</span>
                     <span className="font-bold text-lg">
-                      {formatCurrency(order.total)}
+                      {formatOrderCurrency(order.total)}
                     </span>
                   </div>
                 </div>

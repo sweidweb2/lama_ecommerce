@@ -23,8 +23,10 @@ import { Eye, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
 
+type OrderWithEncryptedId = Order & { encryptedId?: string };
+
 interface OrdersTableProps {
-  orders: Order[];
+  orders: OrderWithEncryptedId[];
 }
 
 const orderStatusOptions: { label: string; value: OrderStatus | "all" }[] = [
@@ -326,21 +328,20 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                     </TableCell>
                     <TableCell className="text-right w-auto min-w-[280px]">
                       <div className="flex items-center justify-end gap-2">
-                        <Link href={`/order_details/${order.id}`}>
+                        <Link
+                          href={`/order_details/${encodeURIComponent(order.encryptedId ?? order.id)}`}
+                        >
                           <Button variant="outline" size="sm">
                             <Eye className="mr-2 h-4 w-4" />
                             View Order
                           </Button>
                         </Link>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          title="Coming soon"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download Invoice
-                        </Button>
+                        <Link href={`/orders/${order.id}/invoice`}>
+                          <Button variant="outline" size="sm">
+                            <Download className="mr-2 h-4 w-4" />
+                            View Invoice
+                          </Button>
+                        </Link>
                       </div>
                     </TableCell>
                   </TableRow>

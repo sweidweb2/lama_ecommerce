@@ -5,8 +5,10 @@ import Link from "@/components/ui/link"
 import { Package, ArrowRight } from 'lucide-react'
 import type { Order } from '@/types/order'
 
+type OrderWithEncryptedId = Order & { encryptedId?: string }
+
 interface ProfileOrdersProps {
-    orders: Order[]
+    orders: OrderWithEncryptedId[]
 }
 
 export function ProfileOrders({ orders }: ProfileOrdersProps) {
@@ -32,7 +34,7 @@ export function ProfileOrders({ orders }: ProfileOrdersProps) {
     }
 
     const formatCurrency = (amount: number | null) => {
-        if (!amount) return '$0.00'
+        if (amount == null) return '$0.00'
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
@@ -123,7 +125,10 @@ export function ProfileOrders({ orders }: ProfileOrdersProps) {
                                         </span>
                                     </div>
                                 )}
-                                <Link href={`/order_details/${order.id}`} className="block">
+                                <Link
+                                    href={`/order_details/${encodeURIComponent(order.encryptedId ?? order.id)}`}
+                                    className="block"
+                                >
                                     <Button variant="outline" size="sm" className="w-full">
                                         View Details
                                         <ArrowRight className="h-3 w-3 ml-2" />

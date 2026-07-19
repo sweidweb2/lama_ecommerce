@@ -14,6 +14,10 @@ vi.mock("@/services/profile.service", () => ({
   getCurrentUserProfile: vi.fn(),
 }));
 
+vi.mock("@/repositories/promo_code.repository", () => ({
+  getPromoCodeByIdAdmin: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/repositories/order.repository", () => ({
   getOrdersByUserId: vi.fn(),
   getOrderCountByUserId: vi.fn(),
@@ -50,7 +54,7 @@ describe("getOrderDetails ownership", () => {
     getShipmentByOrderIdForAdmin.mockResolvedValue(null);
   });
 
-  it("returns null when neither userId nor sessionId provided", async () => {
+  it("returns null when neither userId, sessionId, nor valid token provided", async () => {
     const { getOrderDetails } = await import("@/services/order.service");
     await expect(getOrderDetails("order-1", null, null)).resolves.toBeNull();
   });
@@ -73,6 +77,7 @@ describe("getOrderDetails ownership", () => {
       items: [],
       payment: null,
       shipment: null,
+      promo_code: null,
     });
     expect(getOrderByIdForAdmin).not.toHaveBeenCalled();
   });
@@ -126,6 +131,43 @@ describe("getOrderDetails ownership", () => {
     const result = await getOrderDetails("order-1", null, "sess-1");
     expect(result?.order).toEqual(order);
     expect(getOrderByIdForAdmin).toHaveBeenCalled();
+  });
+
+  it("returns details with a valid signed access token and no session", async () => {
+    process.env.ENCRYPTION_KEY = "a".repeat(64);
+    const order = {
+      id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      user_id: null,
+      session_id: "sess-1",
+    };
+    getOrderByIdForAdmin.mockResolvedValue(order);
+    const { signOrderAccessToken } = await import(
+      "@/lib/auth/order-access-token"
+    );
+    const token = signOrderAccessToken(order.id);
+    const { getOrderDetails } = await import("@/services/order.service");
+    const result = await getOrderDetails(order.id, null, null, token);
+    expect(result?.order).toEqual(order);
+  });
+
+  it("returns null for a tampered or wrong-order access token", async () => {
+    process.env.ENCRYPTION_KEY = "a".repeat(64);
+    getOrderByIdForAdmin.mockResolvedValue({
+      id: "order-1",
+      user_id: null,
+      session_id: "sess-1",
+    });
+    const { signOrderAccessToken } = await import(
+      "@/lib/auth/order-access-token"
+    );
+    const tokenForOther = signOrderAccessToken("order-other");
+    const { getOrderDetails } = await import("@/services/order.service");
+    await expect(
+      getOrderDetails("order-1", null, null, tokenForOther),
+    ).resolves.toBeNull();
+    await expect(
+      getOrderDetails("order-1", null, null, "not.a.valid.token"),
+    ).resolves.toBeNull();
   });
 });
 

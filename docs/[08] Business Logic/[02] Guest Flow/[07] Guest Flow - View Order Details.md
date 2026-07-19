@@ -3,7 +3,7 @@
 **Scope:** After guest place-order → open `/order_details/[id]` (and related `/orders` list) without logging in.  
 **Out of scope:** Authenticated account orders as a primary product (same page is shared); Stripe / client pay UI (deferred with Buying flow); admin order edit.
 
-**Verdict:** Same-browser guest viewing after checkout works. Access is **not** “encrypted link alone” — it is **decrypt/raw order id + matching `guest_session_id` cookie** (service-role fetch + app ownership). Email “View order details” links, cookie loss, and login do **not** preserve access. No claim-by-email, order lookup, or guest cancel. Use the checklists below to fix.
+**Verdict:** Same-browser guest viewing after checkout works. New confirmation emails include a signed `?t=` bearer (14-day TTL) so details open without the guest cookie; `/orders/find` can email a fresh link (email + 8-char code). Old links without `t` still need the original cookie. `/orders` list remains session/auth-scoped. No guest cancel.
 
 ---
 
@@ -33,10 +33,11 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Encrypted email link is not a capability token**  
+- [x] ✅ **Encrypted email link is not a capability token** done✅  
   Encryption only hides the UUID and rejects tampering (GCM fail → fall through to raw string → ownership/`notFound`). Viewing still requires `guest_session_id === orders.session_id`. Confirmation email presents “View order details” as if the link alone works; new browser / cleared cookies → **404**.  
   **Where:** `lib/email/order-confirmation.ts` (`buildOrderDetailsUrl`); `app/(public)/order_details/[id]/page.tsx`; `services/order.service.ts` (`getOrderDetails`).  
-  **Do:** Treat the link as a bearer (signed token + email/order binding, no session) **or** add verified lookup and stop implying email-only re-access.
+  **Do:** Treat the link as a bearer (signed token + email/order binding, no session) **or** add verified lookup and stop implying email-only re-access.  
+  **Done:** Confirmation (and find-order) links append HMAC `?t=` (14-day TTL). `getOrderDetails` accepts a valid token as ownership. Old links without `t` still need the guest cookie.
 
 - [x] ✅ **Logged-in user visiting a prior guest order URL → 404** done✅  
   If auth user is present, page never reads the guest cookie. Guest orders have `user_id = null` → auth branch (`order.user_id !== userId`) fails → `notFound`. Guest who places an order then logs in cannot open that order URL.  
@@ -54,35 +55,41 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 
 ## P1 — Incomplete / wrong view-order behavior
 
-- [ ] **No re-access without the same cookie**  
+- [x] ✅ **No re-access without the same cookie** done✅  
   Cookie is HttpOnly, 14 days. Middleware mints `guest_session_id` on `/order_details` and `/orders` for cold hits, but a **new** cookie cannot match an order’s stored `session_id`. Guest who only opens an email link still cannot re-access after cookie loss.  
   **Where:** `middleware.ts`; `lib/auth/guest-session.ts`; `app/(public)/orders/page.tsx`.  
-  **Do:** Magic link / email+order# verified lookup; optionally document that list/detail depend on the original placing session (or claim).
+  **Do:** Magic link / email+order# verified lookup; optionally document that list/detail depend on the original placing session (or claim).  
+  **Done:** Signed email links open details without the cookie; `/orders/find` emails a fresh link. `/orders` list remains session/auth-scoped.
 
-- [ ] **No order lookup by email / short order id**  
+- [x] ✅ **No order lookup by email / short order id** done✅  
   No find-order flow for guests who lost the cookie or link.  
   **Where:** No service/repo for public lookup; only `getSessionOrders` / `getUserOrders` / admin.  
-  **Do:** Verified lookup (email code or signed token) returning the same details page safely.
+  **Do:** Verified lookup (email code or signed token) returning the same details page safely.  
+  **Done:** `/orders/find` + `requestOrderAccessLinkAction` (rate-limited): email + 8-char code → signed link email when uniquely matched.
 
-- [ ] **Promo code and shipping zone name omitted on details UI**  
+- [x] ✅ **Promo code and shipping zone name omitted on details UI** done✅  
   Discount amount shows when `> 0`; `promo_code_id` / code string not shown. `shipping_zone_name` exists on the order and in confirmation email, but the public details page does not display it.  
   **Where:** `app/(public)/order_details/[id]/page.tsx` (summary sidebar); `lib/email/order-confirmation.ts` (zone in email); admin order page shows zone.  
-  **Do:** Show zone name and applied promo code when present.
+  **Do:** Show zone name and applied promo code when present.  
+  **Done:** Summary shows `Shipping (zone)` and `Discount (CODE)` when present; `getOrderDetails` resolves code via `getPromoCodeByIdAdmin` (promo_codes RLS is admin-only).
 
-- [ ] **No pay CTA / `payment_url` on storefront details**  
+- [x] ✅ **No pay CTA / `payment_url` on storefront details** done✅  
   Payment card shows status/method/gateway/amount; `payment_url` is never surfaced. Pending toast / place-order path has no guest “Pay now”.  
   **Where:** `app/(public)/order_details/[id]/page.tsx`; `types/order.ts` (`payment_url`); admin `OrderPaymentForm`.  
-  **Do:** When Stripe (or similar) lands, link pay CTA from `payment_url` for pending payments (align with Buying deferred items).
+  **Do:** When Stripe (or similar) lands, link pay CTA from `payment_url` for pending payments (align with Buying deferred items).  
+  **Done:** Payment card shows **Pay now** when `payment.status === "pending"` and `payment_url` is set (external link). Creating the URL at checkout remains deferred.
 
-- [ ] **No guest cancel; invoice stub only**  
+- [x] ✅ **No guest cancel; invoice stub only** done✅  
   Storefront cannot cancel. `/orders` has disabled **Download Invoice** (“Coming soon”). Cancelled/failed/refunded orders still render if ownership passes; no restock messaging (`stock_restored` unused in UI).  
   **Where:** `components/(public)/orders/OrdersTable.tsx`; order details page badges only.  
-  **Do:** Define cancel policy (or admin-only) + implement invoice or remove stub.
+  **Do:** Define cancel policy (or admin-only) + implement invoice or remove stub.  
+  **Done:** Cancel remains admin-only. Order details show status + `stock_restored` restock note. Printable HTML invoice at `/orders/[id]/invoice` (View Invoice from list + details).
 
-- [ ] **Shipment / tracking empty until admin ships**  
+- [x] ✅ **Shipment / tracking empty until admin ships** done✅  
   Shipment card only appears when a `shipments` row exists (created when admin marks shipped). Guests see no “awaiting shipment” empty state.  
   **Where:** `app/(public)/order_details/[id]/page.tsx` (`{shipment && …}`); admin ship flow.  
-  **Do:** Explicit “Not shipped yet” state when status warrants it.
+  **Do:** Explicit “Not shipped yet” state when status warrants it.  
+  **Done:** Shipping Information card always shown; status-aware empty copy via `getShipmentEmptyKind` (awaiting / missing tracking / not shipped).
 
 ---
 
@@ -94,35 +101,41 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
   **Do:** Include `/orders` and `/order_details` in mint list **or** document reliance on prior storefront routes (mint alone cannot restore old session id).  
   **Done:** Middleware calls `ensureGuestSessionCookie` for `/orders` and `/order_details`. Reminting does not restore expired-session orders (still needs claim/token).
 
-- [ ] **List links use raw UUID; post-checkout uses encrypted id**  
+- [x] ✅ **List links use raw UUID; post-checkout uses encrypted id** done✅  
   Page accepts both by design. `OrdersTable` / `ProfileOrders` link `/order_details/${order.id}`. Ownership still required; encrypted URLs are obfuscation only, not auth.  
   **Where:** `components/(public)/orders/OrdersTable.tsx` (~329); `app/(public)/order_details/[id]/page.tsx` (~105–111); `CartSidebar.tsx` redirect.  
-  **Do:** Unify on encrypted links for consistency, or document dual support intentionally.
+  **Do:** Unify on encrypted links for consistency, or document dual support intentionally.  
+  **Done:** `/orders` and `/profile` map `encryptedId` via `encryptOrderId`; list hrefs use `encodeURIComponent(encryptedId)`. Detail page still accepts raw UUID fallback for old bookmarks.
 
-- [ ] **Profile “orders” are dummy data**  
+- [x] ✅ **Profile “orders” are dummy data** done✅  
   `app/(public)/profile/page.tsx` feeds `ProfileOrders` with fabricated orders, not real `getUserOrders`. Misleading next to real `/orders`.  
   **Where:** `app/(public)/profile/page.tsx`; `components/(public)/profile/ProfileOrders.tsx`.  
-  **Do:** Wire real orders or remove the section.
+  **Do:** Wire real orders or remove the section.  
+  **Done:** Profile page fetches `getUserOrders(user.id, 6)` with encrypted ids; header/stats dummy data unchanged.
 
-- [ ] **`formatCurrency` treats `0` as empty**  
+- [x] ✅ **`formatCurrency` treats `0` as empty** done✅  
   `if (!amount) return "$0.00"` collapses legitimate `0` the same as null — OK for money often, but masks null vs zero inconsistently vs email helper.  
   **Where:** `app/(public)/order_details/[id]/page.tsx` (~78–84).  
-  **Do:** Use `amount == null` like `lib/email/order-confirmation.ts` `formatMoney`.
+  **Do:** Use `amount == null` like `lib/email/order-confirmation.ts` `formatMoney`.  
+  **Done:** `amount == null` in order_details and ProfileOrders `formatCurrency`.
 
-- [ ] **Encrypted id never expires; `encryptOrderIdAction` is unauthenticated**  
+- [x] ✅ **Encrypted id never expires; `encryptOrderIdAction` is unauthenticated** done✅  
   AES ciphertext has no TTL. Anyone can call encrypt for URL building; that alone does not grant read (ownership still required). Fine if documented; confusing if email is treated as secret.  
   **Where:** `lib/utils/encryption.ts`; `actions/order.ts`.  
-  **Do:** Document, or switch email to a short-lived signed access token.
+  **Do:** Document, or switch email to a short-lived signed access token.  
+  **Done:** Documented in JSDoc on `encryptOrderId` / `decryptOrderId` / `encryptOrderIdAction` (no TTL; ciphertext ≠ auth). Guest email re-access without session remains P0 (signed bearer / lookup).
 
-- [ ] **No status history / product images on public details**  
+- [x] ✅ **No status history / product images on public details** done✅  
   Timeline is only `created_at` / `updated_at`. Line items are text snapshots (no images). Admin has richer status UI (`OrderStatusStepper`).  
   **Where:** public `order_details` page vs `app/admin/orders/[id]/page.tsx`.  
-  **Do:** Optional public timeline / thumbnails if product needs it.
+  **Do:** Optional public timeline / thumbnails if product needs it.  
+  **Done:** Accepted limitation — deferred below (no `status_history`; no image snapshot on `order_items`; admin stepper stays admin-only).
 
-- [ ] **Checkout revalidation omits `/order_details`**  
+- [x] ✅ **Checkout revalidation omits `/order_details`** done✅  
   `checkoutAction` revalidates `/cart`, `/orders`, `/account` — not `/order_details`. Usually fine (client navigates to a fresh URL).  
   **Where:** `actions/checkout.ts`.  
-  **Do:** Revalidate order detail path if soft-nav / caching ever shows stale empties.
+  **Do:** Revalidate order detail path if soft-nav / caching ever shows stale empties.  
+  **Done:** `checkoutAction` also calls `revalidatePath("/order_details")` (same as cart merge handoff).
 
 ---
 
@@ -131,6 +144,8 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 - [ ] Stripe (or other gateway) + webhook to mark order/payment paid  
 - [ ] Client payment method UI / pay CTA on order details  
 - [ ] Invoice PDF download  
+- [ ] Public order status timeline / progress UI (beyond current status badge + placed/updated times)  
+- [ ] Line-item product thumbnails on public details (would need image snapshot or live catalog join; snapshots stay text-only today)  
 
 ---
 
@@ -163,4 +178,4 @@ Guests can view order details **only while the guest session cookie that placed 
 
 ---
 
-**Highest-impact remaining:** email/session access model (bearer link or verified lookup) → show zone/promo + honest unshipped/pending-pay states → wire or remove profile dummy orders / invoice stub.
+**Highest-impact remaining:** guest cancel / invoice stub → explicit unshipped empty state.

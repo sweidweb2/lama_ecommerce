@@ -1,4 +1,4 @@
-import { encryptOrderId } from "@/lib/utils/encryption";
+import { buildSignedOrderDetailsUrl } from "@/lib/email/order-details-url";
 import type { Order, OrderItem } from "@/types/order";
 
 function formatMoney(value: number | null | undefined): string {
@@ -24,20 +24,7 @@ function variantLabel(item: OrderItem): string {
 }
 
 function buildOrderDetailsUrl(orderId: string): string | null {
-  const base =
-    process.env.EMAIL_ORDER_DETAILS_BASE_URL?.replace(/\/$/, "") ||
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    null;
-  if (!base) {
-    return null;
-  }
-  try {
-    const encryptedId = encryptOrderId(orderId);
-    return `${base}/order_details/${encodeURIComponent(encryptedId)}`;
-  } catch (error) {
-    console.error("Failed to encrypt order id for confirmation email link:", error);
-    return null;
-  }
+  return buildSignedOrderDetailsUrl(orderId);
 }
 
 export interface OrderConfirmationEmailContent {

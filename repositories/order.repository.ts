@@ -129,6 +129,42 @@ export async function getOrderByIdForAdmin(
 }
 
 /**
+ * Find a single order by checkout email + first-8 order id prefix (confirmation subject).
+ * Returns null when zero or multiple matches (fail closed).
+ */
+export async function findOrderByEmailAndShortId(
+  email: string,
+  shortOrderId: string,
+): Promise<Order | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const normalizedEmail = email.trim().toLowerCase();
+    const prefix = shortOrderId.trim().toLowerCase();
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .ilike("email", normalizedEmail)
+      .limit(50);
+
+    if (error) {
+      console.error("Error finding order by email and short id:", error);
+      return null;
+    }
+
+    const matches = ((data ?? []) as Order[]).filter((order) =>
+      order.id.toLowerCase().startsWith(prefix),
+    );
+
+    if (matches.length !== 1) return null;
+    return matches[0] ?? null;
+  } catch (error) {
+    console.error("Unexpected error in findOrderByEmailAndShortId:", error);
+    return null;
+  }
+}
+
+/**
  * Get order items for a given order.
  * Uses RLS — only items belonging to the caller's orders are returned.
  */

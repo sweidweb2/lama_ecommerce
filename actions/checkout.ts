@@ -63,6 +63,7 @@ export async function checkoutAction(
   if (result.success) {
     revalidatePath("/cart");
     revalidatePath("/orders");
+    revalidatePath("/order_details");
     if (input.save_address && user) {
       revalidatePath("/account");
     }

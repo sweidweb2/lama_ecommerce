@@ -21,8 +21,13 @@ function getEncryptionKey(): Buffer {
 /**
  * Encrypts a string (order ID) using AES-256-GCM.
  * Returns a URL-safe base64-encoded string containing IV, encrypted content, and auth tag.
- * 
+ *
  * Format: base64(iv:tag:encrypted)
+ *
+ * Threat model: ciphertext obscures the UUID and GCM rejects tampering. There is **no TTL** —
+ * links remain decryptable indefinitely while `ENCRYPTION_KEY` is unchanged. Possession of the
+ * ciphertext is **not** authorization to view an order; callers must still enforce ownership
+ * (user id / guest session) after decrypt.
  */
 export function encryptOrderId(text: string): string {
   try {
@@ -55,6 +60,10 @@ export function encryptOrderId(text: string): string {
 /**
  * Decrypts an encrypted order ID string.
  * Expects a URL-safe base64-encoded string containing IV, auth tag, and encrypted content.
+ *
+ * Success only proves the payload was produced with this key (and was not altered). It does
+ * **not** grant read access — ownership checks remain required after decrypt. Ciphertext has
+ * no expiry; invalid/corrupt input throws.
  */
 export function decryptOrderId(encryptedId: string): string {
   try {

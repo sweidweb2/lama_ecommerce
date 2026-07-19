@@ -20,10 +20,12 @@ import {
   type UpsertPaymentForOrderInput,
 } from "@/repositories/order.repository";
 import { createShipment } from "@/repositories/shipment.repository";
+import { getPromoCodeByIdAdmin } from "@/repositories/promo_code.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { canAccessAdmin } from "@/lib/auth/permissions";
+import { verifyOrderAccessToken } from "@/lib/auth/order-access-token";
 import { createShipmentSchema } from "@/lib/validators/shipment/create";
 
 /** Composite return type for a full order detail view. */
@@ -32,6 +34,16 @@ export interface OrderDetails {
   items: OrderItem[];
   payment: Payment | null;
   shipment: Shipment | null;
+  /** Applied promo code string when promo_code_id resolves; null otherwise. */
+  promo_code: string | null;
+}
+
+async function resolvePromoCode(
+  promoCodeId: string | null | undefined,
+): Promise<string | null> {
+  if (!promoCodeId) return null;
+  const promo = await getPromoCodeByIdAdmin(promoCodeId);
+  return promo?.code ?? null;
 }
 
 /**
@@ -87,39 +99,57 @@ export async function getAdminOrders(): Promise<AdminOrderRow[]> {
  * - If auth ownership fails and sessionId is present, fall through to guest session check
  *   (covers logged-in users who still have the guest cookie before/without a successful claim).
  * - Guest: service-role fetch + session ownership check (guest rows denied by RLS).
+ * - Signed access token (`t`): bearer capability for that orderId (email / find-order links).
  */
 export async function getOrderDetails(
   orderId: string,
   userId: string | null,
   sessionId: string | null,
+  accessToken?: string | null,
 ): Promise<OrderDetails | null> {
   if (userId) {
     const order = await getOrderById(orderId);
     if (order && order.user_id === userId) {
-      const [items, payment, shipment] = await Promise.all([
+      const [items, payment, shipment, promo_code] = await Promise.all([
         getOrderItemsByOrderId(orderId),
         getPaymentByOrderId(orderId),
         getShipmentByOrderId(orderId),
+        resolvePromoCode(order.promo_code_id),
       ]);
 
-      return { order, items, payment, shipment };
+      return { order, items, payment, shipment, promo_code };
     }
-    // Fall through to guest session when auth ownership misses
+    // Fall through to guest session / token when auth ownership misses
   }
 
   if (sessionId) {
     // Guest orders are not readable via anon RLS — use admin + ownership check
     const order = await getOrderByIdForAdmin(orderId);
-    if (!order) return null;
-    if (order.user_id !== null || order.session_id !== sessionId) return null;
+    if (order && order.user_id === null && order.session_id === sessionId) {
+      const [items, payment, shipment, promo_code] = await Promise.all([
+        getOrderItemsByOrderIdForAdmin(orderId),
+        getPaymentByOrderIdForAdmin(orderId),
+        getShipmentByOrderIdForAdmin(orderId),
+        resolvePromoCode(order.promo_code_id),
+      ]);
 
-    const [items, payment, shipment] = await Promise.all([
+      return { order, items, payment, shipment, promo_code };
+    }
+    // Fall through to signed token when session ownership misses
+  }
+
+  if (accessToken && verifyOrderAccessToken(accessToken, orderId)) {
+    const order = await getOrderByIdForAdmin(orderId);
+    if (!order) return null;
+
+    const [items, payment, shipment, promo_code] = await Promise.all([
       getOrderItemsByOrderIdForAdmin(orderId),
       getPaymentByOrderIdForAdmin(orderId),
       getShipmentByOrderIdForAdmin(orderId),
+      resolvePromoCode(order.promo_code_id),
     ]);
 
-    return { order, items, payment, shipment };
+    return { order, items, payment, shipment, promo_code };
   }
 
   return null;
@@ -139,13 +169,14 @@ export async function getAdminOrderDetails(
   const order = await getOrderByIdForAdmin(orderId);
   if (!order) return null;
 
-  const [items, payment, shipment] = await Promise.all([
+  const [items, payment, shipment, promo_code] = await Promise.all([
     getOrderItemsByOrderIdForAdmin(orderId),
     getPaymentByOrderIdForAdmin(orderId),
     getShipmentByOrderIdForAdmin(orderId),
+    resolvePromoCode(order.promo_code_id),
   ]);
 
-  return { order, items, payment, shipment };
+  return { order, items, payment, shipment, promo_code };
 }
 
 /**

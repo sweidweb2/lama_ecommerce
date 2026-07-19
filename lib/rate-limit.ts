@@ -45,3 +45,7 @@ export async function getClientIpFromHeaders(): Promise<string> {
 
 export const CONTACT_RATE_LIMIT = { limit: 5, windowSeconds: 15 * 60 } as const;
 export const LEAD_RATE_LIMIT = { limit: 10, windowSeconds: 60 * 60 } as const;
+export const ORDER_LOOKUP_RATE_LIMIT = {
+  limit: 5,
+  windowSeconds: 15 * 60,
+} as const;

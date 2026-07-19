@@ -157,6 +157,32 @@ export async function getPromoByCodeAdmin(
 }
 
 /**
+ * Fetch a promo code by id (admin client — promo_codes RLS is admin-only).
+ */
+export async function getPromoCodeByIdAdmin(
+  id: string,
+): Promise<PromoCodeRow | null> {
+  try {
+    if (!id) return null;
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await (supabase as any)
+      .from("promo_codes")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch promo by id:", error);
+      return null;
+    }
+    return (data as PromoCodeRow) ?? null;
+  } catch (error) {
+    console.error("Unexpected error in getPromoCodeByIdAdmin:", error);
+    return null;
+  }
+}
+
+/**
  * Delete a promo code by id.
  * Uses session client + admin RLS.
  */
