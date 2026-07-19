@@ -28,9 +28,17 @@ export interface UserAddress {
   created_at: string;
 }
 
+export type LeadStatus = "subscribed" | "unsubscribed";
+export type LeadSource = "footer" | "admin" | "unknown";
+
 export interface Lead {
   id: UUID;
   email: string;
+  user_id: UUID | null;
+  status: LeadStatus;
+  source: LeadSource;
+  unsubscribed_at: string | null;
+  unsubscribe_token: string;
   created_at: string;
 }
 

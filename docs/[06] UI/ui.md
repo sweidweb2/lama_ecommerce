@@ -64,8 +64,7 @@ components/
 │  │  ├─ hero-section.tsx
 │  │  ├─ categories-section.tsx
 │  │  ├─ trending-section.tsx
-│  │  ├─ testimonials-section.tsx
-│  │  └─ newsletter-section.tsx
+│  │  └─ testimonials-section.tsx
 │  │
 │  ├─ product/
 │  │  ├─ product-gallery-section.tsx
@@ -181,7 +180,6 @@ import { HeroSection } from "@/components/sections/home/hero-section";
 import { CategoriesSection } from "@/components/sections/home/categories-section";
 import { TrendingSection } from "@/components/sections/home/trending-section";
 import { TestimonialsSection } from "@/components/sections/home/testimonials-section";
-import { NewsletterSection } from "@/components/sections/home/newsletter-section";
 
 export default function HomePage() {
   return (
@@ -190,11 +188,12 @@ export default function HomePage() {
       <CategoriesSection />
       <TrendingSection />
       <TestimonialsSection />
-      <NewsletterSection />
     </>
   );
 }
 ```
+
+Storefront email list signup is **not** a home section. It lives in the site footer (`components/common/Footer.tsx` → `createLeadAction`).
 
 ### Section Example
 

@@ -74,10 +74,11 @@ Guest (guest_session_id)
   **Where:** `middleware.ts`; `app/(public)/auth/callback/route.ts`; `components/auth/LoginForm.tsx`.  
   **Do:** Show banners for inactive / callback failure.
 
-- [ ] **Failed cart merge still clears guest cookie**  
+- [x] ✅ **Failed cart merge still clears guest cookie** done✅  
   Comment is intentional; failed merge cannot be retried with the same session id.  
   **Where:** `actions/cart.ts` (`mergeGuestCartOnLoginAction` ~64–65).  
-  **Do:** Clear cookie only on successful merge (or when there was no guest cart).
+  **Do:** Clear cookie only on successful merge (or when there was no guest cart).  
+  **Done:** Cookie cleared only after `claimGuestOrdersService` and `mergeGuestCartToUserService` both succeed; AuthProvider can retry with the same guest session.
 
 ---
 

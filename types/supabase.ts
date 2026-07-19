@@ -681,19 +681,42 @@ export type Database = {
         Row: {
           id: string
           email: string
+          user_id: string | null
+          status: string
+          source: string
+          unsubscribed_at: string | null
+          unsubscribe_token: string
           created_at: string
         }
         Insert: {
           id?: string
           email: string
+          user_id?: string | null
+          status?: string
+          source?: string
+          unsubscribed_at?: string | null
+          unsubscribe_token?: string
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
+          user_id?: string | null
+          status?: string
+          source?: string
+          unsubscribed_at?: string | null
+          unsubscribe_token?: string
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_questions: {
         Row: {
@@ -820,6 +843,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_form_rate_limit: {
+        Args: {
+          p_key: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       upsert_cart_item: {
         Args: {
           p_cart_id: string

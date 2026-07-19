@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Table,
   TableBody,
@@ -15,14 +15,18 @@ import { TableWrapper } from "@/components/admin/table-wrapper"
 import { CreateLeadDialog, type AdminLead } from "@/components/admin/lead/create_form"
 import { EditLeadDialog } from "@/components/admin/lead/edit_form"
 import { DeleteLeadDialog } from "@/components/admin/lead/delete_dialog"
-import { getLeadsAction, deleteLeadAction } from "@/actions/lead"
+import {
+  getLeadsPageAction,
+  exportLeadsAction,
+  deleteLeadAction,
+} from "@/actions/lead"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react"
 import { truncateText } from "@/lib/utils"
 
 const LEADS_PER_PAGE = 20
-const MAX_PAGES = 100
+const SEARCH_DEBOUNCE_MS = 300
 
 const MAX_CHARS = {
   email: 40,
@@ -31,29 +35,46 @@ const MAX_CHARS = {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<AdminLead[]>([])
+  const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
 
-  const fetchLeads = async () => {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(query.trim())
+      setCurrentPage(1)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const fetchLeads = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const data = await getLeadsAction()
-      setLeads(data)
+      const data = await getLeadsPageAction({
+        page: currentPage,
+        pageSize: LEADS_PER_PAGE,
+        query: debouncedQuery || undefined,
+      })
+      setLeads(data.items)
+      setTotal(data.total)
     } catch (e) {
       console.error("Failed to load leads:", e)
       setError("Failed to load leads. Make sure you are signed in as an admin.")
       setLeads([])
+      setTotal(0)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentPage, debouncedQuery])
 
   useEffect(() => {
     fetchLeads()
-  }, [])
+  }, [fetchLeads])
 
   const handleLeadCreated = () => {
     fetchLeads()
@@ -69,36 +90,17 @@ export default function LeadsPage() {
       toast.error(result.error)
       throw new Error(result.error)
     }
-    setLeads((prev) => prev.filter((l) => l.id !== leadId))
     toast.success("Lead deleted")
+    await fetchLeads()
   }
 
-  const filteredLeads = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return leads
-    return leads.filter((lead) => lead.email.toLowerCase().includes(q))
-  }, [leads, query])
-
-  const maxToShow = MAX_PAGES * LEADS_PER_PAGE
-  const limited = useMemo(
-    () => filteredLeads.slice(0, maxToShow),
-    [filteredLeads, maxToShow],
-  )
-
-  const totalPages = Math.min(
-    Math.max(1, Math.ceil(limited.length / LEADS_PER_PAGE)),
-    MAX_PAGES,
-  )
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * LEADS_PER_PAGE
-    return limited.slice(start, start + LEADS_PER_PAGE)
-  }, [limited, currentPage])
+  const totalPages = Math.max(1, Math.ceil(total / LEADS_PER_PAGE))
 
   const hasActiveFilters = query.trim() !== ""
 
   const clearFilters = () => {
     setQuery("")
+    setDebouncedQuery("")
     setCurrentPage(1)
   }
 
@@ -107,39 +109,54 @@ export default function LeadsPage() {
     setCurrentPage(page)
   }
 
-  const handleExportToCSV = () => {
-    if (filteredLeads.length === 0) {
-      toast.error("No leads to export")
-      return
+  const handleExportToCSV = async () => {
+    try {
+      setIsExporting(true)
+      const rows = await exportLeadsAction(debouncedQuery || undefined)
+      if (rows.length === 0) {
+        toast.error("No leads to export")
+        return
+      }
+
+      const headers = ["Email", "Status", "Source", "Linked", "Signed Up", "Unsubscribed At"]
+      const csvRows = [headers.join(",")]
+
+      rows.forEach((lead) => {
+        const email = `"${lead.email.replace(/"/g, '""')}"`
+        const status = `"${(lead.status ?? "").replace(/"/g, '""')}"`
+        const source = `"${(lead.source ?? "").replace(/"/g, '""')}"`
+        const linked = lead.user_id ? "Yes" : "No"
+        const signedUp = lead.created_at
+          ? `"${format(new Date(lead.created_at), "PPp")}"`
+          : '""'
+        const unsubscribedAt = lead.unsubscribed_at
+          ? `"${format(new Date(lead.unsubscribed_at), "PPp")}"`
+          : '""'
+        csvRows.push([email, status, source, linked, signedUp, unsubscribedAt].join(","))
+      })
+
+      const csvContent = csvRows.join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute(
+        "download",
+        `leads_${format(new Date(), "yyyy-MM-dd_HH-mm-ss")}.csv`,
+      )
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success("Leads exported to CSV successfully")
+    } catch (e) {
+      console.error("Failed to export leads:", e)
+      toast.error("Failed to export leads")
+    } finally {
+      setIsExporting(false)
     }
-
-    const headers = ["Email", "Signed Up"]
-    const csvRows = [headers.join(",")]
-
-    filteredLeads.forEach((lead) => {
-      const email = `"${lead.email.replace(/"/g, '""')}"`
-      const signedUp = lead.created_at
-        ? `"${format(new Date(lead.created_at), "PPp")}"`
-        : '""'
-      csvRows.push([email, signedUp].join(","))
-    })
-
-    const csvContent = csvRows.join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute(
-      "download",
-      `leads_${format(new Date(), "yyyy-MM-dd_HH-mm-ss")}.csv`,
-    )
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-
-    toast.success("Leads exported to CSV successfully")
   }
 
   return (
@@ -155,7 +172,7 @@ export default function LeadsPage() {
           <Button
             variant="outline"
             onClick={handleExportToCSV}
-            disabled={filteredLeads.length === 0 || isLoading}
+            disabled={total === 0 || isLoading || isExporting}
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
@@ -168,10 +185,7 @@ export default function LeadsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setCurrentPage(1)
-          }}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by email…"
           className="max-w-sm"
         />
@@ -180,6 +194,11 @@ export default function LeadsPage() {
             <X className="mr-2 h-4 w-4" />
             Clear
           </Button>
+        )}
+        {!isLoading && (
+          <p className="text-sm text-muted-foreground">
+            {total} lead{total === 1 ? "" : "s"}
+          </p>
         )}
       </div>
 
@@ -199,31 +218,34 @@ export default function LeadsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40%]">Email</TableHead>
-                  <TableHead className="w-[35%]">Signed up</TableHead>
-                  <TableHead className="w-[25%] text-right">Actions</TableHead>
+                  <TableHead className="w-[28%]">Email</TableHead>
+                  <TableHead className="w-[14%]">Status</TableHead>
+                  <TableHead className="w-[12%]">Source</TableHead>
+                  <TableHead className="w-[10%]">Linked</TableHead>
+                  <TableHead className="w-[20%]">Signed up</TableHead>
+                  <TableHead className="w-[16%] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.length === 0 && !isLoading ? (
+                {leads.length === 0 && !isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={6}
                       className="py-8 text-center text-muted-foreground"
                     >
-                      {leads.length === 0
+                      {total === 0 && !debouncedQuery
                         ? "No leads yet. Add one or collect signups from the footer."
                         : "No leads match this search."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginated.map((lead) => {
+                  leads.map((lead) => {
                     const signedUpLabel = lead.created_at
                       ? format(new Date(lead.created_at), "PPp")
                       : "—"
                     return (
                       <TableRow key={lead.id}>
-                        <TableCell className="w-[40%] font-medium">
+                        <TableCell className="w-[28%] font-medium">
                           <div
                             className="max-w-[280px] truncate"
                             title={lead.email}
@@ -231,12 +253,21 @@ export default function LeadsPage() {
                             {truncateText(lead.email, MAX_CHARS.email)}
                           </div>
                         </TableCell>
-                        <TableCell className="w-[35%] text-muted-foreground">
+                        <TableCell className="w-[14%] capitalize text-muted-foreground">
+                          {lead.status ?? "—"}
+                        </TableCell>
+                        <TableCell className="w-[12%] capitalize text-muted-foreground">
+                          {lead.source ?? "—"}
+                        </TableCell>
+                        <TableCell className="w-[10%] text-muted-foreground">
+                          {lead.user_id ? "Yes" : "No"}
+                        </TableCell>
+                        <TableCell className="w-[20%] text-muted-foreground">
                           <span title={signedUpLabel}>
                             {truncateText(signedUpLabel, MAX_CHARS.signedUp)}
                           </span>
                         </TableCell>
-                        <TableCell className="w-[25%] text-right">
+                        <TableCell className="w-[16%] text-right">
                           <div className="flex items-center justify-end gap-2">
                             <EditLeadDialog
                               lead={lead}

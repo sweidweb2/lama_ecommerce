@@ -18,6 +18,11 @@ import { toast } from "sonner";
 export type AdminLead = {
   id: string;
   email: string;
+  user_id: string | null;
+  status: string;
+  source: string;
+  unsubscribed_at: string | null;
+  unsubscribe_token: string;
   created_at: string;
 };
 

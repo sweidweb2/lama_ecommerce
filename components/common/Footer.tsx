@@ -167,10 +167,10 @@ export function Footer() {
             {/* Lead / Newsletter signup */}
             <div>
               <h3 className="text-base font-semibold text-foreground mb-4">
-                Stay updated
+                Join our list
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Enter your email to get news and offers.
+                Enter your email to join our list.
               </p>
               <form
                 className="flex gap-2 relative"
@@ -180,7 +180,13 @@ export function Footer() {
                   setIsSubmitting(false)
                   if (result.success) {
                     setEmail('')
-                    toast.success("Thanks! We'll keep you updated.")
+                    if (result.outcome === "already_subscribed") {
+                      toast.success("You're already on our list.")
+                    } else if (result.outcome === "resubscribed") {
+                      toast.success("Welcome back — you're on our list again.")
+                    } else {
+                      toast.success("Thanks! You're on our list.")
+                    }
                   } else {
                     toast.error(result.error)
                   }

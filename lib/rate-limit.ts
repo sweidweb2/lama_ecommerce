@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { checkFormRateLimitRpc } from "@/repositories/form_rate_limit.repository";
 
 export interface CheckFormRateLimitOptions {
   key: string;
@@ -8,68 +8,24 @@ export interface CheckFormRateLimitOptions {
 }
 
 /**
- * DB-backed sliding window rate limit using form_rate_limits (service role).
- * Returns true if the request is allowed, false if the limit was exceeded.
+ * DB-backed sliding window rate limit using check_form_rate_limit RPC.
+ * Returns true if the request is allowed, false if the limit was exceeded
+ * or the rate-limit check failed (fail closed).
  */
 export async function checkFormRateLimit(
   options: CheckFormRateLimitOptions,
 ): Promise<boolean> {
-  const { key, limit, windowSeconds } = options;
-  const supabase = createSupabaseAdminClient();
-  const now = Date.now();
+  const result = await checkFormRateLimitRpc({
+    key: options.key,
+    limit: options.limit,
+    windowSeconds: options.windowSeconds,
+  });
 
-  try {
-    const { data: row, error } = await (supabase as any)
-      .from("form_rate_limits")
-      .select("key, window_started_at, hit_count")
-      .eq("key", key)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Failed to read form_rate_limits:", error);
-      // Fail open for availability of contact/lead forms if the table is missing
-      return true;
-    }
-
-    const windowStartedAt = row?.window_started_at
-      ? new Date(row.window_started_at).getTime()
-      : 0;
-    const windowExpired =
-      !row || now - windowStartedAt >= windowSeconds * 1000;
-
-    if (windowExpired) {
-      const { error: upsertError } = await (supabase as any)
-        .from("form_rate_limits")
-        .upsert({
-          key,
-          window_started_at: new Date(now).toISOString(),
-          hit_count: 1,
-        });
-
-      if (upsertError) {
-        console.error("Failed to reset form_rate_limits:", upsertError);
-      }
-      return true;
-    }
-
-    if ((row.hit_count as number) >= limit) {
-      return false;
-    }
-
-    const { error: updateError } = await (supabase as any)
-      .from("form_rate_limits")
-      .update({ hit_count: (row.hit_count as number) + 1 })
-      .eq("key", key);
-
-    if (updateError) {
-      console.error("Failed to increment form_rate_limits:", updateError);
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Unexpected error in checkFormRateLimit:", err);
-    return true;
+  if (!result.success) {
+    return false;
   }
+
+  return result.allowed;
 }
 
 /**

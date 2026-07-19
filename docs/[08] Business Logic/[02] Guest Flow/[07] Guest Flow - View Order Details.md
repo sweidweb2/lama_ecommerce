@@ -55,9 +55,9 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 ## P1 — Incomplete / wrong view-order behavior
 
 - [ ] **No re-access without the same cookie**  
-  Cookie is HttpOnly, 14 days. Middleware does **not** mint `guest_session_id` on `/order_details` or `/orders` (those paths hit default `next()`). Guest who only opens an email link never gets a new matching cookie anyway (cookie must equal the order’s stored `session_id`).  
-  **Where:** `middleware.ts` (public/cart/wishlist mint only); `lib/auth/guest-session.ts`; `app/(public)/orders/page.tsx`.  
-  **Do:** Magic link / email+order# verified lookup; optionally document that list/detail depend on an existing cart-minted cookie.
+  Cookie is HttpOnly, 14 days. Middleware mints `guest_session_id` on `/order_details` and `/orders` for cold hits, but a **new** cookie cannot match an order’s stored `session_id`. Guest who only opens an email link still cannot re-access after cookie loss.  
+  **Where:** `middleware.ts`; `lib/auth/guest-session.ts`; `app/(public)/orders/page.tsx`.  
+  **Do:** Magic link / email+order# verified lookup; optionally document that list/detail depend on the original placing session (or claim).
 
 - [ ] **No order lookup by email / short order id**  
   No find-order flow for guests who lost the cookie or link.  
@@ -88,10 +88,11 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 
 ## P2 — DX / dead / stale / edge cases
 
-- [ ] **`/orders` + `/order_details` skip guest cookie mint**  
+- [x] ✅ **`/orders` + `/order_details` skip guest cookie mint** done✅  
   Unlike `/`, `/products`, `/cart`, `/wishlist`, these routes do not call `ensureGuestSessionCookie`. Harmless if cookie already exists from browse/cart; odd if someone lands cold on `/orders` (empty list, no mint).  
   **Where:** `middleware.ts` default branch.  
-  **Do:** Include `/orders` and `/order_details` in mint list **or** document reliance on prior storefront routes (mint alone cannot restore old session id).
+  **Do:** Include `/orders` and `/order_details` in mint list **or** document reliance on prior storefront routes (mint alone cannot restore old session id).  
+  **Done:** Middleware calls `ensureGuestSessionCookie` for `/orders` and `/order_details`. Reminting does not restore expired-session orders (still needs claim/token).
 
 - [ ] **List links use raw UUID; post-checkout uses encrypted id**  
   Page accepts both by design. `OrdersTable` / `ProfileOrders` link `/order_details/${order.id}`. Ownership still required; encrypted URLs are obfuscation only, not auth.  
@@ -155,11 +156,11 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
 | Order fetch | Admin client + `user_id IS NULL` + session match | Session client / RLS + `user_id === auth` |
 | Items / payment / shipment | `*ForAdmin` after ownership | User path for order; payment/shipment often admin helpers after check |
 | Cookie | Required | Ignored when logged in |
-| Claim on login | **None** today (cart merge only) | — |
+| Claim on login | Same-session claim via `claimGuestOrdersService` before cookie clear | — |
 | Email link | Encrypted URL; still needs session today | Auth orders need matching `user_id` |
 
 Guests can view order details **only while the guest session cookie that placed the order remains valid** (or until a claim/lookup path is added).
 
 ---
 
-**Highest-impact fixes:** email/session access model (bearer link or verified lookup) → claim guest orders on login/signup → allow logged-in users to open prior guest orders → show zone/promo + honest unshipped/pending-pay states → wire or remove profile dummy orders / invoice stub.
+**Highest-impact remaining:** email/session access model (bearer link or verified lookup) → show zone/promo + honest unshipped/pending-pay states → wire or remove profile dummy orders / invoice stub.

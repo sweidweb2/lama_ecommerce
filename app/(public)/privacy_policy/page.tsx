@@ -249,6 +249,7 @@ export default function PolicyPage() {
                   <li>File a complaint with relevant data protection authorities</li>
                 </ul>
                 <p className="text-muted-foreground leading-relaxed mt-4">
+                  You may withdraw marketing consent by using the unsubscribe link we include when we send list emails, or by contacting us.
                   To exercise these rights, please contact us at <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a>.
                 </p>
               </Card>

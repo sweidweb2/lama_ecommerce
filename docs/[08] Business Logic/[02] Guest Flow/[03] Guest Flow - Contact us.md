@@ -38,29 +38,33 @@ _None verified._ Core submit → DB row → admin read path is wired and consist
 
 ## P1 — Incomplete / wrong submit behavior
 
-- [ ] **Validation failures throw instead of returning `{ success: false, error }`**  
+- [x] ✅ **Validation failures throw instead of returning `{ success: false, error }`** done✅  
   Lead action uses `safeParse` and returns a clear error. Contact validates with `.parse()` inside the service; Zod/DB failures throw. Guest page only shows a generic toast in `catch` (and no field-level messages). Rate limit already ran, so a too-long name/message still burns a slot.  
   **Where:** `actions/contact_us.ts`; `services/contact_us.service.ts` (`createContactUs`); contrast `actions/lead.ts`.  
-  **Do:** `safeParse` in the action (or service returning Result); map length/email errors to guest-facing strings; optionally rate-limit only after validation passes.
+  **Do:** `safeParse` in the action (or service returning Result); map length/email errors to guest-facing strings; optionally rate-limit only after validation passes.  
+  **Done:** `createContactUsAction` `safeParse`s before rate limit; returns `{ success: false, error, fieldErrors }`; insert failures caught as Result (no throw to guest).
 
-- [ ] **Tight Zod caps with no matching client limits / feedback**  
+- [x] ✅ **Tight Zod caps with no matching client limits / feedback** done✅  
   Wired schema: name ≤40, subject ≤100, message ≤400, phone ≤20. Form has HTML `required` only — no `maxLength`. Longer paste → opaque failure. Unused `lib/validators/user_contact/base.ts` allows name 200 / message 5000, suggesting the live caps may be unintentionally harsh.  
   **Where:** `lib/validators/contact_us/create.ts`; `app/(public)/contact-us/page.tsx`; orphan `lib/validators/user_contact/*`.  
-  **Do:** Align limits with product intent; add `maxLength` + inline errors; delete or unify orphan validators.
+  **Do:** Align limits with product intent; add `maxLength` + inline errors; delete or unify orphan validators.  
+  **Done:** Caps aligned to storefront intent (name/subject 200, message 5000, phone 30) via `CONTACT_US_FIELD_MAX`; form `maxLength` + inline errors; orphan `user_contact` validators deleted.
 
 ---
 
 ## P2 — DX / stubs / spam residual / UX
 
-- [ ] **UI marks phone required; Zod treats phone as optional/nullable**  
+- [x] **UI marks phone required; Zod treats phone as optional/nullable**  
   Browser may block empty phone; API path would accept null.  
   **Where:** `app/(public)/contact-us/page.tsx`; `lib/validators/contact_us/create.ts`.  
-  **Do:** Match UI and schema (both required or both optional).
+  **Do:** Match UI and schema (both required or both optional).  
+  **Done:** UI phone is optional (`Phone (optional)`, no HTML `required`); Zod/DB already nullable.
 
-- [ ] **Rate limit fails open on `form_rate_limits` read/update errors**  
+- [x] **Rate limit fails open on `form_rate_limits` read/update errors**  
   Documented for availability; if the table/migration is missing, spam protection disappears while SR insert still works. Concurrent reads can also exceed the nominal limit (TOCTOU).  
   **Where:** `lib/rate-limit.ts`; `form_rate_limits` setup in `supabase/migrations/20260126141860_initial.sql`.  
-  **Do:** Fail closed for public forms once the table is guaranteed, or use an atomic RPC/upsert.
+  **Do:** Fail closed for public forms once the table is guaranteed, or use an atomic RPC/upsert.  
+  **Done:** `check_form_rate_limit` RPC (`20260719150000`); TS fail-closed via repository.
 
 - [ ] **No email to admin or guest on submit**  
   Order flow uses Resend (`lib/email/resend.ts`); contact path has zero notify/ack. Submit only lands in DB for `/admin/contact`.  
@@ -72,10 +76,11 @@ _None verified._ Core submit → DB row → admin read path is wired and consist
   **Where:** `app/(public)/contact-us/page.tsx`.  
   **Do:** Real business contacts or remove.
 
-- [ ] **No `generateMetadata` on `/contact-us`**  
+- [x] ✅ **No `generateMetadata` on `/contact-us`** done✅  
   SEO/title defaults to root layout only.  
   **Where:** `app/(public)/contact-us/page.tsx`.  
-  **Do:** Route metadata.
+  **Do:** Route metadata.  
+  **Done:** Server `page.tsx` exports `metadata` (`Contact Us`); form UI in `ContactUsPageClient`.
 
 ---
 

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
 import { createContactUsAction } from "@/actions/contact_us"
+import { CONTACT_US_FIELD_MAX } from "@/lib/validators/contact_us/create"
 
 export type AdminContact = {
   id: string
@@ -37,13 +38,17 @@ export function CreateContactDialog() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await createContactUsAction({
+      const result = await createContactUsAction({
         full_name: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
         subject: subject.trim(),
         message: message.trim(),
       })
+      if (!result.success) {
+        setError(result.error || "Failed to create contact")
+        return
+      }
       setFullName("")
       setEmail("")
       setPhone("")
@@ -64,6 +69,7 @@ export function CreateContactDialog() {
     setPhone("")
     setSubject("")
     setMessage("")
+    setError(null)
     setOpen(false)
   }
 
@@ -96,6 +102,7 @@ export function CreateContactDialog() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
+                  maxLength={CONTACT_US_FIELD_MAX.full_name}
                   required
                 />
               </div>
@@ -109,6 +116,7 @@ export function CreateContactDialog() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="john.doe@example.com"
+                  maxLength={CONTACT_US_FIELD_MAX.email}
                   required
                 />
               </div>
@@ -122,6 +130,7 @@ export function CreateContactDialog() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1234567890"
+                  maxLength={CONTACT_US_FIELD_MAX.phone}
                 />
               </div>
               <div className="space-y-2">
@@ -131,6 +140,7 @@ export function CreateContactDialog() {
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Subject"
+                  maxLength={CONTACT_US_FIELD_MAX.subject}
                 />
               </div>
             </div>
@@ -145,6 +155,7 @@ export function CreateContactDialog() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write the contact message here..."
                 rows={5}
+                maxLength={CONTACT_US_FIELD_MAX.message}
                 required
               />
             </div>
@@ -168,4 +179,3 @@ export function CreateContactDialog() {
     </>
   )
 }
-

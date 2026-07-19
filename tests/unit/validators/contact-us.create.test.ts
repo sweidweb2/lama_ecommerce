@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createContactUsSchema } from "@/lib/validators/contact_us/create";
+import {
+  CONTACT_US_FIELD_MAX,
+  createContactUsSchema,
+} from "@/lib/validators/contact_us/create";
 
 describe("createContactUsSchema", () => {
   const valid = {
@@ -44,5 +47,43 @@ describe("createContactUsSchema", () => {
     if (result.success) {
       expect(result.data.phone).toBeNull();
     }
+  });
+
+  it("accepts values at the storefront max caps", () => {
+    const result = createContactUsSchema.safeParse({
+      ...valid,
+      full_name: "a".repeat(CONTACT_US_FIELD_MAX.full_name),
+      subject: "b".repeat(CONTACT_US_FIELD_MAX.subject),
+      message: "c".repeat(CONTACT_US_FIELD_MAX.message),
+      phone: "1".repeat(CONTACT_US_FIELD_MAX.phone),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects values over the storefront max caps", () => {
+    expect(
+      createContactUsSchema.safeParse({
+        ...valid,
+        full_name: "a".repeat(CONTACT_US_FIELD_MAX.full_name + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      createContactUsSchema.safeParse({
+        ...valid,
+        subject: "b".repeat(CONTACT_US_FIELD_MAX.subject + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      createContactUsSchema.safeParse({
+        ...valid,
+        message: "c".repeat(CONTACT_US_FIELD_MAX.message + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      createContactUsSchema.safeParse({
+        ...valid,
+        phone: "1".repeat(CONTACT_US_FIELD_MAX.phone + 1),
+      }).success,
+    ).toBe(false);
   });
 });
