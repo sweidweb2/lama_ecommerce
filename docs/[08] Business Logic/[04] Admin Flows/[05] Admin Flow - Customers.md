@@ -47,11 +47,12 @@
 
 ## P0 — Correctness (fix first)
 
-- [ ] **`is_active` does not block admin routes or admin actions**  
+- [x] ✅ **`is_active` does not block admin routes or admin actions** done✅  
   UI copy: inactive users cannot access profile/account. Middleware enforces that on `/account` and `/profile` only. `/admin` checks **role**, not `is_active`. `requireAdmin` / `canAccessAdmin` ignore `is_active`. Deactivated admin keeps panel + RLS + actions until session ends. Login does not reject inactive.  
   **Where:** `middleware.ts` (`/admin`); `lib/auth/require-admin.ts`; `lib/auth/permissions.ts`; `components/admin/user/edit_form.tsx` (copy).  
   **Do:** Gate `/admin` + `requireAdmin` (and ideally login) on `profile.is_active === true`; optionally revoke sessions on deactivate.  
-  **Also tracked:** Guest Flow — Sign up / Log in; Admin Dashboard P1.
+  **Also tracked:** Guest Flow — Sign up / Log in; Admin Dashboard P1.  
+  **Done:** Middleware + `requireAdmin` gate on `is_active`; login rejects inactive (session revoke on deactivate still optional).
 
 ---
 

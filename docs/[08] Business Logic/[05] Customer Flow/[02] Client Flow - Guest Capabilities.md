@@ -71,19 +71,17 @@ _None verified that deny an active user guest shopping capabilities after handof
   **Where:** `app/(public)/orders/page.tsx` vs `app/(public)/order_details/[id]/page.tsx` + `getOrderDetails`.  
   **Do:** Union session orders (unclaimed) with user orders while cookie present, or wait for claim / surface merge-failure toast.
 
-- [ ] **Cart/order/wishlist handoff may still skip if only `INITIAL_SESSION` fires and callback did not run handoff**  
+- [x] ✅ **Cart/order/wishlist handoff may still skip if only `INITIAL_SESSION` fires and callback did not run handoff** done✅  
   Password login uses `SIGNED_IN` → AuthProvider handoff. Email-confirm callback now calls `performGuestSessionHandoff` after exchange. Residual risk: other auth entry paths that neither fire `SIGNED_IN` nor hit the callback handoff.  
   **Where:** `providers/AuthProvider.tsx`; `app/(public)/auth/callback/route.ts`.  
-  **Do:** Keep callback handoff; optionally also run idempotent handoff on first authenticated session load.
+  **Do:** Keep callback handoff; optionally also run idempotent handoff on first authenticated session load.  
+  **Done:** AuthProvider runs handoff on `SIGNED_IN` and `INITIAL_SESSION`; callback runs `performGuestSessionHandoff` after exchange.
 
----
-
-## P2 — DX / UX
-
-- [ ] **Merge failure toast; retry depends on cookie retention**  
+- [x] ✅ **Merge failure toast; retry depends on cookie retention** done✅  
   AuthProvider toasts on failure; cookie kept (good). User may not know to refresh/retry.  
   **Where:** `providers/AuthProvider.tsx`.  
-  **Do:** Optional retry CTA or run merge once from cart/`/orders` when cookie + auth coexist.
+  **Do:** Optional retry CTA or run merge once from cart/`/orders` when cookie + auth coexist.  
+  **Done:** Failure toast includes cart/orders/wishlist + “Refresh… to retry”; cookie retained; `INITIAL_SESSION` re-runs handoff.
 
 - [ ] **Claim-then-merge partial success messaging**  
   If claim succeeds and merge fails, orders are already on `user_id`, cookie kept for cart retry (idempotent claim). Messaging may say “cart or orders” generically.  

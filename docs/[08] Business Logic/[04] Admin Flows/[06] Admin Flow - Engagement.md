@@ -87,7 +87,7 @@ Storefront review create
   **Where:** `actions/product_question.ts`; answer insert paths.  
   **Do:** Pass `requireAdmin().user_id`.
 
-- [ ] **`is_active` ignored for `/admin`** — shared auth P0 (Customers / Guest Sign up).
+- [x] ✅ **`is_active` ignored for `/admin`** done✅ — middleware + `requireAdmin` (Customers / Guest Sign up / Auth Session).
 
 ---
 

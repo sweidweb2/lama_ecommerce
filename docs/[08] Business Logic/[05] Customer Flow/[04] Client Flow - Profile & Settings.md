@@ -63,10 +63,11 @@ They are **different unfinished product shapes**, not two UIs of the same featur
   **Where:** `app/(public)/profile/setting/page.tsx`.  
   **Do:** Implement settings (name, password, prefs) **or** redirect → `/account` and treat Account doc as the single source; update `flow.md` if consolidating.
 
-- [ ] **`ProfileOrders` uses raw UUID links**  
+- [x] ✅ **`ProfileOrders` uses raw UUID links** done✅  
   Production order details often use encrypted ids. Dummy links would be wrong even if data were real.  
   **Where:** `components/(public)/profile/ProfileOrders.tsx`.  
-  **Do:** When wiring, use `encryptOrderId` like elsewhere.
+  **Do:** When wiring, use `encryptOrderId` like elsewhere.  
+  **Done:** Links use `encryptedId ?? id`; profile page maps `encryptOrderId`.
 
 ---
 
@@ -76,8 +77,9 @@ They are **different unfinished product shapes**, not two UIs of the same featur
   **Where:** `ProfileStats.tsx`.  
   **Do:** Compute from real data or drop with stub.
 
-- [ ] **Duplicate wishlist entry points** (`/account/wishlist` vs `/wishlist`)  
-  **Do:** Clarify single wishlist surface (later Wishlist Customer Flow bullet).
+- [x] ✅ **Duplicate wishlist entry points** (`/account/wishlist` vs `/wishlist`) done✅  
+  **Do:** Clarify single wishlist surface (later Wishlist Customer Flow bullet).  
+  **Done:** `/account/wishlist` redirects to `/wishlist`.
 
 - [ ] **`data-testid="profile-settings-heading"` without product**  
   **Do:** Keep only if shipping real settings.

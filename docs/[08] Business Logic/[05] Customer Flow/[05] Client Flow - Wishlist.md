@@ -56,33 +56,38 @@ Login / auth callback → performGuestSessionHandoff
 
 ## P1 — Incomplete / wrong wishlist behavior
 
-- [ ] **Duplicate surfaces diverge**  
+- [x] ✅ **Duplicate surfaces diverge** done✅  
   Navbar + ProfileActions → `/wishlist` only. `/account/wishlist` has no filters/stats; toggle never revalidates account path.  
   **Where:** both pages; `Navbar.tsx`; `ProfileActions.tsx`; `actions/wishlist.ts`.  
-  **Do:** Canonical page + redirect, or shared RSC; `revalidatePath` both.
+  **Do:** Canonical page + redirect, or shared RSC; `revalidatePath` both.  
+  **Done:** `/account/wishlist` redirects to `/wishlist`.
 
-- [ ] **Featured / trending filters + stats broken**  
+- [x] ✅ **Featured / trending filters + stats broken** done✅  
   Select omits `is_featured` / `is_trending`.  
   **Where:** `wishlist.repository.ts`; `wishlist/page.tsx`; `WishlistStats.tsx`.  
-  **Do:** Add columns or drop filters/stats.
+  **Do:** Add columns or drop filters/stats.  
+  **Done:** Columns in `WISHLIST_SELECT`; `filterWishlistItems` + stats use available products.
 
-- [ ] **Category filter uses `DUMMY_CATEGORIES`**  
+- [x] ✅ **Category filter uses `DUMMY_CATEGORIES`** done✅  
   **Where:** `WishlistFilters.tsx`.  
-  **Do:** Options from wishlist items / live categories.
+  **Do:** Options from wishlist items / live categories.  
+  **Done:** `categoriesFromWishlistItems` on `/wishlist` passed into `WishlistFilters`.
 
 - [x] ✅ **List hides saved variant** done✅  
   Repo maps `variant`; UI ignores it.  
   **Do:** Badge / variant-aware card; optional ATC from list.  
   **Done:** `WishlistItemCard` shows color · size · material + ATC for that `customised_product_id`.
 
-- [ ] **Inactive products vanish silently**  
+- [x] ✅ **Inactive products vanish silently** done✅  
   RLS null embed → filtered out.  
-  **Do:** Unavailable placeholder or prune rows.
+  **Do:** Unavailable placeholder or prune rows.  
+  **Done:** `mapWishlistJoinRow` + `UnavailableWishlistCard`.
 
-- [ ] **Handoff toast / tests may omit wishlist**  
+- [x] ✅ **Handoff toast / tests may omit wishlist** done✅  
   Toast may still say “cart or orders”; merge tests may not mock `claimGuestWishlistService`.  
   **Where:** `AuthProvider.tsx`; `tests/feature/merge-guest-on-login.test.ts`.  
-  **Do:** Include wishlist in copy + mocks; assert claim → cart → wishlist → clear.
+  **Do:** Include wishlist in copy + mocks; assert claim → cart → wishlist → clear.  
+  **Done:** Toast includes wishlist; merge tests mock/assert `claimGuestWishlistService`.
 
 ---
 
@@ -91,7 +96,7 @@ Login / auth callback → performGuestSessionHandoff
 - [x] ✅ Dead `WishlistButton`; no navbar wishlist count — see Guest Wishlist P1 (deleted button + navbar badge)
 - [x] ✅ Stats ignore `price_override` — `unitPrice` via `resolveCartUnitPrice`; stats + price filter use it
 - [x] ✅ Errors → empty list (no error banner) — list getters return Result; `/wishlist` error + retry UI
-- [ ] `/account/wishlist` soft login UI unreachable under middleware  
+- [x] ✅ `/account/wishlist` soft login UI unreachable under middleware done✅ — page redirects to `/wishlist`  
 
 ---
 

@@ -32,20 +32,22 @@
 
 ## P0 — Correctness (fix first)
 
-- [ ] **`/admin` and `/api/admin` ignore `is_active`**  
+- [x] ✅ **`/admin` and `/api/admin` ignore `is_active`** done✅  
   Deactivated admin still reaches panel/APIs. `/account` and `/profile` are blocked; auth-entry redirect also requires `is_active`, so inactive admin can sit on login with a live session and still open `/admin` by URL.  
   **Where:** `middleware.ts` (`/admin`, `/api/admin`); `lib/auth/require-admin.ts`; `lib/auth/permissions.ts`.  
   **Do:** Gate admin routes/APIs/`requireAdmin` on `is_active === true`; force sign-out + inactive message on login.  
-  **Also tracked:** Guest Sign up P0; Customers / Dashboard / Catalog docs.
+  **Also tracked:** Guest Sign up P0; Customers / Dashboard / Catalog docs.  
+  **Done:** Middleware rejects inactive on `/admin` + `/api/admin`; `requireAdmin` requires `is_active`; `loginService` signs out inactive profiles.
 
 ---
 
 ## P1 — Incomplete / wrong panel session behavior
 
-- [ ] **Auth callback admin → `/admin` often fails**  
+- [x] ✅ **Auth callback admin → `/admin` often fails** done✅  
   After `exchangeCodeForSession`, cookies are on the redirect response; `getCurrentUserProfile()` reads request cookies → often misses session → lands on `next`/HOME. Password login redirect is reliable.  
   **Where:** `app/(public)/auth/callback/route.ts`.  
-  **Do:** Resolve role with the exchange client (Guest Sign up **Do:**).
+  **Do:** Resolve role with the exchange client (Guest Sign up **Do:**).  
+  **Done:** `getUser` + `getProfileByUserIdAdmin` after exchange; cookies preserved on admin redirect.
 
 - [ ] **Idle vs manual logout destinations differ**  
   Idle → `/auth/login`; header/Navbar → `/`. Fine if intentional; confusing when documenting session expiry.  

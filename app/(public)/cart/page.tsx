@@ -74,6 +74,7 @@ export default async function CartPage() {
     (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Fetch shipping zones for the checkout form (fallback to empty array)
   const shippingZones = (await getPublicShippingZones()) ?? [];
@@ -136,6 +137,7 @@ export default async function CartPage() {
         <div className="lg:col-span-1">
           <CartSidebar
             subtotal={subtotal}
+            itemCount={itemCount}
             cartId={cart.id}
             shippingZones={shippingZones}
             savedAddresses={savedAddresses}

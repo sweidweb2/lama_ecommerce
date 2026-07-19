@@ -54,10 +54,11 @@ _None verified that fully blocks “pick a saved address and place a valid order
   **Where:** `app/(public)/cart/page.tsx`; `CartSidebar.tsx`.  
   **Do:** Pass `user.email` (and optional last-used phone) as initial contact.
 
-- [ ] **`itemCount` missing on cart page**  
+- [x] ✅ **`itemCount` missing on cart page** done✅  
   `CartSidebar` expects `itemCount`; page does not pass it → Place order may not disable when `items.length === 0`.  
   **Where:** `app/(public)/cart/page.tsx` vs `CartSidebarProps`.  
-  **Do:** Pass `itemCount={items.length}` (or equivalent).
+  **Do:** Pass `itemCount={items.length}` (or equivalent).  
+  **Done:** Cart page computes and passes `itemCount` to `CartSidebar`.
 
 - [ ] **Save-after-checkout failures are silent**  
   Order succeeds; `createAddressForUser` `.catch(console.error)`; no toast — user thinks it saved.  

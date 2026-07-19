@@ -82,7 +82,7 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
   **Where:** `getTopProductsByRevenue`.  
   **Do:** Aggregate by real `product_id` if available on `order_items`.
 
-- [ ] **`is_active` ignored for `/admin`** — shared auth P0.
+- [x] ✅ **`is_active` ignored for `/admin`** done✅ — shared auth P0 fixed (middleware + `requireAdmin`).
 
 ---
 

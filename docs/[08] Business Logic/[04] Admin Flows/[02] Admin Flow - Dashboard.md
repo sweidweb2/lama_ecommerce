@@ -78,10 +78,11 @@
   **Where:** `app/admin/page.tsx`.  
   **Do:** Link rows to encrypted product/order/review/contact detail where pages exist.
 
-- [ ] **`is_active` ignored for `/admin` access**  
+- [x] ✅ **`is_active` ignored for `/admin` access** done✅  
   Deactivated admin still reaches dashboard (shared Guest Sign up P0).  
   **Where:** `middleware.ts`; `lib/auth/require-admin.ts`.  
-  **Do:** See Guest Flow — Sign up / Log in.
+  **Do:** See Guest Flow — Sign up / Log in.  
+  **Done:** Middleware + `requireAdmin` enforce `is_active`.
 
 ---
 

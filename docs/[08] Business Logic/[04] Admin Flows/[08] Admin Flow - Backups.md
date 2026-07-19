@@ -78,7 +78,7 @@
 - [ ] **Authz tests cover service layer only** (not extract route).  
   **Where:** `tests/feature/backup-admin-auth.test.ts`.
 
-- [ ] **`is_active` ignored for `/admin`** — shared auth P0.
+- [x] ✅ **`is_active` ignored for `/admin`** done✅ — shared auth P0 fixed (middleware + `requireAdmin`).
 
 ---
 

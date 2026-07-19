@@ -28,6 +28,8 @@ import {
 } from "@/lib/auth/guest-session";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { revalidatePath } from "next/cache";
+import type { Cart, CartItem } from "@/types/order";
+import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
 type GuestHandoffResult = {
   success: boolean;
@@ -35,6 +37,22 @@ type GuestHandoffResult = {
   merged: boolean;
   /** True when guest_session_id was cleared after a full successful handoff. */
   clearedGuestCookie?: boolean;
+};
+
+type CartMutationResult = {
+  success: boolean;
+  error?: string;
+  data?:
+    | CartItem
+    | Cart
+    | { cart: Cart; cartItem: CartItem }
+    | { cart: Cart; items: CartItemWithProduct[] };
+};
+
+type CartWithItemsResult = {
+  success: boolean;
+  error?: string;
+  data?: { cart: Cart; items: CartItemWithProduct[] };
 };
 
 /**
@@ -134,7 +152,7 @@ export async function mergeGuestCartOnLoginAction(): Promise<GuestHandoffResult>
 export async function addItemToCartAction(input: {
   customised_product_id: string;
   quantity: number;
-}): Promise<{ success: boolean; error?: string; data?: any }> {
+}): Promise<CartMutationResult> {
   // Check if user is authenticated
   const user = await getCurrentAuthUserFromAction();
 
@@ -169,7 +187,7 @@ export async function addItemToCartAction(input: {
 export async function getUserCartAction(): Promise<{
   success: boolean;
   error?: string;
-  data?: any;
+  data?: Cart;
 }> {
   const user = await getCurrentAuthUserFromAction();
 
@@ -203,11 +221,7 @@ export async function getUserCartAction(): Promise<{
  * - Guest → read guest_session_id cookie → fetch cart by session_id
  * - No session / no cart → returns { success: false }
  */
-export async function getUserCartWithItemsAction(): Promise<{
-  success: boolean;
-  error?: string;
-  data?: any;
-}> {
+export async function getUserCartWithItemsAction(): Promise<CartWithItemsResult> {
   const user = await getCurrentAuthUserFromAction();
 
   if (user) {
@@ -316,7 +330,7 @@ export async function addItemToCartByIdAction(
     customised_product_id: string;
     quantity: number;
   },
-): Promise<{ success: boolean; error?: string; data?: any }> {
+): Promise<CartMutationResult> {
   try {
     await requireAdmin();
   } catch {
@@ -343,7 +357,7 @@ export async function addItemToCartByIdAction(
 export async function updateCartItemQuantityAction(
   cartItemId: string,
   quantity: number,
-): Promise<{ success: boolean; error?: string; data?: any }> {
+): Promise<CartMutationResult> {
   try {
     if (quantity < 1) {
       return {
@@ -353,7 +367,7 @@ export async function updateCartItemQuantityAction(
     }
 
     const user = await getCurrentAuthUserFromAction();
-    let result: { success: boolean; error?: string; data?: any };
+    let result: CartMutationResult;
 
     if (user) {
       result = await updateUserCartItemQuantityService(cartItemId, quantity);
@@ -392,7 +406,7 @@ export async function updateCartItemAction(
   cartItemId: string,
   quantity: number,
   cartId: string,
-): Promise<{ success: boolean; error?: string; data?: any }> {
+): Promise<CartMutationResult> {
   try {
     await requireAdmin();
   } catch {
@@ -421,7 +435,7 @@ export async function createCartAction(
     user_id?: string | null;
     session_id?: string | null;
   },
-): Promise<{ success: boolean; error?: string; data?: any }> {
+): Promise<CartMutationResult> {
   try {
     await requireAdmin();
   } catch {
@@ -448,7 +462,7 @@ export async function getCartWithItemsForAdminAction(
 ): Promise<{
   success: boolean;
   error?: string;
-  data?: { cart: any; items: any[]; subtotal: number };
+  data?: { cart: Cart; items: CartItemWithProduct[]; subtotal: number };
 }> {
   try {
     await requireAdmin();

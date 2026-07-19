@@ -8,20 +8,26 @@ const notFound = vi.fn(() => {
 });
 
 vi.mock("@/services/order.service", () => ({
-  getOrderDetails: (...args: unknown[]) => getOrderDetails(...args),
+  getOrderDetails: ((...args: unknown[]) =>
+    (getOrderDetails as (...a: unknown[]) => unknown)(...args)) as typeof getOrderDetails,
 }));
 
 vi.mock("@/repositories/auth.repository", () => ({
-  getCurrentAuthUserFromComponent: (...args: unknown[]) =>
-    getCurrentAuthUserFromComponent(...args),
+  getCurrentAuthUserFromComponent: ((...args: unknown[]) =>
+    (getCurrentAuthUserFromComponent as (...a: unknown[]) => unknown)(
+      ...args,
+    )) as typeof getCurrentAuthUserFromComponent,
 }));
 
 vi.mock("@/lib/auth/guest-session", () => ({
-  getGuestSessionId: (...args: unknown[]) => getGuestSessionId(...args),
+  getGuestSessionId: ((...args: unknown[]) =>
+    (getGuestSessionId as (...a: unknown[]) => unknown)(
+      ...args,
+    )) as typeof getGuestSessionId,
 }));
 
 vi.mock("next/navigation", () => ({
-  notFound: (...args: unknown[]) => notFound(...args),
+  notFound: () => notFound(),
 }));
 
 describe("Order invoice page ownership", () => {

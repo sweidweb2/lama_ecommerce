@@ -72,10 +72,11 @@ _None verified._ Storefront feature gaps that affect User also affect Admin the 
   **Where:** `components/auth/LoginForm.tsx` (role → `ROUTES.ADMIN`); `middleware.ts` auth-entry redirect (~97–98).  
   **Do:** Keep as-is (document), or add a storefront CTA post-login / optional “Continue shopping” when `redirect` is absent.
 
-- [ ] **Auth callback admin → `/admin` often ineffective**  
+- [x] ✅ **Auth callback admin → `/admin` often ineffective** done✅  
   Same cookie-timing issue as Guest Sign up doc: after `exchangeCodeForSession`, `getCurrentUserProfile()` may not see new cookies → admin may land on `next`/HOME instead of `/admin`. Password login redirect is reliable. Does **not** block storefront use (opposite direction).  
   **Where:** `app/(public)/auth/callback/route.ts`.  
-  **Do:** Resolve role with the exchange client (see Guest Sign up **Do:**).
+  **Do:** Resolve role with the exchange client (see Guest Sign up **Do:**).  
+  **Done:** Callback uses exchange-client `getUser` + `getProfileByUserIdAdmin`; session cookies applied on final redirect to `/admin` or `next`.
 
 ---
 
@@ -83,7 +84,7 @@ _None verified._ Storefront feature gaps that affect User also affect Admin the 
 
 - [ ] `/admin` panel modules (dashboard, catalog, sales, customers, engagement, analytics, backups) — separate Admin Flow docs  
 - [ ] Stripe / client pay UI — shared deferred buying work  
-- [ ] Enforce `is_active` on `/admin` + `requireAdmin` — auth/admin-gate work (Guest Sign up P0); out of “shop as admin” claim  
+- [x] ✅ Enforce `is_active` on `/admin` + `requireAdmin` done✅ — middleware + `requireAdmin` + inactive login reject (Guest Sign up / Auth Session)  
 - [ ] Admin-panel cart management (`createCartForAdminService`, admin checkout dialog) — ops tool for **other** users’/guests’ carts, not the admin’s personal storefront cart
 
 ---

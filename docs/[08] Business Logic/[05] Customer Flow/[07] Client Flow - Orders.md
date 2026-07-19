@@ -49,17 +49,18 @@ _None verified that block an active user from viewing **owned** or **successfull
   **Do:** Union session unclaimed + user orders while cookie present, or wait for claim / surface merge failure.  
   **Also tracked:** `[02] Client Flow - Guest Capabilities.md`.
 
-- [ ] **Shared guest order UI gaps still apply after claim**  
+- [x] ✅ **Shared guest order UI gaps still apply after claim** done✅  
   Email link ≠ bearer auth; no shipping zone/promo on details UI; no pay CTA; invoice stub; weak unshipped empty state.  
   **Where:** Guest View Order Details.  
-  **Do:** Same as guest **Do**s when product wants parity.
+  **Do:** Same as guest **Do**s when product wants parity.  
+  **Done:** Details show zone/promo, pay CTA when `payment_url` pending, printable invoice, restock note, shipment empty states (Guest View Order Details).
 
 ---
 
 ## P2 — DX / polish
 
-- [ ] **Profile hub “orders” are dummy data** — see Profile & Settings.  
-- [ ] **List links often raw UUID; post-checkout uses encrypted id** — both work if ownership passes; unify or document.  
+- [x] ✅ **Profile hub “orders” are dummy data** done✅ — `profile/page.tsx` uses `getUserOrders` (header/stats identity still stub — Profile P0).  
+- [x] ✅ **List links often raw UUID; post-checkout uses encrypted id** done✅ — `/orders` maps `encryptOrderId`; table uses `encryptedId`.  
 - [ ] **Payment/shipment helpers may use admin client after ownership** — document or prefer session + RLS.  
 - [ ] **Claim is session-cookie only** (no email match) — shared-device residual.
 
@@ -73,7 +74,7 @@ _None verified that block an active user from viewing **owned** or **successfull
 | Claim before cookie clear | Handoff design |
 | Details fallthrough for unclaimed + cookie | Intentional bridge |
 | Guest SELECT denied by RLS | Guest path uses SR + ownership |
-| Invoice / Stripe / cancel by customer | Deferred with Buying |
+| Invoice / Stripe / cancel by customer | Invoice printable HTML done; Stripe/cancel still deferred with Buying |
 
 ---
 
