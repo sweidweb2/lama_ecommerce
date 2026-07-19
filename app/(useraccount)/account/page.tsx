@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
 
 export const metadata = {
-  title: "My Account | LAMA",
+  title: "My Account",
   description: "Manage your profile, password, and addresses.",
 };
 

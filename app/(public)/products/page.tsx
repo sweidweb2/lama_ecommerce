@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import {
     getProducts,
     getProductPriceBoundsService,
@@ -6,6 +7,11 @@ import {
 import { getCategoriesService } from '@/services/categories.service'
 import { ProductsPageClient } from '@/components/(public)/products/ProductsPageClient'
 import { normalizeColorValue } from '@/lib/constants/color-palette'
+
+export const metadata: Metadata = {
+    title: 'Products',
+    description: 'Browse the Aviora Wear catalog. Filter by category, brand, color, size, and price.',
+}
 
 interface ProductsPageProps {
     searchParams: Promise<{

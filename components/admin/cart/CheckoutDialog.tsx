@@ -355,16 +355,18 @@ export function CheckoutDialog({
                   {selectedZoneId ? formatPrice(shippingFee) : formatPrice(0)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Discount</span>
-                <span className="font-medium">{formatPrice(0)}</span>
-              </div>
             </div>
 
-            {/* Total */}
-            <div className="border-t border-black/5 pt-2 flex justify-between items-center text-sm font-bold">
-              <span>Total</span>
-              <span className="text-lg">{formatPrice(total)}</span>
+            {/* Estimated total (promo applied at checkout) */}
+            <div className="border-t border-black/5 pt-2 space-y-1">
+              <div className="flex justify-between items-center text-sm font-bold">
+                <span>Estimated total</span>
+                <span className="text-lg">{formatPrice(total)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Subtotal + shipping. Promo codes are applied when you place the order;
+                order details show the charged total.
+              </p>
             </div>
 
             {/* Checkout Button */}

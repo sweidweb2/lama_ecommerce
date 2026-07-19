@@ -1,5 +1,5 @@
 export const metadata = {
-    title: 'Settings | LAMA',
+    title: 'Settings',
     description: 'Manage your account settings and preferences.',
 }
 

@@ -52,6 +52,11 @@ export function ProductCard({ product }: ProductCardProps) {
                                 Hot
                             </Badge>
                         )}
+                        {product.is_out_of_stock && (
+                            <Badge className="bg-muted-foreground/90 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 border-none">
+                                Out of Stock
+                            </Badge>
+                        )}
                     </div>
                 </div>
                 <div className="-mt-2 pb-1 px-1 flex flex-col gap-0.5">

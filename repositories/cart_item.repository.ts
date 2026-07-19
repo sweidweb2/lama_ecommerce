@@ -825,9 +825,11 @@ export async function hardDeleteCartItemForGuest(
  * Move all cart items from one cart to another, merging duplicates.
  *
  * For each item in the source cart:
+ * - Assert destination quantity fits stock (same rules as ATC / qty update).
  * - If the destination cart already has the same customised_product_id → add quantities, then hard-delete the source item.
  * - Otherwise → update the item's cart_id to the destination cart.
  *
+ * On stock failure: abort immediately; leave remaining source rows in the guest cart.
  * Uses admin client to bypass RLS since this crosses cart ownership boundaries.
  */
 export async function moveCartItemsToCart(
@@ -881,26 +883,45 @@ export async function moveCartItemsToCart(
       quantity: number;
     }[]) {
       const existing = destMap.get(srcItem.customised_product_id);
+      const destinationQty = (existing?.quantity ?? 0) + srcItem.quantity;
+
+      const stockCheck = await assertCartItemQuantityWithinStock(
+        supabase,
+        existing?.id ?? srcItem.id,
+        destinationQty,
+        srcItem.customised_product_id,
+      );
+      if (!stockCheck.success) {
+        return {
+          success: false,
+          error: stockCheck.error,
+          movedCount,
+        };
+      }
 
       if (existing) {
         // Duplicate: merge quantities into the destination item, then hard-delete source item
-        const newQty = existing.quantity + srcItem.quantity;
-
         const { error: updateErr } = await supabase
           .from("cart_items")
-          .update({ quantity: newQty })
+          .update({ quantity: destinationQty })
           .eq("id", existing.id);
 
         if (updateErr) {
           console.error("Error merging cart item quantity:", updateErr);
-          continue; // skip this item but keep going
+          return {
+            success: false,
+            error: updateErr.message || "Failed to merge cart item quantity",
+            movedCount,
+          };
         }
 
         // Hard-delete the source item
-        await supabase
-          .from("cart_items")
-          .delete()
-          .eq("id", srcItem.id);
+        await supabase.from("cart_items").delete().eq("id", srcItem.id);
+
+        destMap.set(srcItem.customised_product_id, {
+          id: existing.id,
+          quantity: destinationQty,
+        });
       } else {
         // No duplicate: move item to destination cart
         const { error: moveErr } = await supabase
@@ -910,8 +931,17 @@ export async function moveCartItemsToCart(
 
         if (moveErr) {
           console.error("Error moving cart item:", moveErr);
-          continue;
+          return {
+            success: false,
+            error: moveErr.message || "Failed to move cart item",
+            movedCount,
+          };
         }
+
+        destMap.set(srcItem.customised_product_id, {
+          id: srcItem.id,
+          quantity: srcItem.quantity,
+        });
       }
 
       movedCount++;

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { IdleSessionWatcher } from "@/components/auth/IdleSessionWatcher";
 import { supabase } from "@/lib/supabase/client";
 import { mergeGuestCartOnLoginAction } from "@/actions/cart";
@@ -59,11 +60,28 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchProfile();
 
-        // On sign-in, try to merge any guest cart (idempotent – cookie cleared after first merge)
+        // Claim guest orders + merge cart; cookie cleared only on full success
         if (event === "SIGNED_IN") {
-          mergeGuestCartOnLoginAction().catch((err) =>
-            console.error("Guest cart merge failed:", err),
-          );
+          mergeGuestCartOnLoginAction()
+            .then((result) => {
+              if (!result.success) {
+                toast.error("Couldn't transfer your cart or orders", {
+                  description:
+                    "Refresh the page or sign in again to retry. Your guest session is still saved.",
+                });
+                console.error(
+                  "Guest session handoff failed:",
+                  result.error,
+                );
+              }
+            })
+            .catch((err) => {
+              toast.error("Couldn't transfer your cart or orders", {
+                description:
+                  "Refresh the page or sign in again to retry. Your guest session is still saved.",
+              });
+              console.error("Guest session handoff failed:", err);
+            });
         }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
@@ -120,4 +138,3 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
-

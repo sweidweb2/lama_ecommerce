@@ -17,6 +17,10 @@ import { formatPrice } from "@/lib/utils";
 import { checkoutAction } from "@/actions/checkout";
 import { encryptOrderIdAction } from "@/actions/order";
 import { CheckoutModal } from "@/components/(public)/cart/CheckoutModal";
+import {
+  checkoutContactSchema,
+  PENDING_ORDER_DETAILS_PATH_KEY,
+} from "@/lib/validators/checkout/checkout";
 import type { UserAddress } from "@/types/user";
 
 interface ShippingZoneOption {
@@ -64,6 +68,7 @@ function addressFieldsMatch(
 
 interface CartSidebarProps {
   subtotal: number;
+  itemCount: number;
   cartId: string;
   shippingZones: ShippingZoneOption[];
   /** null = guest; array (possibly empty) = logged-in user */
@@ -72,6 +77,7 @@ interface CartSidebarProps {
 
 export function CartSidebar({
   subtotal,
+  itemCount,
   cartId,
   shippingZones = [],
   savedAddresses = null,
@@ -196,14 +202,26 @@ export function CartSidebar({
 
     if (!phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (phone.trim().length < 5) {
-      newErrors.phone = "Phone number must be at least 5 characters";
     }
 
     if (!email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!email.includes("@")) {
-      newErrors.email = "Please enter a valid email address";
+    }
+
+    const contactResult = checkoutContactSchema.safeParse({
+      phone: phone.trim(),
+      email: email.trim(),
+    });
+    if (!contactResult.success) {
+      for (const issue of contactResult.error.issues) {
+        const field = issue.path[0];
+        if (field === "phone" && !newErrors.phone) {
+          newErrors.phone = issue.message;
+        }
+        if (field === "email" && !newErrors.email) {
+          newErrors.email = issue.message;
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -213,6 +231,7 @@ export function CartSidebar({
   const handleCheckout = async () => {
     // Double-click protection
     if (isProcessingRef.current) return;
+    if (itemCount === 0) return;
 
     // Validate form first
     const validation = validateForm();
@@ -273,10 +292,25 @@ export function CartSidebar({
           description: "Your order was created. Payment status is pending.",
         });
 
-        const encryptedId = await encryptOrderIdAction(result.orderId);
+        let orderDetailsPath: string | null = null;
+        try {
+          const encryptedId = await encryptOrderIdAction(result.orderId);
+          orderDetailsPath = `/order_details/${encodeURIComponent(encryptedId)}`;
+          sessionStorage.setItem(
+            PENDING_ORDER_DETAILS_PATH_KEY,
+            orderDetailsPath,
+          );
+        } catch (err) {
+          console.error("Failed to encrypt order id for resume path:", err);
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 800));
         setModalOpen(false);
-        router.push(`/order_details/${encodeURIComponent(encryptedId)}`);
+        if (orderDetailsPath) {
+          router.push(orderDetailsPath);
+        } else {
+          router.push("/orders");
+        }
         router.refresh();
       } else {
         setModalStatus("error");
@@ -583,16 +617,18 @@ export function CartSidebar({
               {selectedZoneId ? formatPrice(shippingFee) : formatPrice(0)}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Discount</span>
-            <span className="font-medium">{formatPrice(0)}</span>
-          </div>
         </div>
 
-        {/* Total */}
-        <div className="border-t border-black/5 pt-2 flex justify-between items-center text-sm font-bold">
-          <span>Total</span>
-          <span className="text-lg">{formatPrice(total)}</span>
+        {/* Estimated total (promo applied at place-order) */}
+        <div className="border-t border-black/5 pt-2 space-y-1">
+          <div className="flex justify-between items-center text-sm font-bold">
+            <span>Estimated total</span>
+            <span className="text-lg">{formatPrice(total)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Subtotal + shipping. Promo codes are applied when you place the order;
+            order details show the charged total.
+          </p>
         </div>
 
         {/* Place order */}
@@ -600,6 +636,7 @@ export function CartSidebar({
           size="lg"
           className="w-full rounded-2xl text-sm"
           onClick={handleCheckout}
+          disabled={itemCount === 0 || modalOpen}
           data-testid="proceed-to-checkout-button"
           aria-label="Place order"
           type="button"

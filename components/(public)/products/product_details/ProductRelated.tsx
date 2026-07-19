@@ -56,11 +56,18 @@ export function ProductRelated({ products }: ProductRelatedProps) {
                       </div>
                     </div>
                   )}
-                  {product.is_featured && (
-                    <Badge className="absolute top-1 left-1 text-[10px] px-1.5 py-0.5">
-                      Featured
-                    </Badge>
-                  )}
+                  <div className="absolute top-1 left-1 flex flex-col gap-1">
+                    {product.is_featured && (
+                      <Badge className="text-[10px] px-1.5 py-0.5">
+                        Featured
+                      </Badge>
+                    )}
+                    {product.is_out_of_stock && (
+                      <Badge className="bg-muted-foreground/90 text-white text-[10px] px-1.5 py-0.5 border-none">
+                        Out of Stock
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="px-2 -mt-2 pb-2 sm:px-3 sm:-mt-2 sm:pb-3 space-y-1">
                   <h3 className="text-sm font-semibold line-clamp-2 group-hover:text-primary transition-colors">

@@ -6,7 +6,7 @@ import type { Profile } from '@/types/user'
 import type { Order } from '@/types/order'
 
 export const metadata = {
-    title: 'My Profile | LAMA',
+    title: 'My Profile',
     description: 'View and manage your profile, orders, and preferences.',
 }
 

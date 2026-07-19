@@ -9,17 +9,17 @@
 
 ## Happy path (what works today)
 
-1. Open `/` → hero / promo banners (static) → featured products (`is_featured`) → category tiles (hardcoded).
+1. Open `/` → hero / promo banners (editorial static) → featured products (`is_featured`) → category tiles (real DB counts/covers).
 2. Open `/products` → active products via anon RSC client + RLS `is_active = true`.
 3. Filter by category / price / search; sort by newest / price / name; paginate (12/page).
-4. Search via navbar → `/search?q=…` or catalog bar → `/products?search=…`.
+4. Search via navbar → `/search?q=…&sort=…` (name / description / SKU / brand; sortable) or catalog bar → `/products?search=…` (with catalog filters).
 5. Open `/products/[slug]` → images, variants (color/size/material), base / `price_override` when a variant is selected, related products, approved reviews, view tracking.
 
 ```text
 /  → FeaturedProducts (getProducts is_featured)
       → /products?[category|brand|sort|minPrice|maxPrice|search|page]
            → getCategoriesService + getProducts + getProductPriceBounds
-      → /search?q=  → getProducts(search)
+      → /search?q=&sort=  → getProducts(search across name/description/sku/brand)
       → /products/[slug]
            → getProductBySlug (active only)
            → variants + reviews + related
@@ -82,13 +82,13 @@
   **Do:** Display/filter using variant-aware min/max (or document base-only and hide overrides on list).  
   **Done:** Migration `20260714200000_product_effective_prices.sql` adds `min_effective_price` / `max_effective_price` (kept in sync by triggers). Cards/featured/related use `From {min}` via `formatListingPrice`; filter uses range overlap; sort/bounds use effective prices.
 
-- [x] ✅ **`colors` / `sizes` query params are accepted but never applied**  
+- [x] ✅ **`colors` / `sizes` query params are accepted but never applied** done✅  
   Page types `colors` / `sizes`; nothing is passed into `getProducts`. Filter components exist but are **not mounted**.  
   **Where:** `app/(public)/products/page.tsx`; unused `VariantFilters.tsx` / `SizeFilter.tsx` / `VariantFilterButton.tsx`.  
   **Do:** Wire server-side filters or remove params/UI.  
   **Done:** DB-backed facets from `customised_products`; `getProducts` filters by color/size (same-variant AND); `VariantFilters` / `SizeFilter` mounted in sidebar + mobile. `VariantFilterButton` left unmounted.
 
-- [x] ✅ **PDP “stats” always show 0**  
+- [x] ✅ **PDP “stats” always show 0** done✅  
   `PRODUCT_SELECT` does not include `product_stats`; `product_stats` is admin-only RLS. `product.stats` is always missing → Reviews UI shows 0 views/ATC/purchases while views are written separately.  
   **Where:** `repositories/product.repository.ts`; `app/(public)/products/[slug]/page.tsx`; `ProductReviews.tsx`.  
   **Do:** Fetch aggregate counts via service/admin or a safe public read policy.  
@@ -98,45 +98,51 @@
 
 ## P2 — DX / stubs / SEO / UX
 
-- [ ] **Home category showcase is hardcoded fake data**  
+- [x] ✅ **Home category showcase is hardcoded fake data** done✅  
   Unsplash images + fabricated counts (“1,200 Products”), not `getCategoriesService`. Can diverge from real catalog.  
   **Where:** `components/(public)/Home/CategoryShowcase.tsx`.  
-  **Do:** Load real categories/counts from DB.
+  **Do:** Load real categories/counts from DB.  
+  **Done:** `getHomeCategoriesService` loads active categories with product counts + product cover images; home page passes props into `CategoryShowcase`.
 
-- [ ] **Home / promos / hero are marketing stubs**  
+- [x] ✅ **Home / promos / hero are marketing stubs** done✅  
   Static Unsplash hero; CTAs go to `/products`; “Up to 50% Off” has no promo wiring.  
   **Where:** `Hero.tsx`, `PromotionalBanners.tsx`.  
-  **Do:** DB-driven banners / real links / honest copy (or mark as placeholder).
+  **Do:** DB-driven banners / real links / honest copy (or mark as placeholder).  
+  **Done:** Editorial constants in `lib/constants/home-marketing.ts`; honest copy; CTAs to `/products` and real category filters. No homepage CMS.
 
-- [ ] **SEO / metadata gaps on browse surfaces**  
+- [x] ✅ **SEO / metadata gaps on browse surfaces** done✅  
   No `generateMetadata` on `/`, `/products`, or `/products/[slug]` (only root site title). Search title branding may diverge from site name. No product OG/title/description.  
   **Where:** `app/page.tsx`; `app/(public)/products/page.tsx`; `app/(public)/products/[slug]/page.tsx`; `app/(public)/search/page.tsx`; `app/layout.tsx`.  
-  **Do:** Per-route + dynamic PDP metadata.
+  **Do:** Per-route + dynamic PDP metadata.  
+  **Done:** Root title template `%s | Aviora Wear`; catalog/search metadata; PDP `generateMetadata` via `productToMetadata`.
 
-- [ ] **Dead PDP helpers / noisy review UI**  
+- [x] ✅ **Dead PDP helpers / noisy review UI** done✅  
   `ProductAvailability` / `ProductVariantSelector` unused. Reviews summary + `ProductComments` both surface reviews; guest review form looks open then forces login.  
   **Where:** `product_details/*`; `ProductComments.tsx`; `actions/review.ts`.  
-  **Do:** Delete or wire; guest CTA “Sign in to review”.
+  **Do:** Delete or wire; guest CTA “Sign in to review”.  
+  **Done:** Removed unused availability helper; guest review CTA “Sign in to review” with redirect back to PDP.
 
-- [ ] **Search is name `ilike` only; sort fixed to newest**  
+- [x] ✅ **Search is name `ilike` only; sort fixed to newest** done✅  
   No description / SKU / brand match; no filters on `/search`.  
   **Where:** `app/(public)/search/page.tsx`; `getProducts` search clause.  
-  **Do:** Expand match fields / optionally share catalog filters.
+  **Do:** Expand match fields / optionally share catalog filters.  
+  **Done:** `getProducts` matches name / description / SKU / brand name via `.or()`; `/search` accepts `sort` and reuses `Sorting` (`basePath=/search`). Catalog filters stay on `/products`.
 
-- [ ] **`getProducts` swallows DB errors as empty catalog**  
+- [x] ✅ **`getProducts` swallows DB errors as empty catalog** done✅  
   Guest sees “No products” on failure, not an error.  
   **Where:** `repositories/product.repository.ts` (~158–168).  
-  **Do:** Surface error / log + UI.
+  **Do:** Surface error / log + UI.  
+  **Done:** Repo logs and throws on DB failure; `/search/error.tsx` + existing `/products/error.tsx` show the shared error UI. Soft callers (`FeaturedProducts`, `getRelatedProducts`) catch and soft-empty.
 
-- [ ] **OOS products still list with no stock signal**  
+- [x] ✅ **OOS products still list with no stock signal** done✅  
   Active products with all-zero stock still appear; only PDP shows out-of-stock after variant pick.  
   **Where:** listing via `is_active` only; stock on `customised_products`.  
-  **Do:** Badge / filter OOS at list level if desired.
+  **Done:** Listings keep OOS products; `getProducts` attaches `is_out_of_stock` from variant stock; Out of Stock badge on ProductCard / Featured / Related.
 
-- [ ] **Architecture: PDP bypasses service layer**  
+- [x] ✅ **Architecture: PDP bypasses service layer** done✅  
   Page calls `getProductBySlug` from repository directly (project rules say services).  
   **Where:** `app/(public)/products/[slug]/page.tsx`.  
-  **Do:** `getProductBySlugService`.
+  **Done:** `getProductBySlugService` in `product.service.ts`; PDP page + metadata use it.
 
 ---
 
@@ -178,4 +184,4 @@
 
 ---
 
-**Highest-impact remaining:** require variants before sellable → wire or drop color/size filters → listing `price_override` awareness → PDP stats / SEO stubs.
+**Highest-impact remaining:** (browse P0–P2 checklist items above are done; deferred items are intentional auth / cart / payment scope.)

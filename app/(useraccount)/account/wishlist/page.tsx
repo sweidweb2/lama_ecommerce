@@ -1,13 +1,13 @@
 import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
-import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
+import { Heart, ArrowRight } from 'lucide-react'
 import Link from "@/components/ui/link"
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/lib/constants/routes'
 
 export const metadata = {
-    title: 'My Wishlist | LAMA',
+    title: 'My Wishlist',
     description: 'View and manage your favorite items.',
 }
 
@@ -79,7 +79,7 @@ export default async function AccountWishlistPage() {
                         </div>
                         <h2 className="text-xl font-bold">Your wishlist is empty</h2>
                         <p className="text-muted-foreground text-sm leading-relaxed">
-                            Looks like you haven't added anything to your wishlist yet. Explore our latest collections and find something you love.
+                            Looks like you haven&apos;t added anything to your wishlist yet. Explore our latest collections and find something you love.
                         </p>
                         <Link href="/products" className="inline-block mt-4">
                             <Button size="lg" className="rounded-xl px-8">

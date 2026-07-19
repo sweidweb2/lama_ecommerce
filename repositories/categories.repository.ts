@@ -8,6 +8,14 @@ import type {
   UpdateCategoryInput,
 } from "@/lib/validators/category";
 
+export interface HomeCategory {
+  id: string;
+  name: string;
+  slug: string;
+  productCount: number;
+  imageUrl: string | null;
+}
+
 /**
  * Fetch all active categories, ordered by name.
  */
@@ -28,6 +36,89 @@ export async function getCategories(): Promise<Category[]> {
     return (data ?? []) as Category[];
   } catch (error) {
     console.error("Unexpected error in getActiveCategories:", error);
+    return [];
+  }
+}
+
+/**
+ * Active categories with slug, product counts, and a cover image from a product in that category.
+ */
+export async function getHomeCategories(): Promise<HomeCategory[]> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const categories = await getCategories();
+    const withSlug = categories.filter(
+      (c): c is Category & { slug: string } =>
+        typeof c.slug === "string" && c.slug.trim().length > 0,
+    );
+
+    if (withSlug.length === 0) return [];
+
+    const rows = await Promise.all(
+      withSlug.map(async (cat) => {
+        const [{ count, error: countError }, { data: productRows, error: coverError }] =
+          await Promise.all([
+            supabase
+              .from("products")
+              .select("*", { count: "exact", head: true })
+              .eq("category_id", cat.id)
+              .eq("is_active", true),
+            supabase
+              .from("products")
+              .select(
+                "id, images:product_images(url_image, is_primary)",
+              )
+              .eq("category_id", cat.id)
+              .eq("is_active", true)
+              .limit(8),
+          ]);
+
+        if (countError) {
+          console.error(
+            `Error counting products for category ${cat.id}:`,
+            countError,
+          );
+        }
+        if (coverError) {
+          console.error(
+            `Error fetching cover for category ${cat.id}:`,
+            coverError,
+          );
+        }
+
+        let imageUrl: string | null = null;
+        for (const row of productRows ?? []) {
+          const images =
+            (
+              row as {
+                images?: Array<{
+                  url_image: string;
+                  is_primary: boolean;
+                }> | null;
+              }
+            ).images ?? [];
+          const primary = images.find((img) => img.is_primary);
+          const fallback = images[0];
+          const chosen = primary ?? fallback;
+          if (chosen?.url_image) {
+            imageUrl = chosen.url_image;
+            break;
+          }
+        }
+
+        return {
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          productCount: count ?? 0,
+          imageUrl,
+        } satisfies HomeCategory;
+      }),
+    );
+
+    return rows;
+  } catch (error) {
+    console.error("Unexpected error in getHomeCategories:", error);
     return [];
   }
 }

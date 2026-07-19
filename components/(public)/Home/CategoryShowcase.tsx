@@ -1,13 +1,30 @@
 import Image from "next/image";
 import Link from "@/components/ui/link";
+import type { HomeCategory } from "@/services/categories.service";
 
-export function CategoryShowcase() {
-    const categories = [
-        { name: "Electronics", slug: "electronics", count: "1,200 Products", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Fashion", slug: "fashion", count: "850 Products", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Home & Garden", slug: "home-garden", count: "430 Products", image: "https://images.unsplash.com/photo-1449247709967-d4461a6a6103?q=80&w=1000&auto=format&fit=crop" },
-        { name: "Beauty", slug: "beauty", count: "210 Products", image: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=1000&auto=format&fit=crop" },
-    ];
+interface CategoryShowcaseProps {
+    categories: HomeCategory[];
+}
+
+function formatProductCount(count: number): string {
+    return `${count.toLocaleString()} Product${count === 1 ? "" : "s"}`;
+}
+
+export function CategoryShowcase({ categories }: CategoryShowcaseProps) {
+    if (categories.length === 0) {
+        return (
+            <section className="py-10 md:py-16 bg-muted/50">
+                <div className="container mx-auto px-4 text-center">
+                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 uppercase italic">
+                        Shop by Category
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                        No categories yet.
+                    </p>
+                </div>
+            </section>
+        );
+    }
 
     return (
         <section className="py-10 md:py-16 bg-muted/50">
@@ -15,27 +32,34 @@ export function CategoryShowcase() {
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6 md:mb-8 text-center uppercase italic">
                     Shop by Category
                 </h2>
-                {/* Smaller categories, 2 per row on mobile */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-6">
                     {categories.map((cat) => (
                         <Link
-                            key={cat.name}
+                            key={cat.id}
                             href={`/products?category=${cat.slug}`}
-                            className="block relative aspect-[4/5] rounded-xl md:rounded-2xl overflow-hidden group cursor-pointer"
+                            className="block relative aspect-[4/5] rounded-xl md:rounded-2xl overflow-hidden group cursor-pointer bg-muted"
                         >
-                            <div className="absolute inset-0">
-                                <Image
-                                    src={cat.image}
-                                    alt={cat.name}
-                                    fill
-                                    className="object-cover transition-transform duration-500 group-hover:scale-110"
-                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                                />
-                            </div>
+                            {cat.imageUrl ? (
+                                <div className="absolute inset-0">
+                                    <Image
+                                        src={cat.imageUrl}
+                                        alt={cat.name}
+                                        fill
+                                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="absolute inset-0 bg-gradient-to-br from-muted-foreground/20 to-muted-foreground/5" />
+                            )}
                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-3">
-                                <h3 className="text-sm md:text-lg font-bold text-center">{cat.name}</h3>
-                                <p className="text-white/80 text-[10px] md:text-sm mt-1">{cat.count}</p>
+                                <h3 className="text-sm md:text-lg font-bold text-center">
+                                    {cat.name}
+                                </h3>
+                                <p className="text-white/80 text-[10px] md:text-sm mt-1">
+                                    {formatProductCount(cat.productCount)}
+                                </p>
                             </div>
                         </Link>
                     ))}
@@ -44,4 +68,3 @@ export function CategoryShowcase() {
         </section>
     );
 }
-

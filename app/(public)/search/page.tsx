@@ -1,35 +1,55 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { getProducts } from '@/services/product.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
 import { Pagination } from '@/components/(public)/products/Pagination'
+import {
+  Sorting,
+  ALLOWED_SORT_VALUES,
+  DEFAULT_SORT,
+} from '@/components/(public)/products/Sorting'
 import { ROUTES } from '@/lib/constants/routes'
 
 interface SearchPageProps {
   searchParams: Promise<{
     q?: string
     page?: string
+    sort?: string
   }>
 }
 
 const PAGE_SIZE = 12
 
-export const metadata = {
-  title: 'Search | LAMA',
-  description: 'Search products.',
+export async function generateMetadata({
+  searchParams,
+}: SearchPageProps): Promise<Metadata> {
+  const params = await searchParams
+  const q = (params.q || '').trim()
+
+  return {
+    title: q ? `Search “${q}”` : 'Search',
+    description: q
+      ? `Search results for “${q}” at Aviora Wear.`
+      : 'Search products by name, description, SKU, or brand.',
+  }
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams
   const q = (params.q || '').trim()
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1)
+  const sort =
+    params.sort && ALLOWED_SORT_VALUES.has(params.sort)
+      ? params.sort
+      : DEFAULT_SORT
 
   const productsResult = q
     ? await getProducts({
         search: q,
         page,
         pageSize: PAGE_SIZE,
-        sort: 'created_at-desc',
+        sort,
       })
     : { data: [], count: 0 }
 
@@ -43,7 +63,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <p className="text-muted-foreground mt-2">
           {q
             ? `Results for “${q}”`
-            : 'Find products by name.'}
+            : 'Find products by name, description, SKU, or brand.'}
         </p>
         <div className="mt-6">
           <Suspense fallback={<div className="h-10 max-w-sm rounded-md border bg-muted/30" />}>
@@ -56,14 +76,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <h3 className="text-xl font-semibold">Start a search</h3>
           <p className="text-muted-foreground mt-2">
-            Enter a product name above to see matching results.
+            Enter a product name, description, SKU, or brand above to see matching results.
           </p>
         </div>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground mb-6">
-            {productsResult.count} result{productsResult.count === 1 ? '' : 's'}
-          </p>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {productsResult.count} result{productsResult.count === 1 ? '' : 's'}
+            </p>
+            <div className="w-full sm:w-56">
+              <Suspense fallback={<div className="h-10 rounded-md border bg-muted/30" />}>
+                <Sorting basePath={ROUTES.SEARCH} />
+              </Suspense>
+            </div>
+          </div>
           <ProductGrid products={productsResult.data} />
           {productsResult.count > 0 && (
             <Suspense fallback={null}>

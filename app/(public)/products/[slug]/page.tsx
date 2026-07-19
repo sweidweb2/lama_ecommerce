@@ -1,8 +1,10 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getProductBySlug } from '@/repositories/product.repository'
+import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
-import { getRelatedProductsService } from '@/services/product.service'
+import { getProductBySlugService, getRelatedProductsService } from '@/services/product.service'
 import { getProductReviewsService } from '@/services/review.service'
+import { productToMetadata } from '@/lib/seo/metadata'
 import { ProductBreadcrumbs } from '@/components/(public)/products/ProductBreadcrumbs'
 import { ProductMediaGallery } from '@/components/(public)/products/product_details/ProductMediaGallery'
 import { ProductCoreInfo } from '@/components/(public)/products/product_details/ProductCoreInfo'
@@ -24,33 +26,47 @@ interface ProductPageProps {
 
 /**
  * Product Details Page
- * 
+ *
  * Architecture:
  * - Single source of truth: Database schema (products, product_images, customised_products)
  * - Component-based: Each section is a self-contained, reusable component
  * - Data-driven: All UI reflects actual database structure
  * - Scalable: Easy to extend with new attributes/variants
- * 
+ *
  * Component Organization:
  * - ProductMediaGallery: Maps to product_images table
  * - ProductCoreInfo: Maps to products table (name, description, category, brand)
  * - ProductPricing: Maps to products.price and customised_products.price_override
- * - ProductVariantSelector: Maps to customised_products (color, size, material)
- * - ProductAvailability: Maps to customised_products.quantity_stock
- * - ProductCustomization: Handles ATC / wishlist (maps to carts / cart_items / wishlists)
- * - ProductReviews: Maps to reviews table
+ * - ProductCustomization: Variant selection, stock, ATC / wishlist
+ * - ProductReviews: Maps to reviews table (summary)
+ * - ProductComments: Review list + write form
  * - ProductRelated: Related products by priority (brand+category, then brand, then category, then rest)
  * - ProductMetadata: SKU, timestamps, etc.
  */
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const product = await getProductBySlugService(slug)
+
+  if (!product) {
+    return { title: 'Product not found' }
+  }
+
+  return productToMetadata(product)
+}
+
 export default async function ProductDetailsPage({ params }: ProductPageProps) {
   const { slug } = await params
 
   // Fetch product by slug from database
-  const product = await getProductBySlug(slug)
+  const product = await getProductBySlugService(slug)
   
   if (!product) {
     notFound()
   }
+
+  const user = await getCurrentAuthUserFromComponent()
 
   // Extract related data from product relations
   const category = product.category ?? undefined
@@ -162,7 +178,12 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
 
         {/* Comments Section */}
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
-          <ProductComments productId={product.id} reviews={reviews} />
+          <ProductComments
+            productId={product.id}
+            productSlug={product.slug}
+            reviews={reviews}
+            isAuthenticated={!!user}
+          />
         </div>
 
         {/* Related Products */}

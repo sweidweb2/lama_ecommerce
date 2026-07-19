@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/constants/routes";
 import { CartSidebar } from "@/components/(public)/cart/CartSidebar";
 import { CartItem } from "@/components/(public)/cart/CartItem";
+import { PendingOrderResumeBanner } from "@/components/(public)/cart/PendingOrderResumeBanner";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import {
   getUserCartWithItemsService,
@@ -15,7 +16,7 @@ import { getGuestSessionId } from "@/lib/auth/guest-session";
 import type { UserAddress } from "@/types/user";
 
 export const metadata = {
-  title: "Cart | LAMA",
+  title: "Cart",
   description: "View the items in your shopping cart.",
 };
 
@@ -45,7 +46,8 @@ export default async function CartPage() {
   if (!cartResult.success || !cartResult.data) {
     return (
       <div className="container mx-auto px-4 pt-6 lg:pt-8 pb-0">
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center max-w-md mx-auto">
+          <PendingOrderResumeBanner />
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/5 mb-4">
             <ShoppingCart className="h-8 w-8 text-primary" />
           </div>
@@ -83,6 +85,7 @@ export default async function CartPage() {
 
   return (
     <div className="container mx-auto px-4 pt-6 lg:pt-8">
+      {items.length === 0 && <PendingOrderResumeBanner />}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start mb-16">
         {/* Left: Cart items */}
         <div className="lg:col-span-2 space-y-4">

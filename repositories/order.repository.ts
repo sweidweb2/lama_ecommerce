@@ -412,6 +412,51 @@ export async function getOrdersBySessionId(
 }
 
 /**
+ * Claim guest orders for a session onto a user account.
+ * Uses service-role client (RLS only allows user_id = auth.uid() updates).
+ * Idempotent: already-claimed rows (user_id set) are skipped.
+ * Leaves session_id intact for audit.
+ */
+export async function claimOrdersBySessionId(
+  sessionId: string,
+  userId: string,
+): Promise<{ success: boolean; error?: string; claimedCount: number }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("orders")
+      .update({ user_id: userId })
+      .eq("session_id", sessionId)
+      .is("user_id", null)
+      .select("id");
+
+    if (error) {
+      console.error("Error claiming guest orders:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to claim guest orders",
+        claimedCount: 0,
+      };
+    }
+
+    return {
+      success: true,
+      claimedCount: data?.length ?? 0,
+    };
+  } catch (error) {
+    console.error("Unexpected error in claimOrdersBySessionId:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to claim guest orders",
+      claimedCount: 0,
+    };
+  }
+}
+
+/**
  * Input for the process_checkout RPC function.
  * Shipping fee is resolved inside SQL from shipping_zone_id; discount is forced to 0.
  */

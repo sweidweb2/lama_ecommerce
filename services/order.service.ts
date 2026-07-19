@@ -2,6 +2,7 @@ import {
   getOrdersByUserId,
   getOrderCountByUserId,
   getOrdersBySessionId,
+  claimOrdersBySessionId,
   getOrderById,
   getOrderByIdForAdmin,
   getOrderItemsByOrderId,
@@ -54,6 +55,17 @@ export async function getSessionOrders(
 }
 
 /**
+ * Attach guest orders for a session to a user account (login handoff).
+ * Idempotent; uses service-role claim under the hood.
+ */
+export async function claimGuestOrdersService(
+  userId: string,
+  sessionId: string,
+): Promise<{ success: boolean; error?: string; claimedCount: number }> {
+  return claimOrdersBySessionId(sessionId, userId);
+}
+
+/**
  * Get order count for a specific user.
  */
 export async function getUserOrderCount(userId: string): Promise<number> {
@@ -70,16 +82,10 @@ export async function getAdminOrders(): Promise<AdminOrderRow[]> {
 }
 
 /**
- * Get full order details (order + items + payment + shipment) for public/user views.
- *
- * Ownership is enforced:
- * - If userId is provided, the order must belong to that user.
- * - If sessionId is provided (guest), the order must match that session_id and have no user_id.
- * - If neither matches, returns null (forbidden / not found).
- */
-/**
  * Get full order details for a user or guest.
  * - Authenticated: RLS-scoped fetch by user_id.
+ * - If auth ownership fails and sessionId is present, fall through to guest session check
+ *   (covers logged-in users who still have the guest cookie before/without a successful claim).
  * - Guest: service-role fetch + session ownership check (guest rows denied by RLS).
  */
 export async function getOrderDetails(
@@ -89,16 +95,16 @@ export async function getOrderDetails(
 ): Promise<OrderDetails | null> {
   if (userId) {
     const order = await getOrderById(orderId);
-    if (!order) return null;
-    if (order.user_id !== userId) return null;
+    if (order && order.user_id === userId) {
+      const [items, payment, shipment] = await Promise.all([
+        getOrderItemsByOrderId(orderId),
+        getPaymentByOrderId(orderId),
+        getShipmentByOrderId(orderId),
+      ]);
 
-    const [items, payment, shipment] = await Promise.all([
-      getOrderItemsByOrderId(orderId),
-      getPaymentByOrderId(orderId),
-      getShipmentByOrderId(orderId),
-    ]);
-
-    return { order, items, payment, shipment };
+      return { order, items, payment, shipment };
+    }
+    // Fall through to guest session when auth ownership misses
   }
 
   if (sessionId) {

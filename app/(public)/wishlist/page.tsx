@@ -1,18 +1,30 @@
 import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getWishlistItems, getWishlistItemsForGuest } from '@/services/wishlist.service'
 import { ProductCard } from '@/components/common/ProductCard'
-import { Heart, ShoppingBag, ArrowRight } from 'lucide-react'
+import { Heart, ArrowRight } from 'lucide-react'
 import Link from "@/components/ui/link"
 import { Button } from '@/components/ui/button'
-import { ROUTES } from '@/lib/constants/routes'
 import { WishlistStats } from '@/components/(public)/wishlist/WishlistStats'
 import { WishlistFilters } from '@/components/(public)/wishlist/WishlistFilters'
 import { WishlistPagination } from '@/components/(public)/wishlist/WishlistPagination'
 import { getGuestSessionId } from '@/lib/auth/guest-session'
+import type { ProductWithRelations } from '@/types/product'
 
 export const metadata = {
-    title: 'My Wishlist | LAMA',
+    title: 'My Wishlist',
     description: 'View and manage your favorite items.',
+}
+
+interface WishlistPageItem {
+    wishlist_id: string
+    customised_product_id: string
+    variant: {
+        id: string
+        color: string | null
+        size: string | null
+        material: string | null
+    }
+    product: ProductWithRelations
 }
 
 interface WishlistPageProps {
@@ -30,17 +42,17 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
     const user = await getCurrentAuthUserFromComponent()
 
     // Get wishlist items based on authentication status
-    let wishlistItems: any[] = []
+    let wishlistItems: WishlistPageItem[] = []
     
     if (user) {
         // Authenticated user → fetch wishlist by user_id
-        wishlistItems = await getWishlistItems(user.id)
+        wishlistItems = (await getWishlistItems(user.id)) as WishlistPageItem[]
     } else {
         // Guest → read session cookie and fetch wishlist by session_id
         const sessionId = await getGuestSessionId()
 
         if (sessionId) {
-            wishlistItems = await getWishlistItemsForGuest(sessionId)
+            wishlistItems = (await getWishlistItemsForGuest(sessionId)) as WishlistPageItem[]
         }
     }
 
@@ -135,7 +147,7 @@ export default async function WishlistPage({ searchParams }: WishlistPageProps) 
                         </div>
                         <h2 className="text-xl font-bold">Your wishlist is empty</h2>
                         <p className="text-muted-foreground text-sm leading-relaxed">
-                            Looks like you haven't added anything to your wishlist yet. Explore our latest collections and find something you love.
+                            Looks like you haven&apos;t added anything to your wishlist yet. Explore our latest collections and find something you love.
                         </p>
                         <Link href="/products" className="inline-block mt-4">
                             <Button size="lg" className="rounded-xl px-8">

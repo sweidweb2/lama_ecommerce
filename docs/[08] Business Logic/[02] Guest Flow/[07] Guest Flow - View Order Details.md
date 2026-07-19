@@ -38,15 +38,17 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
   **Where:** `lib/email/order-confirmation.ts` (`buildOrderDetailsUrl`); `app/(public)/order_details/[id]/page.tsx`; `services/order.service.ts` (`getOrderDetails`).  
   **Do:** Treat the link as a bearer (signed token + email/order binding, no session) **or** add verified lookup and stop implying email-only re-access.
 
-- [ ] **Logged-in user visiting a prior guest order URL → 404**  
+- [x] ✅ **Logged-in user visiting a prior guest order URL → 404** done✅  
   If auth user is present, page never reads the guest cookie. Guest orders have `user_id = null` → auth branch (`order.user_id !== userId`) fails → `notFound`. Guest who places an order then logs in cannot open that order URL.  
   **Where:** `app/(public)/order_details/[id]/page.tsx` (~113–119); `services/order.service.ts` (~90–108).  
-  **Do:** Allow view when session still matches **or** after claim / email match for the logged-in user.
+  **Do:** Allow view when session still matches **or** after claim / email match for the logged-in user.  
+  **Done:** Login claims guest orders onto `user_id` before clearing the cookie, so authenticated `/order_details` resolves by ownership.
 
-- [ ] **Login clears guest cookie without attaching guest orders**  
+- [x] ✅ **Login clears guest cookie without attaching guest orders** done✅  
   `mergeGuestCartOnLoginAction` merges carts and always clears `guest_session_id`. Orders stay `user_id = null` with the old `session_id`. After login, guest order history and detail URLs are unreachable under the new identity.  
   **Where:** `actions/cart.ts` (`mergeGuestCartOnLoginAction` ~64–65); no order claim in signup/login path.  
-  **Do:** On login/signup, claim matching guest orders (e.g. verified email → set `orders.user_id`) **or** keep session cookie until claim, and list claimed orders under the user.
+  **Do:** On login/signup, claim matching guest orders (e.g. verified email → set `orders.user_id`) **or** keep session cookie until claim, and list claimed orders under the user.  
+  **Done:** `claimGuestOrdersService` runs before cart merge; cookie cleared only after both succeed.
 
 ---
 

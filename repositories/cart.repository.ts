@@ -16,7 +16,7 @@ import type { UpdateCartInput } from "@/lib/validators/cart/update";
 export async function createCart(
   userId: string | null,
   input: CreateCartInput,
-): Promise<{ success: boolean; error?: string; data?: Cart }> {
+): Promise<{ success: boolean; error?: string; data?: Cart; code?: string }> {
   try {
     const isGuest = !userId && !!input.session_id;
     const supabase = isGuest
@@ -61,6 +61,7 @@ export async function createCart(
       return {
         success: false,
         error: error.message || "Failed to create cart",
+        code: error.code,
       };
     }
 

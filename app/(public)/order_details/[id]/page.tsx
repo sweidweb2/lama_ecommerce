@@ -29,7 +29,7 @@ import { decryptOrderId } from "@/lib/utils/encryption";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 export const metadata = {
-  title: "Order Details | LAMA",
+  title: "Order Details",
   description: "View detailed information about your order.",
 };
 
@@ -110,13 +110,10 @@ export default async function OrderDetailsPage({
     // Keep raw id from URL
   }
 
-  // Determine identity
+  // Determine identity — always pass guest session when present so auth users
+  // can still open unclaimed guest orders via cookie fallback.
   const user = await getCurrentAuthUserFromComponent();
-
-  let sessionId: string | null = null;
-  if (!user) {
-    sessionId = await getGuestSessionId();
-  }
+  const sessionId = await getGuestSessionId();
 
   // Fetch order details with ownership check
   const details = await getOrderDetails(
@@ -132,7 +129,6 @@ export default async function OrderDetailsPage({
   const { order, items, payment, shipment } = details;
 
   // Order items pagination (max 20 pages, 20 items per page)
-  const totalItems = items.length;
   const maxItemsToShow = ITEMS_PER_PAGE * MAX_ITEM_PAGES;
   const limitedItems = items.slice(0, maxItemsToShow);
   const totalPages =

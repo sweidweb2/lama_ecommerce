@@ -9,7 +9,13 @@ import { TopNavigationLoader } from "@/components/feedback/TopNavigationLoader";
 
 // Main font: Bagina (see globals.css).
 export const metadata: Metadata = {
-  title: "Aviora Wear",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  ),
+  title: {
+    default: "Aviora Wear",
+    template: "%s | Aviora Wear",
+  },
   description: "Modern ecommerce experience by Aviora Wear.",
   icons: {
     icon: "/aviora-logo.png",

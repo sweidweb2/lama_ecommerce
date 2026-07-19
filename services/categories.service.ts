@@ -1,4 +1,8 @@
-import { getCategories } from "@/repositories/categories.repository";
+import {
+  getCategories,
+  getHomeCategories,
+  type HomeCategory,
+} from "@/repositories/categories.repository";
 import type { Category } from "@/types/product";
 
 /**
@@ -7,3 +11,12 @@ import type { Category } from "@/types/product";
 export async function getCategoriesService(): Promise<Category[]> {
   return getCategories();
 }
+
+/**
+ * Home showcase: active categories with product counts and cover images.
+ */
+export async function getHomeCategoriesService(): Promise<HomeCategory[]> {
+  return getHomeCategories();
+}
+
+export type { HomeCategory };

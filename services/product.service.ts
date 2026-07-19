@@ -12,6 +12,7 @@ import {
   getProductPriceBounds,
   getProductVariantFacets,
   getRelatedProducts,
+  getProductBySlug,
   type CreateProductRepoInput,
   type GetProductsRepoParams,
   type ProductVariantFacets,
@@ -217,4 +218,13 @@ export async function getRelatedProductsService(
   limit = 12,
 ): Promise<ProductWithRelations[]> {
   return getRelatedProducts(product, limit);
+}
+
+/**
+ * Public product detail by slug (active products only).
+ */
+export async function getProductBySlugService(
+  slug: string,
+): Promise<ProductWithRelations | null> {
+  return getProductBySlug(slug);
 }

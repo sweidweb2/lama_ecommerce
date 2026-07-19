@@ -129,5 +129,7 @@ export interface ProductWithRelations extends Product {
   images?: ProductImage[];
   variants?: ProductVariant[];
   stats?: ProductStats | null;
+  /** True when no variant has quantity_stock > 0 (including no variants). */
+  is_out_of_stock?: boolean;
 }
 

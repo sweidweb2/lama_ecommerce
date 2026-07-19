@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "@/components/ui/link";
 import { Eye, ImageIcon } from "lucide-react";
@@ -62,6 +63,11 @@ export async function FeaturedProducts() {
                                                 <span className="text-xs opacity-75">No Image</span>
                                             </div>
                                         </div>
+                                    )}
+                                    {product.is_out_of_stock && (
+                                        <Badge className="absolute top-2 left-2 bg-muted-foreground/90 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 border-none">
+                                            Out of Stock
+                                        </Badge>
                                     )}
                                 </div>
                                 <CardHeader className="px-3 py-2 pb-1.5 -mt-2">

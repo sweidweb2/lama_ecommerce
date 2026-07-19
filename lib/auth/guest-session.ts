@@ -1,17 +1,17 @@
 import { cookies } from "next/headers";
+import {
+  GUEST_SESSION_COOKIE,
+  GUEST_SESSION_MAX_AGE,
+  GUEST_SESSION_UUID_RE,
+} from "@/lib/auth/guest-session.constants";
 
-/** Cookie name for guest session identification. */
-export const GUEST_SESSION_COOKIE = "guest_session_id";
-
-/** Guest session cookie lifetime: 14 days in seconds. */
-export const GUEST_SESSION_MAX_AGE = 14 * 24 * 60 * 60;
-
-/** UUID format (any version) — rejects weak/legacy planted cookie values. */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export {
+  GUEST_SESSION_COOKIE,
+  GUEST_SESSION_MAX_AGE,
+} from "@/lib/auth/guest-session.constants";
 
 function isValidGuestSessionId(value: string): boolean {
-  return UUID_RE.test(value);
+  return GUEST_SESSION_UUID_RE.test(value);
 }
 
 /**
@@ -56,6 +56,7 @@ export async function clearGuestSessionCookie(): Promise<void> {
  * Invalid/legacy cookie values are ignored and replaced.
  * Only writes the cookie when creating/replacing — never on reuse
  * (cookie writes from Server Actions soft-refresh the current page).
+ * Sliding maxAge on activity happens in middleware via resolveGuestSessionCookie.
  */
 export async function getOrCreateGuestSessionId(): Promise<string> {
   const existing = await getGuestSessionId();

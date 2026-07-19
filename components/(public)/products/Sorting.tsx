@@ -8,6 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import { ROUTES } from '@/lib/constants/routes'
 
 const sortOptions = [
     { label: 'Newest', value: 'created_at-desc' },
@@ -16,15 +17,21 @@ const sortOptions = [
     { label: 'Name: A-Z', value: 'name-asc' },
 ]
 
-const ALLOWED_SORT_VALUES = new Set(sortOptions.map((o) => o.value))
-const DEFAULT_SORT = 'created_at-desc'
+export const ALLOWED_SORT_VALUES = new Set(sortOptions.map((o) => o.value))
+export const DEFAULT_SORT = 'created_at-desc'
 
 interface SortingProps {
     value?: string
     onChange?: (value: string) => void
+    /** Used when uncontrolled (no onChange). Defaults to catalog. */
+    basePath?: string
 }
 
-export function Sorting({ value, onChange }: SortingProps) {
+export function Sorting({
+    value,
+    onChange,
+    basePath = ROUTES.PRODUCTS,
+}: SortingProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const rawSort = value !== undefined ? value : (searchParams.get('sort') || DEFAULT_SORT)
@@ -34,10 +41,10 @@ export function Sorting({ value, onChange }: SortingProps) {
         if (onChange) {
             onChange(newValue)
         } else {
-            // Fallback to immediate update if not controlled
             const params = new URLSearchParams(searchParams.toString())
             params.set('sort', newValue)
-            router.push(`/products?${params.toString()}`)
+            params.delete('page')
+            router.push(`${basePath}?${params.toString()}`)
         }
     }
 

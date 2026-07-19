@@ -19,6 +19,7 @@ import {
   createCartForAdminService,
   getCartWithItemsForAdminService,
 } from "@/services/cart.service";
+import { claimGuestOrdersService } from "@/services/order.service";
 import {
   clearGuestSessionCookie,
   getGuestSessionId,
@@ -28,16 +29,17 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { revalidatePath } from "next/cache";
 
 /**
- * Merge guest cart into the authenticated user's cart.
- * Called right after login so the user keeps the items they added as a guest.
+ * Claim guest orders and merge guest cart into the authenticated user's cart.
+ * Called right after login so the user keeps guest cart items and order history.
  *
  * Flow:
  * 1. Verify the caller is authenticated.
  * 2. Read the guest_session_id cookie.
- * 3. If no session cookie → nothing to merge, return early.
- * 4. Delegate to mergeGuestCartToUserService which handles all four scenarios.
- * 5. Clean up the guest_session_id cookie.
- * 6. Revalidate /cart so the UI shows the merged cart.
+ * 3. If no session cookie → nothing to do, return early.
+ * 4. Claim guest orders (session_id → user_id) via service role.
+ * 5. Merge guest cart into the user's cart.
+ * 6. Clear guest_session_id only after both claim and merge succeed.
+ * 7. Revalidate /cart and /orders.
  */
 export async function mergeGuestCartOnLoginAction(): Promise<{
   success: boolean;
@@ -50,25 +52,36 @@ export async function mergeGuestCartOnLoginAction(): Promise<{
     return { success: false, error: "Not authenticated", merged: false };
   }
 
-  // Read the guest session cookie
   const sessionId = await getGuestSessionId();
 
   if (!sessionId) {
-    // No guest session – nothing to merge
     return { success: true, merged: false };
   }
 
-  // Merge the guest cart into the user's cart
-  const result = await mergeGuestCartToUserService(user.id, sessionId);
-
-  // Always clean up the guest cookie after login, regardless of merge outcome
-  await clearGuestSessionCookie();
-
-  if (result.success) {
-    revalidatePath("/cart");
+  const claimResult = await claimGuestOrdersService(user.id, sessionId);
+  if (!claimResult.success) {
+    return {
+      success: false,
+      error: claimResult.error || "Failed to claim guest orders",
+      merged: false,
+    };
   }
 
-  return result;
+  const mergeResult = await mergeGuestCartToUserService(user.id, sessionId);
+  if (!mergeResult.success) {
+    return {
+      success: false,
+      error: mergeResult.error || "Failed to merge guest cart",
+      merged: false,
+    };
+  }
+
+  await clearGuestSessionCookie();
+  revalidatePath("/cart");
+  revalidatePath("/orders");
+  revalidatePath("/order_details");
+
+  return mergeResult;
 }
 
 /**

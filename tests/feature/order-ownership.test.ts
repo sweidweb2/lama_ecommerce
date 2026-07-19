@@ -8,6 +8,7 @@ const getPaymentByOrderId = vi.fn();
 const getPaymentByOrderIdForAdmin = vi.fn();
 const getShipmentByOrderId = vi.fn();
 const getShipmentByOrderIdForAdmin = vi.fn();
+const claimOrdersBySessionId = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
   getCurrentUserProfile: vi.fn(),
@@ -17,9 +18,12 @@ vi.mock("@/repositories/order.repository", () => ({
   getOrdersByUserId: vi.fn(),
   getOrderCountByUserId: vi.fn(),
   getOrdersBySessionId: vi.fn(),
+  claimOrdersBySessionId: (...args: unknown[]) =>
+    claimOrdersBySessionId(...args),
   getOrderById: (...args: unknown[]) => getOrderById(...args),
   getOrderByIdForAdmin: (...args: unknown[]) => getOrderByIdForAdmin(...args),
-  getOrderItemsByOrderId: (...args: unknown[]) => getOrderItemsByOrderId(...args),
+  getOrderItemsByOrderId: (...args: unknown[]) =>
+    getOrderItemsByOrderId(...args),
   getOrderItemsByOrderIdForAdmin: (...args: unknown[]) =>
     getOrderItemsByOrderIdForAdmin(...args),
   getPaymentByOrderId: (...args: unknown[]) => getPaymentByOrderId(...args),
@@ -51,7 +55,7 @@ describe("getOrderDetails ownership", () => {
     await expect(getOrderDetails("order-1", null, null)).resolves.toBeNull();
   });
 
-  it("returns null when authenticated user does not own the order", async () => {
+  it("returns null when authenticated user does not own the order and no session", async () => {
     getOrderById.mockResolvedValue({ id: "order-1", user_id: "other-user" });
     const { getOrderDetails } = await import("@/services/order.service");
     await expect(
@@ -71,6 +75,20 @@ describe("getOrderDetails ownership", () => {
       shipment: null,
     });
     expect(getOrderByIdForAdmin).not.toHaveBeenCalled();
+  });
+
+  it("falls through to guest session when auth ownership misses", async () => {
+    getOrderById.mockResolvedValue({ id: "order-1", user_id: null });
+    const guestOrder = {
+      id: "order-1",
+      user_id: null,
+      session_id: "sess-1",
+    };
+    getOrderByIdForAdmin.mockResolvedValue(guestOrder);
+    const { getOrderDetails } = await import("@/services/order.service");
+    const result = await getOrderDetails("order-1", "user-1", "sess-1");
+    expect(result?.order).toEqual(guestOrder);
+    expect(getOrderByIdForAdmin).toHaveBeenCalledWith("order-1");
   });
 
   it("returns null for guest when order has a user_id", async () => {
@@ -108,5 +126,38 @@ describe("getOrderDetails ownership", () => {
     const result = await getOrderDetails("order-1", null, "sess-1");
     expect(result?.order).toEqual(order);
     expect(getOrderByIdForAdmin).toHaveBeenCalled();
+  });
+});
+
+describe("claimGuestOrdersService", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("delegates to claimOrdersBySessionId with session then user", async () => {
+    claimOrdersBySessionId.mockResolvedValue({
+      success: true,
+      claimedCount: 2,
+    });
+    const { claimGuestOrdersService } = await import(
+      "@/services/order.service"
+    );
+    await expect(
+      claimGuestOrdersService("user-1", "sess-1"),
+    ).resolves.toEqual({ success: true, claimedCount: 2 });
+    expect(claimOrdersBySessionId).toHaveBeenCalledWith("sess-1", "user-1");
+  });
+
+  it("returns repo failure unchanged (idempotent zero-claim is success)", async () => {
+    claimOrdersBySessionId.mockResolvedValue({
+      success: true,
+      claimedCount: 0,
+    });
+    const { claimGuestOrdersService } = await import(
+      "@/services/order.service"
+    );
+    await expect(
+      claimGuestOrdersService("user-1", "sess-1"),
+    ).resolves.toEqual({ success: true, claimedCount: 0 });
   });
 });

@@ -42,6 +42,16 @@ function expandCaseVariants(values: string[]): string[] {
   return [...set];
 }
 
+/** Strip LIKE wildcards so user input is a literal substring match. */
+function sanitizeSearchTerm(term: string): string {
+  return term.replace(/[%_\\]/g, "").trim();
+}
+
+/** Quote a value for safe use inside a PostgREST `.or()` filter. */
+function quotePostgrestValue(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export interface CreateProductRepoInput {
   name: string;
   description: string | null;
@@ -144,7 +154,7 @@ export async function getProducts(
       const { data: variantRows, error: variantError } = await variantQuery;
       if (variantError) {
         console.error("Error filtering products by variants:", variantError);
-        return { data: [], count: 0 };
+        throw new Error("Failed to load products.");
       }
 
       matchingProductIds = [
@@ -190,7 +200,38 @@ export async function getProducts(
     }
 
     if (search) {
-      query = query.ilike("name", `%${search}%`);
+      const term = sanitizeSearchTerm(search);
+      if (term) {
+        const pattern = `%${term}%`;
+        const quotedPattern = quotePostgrestValue(pattern);
+
+        const { data: brandRows, error: brandError } = await supabase
+          .from("brands")
+          .select("id")
+          .ilike("name", pattern);
+
+        if (brandError) {
+          console.error(
+            "Error searching brands for product filter:",
+            brandError,
+          );
+          throw new Error("Failed to load products.");
+        }
+
+        const brandIds = (brandRows ?? [])
+          .map((row) => (row as { id: string }).id)
+          .filter(Boolean);
+
+        const orParts = [
+          `name.ilike.${quotedPattern}`,
+          `description.ilike.${quotedPattern}`,
+          `sku.ilike.${quotedPattern}`,
+        ];
+        if (brandIds.length > 0) {
+          orParts.push(`brand_id.in.(${brandIds.join(",")})`);
+        }
+        query = query.or(orParts.join(","));
+      }
     }
 
     // Range overlap with variant-aware [min_effective_price, max_effective_price]
@@ -227,16 +268,64 @@ export async function getProducts(
     const { data, error, count } = await query;
 
     if (error) {
-      return { data: [], count: 0 };
+      console.error("Error fetching products:", error);
+      throw new Error("Failed to load products.");
     }
 
+    const products = (data ?? []) as ProductWithRelations[];
     return {
-      data: (data ?? []) as ProductWithRelations[],
+      data: await attachOutOfStockFlags(supabase, products),
       count: count ?? 0,
     };
-  } catch {
-    return { data: [], count: 0 };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Failed to load products."
+    ) {
+      throw error;
+    }
+    console.error("Unexpected error in getProducts:", error);
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to load products.");
   }
+}
+
+/**
+ * Marks each product with is_out_of_stock when no variant has quantity_stock > 0.
+ */
+async function attachOutOfStockFlags(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerComponentClient>>,
+  products: ProductWithRelations[],
+): Promise<ProductWithRelations[]> {
+  if (products.length === 0) return products;
+
+  const productIds = products.map((p) => p.id);
+  const { data: variantRows, error } = await supabase
+    .from("customised_products")
+    .select("product_id, quantity_stock")
+    .in("product_id", productIds);
+
+  if (error) {
+    console.error("Error fetching variant stock for listing:", error);
+    return products;
+  }
+
+  const inStockIds = new Set<string>();
+  for (const row of variantRows ?? []) {
+    const { product_id, quantity_stock } = row as {
+      product_id: string;
+      quantity_stock: number;
+    };
+    if (quantity_stock > 0) {
+      inStockIds.add(product_id);
+    }
+  }
+
+  return products.map((p) => ({
+    ...p,
+    is_out_of_stock: !inStockIds.has(p.id),
+  }));
 }
 
 /**
@@ -358,8 +447,17 @@ export async function getRelatedProducts(
 
   const remaining = () => limit - results.length;
 
+  const safeGetProducts = async (params: GetProductsRepoParams) => {
+    try {
+      return await getProducts(params);
+    } catch (error) {
+      console.error("Error fetching related products:", error);
+      return { data: [] as ProductWithRelations[], count: 0 };
+    }
+  };
+
   if (product.brand_id && product.category_id && remaining() > 0) {
-    const { data } = await getProducts({
+    const { data } = await safeGetProducts({
       brandId: product.brand_id,
       categoryId: product.category_id,
       excludeId: product.id,
@@ -371,7 +469,7 @@ export async function getRelatedProducts(
   }
 
   if (product.brand_id && remaining() > 0) {
-    const { data } = await getProducts({
+    const { data } = await safeGetProducts({
       brandId: product.brand_id,
       excludeId: product.id,
       page: 1,
@@ -382,7 +480,7 @@ export async function getRelatedProducts(
   }
 
   if (product.category_id && remaining() > 0) {
-    const { data } = await getProducts({
+    const { data } = await safeGetProducts({
       categoryId: product.category_id,
       excludeId: product.id,
       page: 1,
@@ -393,7 +491,7 @@ export async function getRelatedProducts(
   }
 
   if (remaining() > 0) {
-    const { data } = await getProducts({
+    const { data } = await safeGetProducts({
       excludeId: product.id,
       page: 1,
       pageSize: remaining(),

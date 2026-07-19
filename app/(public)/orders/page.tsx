@@ -4,7 +4,7 @@ import { getUserOrders, getSessionOrders } from "@/services/order.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
 
 export const metadata = {
-  title: "My Orders | LAMA",
+  title: "My Orders",
   description: "View your order history and track your purchases.",
 };
 

@@ -163,14 +163,26 @@ export async function addItemToGuestCartService(
       // Create a new cart for the guest session
       const cartResult = await createCart(null, { session_id: sessionId });
 
-      if (!cartResult.success || !cartResult.data) {
+      if (cartResult.success && cartResult.data) {
+        cart = cartResult.data;
+      } else if (cartResult.code === "23505") {
+        // Concurrent ATC race: another request won the unique index — reuse it
+        const retry = await hasActiveCartBySessionId(sessionId);
+        if (!retry.success || !retry.hasActiveCart || !retry.data) {
+          return {
+            success: false,
+            error:
+              cartResult.error ||
+              "Failed to create guest cart after concurrent conflict",
+          };
+        }
+        cart = retry.data;
+      } else {
         return {
           success: false,
           error: cartResult.error || "Failed to create guest cart",
         };
       }
-
-      cart = cartResult.data;
     }
 
     // Add item to cart (UPSERT via service role — guest carts are not anon-accessible)

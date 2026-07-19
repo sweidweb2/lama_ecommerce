@@ -15,7 +15,7 @@
 4. If email confirm **on**: “Check your email” UI; click link → callback `exchangeCodeForSession` → session cookies → redirect.
 5. If email confirm **off**: session created → toast → `/` + refresh; `AuthProvider` gets `SIGNED_IN` → `mergeGuestCartOnLoginAction`.
 6. **Log in** (`/auth/login` → `LoginForm` → `loginService` → `signInWithPassword`) → role from `profiles` → redirect (`?redirect=` via `safeRedirectPath`, else admin → `/admin`, else `/`).
-7. On `SIGNED_IN`: merge guest cart → clear `guest_session_id` → revalidate `/cart`.
+7. On `SIGNED_IN`: claim guest orders → merge guest cart → clear `guest_session_id` (only on full success) → revalidate `/cart` + `/orders`.
 8. **Log out** (Navbar / admin header / idle watcher → `logoutService`) → home + refresh (idle → login).
 9. Active logged-in users hitting `/auth/login` or `/auth/signup` are redirected away by middleware.
 
@@ -25,7 +25,8 @@ Guest (guest_session_id)
   → signupService / loginService (browser Supabase cookies)
   → [email confirm?] callback exchangeCodeForSession
   → AuthProvider SIGNED_IN → mergeGuestCartOnLoginAction
-       → mergeGuestCartToUserService → clearGuestSessionCookie
+       → claimGuestOrdersService → mergeGuestCartToUserService
+       → clearGuestSessionCookie (only if both succeed)
   → HOME or ADMIN (or safe ?redirect=)
   → logout / idle → signOut → HOME (idle → LOGIN)
 ```
@@ -53,10 +54,10 @@ Guest (guest_session_id)
   **Where:** `components/auth/LoginForm.tsx`; `lib/constants/routes.ts`; missing pages under `app/(public)/auth/`.  
   **Do:** Implement reset request + confirm (Supabase recovery) or remove the link until ready.
 
-- [ ] **Guest wishlist / orders not merged or claimed on login**  
-  Only cart is merged. After merge, `clearGuestSessionCookie()` runs always. Guest wishlist rows and guest orders stay on old `session_id`; browser loses the cookie → wishlist empty for user; `/orders` shows only `user_id` orders (guest history orphaned from UI).  
-  **Where:** `providers/AuthProvider.tsx`; `actions/cart.ts` (`mergeGuestCartOnLoginAction`); wishlist services (no merge); `app/(public)/orders/page.tsx`.  
-  **Do:** Merge/claim wishlist (and optionally attach guest orders to `user_id`) before clearing cookie; or clear cookie only after all handoffs.
+- [ ] **Guest wishlist not merged or claimed on login**  
+  Cart merges and guest orders are claimed on `SIGNED_IN`. Guest wishlist rows stay on old `session_id`; after cookie clear, `/wishlist` shows **user** list only.  
+  **Where:** `providers/AuthProvider.tsx`; `actions/cart.ts` (`mergeGuestCartOnLoginAction`); wishlist services (no merge).  
+  **Do:** Merge/claim wishlist before clearing cookie; or clear cookie only after all handoffs.
 
 - [ ] **Cart merge may not run after email-confirm callback**  
   Merge runs only on `onAuthStateChange` event `SIGNED_IN`. Password login fires that. Callback sets session via cookies then full navigation; typical event is `INITIAL_SESSION` (supabase-js 2.x), which is **not** handled for merge. Guest cart can remain unmerged after confirm-email.  
@@ -103,7 +104,7 @@ Guest (guest_session_id)
 
 - [ ] OAuth / social login (`signInWithOAuth`; callback exists mainly for email links)
 - [ ] Full forgot-password product (until pages exist, treat link as incomplete — see P1)
-- [ ] Claiming historical guest orders into the user account (product decision)
+- [ ] Claiming historical guest orders by email match (product decision; same-session claim on login is done)
 
 ---
 
@@ -132,7 +133,8 @@ Guest (guest_session_id)
 | `profiles` | `role`, `full_name`, `is_active`; expected on signup |
 | `carts` / `cart_items` | Guest `session_id` → merge into `user_id` cart |
 | `wishlists` | Guest vs user; **no** merge on login |
-| `orders` | Guest `session_id` + `user_id IS NULL`; **not** claimed on login |
+| `orders` | Guest `session_id` + `user_id IS NULL`; claimed onto `user_id` on login |
+
 
 ---
 
