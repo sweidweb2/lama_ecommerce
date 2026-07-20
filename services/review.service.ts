@@ -1,16 +1,30 @@
 import {
   createReview,
+  createReviewForAdmin,
   getProductReviews,
   getAllReviewsForAdmin,
+  listReviewsForAdmin,
+  getAdminReviewStats,
   updateReview,
   deleteReview,
   type AdminReviewRow,
+  type AdminReviewStats,
+  type ListReviewsForAdminParams,
+  type ListReviewsForAdminResult,
 } from "@/repositories/review.repository";
 import { createReviewSchema } from "@/lib/validators/product_review/create";
+import { adminCreateReviewSchema } from "@/lib/validators/product_review/admin_create";
 import { adminUpdateReviewSchema } from "@/lib/validators/product_review/admin_update";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import type { Review } from "@/types/product_utf8";
+
+export type {
+  AdminReviewRow,
+  AdminReviewStats,
+  ListReviewsForAdminParams,
+  ListReviewsForAdminResult,
+};
 
 /**
  * Create a review for a product.
@@ -83,14 +97,75 @@ export async function getProductReviewsService(
 /**
  * Get all reviews for admin panel.
  * Returns reviews with product and user information.
+ * Prefer listReviewsForAdminService for paginated UI.
  */
 export async function getAllReviewsForAdminService(): Promise<AdminReviewRow[]> {
+  await requireAdmin();
+  return await getAllReviewsForAdmin();
+}
+
+/**
+ * Paginated reviews for admin panel.
+ */
+export async function listReviewsForAdminService(
+  params: ListReviewsForAdminParams,
+): Promise<ListReviewsForAdminResult> {
+  await requireAdmin();
+  return await listReviewsForAdmin(params);
+}
+
+/**
+ * Exact admin review counts by status.
+ */
+export async function getAdminReviewStatsService(): Promise<AdminReviewStats> {
+  await requireAdmin();
+  return await getAdminReviewStats();
+}
+
+/**
+ * Create a review as admin (any status; optional attributed user).
+ */
+export async function createReviewForAdminService(input: {
+  product_id: string;
+  user_id?: string | null;
+  rating: number;
+  title?: string | null;
+  comment?: string | null;
+  review_status: "pending" | "approved" | "rejected";
+}): Promise<{ success: boolean; error?: string; data?: Review }> {
   try {
     await requireAdmin();
   } catch {
-    return [];
+    return { success: false, error: "Unauthorized" };
   }
-  return await getAllReviewsForAdmin();
+
+  try {
+    const validated = adminCreateReviewSchema.parse(input);
+    return await createReviewForAdmin({
+      product_id: validated.product_id,
+      user_id: validated.user_id ?? null,
+      rating: validated.rating,
+      title: validated.title ?? null,
+      comment: validated.comment ?? null,
+      review_status: validated.review_status,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "ZodError") {
+      const zodError = error as any;
+      const firstError = zodError.errors?.[0];
+      return {
+        success: false,
+        error: firstError?.message || "Invalid review data",
+      };
+    }
+
+    console.error("Error in createReviewForAdminService:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to create review",
+    };
+  }
 }
 
 /**

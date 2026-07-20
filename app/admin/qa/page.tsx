@@ -7,6 +7,7 @@ export default async function QAPage() {
   let questions: Awaited<ReturnType<typeof getAllQuestionsAdmin>> = [];
   let products: { id: string; name: string }[] = [];
   let profiles: { id: string; name: string }[] = [];
+  let error: string | null = null;
 
   try {
     const [questionsData, productsData, profilesData] = await Promise.all([
@@ -22,7 +23,15 @@ export default async function QAPage() {
     }));
   } catch (e) {
     console.error("Failed to load Q&A data:", e);
+    error = "Failed to load Q&A. Make sure you are signed in as an admin.";
   }
 
-  return <QATable questions={questions} products={products} profiles={profiles} />;
+  return (
+    <QATable
+      questions={questions}
+      products={products}
+      profiles={profiles}
+      error={error}
+    />
+  );
 }

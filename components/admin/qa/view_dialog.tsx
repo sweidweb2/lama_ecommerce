@@ -94,6 +94,9 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {error && <p className="text-sm text-destructive">{error}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Submitting an answer also approves this question for the storefront.
+                  </p>
                   <Textarea
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}

@@ -2,16 +2,53 @@ import { Star, MessageSquare, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { CreateReviewDialog, type AdminReview } from "@/components/admin/review/create_form"
 import { ReviewsTable } from "@/components/admin/review/ReviewsTable"
 import { StatCard } from "@/components/admin/stat-card"
-import { getAllReviewsForAdminService } from "@/services/review.service"
+import {
+  listReviewsForAdminService,
+  getAdminReviewStatsService,
+  type AdminReviewStats,
+} from "@/services/review.service"
+import { getAdminProductsService } from "@/services/product.service"
+import { getProfilesForAdmin } from "@/services/profile.service"
+import {
+  ADMIN_REVIEWS_PAGE_SIZE,
+  parseAdminReviewsListParams,
+  type AdminReviewsListSearchParams,
+} from "@/lib/admin/reviews-list-params"
 
-export default async function ReviewsPage() {
+interface ReviewsPageProps {
+  searchParams: Promise<AdminReviewsListSearchParams>
+}
+
+export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
+  const params = await searchParams
+  const listParams = parseAdminReviewsListParams(
+    params,
+    ADMIN_REVIEWS_PAGE_SIZE,
+  )
+
   let reviews: AdminReview[] = []
+  let totalCount = 0
+  let stats: AdminReviewStats = {
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    avgRating: "0.0",
+  }
+  let products: { id: string; name: string }[] = []
+  let profiles: { id: string; name: string }[] = []
   let error: string | null = null
 
   try {
-    const reviewsData = await getAllReviewsForAdminService()
-    // Map AdminReviewRow to AdminReview format
-    reviews = reviewsData.map((r) => ({
+    const [listResult, statsResult, productsData, profilesData] =
+      await Promise.all([
+        listReviewsForAdminService(listParams),
+        getAdminReviewStatsService(),
+        getAdminProductsService(),
+        getProfilesForAdmin(),
+      ])
+
+    reviews = listResult.items.map((r) => ({
       id: r.id,
       product_id: r.product_id,
       product_name: r.product_name,
@@ -23,19 +60,19 @@ export default async function ReviewsPage() {
       review_status: r.review_status,
       created_at: r.created_at,
     }))
+    totalCount = listResult.total
+    stats = statsResult
+    products = productsData.map((p) => ({ id: p.id, name: p.name }))
+    profiles = profilesData
+      .filter((pr) => Boolean(pr.user_id))
+      .map((pr) => ({
+        id: pr.user_id as string,
+        name: pr.full_name ?? pr.email ?? "Unknown",
+      }))
   } catch (e) {
     console.error("Failed to load reviews:", e)
     error = "Failed to load reviews. Make sure you are signed in as an admin."
   }
-
-  const totalReviews = reviews.length
-  const pendingReviews = reviews.filter((r) => r.review_status === "pending").length
-  const approvedReviews = reviews.filter((r) => r.review_status === "approved").length
-  const rejectedReviews = reviews.filter((r) => r.review_status === "rejected").length
-  const avgRating =
-    totalReviews > 0
-      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
-      : "0.0"
 
   return (
     <div className="space-y-6">
@@ -47,35 +84,40 @@ export default async function ReviewsPage() {
           </p>
         </div>
         <div className="mt-1">
-          <CreateReviewDialog />
+          <CreateReviewDialog products={products} profiles={profiles} />
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <StatCard
           title="Total Reviews"
-          value={totalReviews}
+          value={stats.total}
           description="All time"
           icon={MessageSquare}
         />
         <StatCard
           title="Approved"
-          value={approvedReviews}
+          value={stats.approved}
           description="Published reviews"
           icon={CheckCircle2}
         />
         <StatCard
           title="Pending"
-          value={pendingReviews}
+          value={stats.pending}
           description="Awaiting moderation"
           icon={Clock}
         />
         <StatCard
           title="Rejected"
-          value={rejectedReviews}
+          value={stats.rejected}
           description="Not published"
           icon={XCircle}
+        />
+        <StatCard
+          title="Avg Rating"
+          value={stats.avgRating}
+          description="Approved reviews"
+          icon={Star}
         />
       </div>
 
@@ -85,7 +127,17 @@ export default async function ReviewsPage() {
           <p className="text-sm">{error}</p>
         </div>
       ) : (
-        <ReviewsTable reviews={reviews} />
+        <ReviewsTable
+          reviews={reviews}
+          totalCount={totalCount}
+          page={listParams.page}
+          pageSize={listParams.pageSize}
+          initialStatus={listParams.status ?? "all"}
+          initialRating={
+            listParams.rating != null ? String(listParams.rating) : "all"
+          }
+          initialProductQuery={listParams.productQuery ?? ""}
+        />
       )}
     </div>
   )

@@ -4,6 +4,7 @@ import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
 import { getProductBySlugService, getRelatedProductsService } from '@/services/product.service'
 import { getProductReviewsService } from '@/services/review.service'
+import { getProductQuestionsService } from '@/services/product_question.service'
 import { productToMetadata } from '@/lib/seo/metadata'
 import { ProductBreadcrumbs } from '@/components/(public)/products/ProductBreadcrumbs'
 import { ProductMediaGallery } from '@/components/(public)/products/product_details/ProductMediaGallery'
@@ -13,6 +14,7 @@ import { ProductCustomization } from '@/components/(public)/products/product_det
 import { ProductVariantProvider } from '@/components/(public)/products/product_details/ProductVariantProvider'
 import { ProductReviews } from '@/components/(public)/products/product_details/ProductReviews'
 import { ProductComments } from '@/components/(public)/products/product_details/ProductComments'
+import { ProductQA } from '@/components/(public)/products/product_details/ProductQA'
 import { ProductRelated } from '@/components/(public)/products/product_details/ProductRelated'
 import { ProductMetadata } from '@/components/(public)/products/product_details/ProductMetadata'
 import { ProductViewTracker } from '@/components/(public)/products/product_details/ProductViewTracker'
@@ -40,6 +42,7 @@ interface ProductPageProps {
  * - ProductCustomization: Variant selection, stock, ATC / wishlist
  * - ProductReviews: Maps to reviews table (summary)
  * - ProductComments: Review list + write form
+ * - ProductQA: Approved Q&A list + ask form
  * - ProductRelated: Related products by priority (brand+category, then brand, then category, then rest)
  * - ProductMetadata: SKU, timestamps, etc.
  */
@@ -99,6 +102,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
 
   // Fetch reviews for this product
   const reviews = await getProductReviewsService(product.id)
+  const questions = await getProductQuestionsService(product.id)
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,6 +186,16 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
             productId={product.id}
             productSlug={product.slug}
             reviews={reviews}
+            isAuthenticated={!!user}
+          />
+        </div>
+
+        {/* Q&A Section */}
+        <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
+          <ProductQA
+            productId={product.id}
+            productSlug={product.slug}
+            questions={questions}
             isAuthenticated={!!user}
           />
         </div>

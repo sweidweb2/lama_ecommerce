@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import { createReviewAdminAction } from "@/actions/review"
 
 export type AdminReview = {
   id: string
@@ -28,24 +30,27 @@ export type AdminReview = {
   created_at?: string
 }
 
-// Dummy products & users for selection
-const DUMMY_PRODUCTS = [
-  { id: "prod-1", name: "Wireless Headphones" },
-  { id: "prod-2", name: "Smart Watch" },
-  { id: "prod-3", name: "Laptop Stand" },
-]
+export interface ProductOption {
+  id: string
+  name: string
+}
 
-const DUMMY_USERS = [
-  { id: "user-1", name: "John Doe" },
-  { id: "user-2", name: "Jane Smith" },
-  { id: "user-3", name: "Bob Johnson" },
-]
+export interface ProfileOption {
+  id: string
+  name: string
+}
+
+interface CreateReviewDialogProps {
+  products: ProductOption[]
+  profiles: ProfileOption[]
+}
 
 const REVIEW_STATUSES: AdminReview["review_status"][] = ["pending", "approved", "rejected"]
 
 const NONE_VALUE = "__none__"
 
-export function CreateReviewDialog() {
+export function CreateReviewDialog({ products, profiles }: CreateReviewDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [productId, setProductId] = useState<string>("")
   const [userId, setUserId] = useState<string>(NONE_VALUE)
@@ -53,48 +58,55 @@ export function CreateReviewDialog() {
   const [title, setTitle] = useState<string>("")
   const [comment, setComment] = useState<string>("")
   const [status, setStatus] = useState<AdminReview["review_status"]>("pending")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetFields = () => {
+    setProductId("")
+    setUserId(NONE_VALUE)
+    setRating("5")
+    setTitle("")
+    setComment("")
+    setStatus("pending")
+    setError(null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!productId || !rating) {
       return
     }
 
-    const product = DUMMY_PRODUCTS.find((p) => p.id === productId)
-    const user = userId !== NONE_VALUE ? DUMMY_USERS.find((u) => u.id === userId) : null
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      const result = await createReviewAdminAction({
+        product_id: productId,
+        user_id: userId !== NONE_VALUE ? userId : null,
+        rating: Math.min(5, Math.max(1, parseInt(rating, 10) || 1)),
+        title: title.trim() || null,
+        comment: comment.trim() || null,
+        review_status: status,
+      })
 
-    const newReview: Omit<AdminReview, "id"> = {
-      product_id: productId,
-      product_name: product?.name || "Unknown product",
-      user_id: user?.id || null,
-      user_name: user?.name || null,
-      rating: Math.min(5, Math.max(1, parseInt(rating) || 1)),
-      title: title || null,
-      comment: comment || null,
-      review_status: status,
-      created_at: new Date().toISOString(),
+      if (!result.success) {
+        setError(result.error ?? "Failed to create review")
+        return
+      }
+
+      resetFields()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create review")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // TODO: Wire this up to a real admin create action / API
-    console.log("Creating review:", newReview)
-
-    setProductId("")
-    setUserId(NONE_VALUE)
-    setRating("5")
-    setTitle("")
-    setComment("")
-    setStatus("pending")
-    setOpen(false)
   }
 
   const handleCancel = () => {
-    setProductId("")
-    setUserId(NONE_VALUE)
-    setRating("5")
-    setTitle("")
-    setComment("")
-    setStatus("pending")
+    resetFields()
     setOpen(false)
   }
 
@@ -105,13 +117,19 @@ export function CreateReviewDialog() {
         Create Review
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => {
+        if (!next) resetFields()
+        setOpen(next)
+      }}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Review</DialogTitle>
           </DialogHeader>
 
           <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="review-product">
                 Product <span className="text-destructive">*</span>
@@ -121,7 +139,7 @@ export function CreateReviewDialog() {
                   <SelectValue placeholder="Select a product" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUMMY_PRODUCTS.map((product) => (
+                  {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name}
                     </SelectItem>
@@ -138,9 +156,9 @@ export function CreateReviewDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>Guest / Anonymous</SelectItem>
-                  {DUMMY_USERS.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
+                  {profiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -209,11 +227,12 @@ export function CreateReviewDialog() {
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!productId || !rating}>
-                Create Review
+              <Button type="submit" disabled={!productId || !rating || isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Review"}
               </Button>
             </DialogFooter>
           </form>
@@ -222,4 +241,3 @@ export function CreateReviewDialog() {
     </>
   )
 }
-

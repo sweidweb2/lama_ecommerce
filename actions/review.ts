@@ -3,11 +3,13 @@
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
   createReviewService,
+  createReviewForAdminService,
   updateReviewService,
   deleteReviewService,
 } from "@/services/review.service";
 import { revalidatePath } from "next/cache";
 import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 /**
  * Create a review for a product.
@@ -46,6 +48,29 @@ export async function createReviewAction(input: {
 }
 
 /**
+ * Create a review (admin use).
+ * Supports optional user attribution and any review_status.
+ */
+export async function createReviewAdminAction(input: {
+  product_id: string;
+  user_id?: string | null;
+  rating: number;
+  title?: string | null;
+  comment?: string | null;
+  review_status: "pending" | "approved" | "rejected";
+}): Promise<{ success: boolean; error?: string; data?: any }> {
+  const result = await createReviewForAdminService(input);
+
+  if (result.success) {
+    revalidatePath("/admin/reviews");
+    revalidatePath(`/products/[slug]`, "page");
+    revalidatePath("/products");
+  }
+
+  return result;
+}
+
+/**
  * Update a review (admin use).
  * This is the server action called from admin components.
  */
@@ -58,13 +83,10 @@ export async function updateReviewAction(
     review_status?: "pending" | "approved" | "rejected";
   },
 ): Promise<{ success: boolean; error?: string; data?: any }> {
-  // Authorization check: User must be logged in
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to update a review",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to update the review
@@ -87,13 +109,10 @@ export async function updateReviewAction(
 export async function deleteReviewAction(
   reviewId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  // Authorization check: User must be logged in
-  const user = await getCurrentAuthUserFromAction();
-  if (!user) {
-    return {
-      success: false,
-      error: "You must be logged in to delete a review",
-    };
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
   }
 
   // Call service to delete the review

@@ -7,6 +7,9 @@ const updateContactMessage = vi.fn();
 const deleteContactMessage = vi.fn();
 const getAdminQuestions = vi.fn();
 const createProductQuestion = vi.fn();
+const updateProductQuestion = vi.fn();
+const addProductAnswer = vi.fn();
+const getLatestAnswerForQuestion = vi.fn();
 const deleteProductQuestion = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
@@ -25,9 +28,13 @@ vi.mock("@/repositories/contact.repository", () => ({
 vi.mock("@/repositories/product_question.repository", () => ({
   getAdminQuestions: (...args: unknown[]) => getAdminQuestions(...args),
   createProductQuestion: (...args: unknown[]) => createProductQuestion(...args),
-  updateProductQuestion: vi.fn(),
-  addProductAnswer: vi.fn(),
+  updateProductQuestion: (...args: unknown[]) => updateProductQuestion(...args),
+  addProductAnswer: (...args: unknown[]) => addProductAnswer(...args),
+  getLatestAnswerForQuestion: (...args: unknown[]) =>
+    getLatestAnswerForQuestion(...args),
   deleteProductQuestion: (...args: unknown[]) => deleteProductQuestion(...args),
+  getApprovedQuestionsWithAnswersByProductId: vi.fn(),
+  createProductQuestionForUser: vi.fn(),
 }));
 
 describe("contact_us.service admin gates", () => {
@@ -87,12 +94,12 @@ describe("product_question.service admin gates", () => {
     vi.clearAllMocks();
   });
 
-  it("getAllQuestionsAdmin returns [] for non-admin", async () => {
+  it("getAllQuestionsAdmin throws for non-admin", async () => {
     getCurrentUserProfile.mockResolvedValue(userProfile);
     const { getAllQuestionsAdmin } = await import(
       "@/services/product_question.service"
     );
-    await expect(getAllQuestionsAdmin()).resolves.toEqual([]);
+    await expect(getAllQuestionsAdmin()).rejects.toThrow("Unauthorized");
     expect(getAdminQuestions).not.toHaveBeenCalled();
   });
 
@@ -120,5 +127,44 @@ describe("product_question.service admin gates", () => {
       "@/services/product_question.service"
     );
     await expect(getAllQuestionsAdmin()).resolves.toEqual([{ id: "q1" }]);
+  });
+
+  it("updateQuestionAdmin skips insert when answer unchanged", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    updateProductQuestion.mockResolvedValue(true);
+    getLatestAnswerForQuestion.mockResolvedValue("Same answer");
+    const { updateQuestionAdmin } = await import(
+      "@/services/product_question.service"
+    );
+    await expect(
+      updateQuestionAdmin("q1", {
+        question: "Q?",
+        answer: "Same answer",
+        is_approved: true,
+      }),
+    ).resolves.toBe(true);
+    expect(addProductAnswer).not.toHaveBeenCalled();
+  });
+
+  it("updateQuestionAdmin inserts when answer changed", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    updateProductQuestion.mockResolvedValue(true);
+    getLatestAnswerForQuestion.mockResolvedValue("Old answer");
+    addProductAnswer.mockResolvedValue(true);
+    const { updateQuestionAdmin } = await import(
+      "@/services/product_question.service"
+    );
+    await expect(
+      updateQuestionAdmin("q1", {
+        question: "Q?",
+        answer: "New answer",
+        is_approved: true,
+      }),
+    ).resolves.toBe(true);
+    expect(addProductAnswer).toHaveBeenCalledWith("q1", "New answer", undefined);
+    expect(updateProductQuestion).toHaveBeenCalledWith("q1", {
+      question: "Q?",
+      is_approved: true,
+    });
   });
 });

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -22,15 +23,21 @@ import { Input } from '@/components/ui/input'
 import { TableWrapper } from '@/components/admin/table-wrapper'
 import { EditReviewDialog } from '@/components/admin/review/edit_form'
 import { DeleteReviewDialog } from '@/components/admin/review/delete_dialog'
+import { AdminPagination } from '@/components/admin/product/AdminPagination'
 import type { AdminReview } from '@/components/admin/review/create_form'
-import { Star, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, X } from 'lucide-react'
 
 interface ReviewsTableProps {
   reviews: AdminReview[]
+  totalCount: number
+  page: number
+  pageSize: number
+  initialStatus: string
+  initialRating: string
+  initialProductQuery: string
 }
 
-const REVIEWS_PER_PAGE = 20
-const MAX_PAGES = 100
+const DEBOUNCE_MS = 300
 
 const renderStars = (rating: number) => {
   return (
@@ -60,80 +67,82 @@ const getStatusVariant = (status: AdminReview['review_status']) => {
   }
 }
 
-export function ReviewsTable({ reviews }: ReviewsTableProps) {
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [ratingFilter, setRatingFilter] = useState<string>('all')
-  const [productFilter, setProductFilter] = useState<string>('')
-  const [currentPage, setCurrentPage] = useState(1)
+export function ReviewsTable({
+  reviews,
+  totalCount,
+  page,
+  pageSize,
+  initialStatus,
+  initialRating,
+  initialProductQuery,
+}: ReviewsTableProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [productQuery, setProductQuery] = useState(initialProductQuery)
 
-  const uniqueStatuses = useMemo(
-    () => Array.from(new Set(reviews.map((r) => r.review_status))).sort(),
-    [reviews],
+  useEffect(() => {
+    setProductQuery(initialProductQuery)
+  }, [initialProductQuery])
+
+  const pushParams = useCallback(
+    (next: {
+      status?: string
+      rating?: string
+      q?: string
+      resetPage?: boolean
+    }) => {
+      const params = new URLSearchParams(searchParams.toString())
+      const status = next.status ?? params.get('status') ?? 'all'
+      const rating = next.rating ?? params.get('rating') ?? 'all'
+      const q =
+        next.q !== undefined ? next.q : (params.get('q') ?? '')
+
+      if (status === 'all') params.delete('status')
+      else params.set('status', status)
+
+      if (rating === 'all') params.delete('rating')
+      else params.set('rating', rating)
+
+      if (!q.trim()) params.delete('q')
+      else params.set('q', q.trim())
+
+      if (next.resetPage !== false) {
+        params.delete('page')
+      }
+
+      const query = params.toString()
+      router.push(query ? `/admin/reviews?${query}` : '/admin/reviews')
+    },
+    [router, searchParams],
   )
 
-  const uniqueRatings = useMemo(
-    () => Array.from(new Set(reviews.map((r) => r.rating))).sort((a, b) => a - b),
-    [reviews],
-  )
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (productQuery.trim() === initialProductQuery.trim()) return
+      pushParams({ q: productQuery, resetPage: true })
+    }, DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [productQuery, initialProductQuery, pushParams])
 
-  // Filter on full reviews data
-  const filteredReviews = useMemo(() => {
-    return reviews.filter((review) => {
-      const matchesStatus = statusFilter === 'all' || review.review_status === statusFilter
-      const matchesRating =
-        ratingFilter === 'all' || review.rating === parseInt(ratingFilter, 10)
-      const matchesProduct =
-        !productFilter ||
-        review.product_name.toLowerCase().includes(productFilter.toLowerCase())
-
-      return matchesStatus && matchesRating && matchesProduct
-    })
-  }, [reviews, statusFilter, ratingFilter, productFilter])
-
-  // Limit total number of reviews to respect max pages
-  const maxReviewsToShow = MAX_PAGES * REVIEWS_PER_PAGE
-  const limitedFilteredReviews = useMemo(
-    () => filteredReviews.slice(0, maxReviewsToShow),
-    [filteredReviews, maxReviewsToShow],
-  )
-
-  const totalPages = useMemo(
-    () =>
-      Math.min(
-        Math.ceil(limitedFilteredReviews.length / REVIEWS_PER_PAGE),
-        MAX_PAGES,
-      ),
-    [limitedFilteredReviews.length],
-  )
-
-  const paginatedReviews = useMemo(() => {
-    const startIndex = (currentPage - 1) * REVIEWS_PER_PAGE
-    const endIndex = startIndex + REVIEWS_PER_PAGE
-    return limitedFilteredReviews.slice(startIndex, endIndex)
-  }, [limitedFilteredReviews, currentPage])
-
-  const handleFilterChange = () => {
-    setCurrentPage(1)
-  }
+  const statusFilter = initialStatus || 'all'
+  const ratingFilter = initialRating || 'all'
 
   const hasActiveFilters =
-    statusFilter !== 'all' || ratingFilter !== 'all' || productFilter !== ''
+    statusFilter !== 'all' ||
+    ratingFilter !== 'all' ||
+    initialProductQuery.trim() !== ''
 
   const clearFilters = () => {
-    setStatusFilter('all')
-    setRatingFilter('all')
-    setProductFilter('')
-    setCurrentPage(1)
+    setProductQuery('')
+    router.push('/admin/reviews')
   }
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize) || 1)
+  const showingStart = reviews.length > 0 ? (page - 1) * pageSize + 1 : 0
+  const showingEnd = (page - 1) * pageSize + reviews.length
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
@@ -142,68 +151,57 @@ export function ReviewsTable({ reviews }: ReviewsTableProps) {
             </span>
             <Input
               placeholder="Search product..."
-              value={productFilter}
-              onChange={(e) => {
-                setProductFilter(e.target.value)
-                handleFilterChange()
-              }}
+              value={productQuery}
+              onChange={(e) => setProductQuery(e.target.value)}
               className="w-[200px]"
             />
           </div>
 
-          {uniqueStatuses.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                Status:
-              </span>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value)
-                  handleFilterChange()
-                }}
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {uniqueStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Status:
+            </span>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                pushParams({ status: value, resetPage: true })
+              }
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          {uniqueRatings.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                Rating:
-              </span>
-              <Select
-                value={ratingFilter}
-                onValueChange={(value) => {
-                  setRatingFilter(value)
-                  handleFilterChange()
-                }}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="All Ratings" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ratings</SelectItem>
-                  {uniqueRatings.map((rating) => (
-                    <SelectItem key={rating} value={String(rating)}>
-                      {rating} stars
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Rating:
+            </span>
+            <Select
+              value={ratingFilter}
+              onValueChange={(value) =>
+                pushParams({ rating: value, resetPage: true })
+              }
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Ratings" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Ratings</SelectItem>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <SelectItem key={rating} value={String(rating)}>
+                    {rating} stars
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {hasActiveFilters && (
             <Button
@@ -217,53 +215,16 @@ export function ReviewsTable({ reviews }: ReviewsTableProps) {
             </Button>
           )}
         </div>
+
+        <p className="text-sm text-muted-foreground">
+          {totalCount === 0
+            ? '0 reviews'
+            : `Showing ${showingStart}–${showingEnd} of ${totalCount}`}
+        </p>
       </div>
 
-      {/* Pagination - Top */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-              let pageNum: number
-              if (totalPages <= 10) {
-                pageNum = i + 1
-              } else if (currentPage <= 5) {
-                pageNum = i + 1
-              } else if (currentPage >= totalPages - 4) {
-                pageNum = totalPages - 9 + i
-              } else {
-                pageNum = currentPage - 5 + i
-              }
-              return (
-                <Button
-                  key={pageNum}
-                  variant={currentPage === pageNum ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handlePageChange(pageNum)}
-                  className="w-10"
-                >
-                  {pageNum}
-                </Button>
-              )
-            })}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <AdminPagination totalPages={totalPages} basePath="/admin/reviews" />
       )}
 
       <TableWrapper>
@@ -280,7 +241,7 @@ export function ReviewsTable({ reviews }: ReviewsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedReviews.length === 0 ? (
+            {reviews.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -292,7 +253,7 @@ export function ReviewsTable({ reviews }: ReviewsTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedReviews.map((review) => (
+              reviews.map((review) => (
                 <TableRow key={review.id}>
                   <TableCell className="font-medium">
                     {review.product_name}
@@ -335,53 +296,9 @@ export function ReviewsTable({ reviews }: ReviewsTableProps) {
         </Table>
       </TableWrapper>
 
-      {/* Pagination - Bottom */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-              let pageNum: number
-              if (totalPages <= 10) {
-                pageNum = i + 1
-              } else if (currentPage <= 5) {
-                pageNum = i + 1
-              } else if (currentPage >= totalPages - 4) {
-                pageNum = totalPages - 9 + i
-              } else {
-                pageNum = currentPage - 5 + i
-              }
-              return (
-                <Button
-                  key={pageNum}
-                  variant={currentPage === pageNum ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handlePageChange(pageNum)}
-                  className="w-10"
-                >
-                  {pageNum}
-                </Button>
-              )
-            })}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <AdminPagination totalPages={totalPages} basePath="/admin/reviews" />
       )}
     </div>
   )
 }
-

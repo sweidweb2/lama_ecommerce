@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 
 /** Admin list item: question with product name, user name, and latest answer text. */
 export interface AdminQuestionRow {
@@ -189,6 +190,34 @@ export async function updateProductQuestion(
 }
 
 /**
+ * Latest answer text for a question, or null if none.
+ */
+export async function getLatestAnswerForQuestion(
+  productQuestionId: string,
+): Promise<string | null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await (supabase as any)
+      .from("product_answers")
+      .select("answer")
+      .eq("product_question_id", productQuestionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch latest product_answer:", error);
+      return null;
+    }
+
+    return (data?.answer as string | undefined) ?? null;
+  } catch (err) {
+    console.error("Unexpected error in getLatestAnswerForQuestion:", err);
+    return null;
+  }
+}
+
+/**
  * Add an answer to a question (inserts new row; display uses latest).
  */
 export async function addProductAnswer(
@@ -235,6 +264,106 @@ export async function deleteProductQuestion(id: string): Promise<boolean> {
     return true;
   } catch (err) {
     console.error("Unexpected error in deleteProductQuestion:", err);
+    return false;
+  }
+}
+
+/** Public PDP row: approved question with latest answer text. */
+export interface PublicProductQuestionRow {
+  id: string;
+  product_id: string;
+  question: string;
+  answer: string | null;
+  created_at: string;
+}
+
+/**
+ * Approved questions for a product with latest answer (storefront).
+ * Uses service-role read filtered to is_approved so guests can see Q&A
+ * even before client RLS is applied; policies still protect session clients.
+ */
+export async function getApprovedQuestionsWithAnswersByProductId(
+  productId: string,
+): Promise<PublicProductQuestionRow[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data: questions, error: qError } = await (supabase as any)
+      .from("product_questions")
+      .select("id, product_id, question, created_at")
+      .eq("product_id", productId)
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false });
+
+    if (qError) {
+      console.error("Failed to fetch approved product_questions:", qError);
+      return [];
+    }
+    if (!questions?.length) return [];
+
+    const { data: answers, error: aError } = await (supabase as any)
+      .from("product_answers")
+      .select("product_question_id, answer, created_at")
+      .in(
+        "product_question_id",
+        questions.map((q: { id: string }) => q.id),
+      )
+      .order("created_at", { ascending: false });
+
+    if (aError) {
+      console.error("Failed to fetch product_answers for PDP:", aError);
+    }
+
+    const latestAnswerByQuestion = new Map<string, string>();
+    (answers ?? []).forEach(
+      (a: { product_question_id: string; answer: string }) => {
+        if (!latestAnswerByQuestion.has(a.product_question_id)) {
+          latestAnswerByQuestion.set(a.product_question_id, a.answer);
+        }
+      },
+    );
+
+    return questions.map((q: any) => ({
+      id: q.id,
+      product_id: q.product_id,
+      question: q.question,
+      answer: latestAnswerByQuestion.get(q.id) ?? null,
+      created_at: q.created_at,
+    }));
+  } catch (err) {
+    console.error(
+      "Unexpected error in getApprovedQuestionsWithAnswersByProductId:",
+      err,
+    );
+    return [];
+  }
+}
+
+/**
+ * Customer storefront ask — pending (is_approved false) via user session client.
+ */
+export async function createProductQuestionForUser(input: {
+  product_id: string;
+  user_id: string;
+  question: string;
+}): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { error } = await (supabase as any).from("product_questions").insert({
+      product_id: input.product_id,
+      user_id: input.user_id,
+      question: input.question.trim(),
+      is_approved: false,
+    });
+
+    if (error) {
+      console.error("Failed to create product_question for user:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Unexpected error in createProductQuestionForUser:", err);
     return false;
   }
 }
