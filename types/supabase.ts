@@ -13,7 +13,7 @@ export type Database = {
         Row: {
           id: string
           name: string
-          slug: string | null
+          slug: string
           parent_id: string | null
           is_active: boolean
           created_at: string
@@ -21,7 +21,7 @@ export type Database = {
         Insert: {
           id?: string
           name: string
-          slug?: string | null
+          slug: string
           parent_id?: string | null
           is_active?: boolean
           created_at?: string
@@ -29,7 +29,7 @@ export type Database = {
         Update: {
           id?: string
           name?: string
-          slug?: string | null
+          slug?: string
           parent_id?: string | null
           is_active?: boolean
           created_at?: string

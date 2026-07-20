@@ -17,7 +17,7 @@ export interface HomeCategory {
 }
 
 /**
- * Fetch all active categories, ordered by name.
+ * Fetch all active categories, ordered by name (storefront / public).
  */
 export async function getCategories(): Promise<Category[]> {
   try {
@@ -37,6 +37,67 @@ export async function getCategories(): Promise<Category[]> {
   } catch (error) {
     console.error("Unexpected error in getActiveCategories:", error);
     return [];
+  }
+}
+
+/**
+ * Fetch all categories including inactive (admin list + product selects).
+ */
+export async function getAdminCategories(): Promise<Category[]> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching admin categories:", error);
+      return [];
+    }
+
+    return (data ?? []) as Category[];
+  } catch (error) {
+    console.error("Unexpected error in getAdminCategories:", error);
+    return [];
+  }
+}
+
+/**
+ * Exact product counts per category (all products, including inactive).
+ * Direct category_id assignment only — not recursive children.
+ */
+export async function getCategoryProductCounts(
+  categoryIds: string[],
+): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  for (const id of categoryIds) {
+    result[id] = 0;
+  }
+  if (categoryIds.length === 0) return result;
+
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+
+    await Promise.all(
+      categoryIds.map(async (id) => {
+        const { count, error } = await supabase
+          .from("products")
+          .select("*", { count: "exact", head: true })
+          .eq("category_id", id);
+
+        if (error) {
+          console.error(`Error counting products for category ${id}:`, error);
+          return;
+        }
+        result[id] = count ?? 0;
+      }),
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Unexpected error in getCategoryProductCounts:", error);
+    return result;
   }
 }
 
@@ -154,7 +215,7 @@ export async function createCategory(
     .from("categories")
     .insert([{
       name: input.name,
-      slug: input.slug ?? null,
+      slug: input.slug,
       parent_id: input.parent_id ?? null,
       is_active: input.is_active ?? true,
     }] as any)

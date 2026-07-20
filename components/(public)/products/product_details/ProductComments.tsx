@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils'
 import { ROUTES } from '@/lib/constants/routes'
 import type { Review } from '@/types/product_utf8'
 import { createReviewAction } from '@/actions/review'
+import { useAuth } from '@/providers/AuthProvider'
+import { ROLES } from '@/lib/constants/roles'
 
 interface ProductCommentsProps {
   productId: string
@@ -28,8 +30,9 @@ interface ProductCommentsProps {
  *
  * Features:
  * - Display approved reviews/comments
- * - Submit new review/comment (authenticated)
+ * - Submit new review/comment (authenticated customers)
  * - Guest CTA to sign in before reviewing
+ * - Admins cannot write storefront reviews
  */
 export function ProductComments({
   productId,
@@ -37,6 +40,8 @@ export function ProductComments({
   reviews = [],
   isAuthenticated,
 }: ProductCommentsProps) {
+  const { role } = useAuth()
+  const isAdmin = role === ROLES.ADMIN
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [title, setTitle] = useState('')
@@ -155,7 +160,16 @@ export function ProductComments({
           <div className="space-y-6">
             <h3 className="text-xl font-semibold">Write a Review</h3>
 
-            {!isAuthenticated ? (
+            {isAdmin ? (
+              <div className="space-y-4 rounded-lg border p-6">
+                <p className="text-muted-foreground">
+                  Admins cannot leave storefront reviews. Moderate reviews from the admin panel.
+                </p>
+                <Button asChild size="lg" className="w-full" variant="outline">
+                  <Link href={ROUTES.ADMIN}>Go to Admin Panel</Link>
+                </Button>
+              </div>
+            ) : !isAuthenticated ? (
               <div className="space-y-4 rounded-lg border p-6">
                 <p className="text-muted-foreground">
                   Sign in to share your experience with this product.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -17,12 +18,13 @@ import { ArrowLeft } from "lucide-react"
 import Link from "@/components/ui/link"
 import type { Brand, Category } from "@/types/product"
 import { createProductSchema } from "@/lib/validators/product/create"
+import type { CreateProductActionResult } from "@/actions/product"
 import type { z } from "zod"
 
 const NONE_VALUE = "__none__"
 
 interface CreateProductFormProps {
-  action: (formData: FormData) => Promise<void> | void
+  action: (formData: FormData) => Promise<CreateProductActionResult>
   brands: Brand[]
   categories: Category[]
 }
@@ -34,6 +36,7 @@ export function CreateProductForm({
   brands,
   categories,
 }: CreateProductFormProps) {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -103,7 +106,21 @@ export function CreateProductForm({
       formData.set("is_trending", parsed.data.is_trending ? "true" : "false")
       formData.set("is_active", parsed.data.is_active ? "true" : "false")
 
-      await action(formData)
+      const result = await action(formData)
+
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      if (result.imageUploadFailed) {
+        toast.warning("Product created, but image upload failed", {
+          description:
+            result.imageError ?? "Add an image from the product page.",
+        })
+        router.push(`/admin/products/${result.encryptedId}`)
+        return
+      }
 
       toast.success("Product created successfully!")
 
@@ -227,7 +244,9 @@ export function CreateProductForm({
                   <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
-                      {category.name}
+                      {category.is_active
+                        ? category.name
+                        : `${category.name} (inactive)`}
                     </SelectItem>
                   ))}
                 </SelectContent>

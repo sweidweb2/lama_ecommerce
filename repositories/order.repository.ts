@@ -765,11 +765,12 @@ export async function updateOrder(
 }
 
 /**
- * Count payments for an order (admin). Used to block hard-delete when payments exist.
+ * Count payments for an order (admin).
+ * Fail closed: never return a fake 0 on query error.
  */
 export async function countPaymentsByOrderId(
   orderId: string,
-): Promise<number> {
+): Promise<{ success: true; count: number } | { success: false; error: string }> {
   try {
     const supabase = createSupabaseAdminClient();
     const { count, error } = await supabase
@@ -779,21 +780,29 @@ export async function countPaymentsByOrderId(
 
     if (error) {
       console.error("Error counting payments:", error);
-      return 0;
+      return {
+        success: false,
+        error: error.message || "Failed to count payments",
+      };
     }
-    return count ?? 0;
+    return { success: true, count: count ?? 0 };
   } catch (error) {
     console.error("Unexpected error in countPaymentsByOrderId:", error);
-    return 0;
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error counting payments",
+    };
   }
 }
 
 /**
- * Count shipments for an order (admin). Used to block hard-delete when shipments exist.
+ * Count shipments for an order (admin). Used when deciding whether to create a shipment.
+ * Fail closed: never return a fake 0 on query error.
  */
 export async function countShipmentsByOrderId(
   orderId: string,
-): Promise<number> {
+): Promise<{ success: true; count: number } | { success: false; error: string }> {
   try {
     const supabase = createSupabaseAdminClient();
     const { count, error } = await supabase
@@ -803,19 +812,28 @@ export async function countShipmentsByOrderId(
 
     if (error) {
       console.error("Error counting shipments:", error);
-      return 0;
+      return {
+        success: false,
+        error: error.message || "Failed to count shipments",
+      };
     }
-    return count ?? 0;
+    return { success: true, count: count ?? 0 };
   } catch (error) {
     console.error("Unexpected error in countShipmentsByOrderId:", error);
-    return 0;
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unexpected error counting shipments",
+    };
   }
 }
 
 /**
  * Hard-delete an order using admin client (bypass RLS).
- * Order items are removed via ON DELETE CASCADE.
- * Caller must refuse delete when payments or shipments exist.
+ * Order items, payments, and shipments are removed via ON DELETE CASCADE.
+ * Caller should cancel first when stock_restored is false so inventory is restored.
  */
 export async function deleteOrderAdmin(
   orderId: string,

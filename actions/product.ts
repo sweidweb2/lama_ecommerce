@@ -29,14 +29,40 @@ import { createProductVariantSchema } from "@/lib/validators/product_variant/cre
 import { updateProductVariantSchema } from "@/lib/validators/product_variant/update";
 import type { ProductWithRelations } from "@/types/product";
 import type { ProductVariant } from "@/types/product";
+import { encryptOrderId } from "@/lib/utils/encryption";
 
 const idSchema = z.string().uuid();
 
-export async function createProductAction(formData: FormData): Promise<void> {
+export type CreateProductActionResult =
+  | {
+      success: true;
+      encryptedId: string;
+      imageUploadFailed?: boolean;
+      imageError?: string;
+    }
+  | { success: false; error: string };
+
+export type ProductMutationResult =
+  | { success: true }
+  | { success: false; error: string };
+
+function actionErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message ?? fallback;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
+export async function createProductAction(
+  formData: FormData,
+): Promise<CreateProductActionResult> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const raw = {
@@ -82,8 +108,12 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
     const created = await createProductService(parsed, profile.user_id);
     if (!created) {
-      throw new Error("Failed to create product");
+      return { success: false, error: "Failed to create product" };
     }
+
+    const encryptedId = encryptOrderId(created.id);
+    let imageUploadFailed = false;
+    let imageError: string | undefined;
 
     const imageFile = formData.get("images");
 
@@ -93,23 +123,43 @@ export async function createProductAction(formData: FormData): Promise<void> {
         imageFile,
       );
       if (!uploaded.success) {
-        console.error("Error uploading product image on create:", uploaded.error);
-        // Do not fail the whole product creation if image upload fails
+        console.error(
+          "Error uploading product image on create:",
+          uploaded.error,
+        );
+        imageUploadFailed = true;
+        imageError = uploaded.error;
       }
     }
 
     revalidatePath("/admin/products");
+
+    if (imageUploadFailed) {
+      return {
+        success: true,
+        encryptedId,
+        imageUploadFailed: true,
+        imageError,
+      };
+    }
+
+    return { success: true, encryptedId };
   } catch (error) {
     console.error("Unexpected error in createProductAction:", error);
-    throw error;
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Failed to create product"),
+    };
   }
 }
 
-export async function updateProductAction(formData: FormData): Promise<void> {
+export async function updateProductAction(
+  formData: FormData,
+): Promise<ProductMutationResult> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const idRaw = formData.get("id")?.toString();
@@ -170,23 +220,28 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     const updated = await updateProductService(id, parsed);
     if (!updated) {
-      throw new Error("Failed to update product");
+      return { success: false, error: "Failed to update product" };
     }
 
-    // Revalidate the products list and the details page (route uses product ID).
     revalidatePath("/admin/products");
     revalidatePath(`/admin/products/${id}`);
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in updateProductAction:", error);
-    throw error;
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Failed to update product"),
+    };
   }
 }
 
-export async function deleteProductAction(formData: FormData): Promise<void> {
+export async function deleteProductAction(
+  formData: FormData,
+): Promise<ProductMutationResult> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const idRaw = formData.get("id")?.toString();
@@ -194,14 +249,18 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
 
     const ok = await deleteProductService(id);
     if (!ok) {
-      throw new Error("Failed to delete product");
+      return { success: false, error: "Failed to delete product" };
     }
 
     revalidatePath("/admin/products");
     revalidatePath("/admin/products/grid");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in deleteProductAction:", error);
-    throw error;
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Failed to delete product"),
+    };
   }
 }
 

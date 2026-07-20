@@ -3,7 +3,7 @@
 **Scope:** Admin catalog from `flow.md`: products (CRUD, variants, images, grid), categories, brands, product views.  
 **Out of scope:** Storefront browse/buy behavior (Guest/Client Flow), dashboard KPIs, sales carts/orders, Analytics charts.
 
-**Verdict:** Day-to-day **create/edit works** (list, detail, variants, images, grid, brands). **Not fully correct:** product **hard-delete is blocked after any storefront view** with no cleanup UI and silent delete failures; **create ignores `is_active`**; **inactive categories disappear from the admin list**. Brands and product-views read path are largely fine; views have no delete (feeds the product-delete block).
+**Verdict:** Day-to-day **create/edit works** (list, detail, variants, images, grid, brands). Product hard-delete clears views/stats and toasts remaining blockers (questions / wishlist / cart / orders). Brands and product-views read path are largely fine. Admin categories list includes inactive rows via `getAdminCategories`.
 
 ---
 
@@ -46,84 +46,100 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Product hard-delete blocked after any view — no cleanup UI; errors silent**  
-  `hardDeleteProduct` refuses when `product_views` or `product_stats` (or questions / wishlist / cart / orders via variants) exist. First PDP view creates views+stats. Admin product-views UI cannot clear them. Delete dialog only `console.error`s → looks like a no-op.  
+- [x] ✅ **Product hard-delete blocked after any view — no cleanup UI; errors silent** done✅  
+  `hardDeleteProduct` used to refuse when `product_views` or `product_stats` existed. First PDP view created views+stats with no admin clear path; delete dialog looked like a no-op.  
   **Where:** `repositories/product.repository.ts` `hardDeleteProduct`; `components/admin/product/delete_dialog.tsx`; `actions/product_view.ts` (read-only).  
-  **Do:** Cascade/clear views+stats on product delete (or admin “clear analytics then delete”); toast the blocking reason; optionally prefer deactivate (`is_active=false`) for viewed products.
+  **Done:** Auto-delete `product_views` + `product_stats` before product delete; still block questions / wishlist / cart / orders; delete dialog toasts success and `Cannot delete product: …` blockers.
 
-- [ ] **Create product drops `is_active`**  
+- [x] ✅ **Create product drops `is_active`** done✅  
   Form/action parse `is_active`; `createProductService` never passes it into `CreateProductRepoInput` → DB/default **active**. Unchecking Active on create still publishes. Update path passes `is_active` correctly.  
   **Where:** `services/product.service.ts` `createProductService` (~38–49); `CreateProductForm.tsx`.  
-  **Do:** Pass `is_active: payload.is_active ?? true` into the repo input.
+  **Do:** Pass `is_active: payload.is_active ?? true` into the repo input.  
+  **Done:** `createProductService` now passes `is_active: payload.is_active ?? true` into `CreateProductRepoInput`.
 
-- [ ] **Inactive categories vanish from admin**  
+- [x] ✅ **Inactive categories vanish from admin** done✅  
   Categories page uses `getCategoriesService` → `getCategories()` with `.eq("is_active", true)`. Deactivate → row disappears; cannot re-activate/edit. Product brand/category dropdowns also only load active categories (OK for create; bad for editing products already on inactive category).  
   **Where:** `repositories/categories.repository.ts` `getCategories`; `app/admin/categories/page.tsx`; product create/edit category selects.  
-  **Do:** Admin list without `is_active` filter (`getAdminCategories`); keep active-only for storefront.
+  **Do:** Admin list without `is_active` filter (`getAdminCategories`); keep active-only for storefront.  
+  **Done:** `getAdminCategories` / `getAdminCategoriesService` for admin list + product selects; storefront keeps active-only `getCategories`; inactive options labeled `(inactive)`.
 
 ---
 
 ## P1 — Incomplete / wrong catalog behavior
 
-- [ ] **Create image failure swallowed as success**  
+- [x] ✅ **Create image failure swallowed as success** done✅  
   Product create succeeds; image fail only `console.error`; toast still success.  
   **Where:** `actions/product.ts` create; `CreateProductForm.tsx`.  
-  **Do:** Return upload status; warn toast / open detail to retry.
+  **Do:** Return upload status; warn toast / open detail to retry.  
+  **Done:** `createProductAction` returns `{ success, encryptedId, imageUploadFailed? }`; form warns + redirects to product detail to retry upload.
 
-- [ ] **Delete / update product errors not shown to admin**  
+- [x] ✅ **Delete / update product errors not shown to admin** done✅  
   Variants toast failures; product delete/edit often log only.  
   **Where:** `delete_dialog.tsx`; `edit_form.tsx`.  
-  **Do:** Toast thrown `Cannot delete product: …` / update errors.
+  **Do:** Toast thrown `Cannot delete product: …` / update errors.  
+  **Done:** Actions return `{ success, error }`; delete/edit dialogs toast domain messages (incl. `Cannot delete product: …`).
 
-- [ ] **Category (and image) mutate path thin on `requireAdmin`**  
+- [x] ✅ **Category (and image) mutate path thin on `requireAdmin`** done✅  
   Category service has no `requireAdmin` (action checks `profile.role`). Image service same pattern. Brands: action thin, service has `requireAdmin`. Inconsistent defense-in-depth.  
   **Where:** `services/category.service.ts`; `services/product_image.service.ts`; `actions/brand.ts`.  
-  **Do:** `requireAdmin` in all mutate services; align brand actions.
+  **Do:** `requireAdmin` in all mutate services; align brand actions.  
+  **Done:** `requireAdmin` on category + product-image mutate services; brand create/update/delete actions also call `requireAdmin`.
 
-- [ ] **Category slug optional / nullable**  
+- [x] ✅ **Category slug optional / nullable** done✅  
   Zod allows empty slug; storefront filters by slug → dead / unresolved category links.  
   **Where:** `lib/validators/category/base.ts`; category forms.  
-  **Do:** Require slug (like products) or auto-generate from name.
+  **Do:** Require slug (like products) or auto-generate from name.  
+  **Done:** Required slug in Zod + create/edit forms; migration backfills null/empty and `SET NOT NULL`.
 
-- [ ] **No unique variant constraint**  
+- [x] ✅ **No unique variant constraint** done✅  
   Duplicate `(product_id, color, size, material)` allowed.  
   **Where:** `customised_products` schema; `createProductVariantService`.  
-  **Do:** Unique constraint + friendly conflict error.
+  **Do:** Unique constraint + friendly conflict error.  
+  **Done:** Unique index `customised_products_product_attrs_uidx` (with dedupe); create/update throw friendly `23505` messages.
 
-- [ ] **Custom color stores hex vs named palette colors**  
+- [x] ✅ **Custom color stores hex vs named palette colors** done✅  
   Palette → `"Red"`; picker → `"#ef4444"`. Storefront facets string-match → inconsistent filters.  
   **Where:** `CreateVariantForm.tsx` / `EditVariantDialog.tsx`.  
-  **Do:** Normalize to names or separate hex column.
+  **Do:** Normalize to names or separate hex column.  
+  **Done:** Canonical uppercase hex via `canonicalizeColorForStorage` on variant write; `expandColorFilterValues` aliases name↔hex for storefront filters; forms use shared `COLOR_PALETTE`.
 
-- [ ] **Missing product after decrypt → stub page, not `notFound()`**  
+- [x] ✅ **Missing product after decrypt → stub page, not `notFound()`** done✅  
   Bad encrypt → `notFound()`; missing row → “does not exist yet…” placeholder.  
   **Where:** `app/admin/products/[id]/page.tsx`.  
-  **Do:** Call `notFound()`.
+  **Do:** Call `notFound()`.  
+  **Done:** Missing product after decrypt now calls `notFound()`.
 
-- [ ] **Brands: no shared Zod on server**  
+- [x] ✅ **Brands: no shared Zod on server** done✅  
   Action mainly checks name/id present; weaker than products/categories.  
   **Where:** `actions/brand.ts`.  
-  **Do:** Shared Zod schemas like products/categories.
+  **Do:** Shared Zod schemas like products/categories.  
+  **Done:** `lib/validators/brand/*`; action + service re-parse; forms use `safeParse`.
 
 ---
 
 ## P2 — DX / stubs / polish
 
-- [ ] **No image reorder** — primary flag + `created_at` promote only.  
-  **Do:** `sort_order` + UI, or defer explicitly.
+- [x] ✅ **No image reorder** — deferred✅  
+  Primary flag + `created_at` promote only.  
+  **Do:** `sort_order` + UI, or defer explicitly.  
+  **Deferred:** Gallery stays primary-first / `created_at` promote; full `sort_order` + drag reorder UI out of scope until needed.
 
-- [ ] **Admin products / grid load all rows client-side**  
+- [x] ✅ **Admin products / grid load all rows client-side** done✅  
   Soft caps (~1500 table / ~720 grid). Same anti-pattern storefront fixed.  
   **Where:** `getAdminProducts`; `ProductsTable`; `app/admin/products/grid/page.tsx`.  
-  **Do:** Server-side filter + pagination.
+  **Do:** Server-side filter + pagination.  
+  **Done:** `getAdminProductsPage` + URL filters/pagination on list and grid; soft caps removed.
 
-- [ ] **Sidebar Catalog omits Grid**  
+
+- [x] ✅ **Sidebar Catalog omits Grid** done✅  
   Product Views is in Catalog children; Grid (`/admin/products/grid`) remains button-only.  
   **Where:** `components/admin/app-sidebar.tsx`.  
-  **Do:** Add Grid nav child if desired.
+  **Do:** Add Grid nav child if desired.  
+  **Done:** Catalog children include Grid → `/admin/products/grid`.
 
-- [ ] **Category products count stub** — `productsCount = 0 // TODO`.  
-  **Where:** `components/admin/category/categories-table.tsx`.
+- [x] ✅ **Category products count stub** — `productsCount = 0 // TODO`. done✅  
+  **Where:** `components/admin/category/categories-table.tsx`.  
+  **Done:** `getCategoryProductCounts` (all products per `category_id`) wired through admin categories page.
 
 - [ ] **Create product no redirect to detail** — form clears in place.  
   **Do:** Redirect to `/admin/products/${encrypt(id)}`.
@@ -139,7 +155,7 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
 ## Deferred (not bugs — planned later)
 
 - [ ] Soft delete for catalog entities — project uses hard delete + `is_active` hide (`docs/.../Hard Deletes`)  
-- [ ] Product-views delete as a standalone analytics feature — only needed if delete stays blocked without cascade  
+- [ ] Product-views standalone clear/delete UI — not required for product delete (views/stats auto-cleared)  
 - [ ] Image drag-reorder beyond primary  
 - [ ] Brand `is_active` (schema has no flag)  
 - [ ] Bulk import / CSV  
@@ -156,9 +172,9 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
 | Create with `is_active=false` | **Broken** — still saved active (P0) |
 | Product with zero variants | Admin OK; storefront buyability limited (Guest Browse) |
 | Inactive product | Admin lists it; storefront RLS hides | 
-| Inactive category | **Disappears from admin list** (P0) |
+| Inactive category | Listed in admin (Active/Inactive badge); storefront still active-only |
 | Category slug empty | Allowed; storefront filter broken (P1) |
-| Delete product after any PDP view | **Blocked**; no clear UI; silent dialog (P0) |
+| Delete product after any PDP view | Views/stats auto-cleared; questions / wishlist / cart / orders still block with toast |
 | Delete variant with orders / wishlist / cart | Blocked with toast | OK |
 | Reduce stock with order history / below cart | Blocked | OK |
 | Image upload fail on create | Product OK, image missing, success toast (P1) |
@@ -239,7 +255,7 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
 | `product_images` + bucket `products` | Gallery |
 | `categories` | Tree / slug / `is_active` |
 | `brands` + bucket `brands` | Name / slug / logo |
-| `product_views` / `product_stats` | Analytics; block hard-delete today |
+| `product_views` / `product_stats` | Analytics; cleared on product hard-delete |
 | `product_questions` | Also blocks product delete |
 | `wishlists` / `cart_items` / `order_items` | Block variant/product delete when referenced |
 
@@ -252,4 +268,4 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
 - Dashboard (links into products): `[04] Admin Flows/[02] Admin Flow - Dashboard.md`
 - Hard-delete policy: `docs/[08] Business Logic/[01] Hard Deletes/`
 
-**Highest-impact fixes:** cascade or clear views/stats on product delete + toast blockers; pass `is_active` on create; admin category list including inactive.
+**Highest-impact remaining:** category/brand polish and storefront catalog edge cases (see open P1/P2).

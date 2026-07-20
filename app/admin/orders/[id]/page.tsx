@@ -8,6 +8,7 @@ import { EditOrderDialog, type AdminOrder } from '@/components/admin/order/edit_
 import { DeleteOrderDialog } from '@/components/admin/order/delete_dialog'
 import { OrderItemsTable } from '@/components/admin/order/OrderItemsTable'
 import { OrderStatusStepper } from '@/components/admin/order/OrderStatusStepper'
+import { EditShipmentDialog } from '@/components/admin/order/EditShipmentDialog'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { decryptOrderId, encryptOrderId } from '@/lib/utils/encryption'
 import type { OrderItem, Payment, Shipment } from '@/types/order'
@@ -91,8 +92,8 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             </p>
           </div>
           <div className="flex gap-2">
-            <EditOrderDialog order={order} showText />
-            <DeleteOrderDialog order={order} showText redirectAfterDelete disabled />
+            <EditOrderDialog order={order} showText hasShipment={Boolean(shipment)} />
+            <DeleteOrderDialog order={order} showText redirectAfterDelete />
           </div>
         </div>
 
@@ -116,7 +117,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             {/* Order Items */}
             <Card>
               <CardContent>
-                <OrderItemsTable orderId={order.id} items={orderItems} />
+                <OrderItemsTable items={orderItems} />
               </CardContent>
             </Card>
           </div>
@@ -291,11 +292,12 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
             {/* Shipment Information */}
             {shipment && (
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Shipment Information
                   </CardTitle>
+                  <EditShipmentDialog shipment={shipment} showText />
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {shipment.carrier_name && (

@@ -45,7 +45,7 @@ PDP → ATC (upsert_cart_item)
   Place-order decrements stock while payment stays unpaid. Cancel / fail / refund does not restore stock.  
   **Where:** `process_checkout` RPC; order status updates (admin).  
   **Do:** Either reserve only after paid, or restock on cancel/failed/refunded.  
-  **Done:** Prefer restock path. Migration `20260713120000_restock_on_order_cancel.sql` adds `orders.stock_restored` + BEFORE UPDATE trigger that restores `order_items` quantities to `customised_products` when status → `cancelled` or payment_status → `failed`/`refunded` (idempotent).
+  **Done:** Prefer restock path. `orders.stock_restored` + BEFORE UPDATE trigger restores `order_items` quantities to `customised_products` when status → `cancelled` (idempotent). Payment `failed`/`refunded` alone does not restock (`20260720182000_restock_only_on_cancel.sql`).
 
 ---
 

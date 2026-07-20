@@ -9,6 +9,10 @@ import { cn } from '@/lib/utils'
 import { useProductVariant } from './ProductVariantProvider'
 import { addItemToCartAction } from '@/actions/cart'
 import { toggleWishlistAction, checkWishlistStatusAction } from '@/actions/wishlist'
+import { useAuth } from '@/providers/AuthProvider'
+import { ROLES } from '@/lib/constants/roles'
+import { ROUTES } from '@/lib/constants/routes'
+import Link from '@/components/ui/link'
 import type { ProductVariant } from '@/types/product_utf8'
 
 interface ProductCustomizationProps {
@@ -89,6 +93,8 @@ export function ProductCustomization({
   variants,
 }: ProductCustomizationProps) {
   const { setSelectedVariantId } = useProductVariant()
+  const { role } = useAuth()
+  const isAdmin = role === ROLES.ADMIN
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
@@ -560,7 +566,18 @@ export function ProductCustomization({
         </div>
       )}
 
-      {/* Add to Cart Button with Wishlist Icon */}
+      {/* Add to Cart Button with Wishlist Icon — hidden for admins */}
+      {isAdmin ? (
+        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          <p>Admins cannot shop on the storefront.</p>
+          <Link
+            href={ROUTES.ADMIN}
+            className="mt-2 inline-block font-medium text-primary hover:underline"
+          >
+            Go to Admin Panel
+          </Link>
+        </div>
+      ) : (
       <div className="flex items-center gap-2">
         <Button
           size="lg"
@@ -607,6 +624,7 @@ export function ProductCustomization({
         </span>
       </button>
       </div>
+      )}
     </div>
   )
 }

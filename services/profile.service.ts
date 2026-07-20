@@ -1,6 +1,7 @@
 import type { Profile, ProfileRole } from "@/types/user";
 import {
   getProfileByUserId,
+  getProfileByUserIdAdmin,
   getAllProfilesForAdmin,
   updateProfileById,
   createUserAndProfile,
@@ -9,6 +10,10 @@ import {
 import { getUserIdsWithActiveCarts } from "@/repositories/cart.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { ROLES } from "@/lib/constants/roles";
+import {
+  ADMIN_CANNOT_SHOP_MESSAGE,
+  canAccessAdmin,
+} from "@/lib/auth/permissions";
 
 /**
  * Get the current authenticated user's profile (including `role`).
@@ -39,6 +44,19 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
     console.error("Unexpected error in getCurrentUserProfile:", error);
     return null;
   }
+}
+
+/**
+ * If this auth user id is an admin, return the storefront shop-block message.
+ */
+export async function getAdminShopBlockForUserId(
+  userId: string,
+): Promise<string | null> {
+  const profile = await getProfileByUserIdAdmin(userId);
+  if (profile && canAccessAdmin(profile.role)) {
+    return ADMIN_CANNOT_SHOP_MESSAGE;
+  }
+  return null;
 }
 
 /**

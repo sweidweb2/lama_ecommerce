@@ -30,6 +30,12 @@ import Link from "@/components/ui/link"
 import { Badge } from "@/components/ui/badge"
 import { encryptOrderId } from "@/lib/utils/encryption"
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs"
+import { AdminDateRangeControls } from "@/components/admin/AdminDateRangeControls"
+import {
+  adminDateRangeHref,
+  parseAdminDateRange,
+} from "@/lib/admin/date-range"
+import { METRIC_LABELS } from "@/lib/admin/metric-definitions"
 import { computeMomTrend } from "@/lib/admin/mom"
 
 function formatCurrency(amount: number): string {
@@ -93,7 +99,20 @@ function unwrapOrEmpty<T>(result: DashboardResult<T>, empty: T): T {
   return result.ok ? result.data : empty
 }
 
-export default async function AdminDashboard() {
+interface AdminDashboardProps {
+  searchParams: Promise<{
+    from?: string
+    to?: string
+    preset?: string
+  }>
+}
+
+export default async function AdminDashboard({ searchParams }: AdminDashboardProps) {
+  const params = await searchParams
+  const range = parseAdminDateRange(params, { defaultPreset: "this_month" })
+  const chartsHref = adminDateRangeHref("/admin/analytics", range)
+  const rangeLabel = range.label
+
   const [
     statsResult,
     recentOrdersResult,
@@ -105,14 +124,14 @@ export default async function AdminDashboard() {
     topProductsResult,
     orderStatusesResult,
   ] = await Promise.all([
-    getDashboardStatsService(),
+    getDashboardStatsService(range),
     getRecentOrdersService(6),
     getRecentUsersService(5),
     getLowStockItemsService(8),
     getPendingReviewsPreviewService(5),
     getUnansweredQuestionsPreviewService(5),
     getRecentContactsService(5),
-    getTopSellingProductsService(5),
+    getTopSellingProductsService(5, range),
     getOrderStatusBreakdownService(),
   ])
 
@@ -157,12 +176,16 @@ export default async function AdminDashboard() {
   const formatStatRaw = (value: number | undefined) =>
     statsOk && value !== undefined ? value : UNAVAILABLE
 
-  const ordersTrend = stats
-    ? computeMomTrend(stats.totalOrdersThisMonth, stats.ordersLastMonth)
-    : undefined
-  const revenueTrend = stats
-    ? computeMomTrend(stats.revenueThisMonth, stats.revenueLastMonth)
-    : undefined
+  const ordersTrend =
+    stats && range.compareFromIso
+      ? computeMomTrend(stats.totalOrdersThisMonth, stats.ordersLastMonth)
+      : undefined
+  const revenueTrend =
+    stats && range.compareFromIso
+      ? computeMomTrend(stats.revenueThisMonth, stats.revenueLastMonth)
+      : undefined
+
+  const reloadHref = adminDateRangeHref("/admin", range)
 
   return (
     <div className="space-y-6">
@@ -177,6 +200,14 @@ export default async function AdminDashboard() {
             : ""}
         </p>
       </div>
+
+      <AdminDateRangeControls
+        fromDate={range.fromDate}
+        toDate={range.toDate}
+        preset={range.preset}
+        chartsHref={chartsHref}
+        showAllTime={false}
+      />
 
       {hasFetchError && (
         <div
@@ -200,7 +231,7 @@ export default async function AdminDashboard() {
             </div>
           </div>
           <Link
-            href="/admin"
+            href={reloadHref}
             className="shrink-0 text-sm font-medium text-primary hover:underline"
           >
             Reload
@@ -210,19 +241,19 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Active users"
+          title={METRIC_LABELS.activeUsers}
           value={formatStatNumber(stats?.totalUsers)}
           description="Profiles marked active"
           icon={Users}
         />
         <StatCard
-          title="Active products"
+          title={METRIC_LABELS.activeProducts}
           value={formatStatNumber(stats?.totalProducts)}
           description="Listed in catalog"
           icon={Package}
         />
         <StatCard
-          title="Orders this month"
+          title={`Orders · ${rangeLabel}`}
           value={formatStatNumber(stats?.totalOrdersThisMonth)}
           description={
             statsOk
@@ -233,7 +264,7 @@ export default async function AdminDashboard() {
           trend={ordersTrend}
         />
         <StatCard
-          title="Revenue this month"
+          title={`Revenue · ${rangeLabel}`}
           value={formatStatCurrency(stats?.revenueThisMonth)}
           description="From order totals"
           icon={DollarSign}
@@ -278,7 +309,7 @@ export default async function AdminDashboard() {
         >
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
             <Warehouse className="h-3.5 w-3.5 text-red-500" />
-            Out of stock
+            {METRIC_LABELS.outOfStock}
           </div>
           <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.outOfStockItems)}</p>
         </Link>
@@ -322,7 +353,7 @@ export default async function AdminDashboard() {
         >
           <div>
             <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <UserPlus className="h-4 w-4" /> Leads this month
+              <UserPlus className="h-4 w-4" /> Leads · {rangeLabel}
             </p>
             <p className="text-2xl font-bold mt-1">{formatStatRaw(stats?.newLeadsThisMonth)}</p>
           </div>
@@ -333,7 +364,7 @@ export default async function AdminDashboard() {
         >
           <div>
             <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" /> Active carts
+              <ShoppingCart className="h-4 w-4" /> {METRIC_LABELS.totalCarts}
             </p>
             <p className="text-2xl font-bold mt-1">{formatStatRaw(stats?.activeCarts)}</p>
           </div>
@@ -427,7 +458,7 @@ export default async function AdminDashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Top sellers this month</h3>
+            <h3 className="text-lg font-semibold">Top sellers · {rangeLabel}</h3>
             <Link href="/admin/products" className="text-sm text-primary hover:underline">
               Catalog
             </Link>
@@ -435,7 +466,7 @@ export default async function AdminDashboard() {
           {!topProductsResult.ok ? (
             <p className="text-sm text-destructive">Could not load top sellers</p>
           ) : topProducts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sales this month</p>
+            <p className="text-sm text-muted-foreground">No sales in this range</p>
           ) : (
             <div className="space-y-3">
               {topProducts.map((product, index) => (
@@ -465,7 +496,7 @@ export default async function AdminDashboard() {
 
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Low stock variants</h3>
+            <h3 className="text-lg font-semibold">{METRIC_LABELS.lowStockVariants}</h3>
             <Link href="/admin/products?stock=low" className="text-sm text-primary hover:underline">
               Restock
             </Link>

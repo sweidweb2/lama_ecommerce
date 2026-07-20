@@ -12,6 +12,7 @@ const claimOrdersBySessionId = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
   getCurrentUserProfile: vi.fn(),
+  getAdminShopBlockForUserId: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/repositories/promo_code.repository", () => ({

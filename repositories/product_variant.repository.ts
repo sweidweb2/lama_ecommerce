@@ -24,6 +24,28 @@ export interface UpdateProductVariantInput {
   price_override?: number | null;
 }
 
+function uniqueViolationMessage(error: {
+  code?: string;
+  message?: string;
+  details?: string;
+}): string {
+  const haystack = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  if (
+    haystack.includes("sku_variant") ||
+    haystack.includes("customised_products_sku_variant")
+  ) {
+    return "SKU variant must be unique. Another variant already uses this SKU.";
+  }
+  if (
+    haystack.includes("product_attrs") ||
+    haystack.includes("customised_products_product_attrs")
+  ) {
+    return "A variant with this color, size, and material already exists for this product.";
+  }
+  // Fallback when PostgREST only returns a generic unique violation.
+  return "A variant with this color, size, and material already exists for this product.";
+}
+
 /**
  * Create a new product variant (customised product).
  */
@@ -50,14 +72,27 @@ export async function createProductVariant(
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        throw new Error(uniqueViolationMessage(error));
+      }
       console.error("Error creating product variant:", error);
-      return null;
+      throw new Error(error.message || "Failed to create product variant.");
     }
 
     return (data ?? null) as ProductVariant | null;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith("SKU variant") ||
+        error.message.startsWith("A variant with this color") ||
+        error.message.startsWith("Failed to create"))
+    ) {
+      throw error;
+    }
     console.error("Unexpected error in createProductVariant:", error);
-    return null;
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to create product variant.");
   }
 }
 
@@ -162,9 +197,7 @@ export async function updateProductVariant(
 
     if (error) {
       if (error.code === "23505") {
-        throw new Error(
-          "SKU variant must be unique. Another variant already uses this SKU.",
-        );
+        throw new Error(uniqueViolationMessage(error));
       }
       console.error("Error updating product variant:", error);
       throw new Error(error.message || "Failed to update product variant.");
@@ -175,6 +208,7 @@ export async function updateProductVariant(
     if (
       error instanceof Error &&
       (error.message.startsWith("SKU variant") ||
+        error.message.startsWith("A variant with this color") ||
         error.message.startsWith("No variant") ||
         error.message.startsWith("Failed to update"))
     ) {

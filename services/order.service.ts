@@ -15,7 +15,6 @@ import {
   updateOrder,
   upsertPaymentForOrder,
   deleteOrderAdmin,
-  countPaymentsByOrderId,
   countShipmentsByOrderId,
   type UpsertPaymentForOrderInput,
 } from "@/repositories/order.repository";
@@ -23,10 +22,11 @@ import { createShipment } from "@/repositories/shipment.repository";
 import { getPromoCodeByIdAdmin } from "@/repositories/promo_code.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
-import { getCurrentUserProfile } from "@/services/profile.service";
+import { getCurrentUserProfile, getAdminShopBlockForUserId } from "@/services/profile.service";
 import { canAccessAdmin } from "@/lib/auth/permissions";
 import { verifyOrderAccessToken } from "@/lib/auth/order-access-token";
 import { createShipmentSchema } from "@/lib/validators/shipment/create";
+import { canTransitionOrderStatus } from "@/lib/admin/order-status-transitions";
 
 /** Composite return type for a full order detail view. */
 export interface OrderDetails {
@@ -74,6 +74,10 @@ export async function claimGuestOrdersService(
   userId: string,
   sessionId: string,
 ): Promise<{ success: boolean; error?: string; claimedCount: number }> {
+  const shopBlock = await getAdminShopBlockForUserId(userId);
+  if (shopBlock) {
+    return { success: false, error: shopBlock, claimedCount: 0 };
+  }
   return claimOrdersBySessionId(sessionId, userId);
 }
 
@@ -246,9 +250,32 @@ export async function updateOrderService(
       };
     }
 
-    const needsShipment =
-      input.status === "shipped" &&
-      (await countShipmentsByOrderId(orderId)) === 0;
+    const existing = await getOrderByIdForAdmin(orderId);
+    if (!existing) {
+      return { success: false, error: "Order not found" };
+    }
+
+    if (
+      input.status !== undefined &&
+      !canTransitionOrderStatus(existing.status, input.status)
+    ) {
+      return {
+        success: false,
+        error: `Cannot change status from "${existing.status}" to "${input.status}"`,
+      };
+    }
+
+    let needsShipment = false;
+    if (input.status === "shipped") {
+      const shipmentCount = await countShipmentsByOrderId(orderId);
+      if (!shipmentCount.success) {
+        return {
+          success: false,
+          error: shipmentCount.error ?? "Failed to check shipments",
+        };
+      }
+      needsShipment = shipmentCount.count === 0;
+    }
 
     if (needsShipment) {
       const shipmentParsed = createShipmentSchema.safeParse({
@@ -266,11 +293,6 @@ export async function updateOrderService(
           success: false,
           error: firstError ?? "Carrier and tracking number are required to mark as shipped",
         };
-      }
-
-      const existing = await getOrderByIdForAdmin(orderId);
-      if (!existing) {
-        return { success: false, error: "Order not found" };
       }
 
       const statusResult = await updateOrder(orderId, {
@@ -352,8 +374,9 @@ export async function upsertOrderPaymentAdmin(
 }
 
 /**
- * Delete an order (admin use) - hard delete.
- * Refuses if payments or shipments exist; order items cascade with the order.
+ * Delete an order (admin use) — hard delete.
+ * Payments, shipments, and order items cascade with the order.
+ * If stock was never restored, cancel first so the restock trigger runs.
  */
 export async function deleteOrderService(
   orderId: string,
@@ -364,7 +387,6 @@ export async function deleteOrderService(
       return { success: false, error: "Forbidden" };
     }
 
-    // Validate order ID
     if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
       return {
         success: false,
@@ -372,20 +394,20 @@ export async function deleteOrderService(
       };
     }
 
-    const paymentCount = await countPaymentsByOrderId(orderId);
-    if (paymentCount > 0) {
-      return {
-        success: false,
-        error: "Cannot delete order with existing payments",
-      };
+    const order = await getOrderByIdForAdmin(orderId);
+    if (!order) {
+      return { success: false, error: "Order not found" };
     }
 
-    const shipmentCount = await countShipmentsByOrderId(orderId);
-    if (shipmentCount > 0) {
-      return {
-        success: false,
-        error: "Cannot delete order with existing shipments",
-      };
+    if (!order.stock_restored) {
+      const cancelResult = await updateOrder(orderId, { status: "cancelled" });
+      if (!cancelResult.success) {
+        return {
+          success: false,
+          error:
+            cancelResult.error || "Failed to restore stock before delete",
+        };
+      }
     }
 
     const orderResult = await deleteOrderAdmin(orderId);

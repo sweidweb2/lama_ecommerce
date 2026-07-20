@@ -1,6 +1,6 @@
 /**
  * Shared storefront / admin color labels keyed by uppercase hex.
- * Used for facet display only; DB stores exact hex values.
+ * DB stores uppercase hex; palette names are display / legacy aliases.
  */
 export const COLOR_PALETTE: ReadonlyArray<{ name: string; hex: string }> = [
   { name: "Black", hex: "#000000" },
@@ -36,14 +36,56 @@ const HEX_TO_NAME = new Map(
   COLOR_PALETTE.map((c) => [c.hex.toUpperCase(), c.name]),
 );
 
-/** Normalize a color value for URL / DB matching (uppercase hex). */
-export function normalizeColorValue(color: string): string {
+const NAME_TO_HEX = new Map(
+  COLOR_PALETTE.map((c) => [c.name.toLowerCase(), c.hex.toUpperCase()]),
+);
+
+function addCaseVariants(set: Set<string>, value: string): void {
+  set.add(value);
+  set.add(value.toUpperCase());
+  set.add(value.toLowerCase());
+}
+
+/**
+ * Canonical storage form: uppercase hex for palette colors and `#…` values.
+ * Known palette names map to hex; other values pass through trimmed.
+ */
+export function canonicalizeColorForStorage(color: string): string {
   const trimmed = color.trim();
   if (!trimmed) return "";
   if (trimmed.startsWith("#")) {
     return trimmed.toUpperCase();
   }
-  return trimmed;
+  return NAME_TO_HEX.get(trimmed.toLowerCase()) ?? trimmed;
+}
+
+/** Normalize a color value for URL / DB matching (uppercase hex when known). */
+export function normalizeColorValue(color: string): string {
+  return canonicalizeColorForStorage(color);
+}
+
+/**
+ * Expand filter selections so `#EF4444` and legacy `"Red"` both match.
+ * Includes case variants of the raw value, hex, and palette name aliases.
+ */
+export function expandColorFilterValues(values: string[]): string[] {
+  const set = new Set<string>();
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    addCaseVariants(set, trimmed);
+
+    const hex = canonicalizeColorForStorage(trimmed);
+    if (hex.startsWith("#")) {
+      addCaseVariants(set, hex);
+      const name = HEX_TO_NAME.get(hex);
+      if (name) {
+        addCaseVariants(set, name);
+      }
+    }
+  }
+  return [...set];
 }
 
 /** Label for a stored color: known palette name, else the raw value. */
@@ -59,8 +101,6 @@ export function getColorLabel(color: string): string {
 export function getColorSwatch(color: string): string {
   const trimmed = color.trim();
   if (trimmed.startsWith("#")) return trimmed;
-  const byName = COLOR_PALETTE.find(
-    (c) => c.name.toLowerCase() === trimmed.toLowerCase(),
-  );
-  return byName?.hex ?? "#6B7280";
+  const byName = NAME_TO_HEX.get(trimmed.toLowerCase());
+  return byName ?? "#6B7280";
 }

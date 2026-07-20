@@ -16,9 +16,9 @@ import {
 import { Edit, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { updateOrderAction } from "@/actions/order"
+import { getAllowedOrderStatuses } from "@/lib/admin/order-status-transitions"
 import type { OrderStatus, PaymentStatus, Order } from "@/types/order"
 
-const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled']
 const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
 
 export type AdminOrder = Order & {
@@ -28,10 +28,16 @@ export type AdminOrder = Order & {
 interface EditOrderDialogProps {
   order: AdminOrder
   showText?: boolean
+  hasShipment?: boolean
   onUpdated?: () => void | Promise<void>
 }
 
-export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrderDialogProps) {
+export function EditOrderDialog({
+  order,
+  showText = false,
+  hasShipment = false,
+  onUpdated,
+}: EditOrderDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -97,6 +103,15 @@ export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrde
     e.preventDefault()
 
     if (isSubmitting) return
+
+    const canSetShipped = order.status === "shipped" || hasShipment
+    if (status === "shipped" && !canSetShipped) {
+      toast.error("Cannot mark as shipped here", {
+        description:
+          "Use Order Status on the order detail page to mark shipped (carrier + tracking).",
+      })
+      return
+    }
 
     // Calculate total using original subtotal + edited shipping fee - discount
     const subtotalNum = order.subtotal || 0
@@ -164,6 +179,8 @@ export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrde
   const shippingFeeNum = parseFloat(shippingFee) || 0
   const discountNum = parseFloat(discount) || 0
   const calculatedTotal = subtotalNum + shippingFeeNum - discountNum
+  const canSetShipped = order.status === "shipped" || hasShipment
+  const allowedStatuses = getAllowedOrderStatuses(order.status)
 
   return (
     <>
@@ -194,13 +211,23 @@ export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrde
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ORDER_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
+                    {allowedStatuses.map((s) => (
+                      <SelectItem
+                        key={s}
+                        value={s}
+                        disabled={s === "shipped" && !canSetShipped}
+                      >
                         {s.charAt(0).toUpperCase() + s.slice(1)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {!canSetShipped && (
+                  <p className="text-xs text-muted-foreground">
+                    Use Order Status on the order detail page to mark shipped
+                    (carrier + tracking).
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -219,6 +246,10 @@ export function EditOrderDialog({ order, showText = false, onUpdated }: EditOrde
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Failed or refunded does not restore stock. Set status to
+                  cancelled to restock.
+                </p>
               </div>
             </div>
 

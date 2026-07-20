@@ -9,6 +9,7 @@ import {
 import { createReviewSchema } from "@/lib/validators/product_review/create";
 import { adminUpdateReviewSchema } from "@/lib/validators/product_review/admin_update";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import type { Review } from "@/types/product_utf8";
 
 /**
@@ -25,6 +26,11 @@ export async function createReviewService(
   },
 ): Promise<{ success: boolean; error?: string; data?: Review }> {
   try {
+    const shopBlock = await getAdminShopBlockForUserId(userId);
+    if (shopBlock) {
+      return { success: false, error: shopBlock };
+    }
+
     // Validate input using Zod schema
     const validated = createReviewSchema.parse({
       product_id: input.product_id,

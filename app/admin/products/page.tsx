@@ -5,13 +5,18 @@ import { ProductsTable } from "@/components/admin/product/ProductsTable";
 import { ProductStats } from "@/components/admin/product/ProductStats";
 import { type AdminProduct } from "@/components/admin/product/edit_form";
 import {
-  getAdminProductsService,
+  getAdminProductsPageService,
+  getAdminProductCatalogStatsService,
   getAdminProductStockFlagsService,
 } from "@/services/product.service";
 import { getBrandsService } from "@/services/brand.service";
-import { getCategoriesService } from "@/services/categories.service";
+import { getAdminCategoriesService } from "@/services/categories.service";
 import { encryptOrderId } from "@/lib/utils/encryption";
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs";
+import {
+  ADMIN_PRODUCTS_TABLE_PAGE_SIZE,
+  parseAdminProductsListParams,
+} from "@/lib/admin/products-list-params";
 
 export type AdminProductRow = AdminProduct & {
   encryptedId?: string;
@@ -19,18 +24,37 @@ export type AdminProductRow = AdminProduct & {
   hasOutOfStock?: boolean;
 };
 
-export default async function ProductsPage() {
-  const [productsFromDb, brands, categories] = await Promise.all([
-    getAdminProductsService(),
+interface ProductsPageProps {
+  searchParams: Promise<{
+    page?: string;
+    category?: string;
+    brand?: string;
+    featured?: string;
+    trending?: string;
+    active?: string;
+    stock?: string;
+  }>;
+}
+
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
+  const params = await searchParams;
+  const listParams = parseAdminProductsListParams(
+    params,
+    ADMIN_PRODUCTS_TABLE_PAGE_SIZE,
+  );
+
+  const [pageResult, catalogStats, brands, categories] = await Promise.all([
+    getAdminProductsPageService(listParams),
+    getAdminProductCatalogStatsService(),
     getBrandsService(),
-    getCategoriesService(),
+    getAdminCategoriesService(),
   ]);
 
   const stockFlags = await getAdminProductStockFlagsService(
-    productsFromDb.map((p) => p.id),
+    pageResult.products.map((p) => p.id),
   );
 
-  const adminProducts: AdminProductRow[] = productsFromDb.map((p) => {
+  const adminProducts: AdminProductRow[] = pageResult.products.map((p) => {
     const primaryImage =
       p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
     const flags = stockFlags[p.id];
@@ -92,12 +116,15 @@ export default async function ProductsPage() {
         </div>
       </div>
 
-      <ProductStats products={adminProducts} />
+      <ProductStats stats={catalogStats} />
 
       <ProductsTable
         products={adminProducts}
         brands={brands}
         categories={categories}
+        totalCount={pageResult.totalCount}
+        pageSize={pageResult.pageSize}
+        page={pageResult.page}
       />
     </div>
   );

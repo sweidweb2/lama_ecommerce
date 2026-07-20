@@ -14,6 +14,7 @@ import {
   Truck,
   Ticket,
   List,
+  Grid3x3,
   Tag,
   Tags,
   Eye,
@@ -82,6 +83,7 @@ const menuItems: MenuItem[] = [
     ],
     children: [
       { href: "/admin/products", label: "All Products", icon: List },
+      { href: "/admin/products/grid", label: "Grid", icon: Grid3x3 },
       { href: "/admin/product-views", label: "Product Views", icon: Eye },
       { href: "/admin/categories", label: "Categories", icon: Tag },
       { href: "/admin/brands", label: "Brands", icon: Tags },

@@ -58,13 +58,13 @@ export function EditCategoryDialog({
       nextErrors.name = "Name must be at most 40 characters."
     }
 
-    if (trimmedSlug.length > 0) {
-      if (trimmedSlug.length > 20) {
-        nextErrors.slug = "Slug must be at most 20 characters."
-      } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
-        nextErrors.slug =
-          "Slug can only contain lowercase letters, numbers, and hyphens."
-      }
+    if (!trimmedSlug) {
+      nextErrors.slug = "Slug is required."
+    } else if (trimmedSlug.length > 20) {
+      nextErrors.slug = "Slug must be at most 20 characters."
+    } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+      nextErrors.slug =
+        "Slug can only contain lowercase letters, numbers, and hyphens."
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -154,9 +154,10 @@ export function EditCategoryDialog({
                 }
                 maxLength={20}
                 placeholder="e.g., electronics"
+                required
               />
               <p className="text-xs text-muted-foreground">
-                URL-friendly identifier. Leave empty to generate later.
+                URL-friendly identifier used in storefront category filters.
               </p>
               {errors.slug && (
                 <p className="text-xs text-destructive">{errors.slug}</p>
@@ -176,7 +177,7 @@ export function EditCategoryDialog({
                   <SelectItem value="none">No parent (root)</SelectItem>
                   {parentOptions.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                      {cat.is_active ? cat.name : `${cat.name} (inactive)`}
                     </SelectItem>
                   ))}
                 </SelectContent>

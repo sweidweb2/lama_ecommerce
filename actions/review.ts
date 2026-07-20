@@ -7,6 +7,7 @@ import {
   deleteReviewService,
 } from "@/services/review.service";
 import { revalidatePath } from "next/cache";
+import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
 
 /**
  * Create a review for a product.
@@ -18,6 +19,11 @@ export async function createReviewAction(input: {
   title?: string | null;
   comment?: string | null;
 }): Promise<{ success: boolean; error?: string; data?: any }> {
+  const shopBlock = await getAdminShopBlockForCurrentUser();
+  if (shopBlock) {
+    return { success: false, error: shopBlock };
+  }
+
   // Authorization check: User must be logged in
   const user = await getCurrentAuthUserFromAction();
   if (!user) {

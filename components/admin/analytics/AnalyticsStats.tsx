@@ -12,52 +12,56 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
+import { METRIC_LABELS } from "@/lib/admin/metric-definitions"
 import type { AnalyticsStats as AnalyticsStatsType } from "@/repositories/analytics.repository"
 
 interface AnalyticsStatsProps {
   stats: AnalyticsStatsType
+  rangeLabel?: string
 }
 
-export function AnalyticsStats({ stats }: AnalyticsStatsProps) {
+export function AnalyticsStats({ stats, rangeLabel }: AnalyticsStatsProps) {
+  const scope = rangeLabel ?? "All time"
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Users"
+          title={METRIC_LABELS.activeUsers}
           value={stats.totalUsers.toLocaleString()}
-          description="Registered users"
+          description="Profiles marked active"
           icon={Users}
         />
         <StatCard
-          title="Total Products"
+          title={METRIC_LABELS.activeProducts}
           value={stats.totalProducts.toLocaleString()}
-          description="Active products"
+          description="Listed in catalog"
           icon={Package}
         />
         <StatCard
-          title="Total Orders"
+          title={`Orders · ${scope}`}
           value={stats.totalOrders.toLocaleString()}
-          description="All orders"
+          description="Excluding cancelled"
           icon={ShoppingCart}
         />
         <StatCard
-          title="Total Revenue"
+          title={`Revenue · ${scope}`}
           value={formatPrice(stats.totalRevenue)}
-          description="From all orders"
+          description="Excluding cancelled"
           icon={DollarSign}
         />
       </div>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Active Carts"
+          title={METRIC_LABELS.totalCarts}
           value={stats.activeCarts.toLocaleString()}
-          description="Shopping carts"
+          description="All cart rows"
           icon={ShoppingCart}
         />
         <StatCard
           title="Average Order Value"
           value={formatPrice(stats.averageOrderValue)}
-          description="Per order"
+          description={`Per order · ${scope}`}
           icon={TrendingUp}
         />
         <StatCard
@@ -67,9 +71,9 @@ export function AnalyticsStats({ stats }: AnalyticsStatsProps) {
           icon={Star}
         />
         <StatCard
-          title="Low Stock Products"
+          title={METRIC_LABELS.lowStockVariantsWithRange}
           value={stats.lowStockProducts.toLocaleString()}
-          description="Stock ≤ 5"
+          description="Variant stock in range"
           icon={AlertCircle}
         />
       </div>

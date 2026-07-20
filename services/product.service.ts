@@ -8,8 +8,13 @@ import {
 import {
   createProduct,
   getAdminProducts,
+  getAdminProductsPage,
+  getAdminProductCatalogStats,
   getAdminProductStockFlags,
   type AdminProductStockFlags,
+  type AdminProductsPageResult,
+  type AdminProductCatalogStats,
+  type GetAdminProductsPageParams,
   getProducts as getProductsRepo,
   getProductPriceBounds,
   getProductVariantFacets,
@@ -47,6 +52,7 @@ export async function createProductService(
     price: payload.price,
     is_featured: payload.is_featured ?? false,
     is_trending: payload.is_trending ?? false,
+    is_active: payload.is_active ?? true,
     owner_id: ownerId,
   };
 
@@ -94,6 +100,38 @@ export async function getAdminProductsService(): Promise<ProductWithRelations[]>
 }
 
 /**
+ * Paginated admin products with filters.
+ */
+export async function getAdminProductsPageService(
+  params: GetAdminProductsPageParams = {},
+): Promise<AdminProductsPageResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 48);
+  try {
+    await requireAdmin();
+  } catch {
+    return {
+      products: [],
+      totalCount: 0,
+      page: 1,
+      pageSize,
+    };
+  }
+  return getAdminProductsPage(params);
+}
+
+/**
+ * Catalog KPI counts for admin products list/grid headers.
+ */
+export async function getAdminProductCatalogStatsService(): Promise<AdminProductCatalogStats> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { total: 0, active: 0, featured: 0, trending: 0 };
+  }
+  return getAdminProductCatalogStats();
+}
+
+/**
  * Stock flags for admin products table filters (low / out of stock).
  */
 export async function getAdminProductStockFlagsService(
@@ -123,7 +161,7 @@ export async function getAdminProductByIdService(
 
 /**
  * Hard-delete a product as admin.
- * Refuses when blocking FK children exist (questions, views, stats, wishlist/cart on variants).
+ * Clears views/stats; refuses when questions or wishlist/cart/order refs on variants remain.
  */
 export async function deleteProductService(id: string): Promise<boolean> {
   try {

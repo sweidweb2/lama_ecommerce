@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
+import { toast } from "sonner"
 import type { Brand, Category } from "@/types/product"
 import { z } from "zod"
 import { updateProductAction } from "@/actions/product";
@@ -126,7 +127,13 @@ export function EditProductDialog({
       formData.set("is_trending", parsed.data.is_trending ? "true" : "false")
       formData.set("is_active", parsed.data.is_active ? "true" : "false")
 
-      await updateProductAction(formData)
+      const result = await updateProductAction(formData)
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success("Product updated")
 
       // Refresh the current page to show updated data.
       // The route uses the product ID which never changes.
@@ -134,6 +141,9 @@ export function EditProductDialog({
 
       setOpen(false)
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update product"
+      toast.error(message)
       console.error("Error updating product:", error)
     } finally {
       setIsSubmitting(false)
@@ -255,7 +265,9 @@ export function EditProductDialog({
                     <SelectItem value={NONE_VALUE}>None</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                        {category.is_active
+                          ? category.name
+                          : `${category.name} (inactive)`}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -9,6 +9,18 @@ interface AdminPaginationProps {
   basePath?: string
 }
 
+function visiblePages(current: number, total: number): number[] {
+  if (total <= 9) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = new Set<number>([1, total, current])
+  for (let i = current - 2; i <= current + 2; i++) {
+    if (i >= 1 && i <= total) pages.add(i)
+  }
+  return [...pages].sort((a, b) => a - b)
+}
+
 export function AdminPagination({ totalPages, basePath = '/admin/products/grid' }: AdminPaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -21,11 +33,14 @@ export function AdminPagination({ totalPages, basePath = '/admin/products/grid' 
     } else {
       params.set('page', page.toString())
     }
-    router.push(`${basePath}?${params.toString()}`)
+    const query = params.toString()
+    router.push(query ? `${basePath}?${query}` : basePath)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (totalPages <= 1) return null
+
+  const pages = visiblePages(currentPage, totalPages)
 
   return (
     <div className="flex items-center justify-center gap-2 mt-8">
@@ -39,17 +54,25 @@ export function AdminPagination({ totalPages, basePath = '/admin/products/grid' 
       </Button>
 
       <div className="flex items-center gap-1">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-          <Button
-            key={page}
-            variant={currentPage === page ? 'default' : 'outline'}
-            size="sm"
-            className="w-9"
-            onClick={() => handlePageChange(page)}
-          >
-            {page}
-          </Button>
-        ))}
+        {pages.map((page, index) => {
+          const prev = pages[index - 1]
+          const showEllipsis = prev !== undefined && page - prev > 1
+          return (
+            <div key={page} className="flex items-center gap-1">
+              {showEllipsis && (
+                <span className="px-1 text-muted-foreground text-sm">…</span>
+              )}
+              <Button
+                variant={currentPage === page ? 'default' : 'outline'}
+                size="sm"
+                className="w-9"
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </Button>
+            </div>
+          )
+        })}
       </div>
 
       <Button

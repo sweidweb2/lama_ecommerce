@@ -1,5 +1,7 @@
 import { AnalyticsCharts } from "@/components/admin/analytics/AnalyticsCharts"
 import { AnalyticsStats } from "@/components/admin/analytics/AnalyticsStats"
+import { AdminDateRangeControls } from "@/components/admin/AdminDateRangeControls"
+import { parseAdminDateRange } from "@/lib/admin/date-range"
 import {
   getSalesAndOrdersByMonthService,
   getUserGrowthByMonthService,
@@ -9,8 +11,20 @@ import {
   getTopProductsByRevenueService,
 } from "@/services/analytics.service"
 
-export default async function AnalyticsPage() {
-  // Fetch all analytics data in parallel
+interface AnalyticsPageProps {
+  searchParams: Promise<{
+    from?: string
+    to?: string
+    preset?: string
+  }>
+}
+
+export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
+  const params = await searchParams
+  const range = parseAdminDateRange(params, { defaultPreset: "all" })
+  const boundedRange =
+    range.preset === "all" ? undefined : range
+
   const [
     salesData,
     userData,
@@ -19,15 +33,14 @@ export default async function AnalyticsPage() {
     stats,
     topProducts,
   ] = await Promise.all([
-    getSalesAndOrdersByMonthService(),
-    getUserGrowthByMonthService(),
+    getSalesAndOrdersByMonthService(boundedRange),
+    getUserGrowthByMonthService(boundedRange),
     getOrderStatusBreakdownService(),
     getPaymentStatusBreakdownService(),
-    getAnalyticsStatsService(),
-    getTopProductsByRevenueService(10),
+    getAnalyticsStatsService(boundedRange),
+    getTopProductsByRevenueService(10, boundedRange),
   ])
 
-  // Transform data for charts
   const salesChartData = salesData.map((item) => ({
     name: item.month,
     sales: Math.round(item.sales * 100) / 100,
@@ -44,11 +57,18 @@ export default async function AnalyticsPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Analytics</h1>
         <p className="text-muted-foreground text-sm sm:text-base">
-          View sales, users, and order analytics
+          View sales, users, and order analytics · {range.label}
         </p>
       </div>
 
-      <AnalyticsStats stats={stats} />
+      <AdminDateRangeControls
+        fromDate={range.fromDate}
+        toDate={range.toDate}
+        preset={range.preset}
+        showAllTime
+      />
+
+      <AnalyticsStats stats={stats} rangeLabel={range.label} />
 
       <AnalyticsCharts
         salesData={salesChartData}

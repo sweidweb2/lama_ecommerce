@@ -79,8 +79,9 @@ export function DeleteOrderDialog({ order, onDelete, showText = false, redirectA
               <span className="font-semibold text-foreground">{order.id.slice(0, 8)}...</span>?
             </p>
             <p>
-              This permanently deletes the order and its line items. Orders with
-              payments or shipments cannot be deleted.
+              This permanently deletes the order, its line items, payments, and
+              shipments. If stock was never restored, inventory is returned
+              before delete.
             </p>
           </div>
           <DialogFooter className="mt-4 flex justify-end gap-2">

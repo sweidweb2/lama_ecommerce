@@ -722,6 +722,39 @@ export async function hardDeleteCartItem(
 }
 
 /**
+ * Hard-delete a cart item (admin). Uses service role to bypass RLS.
+ */
+export async function hardDeleteCartItemForAdmin(
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { error } = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("id", cartItemId);
+
+    if (error) {
+      console.error("Error hard deleting cart item (admin):", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete cart item",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error in hardDeleteCartItemForAdmin:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
  * Verify a cart item belongs to a guest session cart (service role).
  */
 async function assertCartItemOwnedByGuestSession(

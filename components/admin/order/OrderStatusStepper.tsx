@@ -16,6 +16,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { updateOrderStatusAction } from '@/actions/order'
 import {
+  canTransitionOrderStatus,
+} from '@/lib/admin/order-status-transitions'
+import {
   Clock,
   Settings,
   PackageCheck,
@@ -81,6 +84,7 @@ export function OrderStatusStepper({
     if (isProcessingRef.current) return
     if (status === currentStatus) return
     if (isNonTrackable) return
+    if (!canTransitionOrderStatus(currentStatus, status)) return
 
     setPendingStatus(status)
     setCarrierName('')
@@ -149,8 +153,14 @@ export function OrderStatusStepper({
             const Icon = step.icon
             const isCurrent = index === currentStepIndex
             const isCompleted = currentStepIndex >= 0 && index < currentStepIndex
+            const isAllowedNext =
+              !isNonTrackable && canTransitionOrderStatus(currentStatus, step.status)
             const isClickable =
-              !isDeleted && !isNonTrackable && !isCurrent && !isUpdating
+              !isDeleted &&
+              !isNonTrackable &&
+              !isCurrent &&
+              !isUpdating &&
+              isAllowedNext
 
             let cardClasses: string
             let iconClasses: string
@@ -164,7 +174,7 @@ export function OrderStatusStepper({
               cardClasses = 'bg-primary/8 border border-dashed border-primary/25'
               iconClasses = 'text-primary/40'
               labelClasses = 'text-primary/40 font-medium'
-            } else if (isNonTrackable) {
+            } else if (isNonTrackable || !isAllowedNext) {
               cardClasses = 'bg-muted/20 border border-muted-foreground/8'
               iconClasses = 'text-muted-foreground/25'
               labelClasses = 'text-muted-foreground/25'
@@ -195,6 +205,8 @@ export function OrderStatusStepper({
                     ? `Order is ${currentStatus}`
                     : isCurrent
                     ? 'Current status'
+                    : !isAllowedNext
+                    ? `Cannot change from ${currentStatus} to ${step.label}`
                     : `Change status to ${step.label}`
                 }
               >

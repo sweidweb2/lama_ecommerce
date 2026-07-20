@@ -33,7 +33,7 @@ export async function createCategoryAction(formData: FormData): Promise<void> {
 
     const parsed = createCategorySchema.parse({
       name: raw.name?.toString().trim(),
-      slug: raw.slug ? raw.slug.toString().trim() : null,
+      slug: raw.slug?.toString().trim() ?? "",
       parent_id: raw.parent_id
         ? raw.parent_id.toString().trim() || null
         : null,
@@ -76,7 +76,10 @@ export async function updateCategoryAction(formData: FormData): Promise<void> {
 
     const parsed = updateCategorySchema.parse({
       name: raw.name ? raw.name.toString().trim() : undefined,
-      slug: raw.slug ? raw.slug.toString().trim() : undefined,
+      slug:
+        raw.slug === null || raw.slug === undefined
+          ? undefined
+          : raw.slug.toString().trim(),
       parent_id:
         parentIdRaw === undefined
           ? undefined

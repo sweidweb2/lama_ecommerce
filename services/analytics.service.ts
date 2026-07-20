@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
+import type { AdminDateRange } from "@/lib/admin/date-range";
 import {
   getSalesAndOrdersByMonth,
   getUserGrowthByMonth,
@@ -24,25 +25,25 @@ const EMPTY_STATS: AnalyticsStats = {
 /**
  * Get sales and orders data by month
  */
-export async function getSalesAndOrdersByMonthService() {
+export async function getSalesAndOrdersByMonthService(range?: AdminDateRange) {
   try {
     await requireAdmin();
   } catch {
     return [];
   }
-  return await getSalesAndOrdersByMonth();
+  return await getSalesAndOrdersByMonth(range);
 }
 
 /**
  * Get user growth data by month
  */
-export async function getUserGrowthByMonthService() {
+export async function getUserGrowthByMonthService(range?: AdminDateRange) {
   try {
     await requireAdmin();
   } catch {
     return [];
   }
-  return await getUserGrowthByMonth();
+  return await getUserGrowthByMonth(range);
 }
 
 /**
@@ -72,23 +73,28 @@ export async function getPaymentStatusBreakdownService() {
 /**
  * Get overall analytics statistics
  */
-export async function getAnalyticsStatsService(): Promise<AnalyticsStats> {
+export async function getAnalyticsStatsService(
+  range?: AdminDateRange,
+): Promise<AnalyticsStats> {
   try {
     await requireAdmin();
   } catch {
     return EMPTY_STATS;
   }
-  return await getAnalyticsStats();
+  return await getAnalyticsStats(range);
 }
 
 /**
  * Get top products by revenue
  */
-export async function getTopProductsByRevenueService(limit: number = 10) {
+export async function getTopProductsByRevenueService(
+  limit: number = 10,
+  range?: AdminDateRange,
+) {
   try {
     await requireAdmin();
   } catch {
     return [];
   }
-  return await getTopProductsByRevenue(limit);
+  return await getTopProductsByRevenue(limit, range);
 }

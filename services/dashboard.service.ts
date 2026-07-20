@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
+import type { AdminDateRange } from "@/lib/admin/date-range";
 import {
   getDashboardStats,
   getRecentOrders,
@@ -56,10 +57,12 @@ async function withAdminResult<T>(
   }
 }
 
-export async function getDashboardStatsService(): Promise<
-  DashboardResult<DashboardStats>
-> {
-  return withAdminResult(getDashboardStats);
+export async function getDashboardStatsService(
+  range?: AdminDateRange,
+): Promise<DashboardResult<DashboardStats>> {
+  return withAdminResult(() =>
+    range ? getDashboardStats(range) : getDashboardStats(),
+  );
 }
 
 export async function getRecentOrdersService(
@@ -100,8 +103,11 @@ export async function getRecentContactsService(
 
 export async function getTopSellingProductsService(
   limit: number = 5,
+  range?: AdminDateRange,
 ): Promise<DashboardResult<TopProductItem[]>> {
-  return withAdminResult(() => getTopSellingProducts(limit));
+  return withAdminResult(() =>
+    range ? getTopSellingProducts(limit, range) : getTopSellingProducts(limit),
+  );
 }
 
 export async function getOrderStatusBreakdownService(): Promise<

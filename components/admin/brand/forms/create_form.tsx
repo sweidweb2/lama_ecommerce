@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
+import {
+  createBrandSchema,
+  type CreateBrandInput,
+} from "@/lib/validators/brand"
+
 interface CreateBrandDialogProps {
   action: (formData: FormData) => void | Promise<void>
 }
@@ -21,47 +26,40 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CreateBrandInput, string>>
+  >({})
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
 
-    const trimmedName = name.trim()
-    const trimmedSlug = slug.trim()
+    const parsed = createBrandSchema.safeParse({
+      name: name.trim(),
+      slug: slug.trim() || null,
+    })
 
-    const nextErrors: typeof errors = {}
-
-    if (!trimmedName) {
-      nextErrors.name = "Name is required."
-    } else if (trimmedName.length > 100) {
-      nextErrors.name = "Name must be at most 100 characters."
-    }
-
-    if (trimmedSlug.length > 0) {
-      if (trimmedSlug.length > 50) {
-        nextErrors.slug = "Slug must be at most 50 characters."
-      } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
-        nextErrors.slug =
-          "Slug can only contain lowercase letters, numbers, and hyphens."
+    if (!parsed.success) {
+      const fieldErrors: Partial<Record<keyof CreateBrandInput, string>> = {}
+      for (const issue of parsed.error.issues) {
+        const pathKey = issue.path[0] as keyof CreateBrandInput
+        if (pathKey && !fieldErrors[pathKey]) {
+          fieldErrors[pathKey] = issue.message
+        }
       }
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
+      setErrors(fieldErrors)
       return
     }
 
     setErrors({})
 
-    formData.set("name", trimmedName)
-    formData.set("slug", trimmedSlug)
+    formData.set("name", parsed.data.name)
+    formData.set("slug", parsed.data.slug ?? "")
 
     setIsSubmitting(true)
     try {
       await action(formData)
-      // Reset and close on success
       setName("")
       setSlug("")
       setOpen(false)
@@ -75,6 +73,7 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
   const handleCancel = () => {
     setName("")
     setSlug("")
+    setErrors({})
     setOpen(false)
   }
 
@@ -166,4 +165,3 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
     </>
   )
 }
-

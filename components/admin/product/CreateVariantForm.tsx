@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/utils"
 import { createProductVariantAction } from "@/actions/product"
 import { z } from "zod"
 import { createProductVariantSchema } from "@/lib/validators/product_variant/create"
+import { COLOR_PALETTE } from "@/lib/constants/color-palette"
 import { ChromePicker } from "react-color"
 
 interface CreateVariantFormProps {
@@ -19,36 +20,6 @@ interface CreateVariantFormProps {
   productPrice: number
   onVariantCreated?: () => void
 }
-
-const COLOR_PALETTE = [
-  { name: 'Black', value: 'Black', hex: '#000000' },
-  { name: 'White', value: 'White', hex: '#FFFFFF' },
-  { name: 'Red', value: 'Red', hex: '#EF4444' },
-  { name: 'Blue', value: 'Blue', hex: '#3B82F6' },
-  { name: 'Green', value: 'Green', hex: '#10B981' },
-  { name: 'Yellow', value: 'Yellow', hex: '#F59E0B' },
-  { name: 'Purple', value: 'Purple', hex: '#8B5CF6' },
-  { name: 'Pink', value: 'Pink', hex: '#EC4899' },
-  { name: 'Gray', value: 'Gray', hex: '#6B7280' },
-  { name: 'Brown', value: 'Brown', hex: '#92400E' },
-  { name: 'Orange', value: 'Orange', hex: '#F97316' },
-  { name: 'Navy', value: 'Navy', hex: '#1E3A8A' },
-  { name: 'Beige', value: 'Beige', hex: '#F5F5DC' },
-  { name: 'Maroon', value: 'Maroon', hex: '#800000' },
-  { name: 'Teal', value: 'Teal', hex: '#14B8A6' },
-  { name: 'Lime', value: 'Lime', hex: '#84CC16' },
-  { name: 'Cyan', value: 'Cyan', hex: '#06B6D4' },
-  { name: 'Indigo', value: 'Indigo', hex: '#4F46E5' },
-  { name: 'Violet', value: 'Violet', hex: '#A855F7' },
-  { name: 'Rose', value: 'Rose', hex: '#F43F5E' },
-  { name: 'Amber', value: 'Amber', hex: '#FBBF24' },
-  { name: 'Emerald', value: 'Emerald', hex: '#059669' },
-  { name: 'Sky', value: 'Sky', hex: '#0EA5E9' },
-  { name: 'Slate', value: 'Slate', hex: '#64748B' },
-  { name: 'Cream', value: 'Cream', hex: '#FFFDD0' },
-  { name: 'Gold', value: 'Gold', hex: '#FCD34D' },
-  { name: 'Silver', value: 'Silver', hex: '#C0C0C0' },
-]
 
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
 const SHOE_SIZES = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']

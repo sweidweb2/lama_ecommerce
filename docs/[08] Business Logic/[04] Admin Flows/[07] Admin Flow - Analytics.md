@@ -46,21 +46,23 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
   **Where:** `services/analytics.service.ts`; `repositories/analytics.repository.ts`; `app/admin/analytics/page.tsx`.  
   **Do:** `ok: false` envelope + error banner (same as Dashboard P0).
 
-- [ ] **“Total Products” labeled “Active products” but counts all rows**  
+- [x] ✅ **“Total Products” labeled “Active products” but counts all rows** done✅  
   No `is_active` filter; Dashboard products KPI filters active.  
   **Where:** `getAnalyticsStats`; `AnalyticsStats.tsx`.  
-  **Do:** `.eq("is_active", true)` or fix label to “All products”.
+  **Do:** `.eq("is_active", true)` or fix label to “All products”.  
+  **Done:** `.eq("is_active", true)` + shared `METRIC_LABELS.activeProducts` (Dashboard P1 shared metrics).
 
 ---
 
 ## P1 — Incomplete / wrong analytics behavior
 
-- [ ] **No date-range controls**  
+- [x] ✅ **No date-range controls** done✅  
   Sales/user growth: rolling ~6 months (server TZ). Stats/pies/top: all-time. No picker, compare, or TZ note.  
   **Where:** `app/admin/analytics/page.tsx`; repository date math.  
-  **Do:** Query params + shared range with Dashboard.
+  **Do:** Query params + shared range with Dashboard.  
+  **Done:** Shared `parseAdminDateRange` + `AdminDateRangeControls`; default all-time; bounded range filters stats/charts/top products. Landed with Dashboard P1.
 
-- [ ] **Metric definitions diverge from Dashboard**  
+- [x] ✅ **Metric definitions diverge from Dashboard** done✅  
 
   | Metric | Dashboard | Analytics |
   |--------|-----------|-----------|
@@ -71,12 +73,13 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
   | Top products | excludes cancelled | includes cancelled |
   | Carts | all as “active” | same |
 
-  **Do:** Shared metric helpers + identical labels.
+  **Do:** Shared metric helpers + identical labels.  
+  **Done:** `lib/admin/metric-definitions.ts` — both use `is_active` products, variant low stock `1–10`, total carts, cancelled-excluded revenue/top products. Contact pending still differs (`new` vs `new`+`read`) by design for inbox vs analytics. Revenue window still differs by page default (month vs all-time) but shares the same query helpers when a range is set.
 
 - [ ] **Month buckets can skip empty months; fragile date sort**  
   **Where:** `getSalesAndOrdersByMonth`, `getUserGrowthByMonth`.  
-  **Do:** Fixed `YYYY-MM` keys + zero-fill.
-
+  **Do:** Fixed `YYYY-MM` keys + zero-fill.  
+  **Note:** Month keys are now fixed `YYYY-MM` (UTC); zero-fill for empty months still open.
 - [ ] **Top products keyed by name snapshot** (`product_id` = name string)  
   Renames/duplicates merge wrong.  
   **Where:** `getTopProductsByRevenue`.  

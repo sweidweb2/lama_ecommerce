@@ -55,16 +55,17 @@
 
 ## P1 — Incomplete / wrong dashboard behavior
 
-- [ ] **No date-range controls**  
+- [x] ✅ **No date-range controls** done✅  
   Hard-coded calendar month (server TZ). No picker, compare period, or timezone note.  
   **Where:** `app/admin/page.tsx`; `repositories/dashboard.repository.ts`.  
-  **Do:** Optional range query params; document TZ; or link “full charts” to Analytics with shared filters.
+  **Do:** Optional range query params; document TZ; or link “full charts” to Analytics with shared filters.  
+  **Done:** `?from=&to=&preset=` via `parseAdminDateRange` (UTC); `AdminDateRangeControls` on `/admin`; “Full charts” deep-links to `/admin/analytics` with the same params.
 
-- [ ] **Metric definitions diverge from Analytics**  
+- [x] ✅ **Metric definitions diverge from Analytics** done✅  
   Low stock: dashboard variants `1–10` vs analytics products with any variant `≤5` (incl. 0). Products: dashboard `is_active` vs analytics “Active products” counting **all**. Carts / revenue filters differ.  
   **Where:** `repositories/dashboard.repository.ts` vs `repositories/analytics.repository.ts`.  
-  **Do:** Shared metric helpers + identical labels (track full Analytics in its own Admin Flow doc).
-
+  **Do:** Shared metric helpers + identical labels (track full Analytics in its own Admin Flow doc).  
+  **Done:** Shared `lib/admin/metric-definitions.ts` + date-range helpers; both repos use variant low stock `1–10`, `is_active` products, total carts, and cancelled-excluded revenue.
 - [x] ✅ **Unanswered Q&A preview can disagree with KPI** done✅  
   Count scans all Q/A; preview takes latest N questions then filters unanswered → old unanswered invisible while count &gt; 0.  
   **Where:** `getUnansweredQuestionsPreview` in `repositories/dashboard.repository.ts`.  
@@ -141,7 +142,7 @@
 | Large order history | Risk — silent under-count (P0 row cap) |
 | Cancelled orders this month | Excluded from month revenue/order KPIs |
 | Duplicate product names in top sellers | Aggregates by name string |
-| Server TZ for “this month” | Follows runtime TZ (often UTC in prod) |
+| Server TZ for “this month” | **UTC** via `parseAdminDateRange`; UI shows “Times in UTC” |
 | Missing `SUPABASE_SERVICE_ROLE_KEY` | Silent empty dashboard (P0 failure UX) |
 | Non-admin hits `/admin` | Middleware redirect home |
 | Inactive admin | Still allowed today (shared auth P0) |
@@ -153,6 +154,8 @@
 | Concern | Path |
 |---------|------|
 | Dashboard page | `app/admin/page.tsx` |
+| Date range controls | `components/admin/AdminDateRangeControls.tsx` |
+| Shared metrics / range | `lib/admin/metric-definitions.ts`, `lib/admin/date-range.ts` |
 | Loading / error | `app/admin/loading.tsx`, `app/admin/error.tsx` |
 | Shell / nav | `app/admin/layout.tsx`, `components/admin/app-sidebar.tsx`, `components/admin/header.tsx` |
 | Widgets | `components/admin/stat-card.tsx` |

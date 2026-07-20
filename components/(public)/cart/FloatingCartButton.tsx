@@ -6,12 +6,16 @@ import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { getUserCartWithItemsAction } from "@/actions/cart";
+import { useAuth } from "@/providers/AuthProvider";
+import { ROLES } from "@/lib/constants/roles";
 import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
 
 export function FloatingCartButton() {
   const router = useRouter();
   const pathname = usePathname();
+  const { role } = useAuth();
+  const isAdmin = role === ROLES.ADMIN;
   const [cartData, setCartData] = useState<{
     itemCount: number;
     total: number;
@@ -19,6 +23,11 @@ export function FloatingCartButton() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchCart = useCallback(async () => {
+    if (isAdmin) {
+      setCartData(null);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const result = await getUserCartWithItemsAction();
@@ -40,7 +49,7 @@ export function FloatingCartButton() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   // Initial fetch
   useEffect(() => {
@@ -49,7 +58,7 @@ export function FloatingCartButton() {
 
   // Refresh cart when pathname changes or when cart is updated
   useEffect(() => {
-    if (pathname === "/cart") return;
+    if (pathname === "/cart" || isAdmin) return;
 
     fetchCart();
 
@@ -62,10 +71,10 @@ export function FloatingCartButton() {
     return () => {
       window.removeEventListener("cart-updated", handleCartUpdate);
     };
-  }, [pathname, fetchCart]);
+  }, [pathname, fetchCart, isAdmin]);
 
-  // Don't show if on cart page
-  if (pathname === "/cart") {
+  // Don't show for admins or on cart page
+  if (isAdmin || pathname === "/cart") {
     return null;
   }
 

@@ -9,6 +9,7 @@ import { CategoriesPagination } from "@/components/admin/category/categories-pag
 
 interface AdminCategoriesClientProps {
   categories: Category[];
+  productCounts: Record<string, number>;
   createCategoryAction: (formData: FormData) => void | Promise<void>;
   updateCategoryAction: (formData: FormData) => void | Promise<void>;
   deleteCategoryAction: (formData: FormData) => void | Promise<void>;
@@ -19,6 +20,7 @@ const MAX_ROWS_PER_PAGE = 50;
 
 export default function AdminCategoriesClient({
   categories,
+  productCounts,
   createCategoryAction,
   updateCategoryAction,
   deleteCategoryAction,
@@ -111,6 +113,7 @@ export default function AdminCategoriesClient({
       <CategoriesTable
         categories={paginatedCategories}
         allCategories={categories}
+        productCounts={productCounts}
         updateCategoryAction={updateCategoryAction}
         deleteCategoryAction={deleteCategoryAction}
       />

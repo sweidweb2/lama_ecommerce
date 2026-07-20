@@ -227,37 +227,41 @@ export function Navbar() {
               )}
             </div>
 
-            {/* Wishlist - accessible to both authenticated users and guests */}
-            <Link href="/wishlist">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative hidden sm:flex"
-              >
-                <Heart className="h-5 w-5" />
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
-                    {formatWishlistBadge(wishlistCount)}
+            {/* Wishlist - customers and guests only (admins cannot shop) */}
+            {!isAdmin && (
+              <Link href="/wishlist">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative hidden sm:flex"
+                >
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                      {formatWishlistBadge(wishlistCount)}
+                    </span>
+                  )}
+                  <span className="sr-only">
+                    Wishlist
+                    {wishlistCount > 0 ? `, ${wishlistCount} items` : ""}
                   </span>
-                )}
-                <span className="sr-only">
-                  Wishlist
-                  {wishlistCount > 0 ? `, ${wishlistCount} items` : ""}
-                </span>
-              </Button>
-            </Link>
+                </Button>
+              </Link>
+            )}
 
             <div className="hidden md:flex items-center gap-2">
               <ModeToggle />
             </div>
 
-            <Link href={ROUTES.CART} className="hidden md:block">
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
-                <span className="sr-only">Cart</span>
-              </Button>
-            </Link>
+            {!isAdmin && (
+              <Link href={ROUTES.CART} className="hidden md:block">
+                <Button variant="ghost" size="icon" className="relative">
+                  <ShoppingCart className="h-5 w-5" />
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+                  <span className="sr-only">Cart</span>
+                </Button>
+              </Link>
+            )}
 
             {/* User Menu - Show when logged in */}
             {isLoggedIn ? (
@@ -404,27 +408,29 @@ export function Navbar() {
                     {mobileSearchOpen ? "Close search" : "Search"}
                   </div>
                   
-                  {/* Wishlist - available to everyone, matching desktop */}
-                  <Link
-                    href="/wishlist"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <span className="relative inline-flex">
-                      <Heart className="h-5 w-5" />
+                  {/* Wishlist - customers and guests only */}
+                  {!isAdmin && (
+                    <Link
+                      href="/wishlist"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <span className="relative inline-flex">
+                        <Heart className="h-5 w-5" />
+                        {wishlistCount > 0 && (
+                          <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                            {formatWishlistBadge(wishlistCount)}
+                          </span>
+                        )}
+                      </span>
+                      Wishlist
                       {wishlistCount > 0 && (
-                        <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
-                          {formatWishlistBadge(wishlistCount)}
+                        <span className="text-sm text-muted-foreground">
+                          ({formatWishlistBadge(wishlistCount)})
                         </span>
                       )}
-                    </span>
-                    Wishlist
-                    {wishlistCount > 0 && (
-                      <span className="text-sm text-muted-foreground">
-                        ({formatWishlistBadge(wishlistCount)})
-                      </span>
-                    )}
-                  </Link>
+                    </Link>
+                  )}
                   
                   {/* Theme Toggle - matching desktop */}
                   <div className="flex items-center justify-between gap-4">
@@ -432,15 +438,17 @@ export function Navbar() {
                     <ModeToggle />
                   </div>
                   
-                  {/* Cart - available to everyone, matching desktop */}
-                  <Link
-                    href={ROUTES.CART}
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    Cart
-                  </Link>
+                  {/* Cart - customers and guests only */}
+                  {!isAdmin && (
+                    <Link
+                      href={ROUTES.CART}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                      Cart
+                    </Link>
+                  )}
                   
                   <hr className="my-2" />
                   

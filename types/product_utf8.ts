@@ -21,7 +21,7 @@ export interface Brand {
 export interface Category {
   id: UUID;
   name: string;
-  slug: string | null;
+  slug: string;
   parent_id: UUID | null;
   is_active: boolean;
   created_at: string;

@@ -20,6 +20,7 @@ import {
   getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
   hardDeleteCartItemForGuest,
+  hardDeleteCartItemForAdmin,
   hardDeleteCartItemsByCartId,
   updateCartItem,
   updateCartItemForAdmin,
@@ -31,6 +32,7 @@ import { incrementProductAddToCartService } from "@/services/product_view.servic
 import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
 
 /**
  * Add item to cart service.
@@ -44,6 +46,11 @@ export async function addItemToCartService(
   },
 ): Promise<{ success: boolean; error?: string; data?: { cart: Cart; cartItem: CartItem } }> {
   try {
+    const shopBlock = await getAdminShopBlockForUserId(userId);
+    if (shopBlock) {
+      return { success: false, error: shopBlock };
+    }
+
     // Validate input using Zod schema
     const validated = createCartItemSchema.parse({
       customised_product_id: input.customised_product_id,
@@ -448,6 +455,21 @@ export async function updateCartItemService(
 }
 
 /**
+ * Delete cart item service (admin use).
+ * Hard-deletes a single cart line item.
+ */
+export async function deleteCartItemForAdminService(
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+  return await hardDeleteCartItemForAdmin(cartItemId);
+}
+
+/**
  * Delete cart service.
  * Hard-deletes a cart (items cascade).
  */
@@ -548,6 +570,11 @@ export async function mergeGuestCartToUserService(
   sessionId: string,
 ): Promise<{ success: boolean; error?: string; merged: boolean }> {
   try {
+    const shopBlock = await getAdminShopBlockForUserId(userId);
+    if (shopBlock) {
+      return { success: false, error: shopBlock, merged: false };
+    }
+
     // 1. Check for user's active cart
     const userCartCheck = await hasActiveCart(userId);
     if (!userCartCheck.success) {

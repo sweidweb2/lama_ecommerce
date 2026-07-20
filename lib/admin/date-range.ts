@@ -195,6 +195,7 @@ export function buildAdminDateRangeQuery(
   }
   if (range.preset === "this_month" || range.preset === "last_30d") {
     params.set("preset", range.preset);
+    return params.toString();
   }
   if (range.fromDate) params.set("from", range.fromDate);
   if (range.toDate) params.set("to", range.toDate);

@@ -193,7 +193,7 @@ export default async function CartDetailsPage({
             </div>
           </CardHeader>
           <CardContent>
-            <CartItemsTable cartId={cart.id} items={tableItems} showHeader={false} />
+            <CartItemsTable cartId={cart.id} items={tableItems} />
           </CardContent>
         </Card>
         </div>

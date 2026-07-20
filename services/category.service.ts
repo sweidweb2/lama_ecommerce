@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createCategorySchema,
   updateCategorySchema,
@@ -14,6 +15,7 @@ import type { Category } from "@/types/product";
 export async function createCategoryService(
   input: z.infer<typeof createCategorySchema>
 ): Promise<Category | null> {
+  await requireAdmin();
   const payload = createCategorySchema.parse(input);
   return createCategory(payload);
 }
@@ -23,12 +25,13 @@ export async function updateCategoryService(
   id: string,
   input: z.infer<typeof updateCategorySchema>
 ): Promise<Category | null> {
+  await requireAdmin();
   const payload = updateCategorySchema.parse(input);
   return updateCategory(id, payload);
 }
 
 // Hard-delete a category (admin). Re-parents children; refuses if products still reference it.
 export async function deleteCategoryService(id: string): Promise<boolean> {
+  await requireAdmin();
   return deleteCategory(id);
 }
-

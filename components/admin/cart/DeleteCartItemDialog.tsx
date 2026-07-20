@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { deleteCartItemForAdminAction } from "@/actions/cart"
 import type { CartItem } from "./EditCartItemDialog"
 
 interface DeleteCartItemDialogProps {
@@ -13,6 +16,7 @@ interface DeleteCartItemDialogProps {
 }
 
 export function DeleteCartItemDialog({ cartItem, onDelete, showText = false }: DeleteCartItemDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -21,14 +25,33 @@ export function DeleteCartItemDialog({ cartItem, onDelete, showText = false }: D
     try {
       if (onDelete) {
         await onDelete(cartItem.id)
-      } else {
-        // Default behavior - just log and close
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        console.log(`Deleting cart item: ${cartItem.id}`)
+        setOpen(false)
+        return
       }
+
+      const result = await deleteCartItemForAdminAction(
+        cartItem.id,
+        cartItem.cart_id,
+      )
+
+      if (!result.success) {
+        toast.error("Error", {
+          description: result.error || "Failed to delete cart item",
+        })
+        return
+      }
+
+      toast.success("Success", {
+        description: "Cart item deleted successfully",
+      })
       setOpen(false)
+      router.refresh()
     } catch (error) {
       console.error("Error deleting cart item:", error)
+      toast.error("Error", {
+        description:
+          error instanceof Error ? error.message : "Failed to delete cart item",
+      })
     } finally {
       setIsDeleting(false)
     }

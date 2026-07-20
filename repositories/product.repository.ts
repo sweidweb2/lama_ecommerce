@@ -2,6 +2,11 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
+import { expandColorFilterValues } from "@/lib/constants/color-palette";
+import {
+  LOW_STOCK_MAX,
+  LOW_STOCK_MIN,
+} from "@/lib/admin/metric-definitions";
 import type { Product, ProductWithRelations } from "@/types/product";
 
 export interface GetProductsRepoParams {
@@ -18,6 +23,33 @@ export interface GetProductsRepoParams {
   isTrending?: boolean;
   colors?: string[];
   sizes?: string[];
+}
+
+export type AdminProductStockFilter = "all" | "low" | "out";
+
+export interface GetAdminProductsPageParams {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string | null;
+  brandId?: string | null;
+  isFeatured?: boolean | null;
+  isTrending?: boolean | null;
+  isActive?: boolean | null;
+  stock?: AdminProductStockFilter;
+}
+
+export interface AdminProductsPageResult {
+  products: ProductWithRelations[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AdminProductCatalogStats {
+  total: number;
+  active: number;
+  featured: number;
+  trending: number;
 }
 
 export interface ProductVariantFacets {
@@ -103,6 +135,166 @@ export async function getAdminProducts(): Promise<ProductWithRelations[]> {
   }
 }
 
+async function getProductIdsMatchingStock(
+  stock: "low" | "out",
+): Promise<string[]> {
+  const supabase = await createSupabaseServerComponentClient();
+  let query = supabase.from("customised_products").select("product_id");
+
+  if (stock === "out") {
+    query = query.eq("quantity_stock", 0);
+  } else {
+    query = query
+      .gte("quantity_stock", LOW_STOCK_MIN)
+      .lte("quantity_stock", LOW_STOCK_MAX);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Error fetching product IDs for stock filter:", error);
+    return [];
+  }
+
+  return [
+    ...new Set(
+      (data ?? [])
+        .map((row) => (row as { product_id: string | null }).product_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+}
+
+/**
+ * Paginated admin products with column + stock filters (exact count).
+ */
+export async function getAdminProductsPage(
+  params: GetAdminProductsPageParams = {},
+): Promise<AdminProductsPageResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 48);
+  let page = Math.max(params.page ?? 1, 1);
+  const stock = params.stock ?? "all";
+
+  const empty: AdminProductsPageResult = {
+    products: [],
+    totalCount: 0,
+    page: 1,
+    pageSize,
+  };
+
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+
+    let stockProductIds: string[] | null = null;
+    if (stock === "low" || stock === "out") {
+      stockProductIds = await getProductIdsMatchingStock(stock);
+      if (stockProductIds.length === 0) {
+        return empty;
+      }
+    }
+
+    const buildQuery = () => {
+      let query = supabase
+        .from("products")
+        .select(PRODUCT_SELECT, { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (params.categoryId) {
+        query = query.eq("category_id", params.categoryId);
+      }
+      if (params.brandId) {
+        query = query.eq("brand_id", params.brandId);
+      }
+      if (params.isFeatured !== null && params.isFeatured !== undefined) {
+        query = query.eq("is_featured", params.isFeatured);
+      }
+      if (params.isTrending !== null && params.isTrending !== undefined) {
+        query = query.eq("is_trending", params.isTrending);
+      }
+      if (params.isActive !== null && params.isActive !== undefined) {
+        query = query.eq("is_active", params.isActive);
+      }
+      if (stockProductIds) {
+        query = query.in("id", stockProductIds);
+      }
+      return query;
+    };
+
+    let from = (page - 1) * pageSize;
+    let to = from + pageSize - 1;
+    let { data, error, count } = await buildQuery().range(from, to);
+
+    if (error) {
+      console.error("Error fetching admin products page:", error);
+      return empty;
+    }
+
+    const totalCount = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize) || 1);
+    if (page > totalPages && totalCount > 0) {
+      page = totalPages;
+      from = (page - 1) * pageSize;
+      to = from + pageSize - 1;
+      const retry = await buildQuery().range(from, to);
+      if (retry.error) {
+        console.error("Error refetching admin products page:", retry.error);
+        return empty;
+      }
+      data = retry.data;
+    }
+
+    return {
+      products: (data ?? []) as ProductWithRelations[],
+      totalCount,
+      page,
+      pageSize,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getAdminProductsPage:", error);
+    return empty;
+  }
+}
+
+/**
+ * Catalog KPI counts for admin products pages (exact head counts).
+ */
+export async function getAdminProductCatalogStats(): Promise<AdminProductCatalogStats> {
+  const empty: AdminProductCatalogStats = {
+    total: 0,
+    active: 0,
+    featured: 0,
+    trending: 0,
+  };
+
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const [totalRes, activeRes, featuredRes, trendingRes] = await Promise.all([
+      supabase.from("products").select("id", { count: "exact", head: true }),
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("is_featured", true),
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("is_trending", true),
+    ]);
+
+    return {
+      total: totalRes.count || 0,
+      active: activeRes.count || 0,
+      featured: featuredRes.count || 0,
+      trending: trendingRes.count || 0,
+    };
+  } catch (error) {
+    console.error("Unexpected error in getAdminProductCatalogStats:", error);
+    return empty;
+  }
+}
+
 /**
  * Fetch products with filters, sorting, and pagination.
  */
@@ -141,7 +333,7 @@ export async function getProducts(
       if (hasColorFilter) {
         variantQuery = variantQuery.in(
           "color",
-          expandCaseVariants(colors!),
+          expandColorFilterValues(colors!),
         );
       }
       if (hasSizeFilter) {
@@ -366,7 +558,12 @@ export async function getAdminProductStockFlags(
       const flags = result[product_id];
       if (!flags) continue;
       if (quantity_stock === 0) flags.hasOutOfStock = true;
-      if (quantity_stock > 0 && quantity_stock <= 10) flags.hasLowStock = true;
+      if (
+        quantity_stock >= LOW_STOCK_MIN &&
+        quantity_stock <= LOW_STOCK_MAX
+      ) {
+        flags.hasLowStock = true;
+      }
     }
 
     return result;
@@ -693,38 +890,30 @@ export async function updateProduct(
 
 /**
  * Hard-delete a product.
- * Blocks when NO ACTION children exist: product_questions, product_views, product_stats,
- * or wishlists/cart_items referencing the product's variants.
- * Images, variants, and reviews cascade via FK.
+ * Clears product_views and product_stats before delete.
+ * Blocks when product_questions exist, or wishlists/cart_items/order_items
+ * reference the product's variants. Images, variants, and reviews cascade via FK.
  */
 export async function hardDeleteProduct(id: string): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const blockingChecks: Array<{
-      table: "product_questions" | "product_views" | "product_stats";
-      label: string;
-    }> = [
-      { table: "product_questions", label: "product questions" },
-      { table: "product_views", label: "product views" },
-      { table: "product_stats", label: "product stats" },
-    ];
+    const { count: questionsCount, error: questionsError } = await supabase
+      .from("product_questions")
+      .select("*", { count: "exact", head: true })
+      .eq("product_id", id);
 
-    for (const { table, label } of blockingChecks) {
-      const { count, error } = await supabase
-        .from(table)
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", id);
-
-      if (error) {
-        console.error(`Error checking ${table} before product delete:`, error);
-        return false;
-      }
-      if ((count ?? 0) > 0) {
-        throw new Error(
-          `Cannot delete product: ${label} still exist. Remove them first.`,
-        );
-      }
+    if (questionsError) {
+      console.error(
+        "Error checking product_questions before product delete:",
+        questionsError,
+      );
+      return false;
+    }
+    if ((questionsCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete product: product questions still exist. Remove them first.",
+      );
     }
 
     const { data: variants, error: variantsError } = await supabase
@@ -784,6 +973,28 @@ export async function hardDeleteProduct(id: string): Promise<boolean> {
           "Cannot delete product: order history still references its variants.",
         );
       }
+    }
+
+    const { error: viewsDeleteError } = await supabase
+      .from("product_views")
+      .delete()
+      .eq("product_id", id);
+    if (viewsDeleteError) {
+      console.error("Error clearing product_views before product delete:", viewsDeleteError);
+      throw new Error(
+        "Cannot delete product: failed to clear product views.",
+      );
+    }
+
+    const { error: statsDeleteError } = await supabase
+      .from("product_stats")
+      .delete()
+      .eq("product_id", id);
+    if (statsDeleteError) {
+      console.error("Error clearing product_stats before product delete:", statsDeleteError);
+      throw new Error(
+        "Cannot delete product: failed to clear product stats.",
+      );
     }
 
     const { error } = await supabase.from("products").delete().eq("id", id);

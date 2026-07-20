@@ -14,6 +14,7 @@ import {
   claimWishlistBySessionId,
 } from "@/repositories/wishlist.repository";
 import { getVariantWithParentActive } from "@/repositories/product_variant.repository";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,6 +28,16 @@ function requireUuid(
 ): ServiceOk | ServiceFail {
   if (typeof value !== "string" || !UUID_RE.test(value.trim())) {
     return { success: false, error: `Invalid ${label}` };
+  }
+  return { success: true };
+}
+
+async function rejectAdminShopper(
+  userId: string,
+): Promise<ServiceOk | ServiceFail> {
+  const shopBlock = await getAdminShopBlockForUserId(userId);
+  if (shopBlock) {
+    return { success: false, error: shopBlock };
   }
   return { success: true };
 }
@@ -93,6 +104,10 @@ export async function claimGuestWishlistService(
   if (!sessionGate.success) {
     return { success: false, error: sessionGate.error, claimedCount: 0 };
   }
+  const adminGate = await rejectAdminShopper(userId);
+  if (!adminGate.success) {
+    return { success: false, error: adminGate.error, claimedCount: 0 };
+  }
   return claimWishlistBySessionId(sessionId.trim(), userId.trim());
 }
 
@@ -105,6 +120,8 @@ export async function addToWishlist(
 ) {
   const userGate = requireUuid(userId, "user id");
   if (!userGate.success) return userGate;
+  const adminGate = await rejectAdminShopper(userId);
+  if (!adminGate.success) return adminGate;
   const variantGate = requireUuid(customisedProductId, "product variant id");
   if (!variantGate.success) return variantGate;
 
@@ -139,6 +156,8 @@ export async function removeFromWishlist(
 ) {
   const userGate = requireUuid(userId, "user id");
   if (!userGate.success) return userGate;
+  const adminGate = await rejectAdminShopper(userId);
+  if (!adminGate.success) return adminGate;
   const idGate = requireUuid(wishlistId, "wishlist item");
   if (!idGate.success) return idGate;
   return removeWishlistItemById(userId.trim(), wishlistId.trim());
@@ -167,6 +186,8 @@ export async function removeFromWishlistByVariant(
 ) {
   const userGate = requireUuid(userId, "user id");
   if (!userGate.success) return userGate;
+  const adminGate = await rejectAdminShopper(userId);
+  if (!adminGate.success) return adminGate;
   const variantGate = requireUuid(customisedProductId, "product variant id");
   if (!variantGate.success) return variantGate;
   return removeWishlistItemByVariant(
@@ -201,6 +222,8 @@ export async function toggleWishlistForUser(
 ) {
   const userGate = requireUuid(userId, "user id");
   if (!userGate.success) return userGate;
+  const adminGate = await rejectAdminShopper(userId);
+  if (!adminGate.success) return adminGate;
   const variantGate = requireUuid(customisedProductId, "product variant id");
   if (!variantGate.success) return variantGate;
 

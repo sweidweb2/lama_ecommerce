@@ -1,4 +1,11 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { AdminDateRange } from "@/lib/admin/date-range";
+import { parseAdminDateRange } from "@/lib/admin/date-range";
+import {
+  LOW_STOCK_MAX,
+  LOW_STOCK_MIN,
+  REVENUE_EXCLUDED_STATUSES,
+} from "@/lib/admin/metric-definitions";
 
 export interface DashboardStats {
   totalUsers: number;
@@ -111,23 +118,68 @@ function sumFromAggregate(
   return Math.round(Number(rawSum || 0) * 100) / 100;
 }
 
+type OrdersFilterBuilder = {
+  gte: (column: string, value: string) => OrdersFilterBuilder;
+  lt: (column: string, value: string) => OrdersFilterBuilder;
+  neq: (column: string, value: string) => OrdersFilterBuilder;
+};
+
+function applyOrderRangeFilters<T extends OrdersFilterBuilder>(
+  query: T,
+  fromIso: string | null,
+  toIsoExclusive: string | null,
+): T {
+  let next = query;
+  if (fromIso) next = next.gte("created_at", fromIso) as T;
+  if (toIsoExclusive) next = next.lt("created_at", toIsoExclusive) as T;
+  for (const status of REVENUE_EXCLUDED_STATUSES) {
+    next = next.neq("status", status) as T;
+  }
+  return next;
+}
+
 /**
  * Get dashboard statistics from live tables.
  * Order counts/sums use exact head counts / PostgREST aggregates (not row loads).
  */
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(
+  range: AdminDateRange = parseAdminDateRange(undefined, {
+    defaultPreset: "this_month",
+  }),
+): Promise<DashboardStats> {
   const supabase = createSupabaseAdminClient();
-  const now = new Date();
-  const startOfMonth = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1,
-  ).toISOString();
-  const startOfLastMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() - 1,
-    1,
-  ).toISOString();
+
+  const rangeCountQuery = () =>
+    applyOrderRangeFilters(
+      supabase.from("orders").select("id", { count: "exact", head: true }),
+      range.fromIso,
+      range.toIsoExclusive,
+    );
+  const rangeRevenueQuery = () =>
+    applyOrderRangeFilters(
+      supabase.from("orders").select("total.sum()"),
+      range.fromIso,
+      range.toIsoExclusive,
+    );
+  const compareCountQuery = () =>
+    applyOrderRangeFilters(
+      supabase.from("orders").select("id", { count: "exact", head: true }),
+      range.compareFromIso,
+      range.compareToIsoExclusive,
+    );
+  const compareRevenueQuery = () =>
+    applyOrderRangeFilters(
+      supabase.from("orders").select("total.sum()"),
+      range.compareFromIso,
+      range.compareToIsoExclusive,
+    );
+
+  const leadsQuery = (() => {
+    let q = supabase.from("leads").select("id", { count: "exact", head: true });
+    if (range.fromIso) q = q.gte("created_at", range.fromIso);
+    if (range.toIsoExclusive) q = q.lt("created_at", range.toIsoExclusive);
+    return q;
+  })();
 
   const [
     usersRes,
@@ -155,28 +207,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .from("products")
       .select("*", { count: "exact", head: true })
       .eq("is_active", true),
-    supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfMonth)
-      .neq("status", "cancelled"),
-    supabase
-      .from("orders")
-      .select("total.sum()")
-      .gte("created_at", startOfMonth)
-      .neq("status", "cancelled"),
-    supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfLastMonth)
-      .lt("created_at", startOfMonth)
-      .neq("status", "cancelled"),
-    supabase
-      .from("orders")
-      .select("total.sum()")
-      .gte("created_at", startOfLastMonth)
-      .lt("created_at", startOfMonth)
-      .neq("status", "cancelled"),
+    rangeCountQuery(),
+    rangeRevenueQuery(),
+    compareCountQuery(),
+    compareRevenueQuery(),
     supabase
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -188,8 +222,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     supabase
       .from("customised_products")
       .select("id", { count: "exact", head: true })
-      .gt("quantity_stock", 0)
-      .lte("quantity_stock", 10),
+      .gte("quantity_stock", LOW_STOCK_MIN)
+      .lte("quantity_stock", LOW_STOCK_MAX),
     supabase
       .from("customised_products")
       .select("id", { count: "exact", head: true })
@@ -204,13 +238,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .from("contact_us")
       .select("id", { count: "exact", head: true })
       .eq("status", "new"),
-    supabase
-      .from("carts")
-      .select("id, cart_items!inner(id)", { count: "exact", head: true }),
-    supabase
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfMonth),
+    supabase.from("carts").select("id", { count: "exact", head: true }),
+    leadsQuery,
   ]);
 
   assertNoQueryErrors([
@@ -373,8 +402,8 @@ export async function getLowStockItems(
       .select(
         "id, sku_variant, quantity_stock, product_id, products(id, name)",
       )
-      .gt("quantity_stock", 0)
-      .lte("quantity_stock", 10)
+      .gte("quantity_stock", LOW_STOCK_MIN)
+      .lte("quantity_stock", LOW_STOCK_MAX)
       .order("quantity_stock", { ascending: true })
       .limit(limit);
 
@@ -533,20 +562,21 @@ export async function getRecentContacts(
 
 export async function getTopSellingProducts(
   limit: number = 5,
+  range: AdminDateRange = parseAdminDateRange(undefined, {
+    defaultPreset: "this_month",
+  }),
 ): Promise<TopProductItem[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    const startOfMonth = new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
-      1,
-    ).toISOString();
 
-    const { data: orders, error: ordersError } = await supabase
-      .from("orders")
-      .select("id")
-      .gte("created_at", startOfMonth)
-      .neq("status", "cancelled");
+    let ordersQuery = supabase.from("orders").select("id");
+    ordersQuery = applyOrderRangeFilters(
+      ordersQuery,
+      range.fromIso,
+      range.toIsoExclusive,
+    );
+
+    const { data: orders, error: ordersError } = await ordersQuery;
 
     if (ordersError || !orders?.length) {
       return [];

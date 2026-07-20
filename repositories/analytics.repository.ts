@@ -1,34 +1,66 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { AdminDateRange } from "@/lib/admin/date-range";
+import {
+  LOW_STOCK_MAX,
+  LOW_STOCK_MIN,
+  REVENUE_EXCLUDED_STATUSES,
+} from "@/lib/admin/metric-definitions";
+
+function applyCreatedAtRange<T extends {
+  gte: (column: string, value: string) => T;
+  lt: (column: string, value: string) => T;
+}>(
+  query: T,
+  range: AdminDateRange | undefined,
+): T {
+  let next = query;
+  if (range?.fromIso) next = next.gte("created_at", range.fromIso);
+  if (range?.toIsoExclusive) next = next.lt("created_at", range.toIsoExclusive);
+  return next;
+}
+
+function applyRevenueStatusFilter<T extends {
+  neq: (column: string, value: string) => T;
+}>(query: T): T {
+  let next = query;
+  for (const status of REVENUE_EXCLUDED_STATUSES) {
+    next = next.neq("status", status);
+  }
+  return next;
+}
 
 /**
- * Get sales and orders data grouped by month for the last 6 months
+ * Get sales and orders data grouped by month.
+ * Uses the provided range, or the last 6 months when unset.
  */
-export async function getSalesAndOrdersByMonth(): Promise<
-  Array<{ month: string; sales: number; orders: number }>
-> {
+export async function getSalesAndOrdersByMonth(
+  range?: AdminDateRange,
+): Promise<Array<{ month: string; sales: number; orders: number }>> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Get orders from the last 6 months
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    let query = supabase.from("orders").select("total, created_at, status");
+    if (range?.fromIso || range?.toIsoExclusive) {
+      query = applyCreatedAtRange(query, range);
+    } else {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 6);
+      query = query.gte("created_at", sixMonthsAgo.toISOString());
+    }
+    query = applyRevenueStatusFilter(query);
 
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("total, created_at")
-      .gte("created_at", sixMonthsAgo.toISOString());
+    const { data: orders, error } = await query;
 
     if (error) {
       console.error("Error fetching sales data:", error);
       return [];
     }
 
-    // Group by month
     const monthlyData = new Map<string, { sales: number; orders: number }>();
 
     (orders || []).forEach((order) => {
       const date = new Date(order.created_at);
-      const monthKey = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const monthKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
       const total = parseFloat(String(order.total || 0));
 
       if (!monthlyData.has(monthKey)) {
@@ -40,16 +72,9 @@ export async function getSalesAndOrdersByMonth(): Promise<
       data.orders += 1;
     });
 
-    // Convert to array and sort by date
-    const result = Array.from(monthlyData.entries())
+    return Array.from(monthlyData.entries())
       .map(([month, data]) => ({ month, ...data }))
-      .sort((a, b) => {
-        const dateA = new Date(a.month);
-        const dateB = new Date(b.month);
-        return dateA.getTime() - dateB.getTime();
-      });
-
-    return result;
+      .sort((a, b) => a.month.localeCompare(b.month));
   } catch (error) {
     console.error("Unexpected error in getSalesAndOrdersByMonth:", error);
     return [];
@@ -57,49 +82,45 @@ export async function getSalesAndOrdersByMonth(): Promise<
 }
 
 /**
- * Get user growth data grouped by month for the last 6 months
+ * Get user growth data grouped by month.
+ * Uses the provided range, or the last 6 months when unset.
  */
-export async function getUserGrowthByMonth(): Promise<
-  Array<{ month: string; users: number }>
-> {
+export async function getUserGrowthByMonth(
+  range?: AdminDateRange,
+): Promise<Array<{ month: string; users: number }>> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Get profiles from the last 6 months
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const { data: profiles, error } = await supabase
+    let query = supabase
       .from("profiles")
       .select("created_at")
-      .gte("created_at", sixMonthsAgo.toISOString())
       .eq("is_active", true);
+    if (range?.fromIso || range?.toIsoExclusive) {
+      query = applyCreatedAtRange(query, range);
+    } else {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 6);
+      query = query.gte("created_at", sixMonthsAgo.toISOString());
+    }
+
+    const { data: profiles, error } = await query;
 
     if (error) {
       console.error("Error fetching user growth data:", error);
       return [];
     }
 
-    // Group by month
     const monthlyData = new Map<string, number>();
 
     (profiles || []).forEach((profile) => {
       const date = new Date(profile.created_at);
-      const monthKey = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-
+      const monthKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
       monthlyData.set(monthKey, (monthlyData.get(monthKey) || 0) + 1);
     });
 
-    // Convert to array and sort by date
-    const result = Array.from(monthlyData.entries())
+    return Array.from(monthlyData.entries())
       .map(([month, users]) => ({ month, users }))
-      .sort((a, b) => {
-        const dateA = new Date(a.month);
-        const dateB = new Date(b.month);
-        return dateA.getTime() - dateB.getTime();
-      });
-
-    return result;
+      .sort((a, b) => a.month.localeCompare(b.month));
   } catch (error) {
     console.error("Unexpected error in getUserGrowthByMonth:", error);
     return [];
@@ -191,19 +212,31 @@ export interface AnalyticsStats {
   averageOrderValue: number;
 }
 
-export async function getAnalyticsStats(): Promise<AnalyticsStats> {
+/**
+ * Get overall statistics.
+ * When `range` is provided (and not all-time), order/revenue/AOV are scoped to that range.
+ */
+export async function getAnalyticsStats(
+  range?: AdminDateRange,
+): Promise<AnalyticsStats> {
   try {
     const supabase = createSupabaseAdminClient();
+    const hasBoundedRange = Boolean(range?.fromIso || range?.toIsoExclusive);
 
-    // Get all stats in parallel
+    let ordersQuery = supabase.from("orders").select("total, status");
+    if (hasBoundedRange) {
+      ordersQuery = applyCreatedAtRange(ordersQuery, range);
+    }
+    ordersQuery = applyRevenueStatusFilter(ordersQuery);
+
     const [
       { count: userCount },
       { count: productCount },
       { data: orders },
       { count: cartsCount },
-      { data: reviews },
-      { data: contactUs },
-      { data: products },
+      { count: pendingReviewsCount },
+      { count: pendingContactCount },
+      { count: lowStockCount },
     ] = await Promise.all([
       supabase
         .from("profiles")
@@ -211,49 +244,32 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
         .eq("is_active", true),
       supabase
         .from("products")
-        .select("*", { count: "exact", head: true }),
-      supabase
-        .from("orders")
-        .select("total"),
-      supabase
-        .from("carts")
-        .select("id, cart_items!inner(id)", { count: "exact", head: true }),
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true),
+      ordersQuery,
+      supabase.from("carts").select("id", { count: "exact", head: true }),
       supabase
         .from("reviews")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .eq("review_status", "pending"),
       supabase
         .from("contact_us")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .in("status", ["new", "read"]),
       supabase
-        .from("products")
-        .select("id")
-        .eq("is_active", true),
+        .from("customised_products")
+        .select("id", { count: "exact", head: true })
+        .gte("quantity_stock", LOW_STOCK_MIN)
+        .lte("quantity_stock", LOW_STOCK_MAX),
     ]);
 
-    // Calculate revenue
     const totalRevenue =
       (orders || []).reduce((sum, order) => {
         return sum + parseFloat(String(order.total || 0));
       }, 0) || 0;
 
-    // Calculate average order value
     const orderCount = (orders || []).length;
     const averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
-
-    // Get low stock products (products with variants that have stock <= 5)
-    const { data: variants } = await supabase
-      .from("customised_products")
-      .select("product_id, quantity_stock")
-      .lte("quantity_stock", 5);
-
-    const lowStockProductIds = new Set(
-      (variants || []).map((v) => v.product_id).filter(Boolean)
-    );
-
-    // products fetched for potential future use; keep query for parity with prior stats load
-    void products;
 
     return {
       totalUsers: userCount || 0,
@@ -261,9 +277,9 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       totalOrders: orderCount,
       totalRevenue,
       activeCarts: cartsCount || 0,
-      pendingReviews: (reviews || []).length,
-      pendingContactUs: (contactUs || []).length,
-      lowStockProducts: lowStockProductIds.size,
+      pendingReviews: pendingReviewsCount || 0,
+      pendingContactUs: pendingContactCount || 0,
+      lowStockProducts: lowStockCount || 0,
       averageOrderValue,
     };
   } catch (error) {
@@ -283,42 +299,46 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
 }
 
 /**
- * Get top products by revenue
+ * Get top products by revenue.
+ * When `range` is provided, only orders in that range (excluding cancelled) are used.
  */
-export async function getTopProductsByRevenue(limit: number = 10): Promise<
+export async function getTopProductsByRevenue(
+  limit: number = 10,
+  range?: AdminDateRange,
+): Promise<
   Array<{ product_id: string; product_name: string; revenue: number; orders: number }>
 > {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Get order items with product names
+    let ordersQuery = supabase.from("orders").select("id");
+    if (range?.fromIso || range?.toIsoExclusive) {
+      ordersQuery = applyCreatedAtRange(ordersQuery, range);
+    }
+    ordersQuery = applyRevenueStatusFilter(ordersQuery);
+
+    const { data: orders, error: ordersError } = await ordersQuery;
+    if (ordersError || !orders?.length) {
+      return [];
+    }
+
+    const orderIds = orders.map((o) => o.id);
     const { data: orderItems, error } = await supabase
       .from("order_items")
-      .select("product_name_snapshot, price_snapshot, quantity, order_id");
+      .select("product_name_snapshot, price_snapshot, quantity, order_id")
+      .in("order_id", orderIds);
 
     if (error) {
       console.error("Error fetching top products:", error);
       return [];
     }
 
-    // Get order IDs for valid orders
-    const orderIds = [...new Set((orderItems || []).map((item) => item.order_id))];
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("id")
-      .in("id", orderIds);
-
-    const validOrderIds = new Set((orders || []).map((o) => o.id));
-
-    // Calculate revenue per product
     const productRevenue = new Map<
       string,
       { product_name: string; revenue: number; orders: Set<string> }
     >();
 
     (orderItems || []).forEach((item) => {
-      if (!validOrderIds.has(item.order_id)) return;
-
       const productName = item.product_name_snapshot || "Unknown Product";
       const price = parseFloat(String(item.price_snapshot || 0));
       const quantity = Number(item.quantity || 0);
@@ -337,10 +357,9 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
       data.orders.add(item.order_id);
     });
 
-    // Convert to array, sort by revenue, and limit
     return Array.from(productRevenue.entries())
       .map(([product_name, data]) => ({
-        product_id: product_name, // Using name as ID for now
+        product_id: product_name,
         product_name,
         revenue: data.revenue,
         orders: data.orders.size,
@@ -352,3 +371,4 @@ export async function getTopProductsByRevenue(limit: number = 10): Promise<
     return [];
   }
 }
+

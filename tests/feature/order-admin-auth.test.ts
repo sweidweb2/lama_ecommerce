@@ -79,6 +79,10 @@ describe("order.service admin authz", () => {
 
   it("updateOrderService reaches repository for admin", async () => {
     getCurrentUserProfile.mockResolvedValue(adminProfile);
+    getOrderByIdForAdmin.mockResolvedValue({
+      id: "order-1",
+      status: "processing",
+    });
     updateOrder.mockResolvedValue({ success: true, data: { id: "order-1" } });
     const { updateOrderService } = await import("@/services/order.service");
     const result = await updateOrderService("order-1", { status: "packed" });
@@ -86,11 +90,36 @@ describe("order.service admin authz", () => {
     expect(updateOrder).toHaveBeenCalledWith("order-1", { status: "packed" });
   });
 
-  it("getAdminOrders reaches repository for admin", async () => {
+  it("deleteOrderService cancel-first then deletes when stock not restored", async () => {
     getCurrentUserProfile.mockResolvedValue(adminProfile);
-    getAllOrdersForAdmin.mockResolvedValue([{ id: "order-1" }]);
-    const { getAdminOrders } = await import("@/services/order.service");
-    await expect(getAdminOrders()).resolves.toEqual([{ id: "order-1" }]);
-    expect(getAllOrdersForAdmin).toHaveBeenCalled();
+    getOrderByIdForAdmin.mockResolvedValue({
+      id: "order-1",
+      stock_restored: false,
+      status: "processing",
+    });
+    updateOrder.mockResolvedValue({ success: true, data: { id: "order-1" } });
+    deleteOrderAdmin.mockResolvedValue({ success: true });
+    const { deleteOrderService } = await import("@/services/order.service");
+    await expect(deleteOrderService("order-1")).resolves.toEqual({
+      success: true,
+    });
+    expect(updateOrder).toHaveBeenCalledWith("order-1", { status: "cancelled" });
+    expect(deleteOrderAdmin).toHaveBeenCalledWith("order-1");
+  });
+
+  it("deleteOrderService skips cancel when stock already restored", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    getOrderByIdForAdmin.mockResolvedValue({
+      id: "order-1",
+      stock_restored: true,
+      status: "cancelled",
+    });
+    deleteOrderAdmin.mockResolvedValue({ success: true });
+    const { deleteOrderService } = await import("@/services/order.service");
+    await expect(deleteOrderService("order-1")).resolves.toEqual({
+      success: true,
+    });
+    expect(updateOrder).not.toHaveBeenCalled();
+    expect(deleteOrderAdmin).toHaveBeenCalledWith("order-1");
   });
 });

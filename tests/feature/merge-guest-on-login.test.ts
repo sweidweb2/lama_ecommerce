@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ADMIN_CANNOT_SHOP_MESSAGE } from "@/lib/auth/permissions";
 
 const getCurrentAuthUserFromAction = vi.fn();
 const getGuestSessionId = vi.fn();
@@ -6,6 +7,7 @@ const clearGuestSessionCookie = vi.fn();
 const claimGuestOrdersService = vi.fn();
 const mergeGuestCartToUserService = vi.fn();
 const claimGuestWishlistService = vi.fn();
+const getAdminShopBlockForUserId = vi.fn();
 const revalidatePath = vi.fn();
 
 vi.mock("@/repositories/auth.repository", () => ({
@@ -50,6 +52,18 @@ vi.mock("@/services/cart.service", () => ({
   getCartWithItemsForAdminService: vi.fn(),
 }));
 
+vi.mock("@/services/profile.service", () => ({
+  getAdminShopBlockForUserId: (...args: unknown[]) =>
+    getAdminShopBlockForUserId(...args),
+  getCurrentUserProfile: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/require-customer-shop", () => ({
+  getAdminShopBlockForCurrentUser: vi.fn().mockResolvedValue(null),
+  getAdminShopBlockForUserId: (...args: unknown[]) =>
+    getAdminShopBlockForUserId(...args),
+}));
+
 vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: vi.fn(),
 }));
@@ -63,6 +77,7 @@ describe("mergeGuestCartOnLoginAction", () => {
     vi.clearAllMocks();
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-1" });
     getGuestSessionId.mockResolvedValue("sess-1");
+    getAdminShopBlockForUserId.mockResolvedValue(null);
     claimGuestOrdersService.mockResolvedValue({
       success: true,
       claimedCount: 1,
@@ -112,6 +127,25 @@ describe("mergeGuestCartOnLoginAction", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/orders");
     expect(revalidatePath).toHaveBeenCalledWith("/order_details");
     expect(revalidatePath).toHaveBeenCalledWith("/wishlist");
+  });
+
+  it("skips claim/merge for admin and clears guest cookie only", async () => {
+    getAdminShopBlockForUserId.mockResolvedValue(ADMIN_CANNOT_SHOP_MESSAGE);
+
+    const { mergeGuestCartOnLoginAction } = await import("@/actions/cart");
+    const result = await mergeGuestCartOnLoginAction();
+
+    expect(result).toEqual({
+      success: true,
+      merged: false,
+      clearedGuestCookie: true,
+      skippedAsAdmin: true,
+    });
+    expect(claimGuestOrdersService).not.toHaveBeenCalled();
+    expect(mergeGuestCartToUserService).not.toHaveBeenCalled();
+    expect(claimGuestWishlistService).not.toHaveBeenCalled();
+    expect(clearGuestSessionCookie).toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("does not merge or clear cookie when claim fails", async () => {

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createProductImage,
   deleteProductImageById,
@@ -22,6 +23,7 @@ export async function addProductImageService(
   productId: string,
   urlImage: string,
 ): Promise<boolean> {
+  await requireAdmin();
   try {
     // Check if product already has a primary image
     const hasPrimary = await hasPrimaryImage(productId);
@@ -51,6 +53,7 @@ export async function uploadAndAddProductImageService(
   productId: string,
   imageFile: File,
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
   try {
     const name = imageFile.name || "";
     const nameExt = name.includes(".")
@@ -113,6 +116,7 @@ export async function changePrimaryProductImageService(
   productId: string,
   imageId: string,
 ): Promise<boolean> {
+  await requireAdmin();
   try {
     return await setPrimaryProductImage(productId, imageId);
   } catch (error) {
@@ -128,6 +132,7 @@ export async function deleteProductImageService(
   productId: string,
   imageId: string,
 ): Promise<boolean> {
+  await requireAdmin();
   try {
     const image = await getProductImageById(imageId);
 

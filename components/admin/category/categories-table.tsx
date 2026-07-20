@@ -17,6 +17,7 @@ import { DeleteCategoryDialog } from "@/components/admin/category/forms/delete_d
 interface CategoriesTableProps {
   categories: Category[]
   allCategories: Category[]
+  productCounts: Record<string, number>
   updateCategoryAction: (formData: FormData) => void | Promise<void>
   deleteCategoryAction: (formData: FormData) => void | Promise<void>
 }
@@ -24,6 +25,7 @@ interface CategoriesTableProps {
 export function CategoriesTable({
   categories,
   allCategories,
+  productCounts,
   updateCategoryAction,
   deleteCategoryAction,
 }: CategoriesTableProps) {
@@ -42,7 +44,7 @@ export function CategoriesTable({
         </TableHeader>
         <TableBody>
           {categories.map((category) => {
-            const productsCount = 0 // TODO: wire real product counts per category
+            const productsCount = productCounts[category.id] ?? 0
 
             const parent =
               category.parent_id &&
@@ -69,7 +71,8 @@ export function CategoriesTable({
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <Badge variant={productsCount > 0 ? "default" : "secondary"}>
-                    {productsCount} product{productsCount > 1 ? "s" : ""}
+                    {productsCount}{" "}
+                    {productsCount === 1 ? "product" : "products"}
                   </Badge>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">

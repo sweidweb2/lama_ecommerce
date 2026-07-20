@@ -162,13 +162,29 @@ export async function middleware(request: NextRequest) {
     return ensureGuestSessionCookie(request, NextResponse.next());
   }
 
-  // Cart - accessible by both authenticated users and guests
+  // Cart — guests and customers only; admins are redirected to the panel
   if (pathname.startsWith("/cart")) {
+    const { profile, user, response } = await getProfileFromSession(request);
+    if (user && profile?.is_active && profile.role === ROLES.ADMIN) {
+      const redirectResponse = NextResponse.redirect(
+        new URL(ROUTES.ADMIN, request.url),
+      );
+      copyCookies(response, redirectResponse);
+      return redirectResponse;
+    }
     return ensureGuestSessionCookie(request, NextResponse.next());
   }
 
-  // Wishlist - accessible by both authenticated users and guests
+  // Wishlist — guests and customers only; admins are redirected to the panel
   if (pathname.startsWith("/wishlist")) {
+    const { profile, user, response } = await getProfileFromSession(request);
+    if (user && profile?.is_active && profile.role === ROLES.ADMIN) {
+      const redirectResponse = NextResponse.redirect(
+        new URL(ROUTES.ADMIN, request.url),
+      );
+      copyCookies(response, redirectResponse);
+      return redirectResponse;
+    }
     return ensureGuestSessionCookie(request, NextResponse.next());
   }
 

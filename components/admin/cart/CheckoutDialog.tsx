@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatPrice } from '@/lib/utils'
-import { checkoutAction } from '@/actions/checkout'
+import { checkoutForAdminAction } from '@/actions/checkout'
 import { getCartWithItemsForAdminAction } from '@/actions/cart'
 import { getPublicShippingZonesAction } from '@/actions/shipping'
 
@@ -141,7 +141,7 @@ export function CheckoutDialog({
     isProcessingRef.current = true
 
     try {
-      const result = await checkoutAction({
+      const result = await checkoutForAdminAction({
         cart_id: cartId,
         shipping_zone_id: selectedZoneId,
         address: {

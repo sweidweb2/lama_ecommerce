@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditCartItemDialog, type CartItem } from "./EditCartItemDialog"
 import { DeleteCartItemDialog } from "./DeleteCartItemDialog"
-import { CreateCartItemDialog } from "./CreateCartItemDialog"
 import { formatPrice } from "@/lib/utils"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 
@@ -24,14 +23,13 @@ export type { CartItem }
 interface CartItemsTableProps {
   cartId: string
   items: CartItem[]
-  showHeader?: boolean
   isDeleted?: boolean
 }
 
 const ITEMS_PER_PAGE = 10
 const MAX_PAGES = 10
 
-export function CartItemsTable({ cartId, items, showHeader = true, isDeleted = false }: CartItemsTableProps) {
+export function CartItemsTable({ cartId, items, isDeleted = false }: CartItemsTableProps) {
   const [productNameFilter, setProductNameFilter] = useState<string>("")
   const [variantFilter, setVariantFilter] = useState<string>("")
   const [minPriceFilter, setMinPriceFilter] = useState<string>("")
@@ -132,13 +130,6 @@ export function CartItemsTable({ cartId, items, showHeader = true, isDeleted = f
 
   return (
     <div className="space-y-4">
-      {showHeader && (
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Cart Items</h3>
-          <CreateCartItemDialog cartId={cartId} />
-        </div>
-      )}
-
       {/* Filters */}
       <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/30">
         <div className="flex items-center justify-between">

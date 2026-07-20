@@ -14,6 +14,7 @@ import {
   deleteCartService,
   hardDeleteCartService,
   updateCartItemService,
+  deleteCartItemForAdminService,
   updateUserCartItemQuantityService,
   updateCartItemQuantityForGuestService,
   createCartForAdminService,
@@ -21,12 +22,14 @@ import {
 } from "@/services/cart.service";
 import { claimGuestOrdersService } from "@/services/order.service";
 import { claimGuestWishlistService } from "@/services/wishlist.service";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import {
   clearGuestSessionCookie,
   getGuestSessionId,
   getOrCreateGuestSessionId,
 } from "@/lib/auth/guest-session";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
 import { revalidatePath } from "next/cache";
 import type { Cart, CartItem } from "@/types/order";
 import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
@@ -37,6 +40,8 @@ type GuestHandoffResult = {
   merged: boolean;
   /** True when guest_session_id was cleared after a full successful handoff. */
   clearedGuestCookie?: boolean;
+  /** True when handoff skipped claim/merge because the user is an admin. */
+  skippedAsAdmin?: boolean;
 };
 
 type CartMutationResult = {
@@ -60,7 +65,8 @@ type CartWithItemsResult = {
  * Used by the login action and the auth email-confirm callback (where auth cookies
  * are on the redirect response, so the action's getUser would miss the new session).
  *
- * Clears guest_session_id only after all three succeed.
+ * Admins never claim/merge — guest cookie is cleared and guest rows stay unclaimed.
+ * For customers, clears guest_session_id only after all three succeed.
  */
 export async function performGuestSessionHandoff(
   userId: string,
@@ -69,6 +75,17 @@ export async function performGuestSessionHandoff(
 
   if (!sessionId) {
     return { success: true, merged: false, clearedGuestCookie: false };
+  }
+
+  const adminBlock = await getAdminShopBlockForUserId(userId);
+  if (adminBlock) {
+    await clearGuestSessionCookie();
+    return {
+      success: true,
+      merged: false,
+      clearedGuestCookie: true,
+      skippedAsAdmin: true,
+    };
   }
 
   const claimResult = await claimGuestOrdersService(userId, sessionId);
@@ -153,6 +170,11 @@ export async function addItemToCartAction(input: {
   customised_product_id: string;
   quantity: number;
 }): Promise<CartMutationResult> {
+  const shopBlock = await getAdminShopBlockForCurrentUser();
+  if (shopBlock) {
+    return { success: false, error: shopBlock };
+  }
+
   // Check if user is authenticated
   const user = await getCurrentAuthUserFromAction();
 
@@ -248,6 +270,11 @@ export async function getUserCartWithItemsAction(): Promise<CartWithItemsResult>
 export async function deleteCartItemAction(
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const shopBlock = await getAdminShopBlockForCurrentUser();
+  if (shopBlock) {
+    return { success: false, error: shopBlock };
+  }
+
   const user = await getCurrentAuthUserFromAction();
 
   let result: { success: boolean; error?: string };
@@ -359,6 +386,11 @@ export async function updateCartItemQuantityAction(
   quantity: number,
 ): Promise<CartMutationResult> {
   try {
+    const shopBlock = await getAdminShopBlockForCurrentUser();
+    if (shopBlock) {
+      return { success: false, error: shopBlock };
+    }
+
     if (quantity < 1) {
       return {
         success: false,
@@ -417,6 +449,30 @@ export async function updateCartItemAction(
   const result = await updateCartItemService(cartItemId, { quantity });
 
   // Revalidate admin cart details page if successful
+  if (result.success) {
+    revalidatePath(`/admin/carts/${cartId}`);
+    revalidatePath("/admin/carts");
+  }
+
+  return result;
+}
+
+/**
+ * Delete cart item action (admin use).
+ * Hard-deletes a single line item from an admin cart view.
+ */
+export async function deleteCartItemForAdminAction(
+  cartItemId: string,
+  cartId: string,
+): Promise<CartMutationResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const result = await deleteCartItemForAdminService(cartItemId);
+
   if (result.success) {
     revalidatePath(`/admin/carts/${cartId}`);
     revalidatePath("/admin/carts");

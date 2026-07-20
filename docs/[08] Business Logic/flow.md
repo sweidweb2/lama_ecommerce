@@ -19,7 +19,8 @@
 - Log out (idle timeout)
 
 ## Admin (Admin)
-- All storefront user capabilities
+- Browse storefront catalog (no cart, wishlist, checkout, or review-write)
+- Account / profile (no guest cart/order/wishlist merge on login — cookie cleared only)
 - Admin dashboard
 - Catalog: products (CRUD, variants, images, grid), categories, brands, product views
 - Sales: orders (view/edit/status/payment/shipment), carts (view/manage/checkout), shipping zones, promo codes

@@ -15,7 +15,7 @@ import { decryptOrderId } from '@/lib/utils/encryption'
 import { Eye, ShoppingCart, ShoppingBag } from 'lucide-react'
 import { getAdminProductByIdService } from '@/services/product.service'
 import { getBrandsService } from '@/services/brand.service'
-import { getCategoriesService } from '@/services/categories.service'
+import { getAdminCategoriesService } from '@/services/categories.service'
 import { getProductVariantsByProductIdService } from '@/services/product_variant.service'
 import { getProductStatsService } from '@/services/product_view.service'
 import { notFound } from 'next/navigation'
@@ -61,19 +61,12 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
   const [product, brands, categories, productStats] = await Promise.all([
     getAdminProductByIdService(productId),
     getBrandsService(),
-    getCategoriesService(),
+    getAdminCategoriesService(),
     getProductStatsService(productId),
   ])
 
   if (!product) {
-    return (
-      <div className="container mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">Product Details</h1>
-        <p className="text-muted-foreground text-sm sm:text-base mt-1">
-          This product does not exist yet, but the admin detail layout is ready.
-        </p>
-      </div>
-    )
+    notFound()
   }
 
   const adminProduct = toAdminProduct(product)

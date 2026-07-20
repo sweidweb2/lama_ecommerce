@@ -1,25 +1,35 @@
 "use server";
 
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   createBrandService,
   updateBrandService,
   deleteBrandService,
 } from "@/services/brand.service";
-import { revalidatePath } from "next/cache";
+import {
+  createBrandSchema,
+  updateBrandSchema,
+} from "@/lib/validators/brand";
+
+const idSchema = z.string().uuid();
 
 export async function createBrandAction(formData: FormData): Promise<void> {
   try {
-    const name = formData.get("name")?.toString().trim();
+    await requireAdmin();
+
     const slugRaw = formData.get("slug")?.toString().trim();
     const logoFile = formData.get("logo_file");
 
-    if (!name) {
-      throw new Error("Name is required");
-    }
+    const parsed = createBrandSchema.parse({
+      name: formData.get("name")?.toString().trim(),
+      slug: slugRaw ? slugRaw : null,
+    });
 
     const newBrand = await createBrandService({
-      name,
-      slug: slugRaw || null,
+      ...parsed,
       logoFile:
         logoFile && logoFile instanceof File && logoFile.size > 0
           ? logoFile
@@ -39,20 +49,21 @@ export async function createBrandAction(formData: FormData): Promise<void> {
 
 export async function updateBrandAction(formData: FormData): Promise<void> {
   try {
-    const id = formData.get("id")?.toString();
-    const name = formData.get("name")?.toString().trim();
+    await requireAdmin();
+
+    const id = idSchema.parse(formData.get("id")?.toString());
     const slugRaw = formData.get("slug")?.toString().trim();
     const currentLogoUrl = formData.get("current_logo_url")?.toString() || null;
     const logoFile = formData.get("logo_file");
 
-    if (!id || !name) {
-      throw new Error("Invalid payload");
-    }
+    const parsed = updateBrandSchema.parse({
+      name: formData.get("name")?.toString().trim(),
+      slug: slugRaw ? slugRaw : null,
+    });
 
     const updated = await updateBrandService({
       id,
-      name,
-      slug: slugRaw || null,
+      ...parsed,
       currentLogoUrl,
       logoFile:
         logoFile && logoFile instanceof File && logoFile.size > 0
@@ -73,12 +84,10 @@ export async function updateBrandAction(formData: FormData): Promise<void> {
 
 export async function deleteBrandAction(formData: FormData): Promise<void> {
   try {
-    const id = formData.get("id")?.toString();
-    const logoUrl = formData.get("logo_url")?.toString() || null;
+    await requireAdmin();
 
-    if (!id) {
-      throw new Error("Invalid payload");
-    }
+    const id = idSchema.parse(formData.get("id")?.toString());
+    const logoUrl = formData.get("logo_url")?.toString() || null;
 
     const success = await deleteBrandService(id, logoUrl);
 

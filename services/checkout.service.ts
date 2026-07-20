@@ -1,3 +1,5 @@
+import { requireAdmin } from "@/lib/auth/require-admin";
+import { getCartByIdForAdmin } from "@/repositories/cart.repository";
 import {
   processCheckout,
   type ProcessCheckoutInput,
@@ -6,6 +8,7 @@ import { getAllShippingZonesWithFee } from "@/repositories/shipping_zone.reposit
 import { createAddressForUser } from "@/services/address.service";
 import { sendOrderConfirmationEmailService } from "@/services/order_email.service";
 import { incrementPurchaseCountForOrderService } from "@/services/product_view.service";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import type { AddressSnapshot } from "@/types/order";
 
 /**
@@ -36,6 +39,13 @@ export async function checkoutService(
   input: CheckoutServiceInput,
 ): Promise<{ success: boolean; error?: string; orderId?: string }> {
   try {
+    if (input.user_id) {
+      const shopBlock = await getAdminShopBlockForUserId(input.user_id);
+      if (shopBlock) {
+        return { success: false, error: shopBlock };
+      }
+    }
+
     // 1. Cheap zone existence check (RPC is source of truth for fee + zone snapshot)
     const zones = await getAllShippingZonesWithFee();
     const selectedZone = zones.find((z) => z.id === input.shipping_zone_id);
@@ -92,4 +102,40 @@ export async function checkoutService(
         error instanceof Error ? error.message : "Checkout failed unexpectedly.",
     };
   }
+}
+
+/**
+ * Admin checkout: place an order for any cart using that cart's owner identity.
+ * Loads cart.user_id / cart.session_id server-side so process_checkout ownership passes.
+ */
+export async function checkoutForAdminService(
+  input: Omit<CheckoutServiceInput, "user_id" | "session_id" | "save_address">,
+): Promise<{ success: boolean; error?: string; orderId?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const cartResult = await getCartByIdForAdmin(input.cart_id);
+  if (!cartResult.success || !cartResult.data) {
+    return { success: false, error: cartResult.error || "Cart not found" };
+  }
+
+  const cart = cartResult.data;
+  if (!cart.user_id && !cart.session_id) {
+    return { success: false, error: "Cart has no owner" };
+  }
+
+  return checkoutService({
+    cart_id: input.cart_id,
+    user_id: cart.user_id,
+    session_id: cart.session_id,
+    shipping_zone_id: input.shipping_zone_id,
+    address: input.address,
+    phone: input.phone,
+    email: input.email,
+    promo_code: input.promo_code ?? null,
+    save_address: false,
+  });
 }

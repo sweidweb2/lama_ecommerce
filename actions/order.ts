@@ -6,9 +6,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   deleteOrderService,
   updateOrderService,
-  upsertOrderPaymentAdmin,
 } from "@/services/order.service";
-import { upsertPaymentSchema } from "@/lib/validators/payment/upsert";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 /**
@@ -104,38 +102,8 @@ export async function updateOrderStatusAction(
 }
 
 /**
- * Admin-only: upsert payment row and sync orders.payment_status.
- */
-export async function upsertOrderPaymentAction(
-  raw: unknown,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await requireAdmin();
-  } catch {
-    return { success: false, error: "Forbidden" };
-  }
-
-  const parsed = upsertPaymentSchema.safeParse(raw);
-  if (!parsed.success) {
-    const fieldErrors = parsed.error.flatten().fieldErrors;
-    const firstKey = Object.keys(fieldErrors)[0] as keyof typeof fieldErrors | undefined;
-    const firstError = firstKey ? fieldErrors[firstKey]?.[0] : undefined;
-    return { success: false, error: firstError ?? "Invalid payment data" };
-  }
-
-  const result = await upsertOrderPaymentAdmin(parsed.data);
-
-  if (result.success) {
-    revalidatePath("/admin/orders");
-    revalidatePath(`/admin/orders/${parsed.data.order_id}`);
-    revalidatePath(`/admin/orders/${parsed.data.order_id}/order_payment`);
-  }
-
-  return { success: result.success, error: result.error };
-}
-
-/**
- * Admin-only: soft-delete an order and its items.
+ * Admin-only: hard-delete an order (payments, shipments, and items cascade).
+ * Restores stock via cancel-before-delete when stock was never restored.
  */
 export async function deleteOrderAction(
   orderId: string,

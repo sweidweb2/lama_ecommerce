@@ -1,10 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
-import { checkoutService } from "@/services/checkout.service";
-import { checkoutSchema, type CheckoutInput } from "@/lib/validators/checkout/checkout";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
+import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
+import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
+import {
+  checkoutForAdminService,
+  checkoutService,
+} from "@/services/checkout.service";
+import { checkoutSchema, type CheckoutInput } from "@/lib/validators/checkout/checkout";
 
 /**
  * Server action: process checkout.
@@ -20,6 +25,11 @@ import { getGuestSessionId } from "@/lib/auth/guest-session";
 export async function checkoutAction(
   raw: CheckoutInput,
 ): Promise<{ success: boolean; error?: string; orderId?: string }> {
+  const shopBlock = await getAdminShopBlockForCurrentUser();
+  if (shopBlock) {
+    return { success: false, error: shopBlock };
+  }
+
   // 1. Validate input
   const parsed = checkoutSchema.safeParse(raw);
   if (!parsed.success) {
@@ -67,6 +77,48 @@ export async function checkoutAction(
     if (input.save_address && user) {
       revalidatePath("/account");
     }
+  }
+
+  return result;
+}
+
+/**
+ * Admin server action: checkout any cart as its owner (user_id / session_id from DB).
+ */
+export async function checkoutForAdminAction(
+  raw: CheckoutInput,
+): Promise<{ success: boolean; error?: string; orderId?: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const parsed = checkoutSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const firstKey = Object.keys(fieldErrors)[0] as
+      | keyof typeof fieldErrors
+      | undefined;
+    const firstError = firstKey ? fieldErrors[firstKey]?.[0] : undefined;
+    return { success: false, error: firstError ?? "Invalid checkout data" };
+  }
+
+  const input = parsed.data;
+
+  const result = await checkoutForAdminService({
+    cart_id: input.cart_id,
+    shipping_zone_id: input.shipping_zone_id,
+    address: input.address,
+    phone: input.phone,
+    email: input.email,
+    promo_code: input.promo_code ?? null,
+  });
+
+  if (result.success) {
+    revalidatePath("/admin/carts");
+    revalidatePath(`/admin/carts/${input.cart_id}`);
+    revalidatePath("/admin/orders");
   }
 
   return result;

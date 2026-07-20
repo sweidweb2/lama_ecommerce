@@ -13,6 +13,10 @@ import {
   removeFiles,
   uploadPublicFile,
 } from "@/repositories/storage.repository";
+import {
+  createBrandSchema,
+  updateBrandSchema,
+} from "@/lib/validators/brand";
 import type { Brand } from "@/types/product";
 
 export async function getBrandsService(): Promise<Brand[]> {
@@ -62,19 +66,24 @@ async function removeBrandLogo(logoUrl: string | null | undefined): Promise<void
 
 export async function createBrandService(input: {
   name: string;
-  slug: string | null;
+  slug?: string | null;
   logoFile?: File | null;
 }): Promise<Brand | null> {
   await requireAdmin();
   try {
+    const parsed = createBrandSchema.parse({
+      name: input.name,
+      slug: input.slug ?? null,
+    });
+
     let logo_image_url: string | null = null;
     if (input.logoFile && input.logoFile.size > 0) {
       logo_image_url = await uploadBrandLogo(input.logoFile);
     }
 
     const payload: CreateBrandInput = {
-      name: input.name,
-      slug: input.slug,
+      name: parsed.name,
+      slug: parsed.slug ?? null,
       logo_image_url,
     };
 
@@ -88,12 +97,17 @@ export async function createBrandService(input: {
 export async function updateBrandService(input: {
   id: string;
   name: string;
-  slug: string | null;
+  slug?: string | null;
   currentLogoUrl?: string | null;
   logoFile?: File | null;
 }): Promise<Brand | null> {
   await requireAdmin();
   try {
+    const parsed = updateBrandSchema.parse({
+      name: input.name,
+      slug: input.slug ?? null,
+    });
+
     let logo_image_url: string | null = input.currentLogoUrl ?? null;
 
     if (input.logoFile && input.logoFile.size > 0) {
@@ -103,8 +117,8 @@ export async function updateBrandService(input: {
 
     const payload: UpdateBrandInput = {
       id: input.id,
-      name: input.name,
-      slug: input.slug,
+      name: parsed.name,
+      slug: parsed.slug ?? null,
       logo_image_url,
     };
 

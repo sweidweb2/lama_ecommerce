@@ -12,6 +12,7 @@ import {
 } from "@/repositories/product_variant.repository";
 import { createProductVariantSchema } from "@/lib/validators/product_variant/create";
 import { updateProductVariantSchema } from "@/lib/validators/product_variant/update";
+import { canonicalizeColorForStorage } from "@/lib/constants/color-palette";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import type { ProductVariant } from "@/types/product";
 
@@ -25,7 +26,9 @@ export async function createProductVariantService(
 
   const repoInput: CreateProductVariantInput = {
     product_id: input.product_id,
-    color: input.color ?? null,
+    color: input.color
+      ? canonicalizeColorForStorage(input.color)
+      : null,
     size: input.size ?? null,
     material: input.material ?? null,
     quantity_stock: input.quantity_stock ?? 0,
@@ -79,7 +82,12 @@ export async function updateProductVariantService(
 
   const repoInput: UpdateProductVariantInput = {
     product_id: input.product_id,
-    color: input.color,
+    color:
+      input.color === undefined
+        ? undefined
+        : input.color === null
+          ? null
+          : canonicalizeColorForStorage(input.color),
     size: input.size,
     material: input.material,
     quantity_stock: input.quantity_stock,

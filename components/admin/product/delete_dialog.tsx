@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { deleteProductAction } from "@/actions/product"
 
 interface DeleteProductDialogProps {
@@ -26,12 +27,26 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
     setIsDeleting(true)
     try {
       if (onDelete) {
-        await onDelete(product.id)
+        try {
+          await onDelete(product.id)
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Failed to delete product"
+          toast.error(message)
+          console.error("Error deleting product:", error)
+          return
+        }
       } else {
         const formData = new FormData()
         formData.set("id", product.id)
-        await deleteProductAction(formData)
+        const result = await deleteProductAction(formData)
+        if (!result.success) {
+          toast.error(result.error)
+          return
+        }
       }
+
+      toast.success("Product deleted")
 
       // If we're on a product details route (/admin/products/[id]), navigate back to list.
       const segments = pathname?.split("/") ?? []
@@ -48,6 +63,9 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
 
       setOpen(false)
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete product"
+      toast.error(message)
       console.error("Error deleting product:", error)
     } finally {
       setIsDeleting(false)

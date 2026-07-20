@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canAccessAdmin, canEditProfile } from "@/lib/auth/permissions";
+import {
+  ADMIN_CANNOT_SHOP_MESSAGE,
+  assertCanShopAsCustomer,
+  canAccessAdmin,
+  canEditProfile,
+  canShopAsCustomer,
+} from "@/lib/auth/permissions";
 import { ROLES } from "@/lib/constants/roles";
 
 describe("canAccessAdmin", () => {
@@ -14,6 +20,33 @@ describe("canAccessAdmin", () => {
   it("returns false for null or undefined", () => {
     expect(canAccessAdmin(null)).toBe(false);
     expect(canAccessAdmin(undefined)).toBe(false);
+  });
+});
+
+describe("canShopAsCustomer", () => {
+  it("returns true for user role", () => {
+    expect(canShopAsCustomer(ROLES.USER)).toBe(true);
+  });
+
+  it("returns false for admin role", () => {
+    expect(canShopAsCustomer(ROLES.ADMIN)).toBe(false);
+  });
+
+  it("returns false for null or undefined", () => {
+    expect(canShopAsCustomer(null)).toBe(false);
+    expect(canShopAsCustomer(undefined)).toBe(false);
+  });
+});
+
+describe("assertCanShopAsCustomer", () => {
+  it("throws for admin role", () => {
+    expect(() => assertCanShopAsCustomer(ROLES.ADMIN)).toThrow(
+      ADMIN_CANNOT_SHOP_MESSAGE,
+    );
+  });
+
+  it("does not throw for user role", () => {
+    expect(() => assertCanShopAsCustomer(ROLES.USER)).not.toThrow();
   });
 });
 

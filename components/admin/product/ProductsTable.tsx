@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
@@ -22,7 +21,8 @@ import {
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
-import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
+import { AdminPagination } from "./AdminPagination"
+import { X, Eye } from "lucide-react"
 import Link from "@/components/ui/link"
 import type { Brand, Category } from "@/types/product"
 
@@ -36,140 +36,66 @@ interface ProductsTableProps {
   products: AdminProductRow[]
   brands: Brand[]
   categories: Category[]
+  totalCount: number
+  pageSize: number
+  page: number
 }
 
-const PRODUCTS_PER_PAGE = 25
-const MAX_PAGES = 60
-const VALID_STOCK_FILTERS = new Set(["all", "low", "out"])
-
-export function ProductsTable({ products, brands, categories }: ProductsTableProps) {
+export function ProductsTable({
+  products,
+  brands,
+  categories,
+  totalCount,
+  pageSize,
+  page,
+}: ProductsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialStock = searchParams.get("stock") || "all"
 
-  const [categoryFilter, setCategoryFilter] = useState<string>("all")
-  const [brandFilter, setBrandFilter] = useState<string>("all")
-  const [featuredFilter, setFeaturedFilter] = useState<string>("all")
-  const [trendingFilter, setTrendingFilter] = useState<string>("all")
-  const [activeFilter, setActiveFilter] = useState<string>("all")
-  const [stockFilter, setStockFilter] = useState<string>(
-    VALID_STOCK_FILTERS.has(initialStock) ? initialStock : "all",
-  )
-  const [currentPage, setCurrentPage] = useState(1)
+  const categoryFilter = searchParams.get("category") || "all"
+  const brandFilter = searchParams.get("brand") || "all"
+  const featuredFilter = searchParams.get("featured") || "all"
+  const trendingFilter = searchParams.get("trending") || "all"
+  const activeFilter = searchParams.get("active") || "all"
+  const stockFilter = searchParams.get("stock") || "all"
 
-  const syncStockToUrl = (value: string) => {
+  const setFilter = (name: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (value === "all") {
-      params.delete("stock")
+      params.delete(name)
     } else {
-      params.set("stock", value)
+      params.set(name, value)
     }
+    params.delete("page")
     const query = params.toString()
     router.push(query ? `/admin/products?${query}` : "/admin/products")
   }
 
-  // Filter products (on full products data)
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesCategory = categoryFilter === "all" || product.category_id === categoryFilter
-      const matchesBrand = brandFilter === "all" || product.brand_id === brandFilter
-      const matchesFeatured = featuredFilter === "all" || 
-        (featuredFilter === "true" ? product.is_featured : !product.is_featured)
-      const matchesTrending = trendingFilter === "all" || 
-        (trendingFilter === "true" ? product.is_trending : !product.is_trending)
-      const matchesActive = activeFilter === "all" || 
-        (activeFilter === "true" ? product.is_active : !product.is_active)
-      const matchesStock =
-        stockFilter === "all" ||
-        (stockFilter === "low" ? Boolean(product.hasLowStock) : Boolean(product.hasOutOfStock))
-      
-      return matchesCategory && matchesBrand && matchesFeatured && matchesTrending && matchesActive && matchesStock
-    })
-  }, [products, categoryFilter, brandFilter, featuredFilter, trendingFilter, activeFilter, stockFilter])
-
-  // Calculate pagination
-  const maxProductsToShow = MAX_PAGES * PRODUCTS_PER_PAGE
-  const limitedFilteredProducts = useMemo(() => {
-    return filteredProducts.slice(0, maxProductsToShow)
-  }, [filteredProducts, maxProductsToShow])
-
-  const totalPages = useMemo(() => {
-    return Math.min(
-      Math.ceil(limitedFilteredProducts.length / PRODUCTS_PER_PAGE),
-      MAX_PAGES
-    )
-  }, [limitedFilteredProducts.length])
-
-  // Paginate the filtered results
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE
-    const endIndex = startIndex + PRODUCTS_PER_PAGE
-    return limitedFilteredProducts.slice(startIndex, endIndex)
-  }, [limitedFilteredProducts, currentPage])
-
-  const handleFilterChange = (
-    value: string,
-    type: "category" | "brand" | "featured" | "trending" | "active" | "stock",
-  ) => {
-    switch (type) {
-      case "category":
-        setCategoryFilter(value)
-        break
-      case "brand":
-        setBrandFilter(value)
-        break
-      case "featured":
-        setFeaturedFilter(value)
-        break
-      case "trending":
-        setTrendingFilter(value)
-        break
-      case "active":
-        setActiveFilter(value)
-        break
-      case "stock":
-        setStockFilter(value)
-        syncStockToUrl(value)
-        break
-    }
-    // Reset to page 1 when filters change
-    setCurrentPage(1)
-  }
-
-  const hasActiveFilters = 
-    categoryFilter !== "all" || 
-    brandFilter !== "all" || 
-    featuredFilter !== "all" || 
-    trendingFilter !== "all" || 
+  const hasActiveFilters =
+    categoryFilter !== "all" ||
+    brandFilter !== "all" ||
+    featuredFilter !== "all" ||
+    trendingFilter !== "all" ||
     activeFilter !== "all" ||
     stockFilter !== "all"
 
   const clearFilters = () => {
-    setCategoryFilter("all")
-    setBrandFilter("all")
-    setFeaturedFilter("all")
-    setTrendingFilter("all")
-    setActiveFilter("all")
-    setStockFilter("all")
-    setCurrentPage(1)
-    syncStockToUrl("all")
+    router.push("/admin/products")
   }
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize) || 1)
+  const showingStart = products.length > 0 ? (page - 1) * pageSize + 1 : 0
+  const showingEnd = (page - 1) * pageSize + products.length
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Category:</span>
             <Select
               value={categoryFilter}
-              onValueChange={(value) => handleFilterChange(value, "category")}
+              onValueChange={(value) => setFilter("category", value)}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Categories" />
@@ -178,7 +104,9 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
-                    {category.name}
+                    {category.is_active
+                      ? category.name
+                      : `${category.name} (inactive)`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -189,7 +117,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             <span className="text-sm text-muted-foreground whitespace-nowrap">Brand:</span>
             <Select
               value={brandFilter}
-              onValueChange={(value) => handleFilterChange(value, "brand")}
+              onValueChange={(value) => setFilter("brand", value)}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Brands" />
@@ -209,7 +137,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             <span className="text-sm text-muted-foreground whitespace-nowrap">Featured:</span>
             <Select
               value={featuredFilter}
-              onValueChange={(value) => handleFilterChange(value, "featured")}
+              onValueChange={(value) => setFilter("featured", value)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All" />
@@ -226,7 +154,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             <span className="text-sm text-muted-foreground whitespace-nowrap">Trending:</span>
             <Select
               value={trendingFilter}
-              onValueChange={(value) => handleFilterChange(value, "trending")}
+              onValueChange={(value) => setFilter("trending", value)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All" />
@@ -243,7 +171,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             <span className="text-sm text-muted-foreground whitespace-nowrap">Status:</span>
             <Select
               value={activeFilter}
-              onValueChange={(value) => handleFilterChange(value, "active")}
+              onValueChange={(value) => setFilter("active", value)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All" />
@@ -260,7 +188,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             <span className="text-sm text-muted-foreground whitespace-nowrap">Stock:</span>
             <Select
               value={stockFilter}
-              onValueChange={(value) => handleFilterChange(value, "stock")}
+              onValueChange={(value) => setFilter("stock", value)}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All" />
@@ -282,44 +210,18 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
         </div>
       </div>
 
-      {/* Pagination - Top */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+      <p className="text-sm text-muted-foreground">
+        Showing{" "}
+        <span className="text-foreground font-medium">{showingStart}</span>
+        {" - "}
+        <span className="text-foreground font-medium">{showingEnd}</span>
+        {" of "}
+        <span className="text-foreground font-medium">{totalCount}</span>
+        {" products"}
+      </p>
 
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button
-                key={page}
-                variant={currentPage === page ? 'default' : 'outline'}
-                size="sm"
-                className="w-9"
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </Button>
-            ))}
-          </div>
+      <AdminPagination totalPages={totalPages} basePath="/admin/products" />
 
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Table */}
       <TableWrapper>
         <Table className="table-fixed w-full">
           <TableHeader>
@@ -333,16 +235,14 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedProducts.length === 0 ? (
+            {products.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  {filteredProducts.length === 0 
-                    ? "No products found matching the selected filters."
-                    : "No products on this page."}
+                  No products found matching the selected filters.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedProducts.map((product) => (
+              products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
                     {product.image ? (
@@ -405,42 +305,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
         </Table>
       </TableWrapper>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button
-                key={page}
-                variant={currentPage === page ? 'default' : 'outline'}
-                size="sm"
-                className="w-9"
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </Button>
-            ))}
-          </div>
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <AdminPagination totalPages={totalPages} basePath="/admin/products" />
     </div>
   )
 }

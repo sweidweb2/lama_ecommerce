@@ -24,15 +24,13 @@ import type { OrderItem } from "@/types/order"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface OrderItemsTableProps {
-  orderId: string
   items: OrderItem[]
-  isDeleted?: boolean
 }
 
 const ITEMS_PER_PAGE = 10
 const MAX_PAGES = 10
 
-export function OrderItemsTable({ orderId, items, isDeleted = false }: OrderItemsTableProps) {
+export function OrderItemsTable({ items }: OrderItemsTableProps) {
   const [productNameFilter, setProductNameFilter] = useState<string>("")
   const [colorFilter, setColorFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string>("all")
