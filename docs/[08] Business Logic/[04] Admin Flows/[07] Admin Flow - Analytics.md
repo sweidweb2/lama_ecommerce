@@ -3,16 +3,16 @@
 **Scope:** Admin Analytics from `flow.md`: `/admin/analytics` KPI cards + charts (sales, users, order/payment status, top products).  
 **Out of scope:** Dashboard layout (sibling doc); Catalog product-views module.
 
-**Verdict:** Happy path **works** — **real DB queries** (service-role), not mock charts; empty states exist. Remaining correctness debt: **revenue/orders include cancelled**, **~1000-row silent under-count**, **auth/errors → zeros**. Extra: **“Active products” label is false** (counts all products). Active carts aligned with Dashboard (non-empty only). No date-range UI; some metrics **diverge from Dashboard**.
+**Verdict:** Happy path **works** — **real DB queries** (service-role), exact aggregates / RPC (no ~1000-row dumps for KPIs/charts), cancelled excluded from revenue KPIs, empty states + error banner. Remaining debt: top-product id keyed by name snapshot.
 
 ---
 
 ## Happy path (what works today)
 
-1. `/admin/analytics` → middleware → `Promise.all` of analytics services → each `requireAdmin` → `analytics.repository` via **service role**.
-2. `AnalyticsStats`: users (active), products (all — mislabeled), orders, revenue, carts, AOV, pending reviews, low-stock (≤5), optional pending contact.
-3. Charts: sales+orders by month (last ~6 mo), user growth (active, last ~6 mo), order/payment status pies (all-time), top products by revenue (limit 10).
-4. Empty chart panels show “No … data available”; top-products block omitted when empty.
+1. `/admin/analytics` → middleware → `Promise.all` of analytics services → each `requireAdmin` → `AnalyticsResult` → `analytics.repository` via **service role**.
+2. `AnalyticsStats`: users, products, orders, revenue, carts, AOV, pending reviews, low-stock, pending contact — KPI tiles deep-link to related admin modules; values show `"—"` on load failure.
+3. Charts: sales+orders by month, user growth, order/payment status pies, top products by revenue (limit 10) — themed with `--chart-*` tokens.
+4. Empty chart panels (including top products) show “No … data available”; auth/load failures show a page error banner.
 
 ```text
 /admin/analytics
@@ -31,20 +31,21 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
   **Where:** `repositories/analytics.repository.ts` (`getAnalyticsStats`); `AnalyticsStats.tsx`.  
   **Done:** Count only carts with ≥1 item; keep “Active Carts” label.
 
-- [ ] **Revenue / order count / AOV / monthly sales include cancelled**  
-  No status / `payment_status` filter on aggregates. Top products do **not** exclude cancelled (Dashboard top sellers do).  
+- [x] ✅ **Revenue / order count / AOV / monthly sales include cancelled** done✅  
+  Shared `REVENUE_EXCLUDED_STATUSES` (`cancelled` only — same as Dashboard; no `payment_status` filter on revenue KPIs).  
   **Where:** `getSalesAndOrdersByMonth`, `getAnalyticsStats`, `getTopProductsByRevenue`.  
-  **Do:** Shared business filters aligned with Sales/Dashboard.
+  **Done:** Filter via `applyRevenueStatusFilter`; exact count/sum/RPC so filters apply at full scale.
 
-- [ ] **Aggregations risk silent under-count (~1000-row PostgREST cap)**  
+- [x] ✅ **Aggregations risk silent under-count (~1000-row PostgREST cap)** done✅  
   Status pies, revenue reduce, monthly grouping, order_items for top products — unbounded row arrays.  
   **Where:** `repositories/analytics.repository.ts`.  
-  **Do:** `count: exact` / SQL-RPC aggregates.
+  **Done:** Exact `count` / `total.sum()` for stats + per-month series; exact per-enum pies; `admin_top_products_by_revenue` RPC (`20260720194000_admin_analytics_top_products.sql`).
 
-- [ ] **Failures look like an empty business**  
+- [x] ✅ **Failures look like an empty business** done✅  
   Services/repos catch → zeros/`[]`. No error UI on page. Missing SR key → zeros.  
   **Where:** `services/analytics.service.ts`; `repositories/analytics.repository.ts`; `app/admin/analytics/page.tsx`.  
-  **Do:** `ok: false` envelope + error banner (same as Dashboard P0).
+  **Do:** `ok: false` envelope + error banner (same as Dashboard P0).  
+  **Done:** Repo throws on query/SR errors; `AnalyticsResult` + `withAdminResult` on all six loaders; page banner + Reload; stats `"—"` when `ok: false`; charts distinguish error vs empty.
 
 - [x] ✅ **“Total Products” labeled “Active products” but counts all rows** done✅  
   No `is_active` filter; Dashboard products KPI filters active.  
@@ -76,14 +77,15 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
   **Do:** Shared metric helpers + identical labels.  
   **Done:** `lib/admin/metric-definitions.ts` — both use `is_active` products, variant low stock `1–10`, total carts, cancelled-excluded revenue/top products. Contact pending still differs (`new` vs `new`+`read`) by design for inbox vs analytics. Revenue window still differs by page default (month vs all-time) but shares the same query helpers when a range is set.
 
-- [ ] **Month buckets can skip empty months; fragile date sort**  
+- [x] ✅ **Month buckets can skip empty months; fragile date sort** done✅  
   **Where:** `getSalesAndOrdersByMonth`, `getUserGrowthByMonth`.  
-  **Do:** Fixed `YYYY-MM` keys + zero-fill.  
-  **Note:** Month keys are now fixed `YYYY-MM` (UTC); zero-fill for empty months still open.
-- [ ] **Top products keyed by name snapshot** (`product_id` = name string)  
+  **Done:** Fixed UTC `YYYY-MM` keys via `listUtcMonthKeysForRange` + per-month exact queries (zero-filled).
+
+- [x] ✅ **Top products keyed by name snapshot** (`product_id` = name string) done✅  
   Renames/duplicates merge wrong.  
   **Where:** `getTopProductsByRevenue`.  
-  **Do:** Aggregate by real `product_id` if available on `order_items`.
+  **Do:** Aggregate by real `product_id` if available on `order_items`.  
+  **Done:** RPC `admin_top_products_by_revenue` groups via `customised_products.product_id` (orphan fallback); Dashboard `getTopSellingProducts` aligned.
 
 - [x] ✅ **`is_active` ignored for `/admin`** done✅ — shared auth P0 fixed (middleware + `requireAdmin`).
 
@@ -91,11 +93,11 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 
 ## P2 — DX / UX
 
-- [ ] Stats always show `0` with no error vs empty distinction  
-- [ ] Top products: section hidden when empty (no message)  
-- [ ] Pending Contact card only if `> 0` (inconsistent)  
-- [ ] No deep links from KPI tiles to related admin modules  
-- [ ] Generic Recharts styling  
+- [x] ✅ **Stats always show `0` with no error vs empty distinction** done✅ — `AnalyticsResult` + `"—"` when failed  
+- [x] ✅ **Top products: section hidden when empty** done✅ — always shown with empty copy  
+- [x] ✅ **Pending Contact card only if `> 0`** done✅ — always shown with other KPIs  
+- [x] ✅ **No deep links from KPI tiles** done✅ — `StatCard` optional `href` wired to admin modules  
+- [x] ✅ **Generic Recharts styling** done✅ — `--chart-*` / border / muted axis ticks  
 
 ---
 
@@ -117,14 +119,12 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 |-----------|--------|
 | Empty DB | Charts empty copy; stats 0 |
 | Large order history | Silent under-count (P0) |
-| Cancelled / refunded | Inflate revenue/AOV/charts/top (P0) |
-| Many carts | Active = non-empty only (aligned with Dashboard) |
-| Inactive products | Counted as “Active” (P0) |
-| Missing SR key | Zeros / empty (P0) |
+| Auth / load failure | Error banner; stats `"—"` |
+| Missing SR key / Unauthorized | `AnalyticsResult` `ok: false` |
 | Non-admin `/admin/analytics` | Middleware redirect |
-| Inactive admin | Still allowed |
-| No sales in last 6 months | Empty sales chart |
-| Top products empty | Section omitted |
+| No sales in range | Empty sales chart |
+| Top products empty | Section + empty copy |
+| KPI tile click | Deep link to related admin module |
 
 ---
 
@@ -136,6 +136,7 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 | UI | `components/admin/analytics/AnalyticsStats.tsx`, `AnalyticsCharts.tsx` |
 | Service | `services/analytics.service.ts` |
 | DB | `repositories/analytics.repository.ts` |
+| Top products RPC | `supabase/migrations/20260720194000_admin_analytics_top_products.sql` |
 | Auth / SR | `lib/auth/require-admin.ts`, `lib/supabase/admin.ts` |
 | Related | `repositories/dashboard.repository.ts`, `[02] Admin Flow - Dashboard.md` |
 
@@ -147,4 +148,4 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 - Shared metric debt: `[02] Admin Flow - Dashboard.md`
 - Sales revenue filters: `[04] Admin Flow - Sales.md`
 
-**Highest-impact fixes:** shared revenue/product definitions with Dashboard → RPC/exact aggregates → surface errors → fix Active products label/filter.
+**Highest-impact remaining:** top products keyed by name snapshot (P1).

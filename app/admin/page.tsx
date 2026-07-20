@@ -471,7 +471,7 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
             <div className="space-y-3">
               {topProducts.map((product, index) => (
                 <div
-                  key={product.productName}
+                  key={product.productId}
                   className="flex items-center justify-between gap-3 rounded-md p-2 hover:bg-muted/40"
                 >
                   <div className="flex items-center gap-3 min-w-0">

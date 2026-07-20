@@ -207,7 +207,7 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
                 {COLOR_PALETTE.map((colorOption) => (
                   <button
-                    key={colorOption.value}
+                    key={colorOption.hex}
                     type="button"
                     onClick={() => {
                       setColorHex(colorHex === colorOption.hex ? "" : colorOption.hex)

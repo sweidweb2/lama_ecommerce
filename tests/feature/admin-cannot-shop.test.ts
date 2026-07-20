@@ -117,6 +117,7 @@ describe("admin storefront commerce rejection", () => {
         address: "1 Main St",
         postal_code: "10001",
       },
+      promo_code: undefined,
     });
 
     expect(result).toEqual({

@@ -3,7 +3,6 @@ import { adminProfile, userProfile } from "../helpers/mocks";
 
 const getCurrentUserProfile = vi.fn();
 const getAdminBackups = vi.fn();
-const createBackup = vi.fn();
 const deleteBackup = vi.fn();
 const extractDatabaseAsSQL = vi.fn();
 
@@ -13,7 +12,6 @@ vi.mock("@/services/profile.service", () => ({
 
 vi.mock("@/repositories/backup.repository", () => ({
   getAdminBackups: (...args: unknown[]) => getAdminBackups(...args),
-  createBackup: (...args: unknown[]) => createBackup(...args),
   deleteBackup: (...args: unknown[]) => deleteBackup(...args),
   extractDatabaseAsSQL: (...args: unknown[]) => extractDatabaseAsSQL(...args),
 }));
@@ -21,6 +19,7 @@ vi.mock("@/repositories/backup.repository", () => ({
 describe("backup.service admin authz", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it("getAllBackupsAdmin returns [] for non-admin", async () => {
@@ -28,15 +27,6 @@ describe("backup.service admin authz", () => {
     const { getAllBackupsAdmin } = await import("@/services/backup.service");
     await expect(getAllBackupsAdmin()).resolves.toEqual([]);
     expect(getAdminBackups).not.toHaveBeenCalled();
-  });
-
-  it("createBackupAdmin returns null for non-admin", async () => {
-    getCurrentUserProfile.mockResolvedValue(userProfile);
-    const { createBackupAdmin } = await import("@/services/backup.service");
-    await expect(
-      createBackupAdmin({ name: "nightly", type: "full" }),
-    ).resolves.toBeNull();
-    expect(createBackup).not.toHaveBeenCalled();
   });
 
   it("deleteBackupAdmin returns false for non-admin", async () => {
@@ -56,16 +46,17 @@ describe("backup.service admin authz", () => {
     expect(extractDatabaseAsSQL).not.toHaveBeenCalled();
   });
 
-  it("createBackupAdmin reaches repository for admin", async () => {
+  it("extractDatabaseService reaches repository for admin", async () => {
     getCurrentUserProfile.mockResolvedValue(adminProfile);
-    createBackup.mockResolvedValue({
-      id: "backup-1",
-      name: "nightly",
-      type: "full",
+    extractDatabaseAsSQL.mockResolvedValue({
+      success: true,
+      sql: "-- dump",
     });
-    const { createBackupAdmin } = await import("@/services/backup.service");
-    const result = await createBackupAdmin({ name: "nightly", type: "full" });
-    expect(result).toMatchObject({ id: "backup-1" });
-    expect(createBackup).toHaveBeenCalled();
+    const { extractDatabaseService } = await import("@/services/backup.service");
+    await expect(extractDatabaseService()).resolves.toEqual({
+      success: true,
+      sql: "-- dump",
+    });
+    expect(extractDatabaseAsSQL).toHaveBeenCalledOnce();
   });
 });

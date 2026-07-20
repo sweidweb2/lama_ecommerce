@@ -76,6 +76,7 @@ export interface RecentContactItem {
 }
 
 export interface TopProductItem {
+  productId: string;
   productName: string;
   unitsSold: number;
   revenue: number;
@@ -585,7 +586,17 @@ export async function getTopSellingProducts(
     const orderIds = orders.map((o) => o.id);
     const { data: items, error } = await supabase
       .from("order_items")
-      .select("product_name_snapshot, quantity, price_snapshot")
+      .select(
+        `
+        product_name_snapshot,
+        quantity,
+        price_snapshot,
+        customised_products (
+          product_id,
+          products ( id, name )
+        )
+      `,
+      )
       .in("order_id", orderIds);
 
     if (error || !items) {
@@ -593,20 +604,54 @@ export async function getTopSellingProducts(
       return [];
     }
 
-    const map = new Map<string, { unitsSold: number; revenue: number }>();
+    type NestedProduct = { id?: string; name?: string | null } | null;
+    type NestedCp = {
+      product_id?: string | null;
+      products?: NestedProduct | NestedProduct[] | null;
+    } | null;
+
+    const unwrapOne = <T,>(value: T | T[] | null | undefined): T | null => {
+      if (value == null) return null;
+      return Array.isArray(value) ? (value[0] ?? null) : value;
+    };
+
+    const map = new Map<
+      string,
+      { productName: string; unitsSold: number; revenue: number }
+    >();
+
     for (const item of items) {
-      const name = item.product_name_snapshot || "Unknown";
-      const current = map.get(name) || { unitsSold: 0, revenue: 0 };
+      const cp = unwrapOne(
+        (item as { customised_products?: NestedCp | NestedCp[] })
+          .customised_products,
+      );
+      const product = unwrapOne(cp?.products ?? null);
+      const snapshot =
+        (item.product_name_snapshot as string | null)?.trim() || "";
+      const liveName = product?.name?.trim() || "";
+      const productName = liveName || snapshot || "Unknown";
+      const productId =
+        (typeof cp?.product_id === "string" && cp.product_id) ||
+        (typeof product?.id === "string" && product.id) ||
+        `orphan:${snapshot || "unknown"}`;
+
+      const current = map.get(productId) || {
+        productName,
+        unitsSold: 0,
+        revenue: 0,
+      };
       const qty = Number(item.quantity || 0);
       const price = Number(item.price_snapshot || 0);
       current.unitsSold += qty;
       current.revenue += qty * price;
-      map.set(name, current);
+      if (liveName) current.productName = liveName;
+      map.set(productId, current);
     }
 
     return [...map.entries()]
-      .map(([productName, stats]) => ({
-        productName,
+      .map(([productId, stats]) => ({
+        productId,
+        productName: stats.productName,
         unitsSold: stats.unitsSold,
         revenue: Math.round(stats.revenue * 100) / 100,
       }))

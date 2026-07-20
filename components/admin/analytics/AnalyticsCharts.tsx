@@ -21,10 +21,36 @@ interface AnalyticsChartsProps {
   userData: Array<{ name: string; users: number }>
   orderStatusData: Array<{ status: string; count: number }>
   paymentStatusData: Array<{ status: string; count: number }>
-  topProducts: Array<{ product_id: string; product_name: string; revenue: number; orders: number }>
+  topProducts: Array<{
+    product_id: string
+    product_name: string
+    revenue: number
+    orders: number
+  }>
+  salesError?: boolean
+  userError?: boolean
+  orderStatusError?: boolean
+  paymentStatusError?: boolean
+  topProductsError?: boolean
 }
 
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#00ff00", "#0088fe", "#ff00ff"]
+const COLORS = [
+  "#8884d8",
+  "#82ca9d",
+  "#ffc658",
+  "#ff7300",
+  "#00ff00",
+  "#0088fe",
+  "#ff00ff",
+]
+
+function ChartEmpty({ error, emptyLabel }: { error?: boolean; emptyLabel: string }) {
+  return (
+    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+      {error ? "Could not load this chart" : emptyLabel}
+    </div>
+  )
+}
 
 export function AnalyticsCharts({
   salesData,
@@ -32,12 +58,17 @@ export function AnalyticsCharts({
   orderStatusData,
   paymentStatusData,
   topProducts,
+  salesError,
+  userError,
+  orderStatusError,
+  paymentStatusError,
+  topProductsError,
 }: AnalyticsChartsProps) {
-  // Prepare top products chart data (limit to 10)
   const topProductsChartData = topProducts.slice(0, 10).map((product) => ({
-    name: product.product_name.length > 20 
-      ? product.product_name.substring(0, 20) + "..." 
-      : product.product_name,
+    name:
+      product.product_name.length > 20
+        ? product.product_name.substring(0, 20) + "..."
+        : product.product_name,
     revenue: Math.round(product.revenue * 100) / 100,
     orders: product.orders,
   }))
@@ -47,7 +78,7 @@ export function AnalyticsCharts({
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">Sales & Orders</h3>
-          {salesData.length > 0 ? (
+          {!salesError && salesData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -73,15 +104,13 @@ export function AnalyticsCharts({
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No sales data available
-            </div>
+            <ChartEmpty error={salesError} emptyLabel="No sales data available" />
           )}
         </div>
 
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">User Growth</h3>
-          {userData.length > 0 ? (
+          {!userError && userData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={userData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -93,9 +122,7 @@ export function AnalyticsCharts({
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No user data available
-            </div>
+            <ChartEmpty error={userError} emptyLabel="No user data available" />
           )}
         </div>
       </div>
@@ -103,7 +130,7 @@ export function AnalyticsCharts({
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">Order Status Breakdown</h3>
-          {orderStatusData.length > 0 ? (
+          {!orderStatusError && orderStatusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -112,30 +139,34 @@ export function AnalyticsCharts({
                   cy="50%"
                   labelLine={false}
                   label={({ payload, percent }) => {
-                    if (!percent) return ''
-                    return `${payload?.status || ''}: ${(percent * 100).toFixed(0)}%`
+                    if (!percent) return ""
+                    return `${payload?.status || ""}: ${(percent * 100).toFixed(0)}%`
                   }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
                 >
                   {orderStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No order status data available
-            </div>
+            <ChartEmpty
+              error={orderStatusError}
+              emptyLabel="No order status data available"
+            />
           )}
         </div>
 
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">Payment Status Breakdown</h3>
-          {paymentStatusData.length > 0 ? (
+          {!paymentStatusError && paymentStatusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -144,31 +175,35 @@ export function AnalyticsCharts({
                   cy="50%"
                   labelLine={false}
                   label={({ payload, percent }) => {
-                    if (!percent) return ''
-                    return `${payload?.status || ''}: ${(percent * 100).toFixed(0)}%`
+                    if (!percent) return ""
+                    return `${payload?.status || ""}: ${(percent * 100).toFixed(0)}%`
                   }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
                 >
                   {paymentStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No payment status data available
-            </div>
+            <ChartEmpty
+              error={paymentStatusError}
+              emptyLabel="No payment status data available"
+            />
           )}
         </div>
       </div>
 
-      {topProductsChartData.length > 0 && (
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold">Top Products by Revenue</h3>
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Top Products by Revenue</h3>
+        {!topProductsError && topProductsChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={topProductsChartData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
@@ -180,8 +215,13 @@ export function AnalyticsCharts({
               <Bar dataKey="orders" fill="#82ca9d" name="Orders" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      )}
+        ) : (
+          <ChartEmpty
+            error={topProductsError}
+            emptyLabel="No top products data available"
+          />
+        )}
+      </div>
     </div>
   )
 }

@@ -10,64 +10,68 @@ import {
   type AnalyticsStats,
 } from "@/repositories/analytics.repository";
 
-const EMPTY_STATS: AnalyticsStats = {
-  totalUsers: 0,
-  totalProducts: 0,
-  totalOrders: 0,
-  totalRevenue: 0,
-  activeCarts: 0,
-  pendingReviews: 0,
-  pendingContactUs: 0,
-  lowStockProducts: 0,
-  averageOrderValue: 0,
-};
+export type AnalyticsResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+export type { AnalyticsStats };
+
+async function withAdminResult<T>(
+  load: () => Promise<T>,
+): Promise<AnalyticsResult<T>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  try {
+    const data = await load();
+    return { ok: true, data };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to load analytics data";
+    console.error("Analytics service error:", error);
+    return { ok: false, error: message };
+  }
+}
 
 /**
  * Get sales and orders data by month
  */
-export async function getSalesAndOrdersByMonthService(range?: AdminDateRange) {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return await getSalesAndOrdersByMonth(range);
+export async function getSalesAndOrdersByMonthService(
+  range?: AdminDateRange,
+): Promise<
+  AnalyticsResult<Array<{ month: string; sales: number; orders: number }>>
+> {
+  return withAdminResult(() => getSalesAndOrdersByMonth(range));
 }
 
 /**
  * Get user growth data by month
  */
-export async function getUserGrowthByMonthService(range?: AdminDateRange) {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return await getUserGrowthByMonth(range);
+export async function getUserGrowthByMonthService(
+  range?: AdminDateRange,
+): Promise<AnalyticsResult<Array<{ month: string; users: number }>>> {
+  return withAdminResult(() => getUserGrowthByMonth(range));
 }
 
 /**
  * Get order status breakdown
  */
-export async function getOrderStatusBreakdownService() {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return await getOrderStatusBreakdown();
+export async function getOrderStatusBreakdownService(): Promise<
+  AnalyticsResult<Array<{ status: string; count: number }>>
+> {
+  return withAdminResult(() => getOrderStatusBreakdown());
 }
 
 /**
  * Get payment status breakdown
  */
-export async function getPaymentStatusBreakdownService() {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return await getPaymentStatusBreakdown();
+export async function getPaymentStatusBreakdownService(): Promise<
+  AnalyticsResult<Array<{ status: string; count: number }>>
+> {
+  return withAdminResult(() => getPaymentStatusBreakdown());
 }
 
 /**
@@ -75,13 +79,8 @@ export async function getPaymentStatusBreakdownService() {
  */
 export async function getAnalyticsStatsService(
   range?: AdminDateRange,
-): Promise<AnalyticsStats> {
-  try {
-    await requireAdmin();
-  } catch {
-    return EMPTY_STATS;
-  }
-  return await getAnalyticsStats(range);
+): Promise<AnalyticsResult<AnalyticsStats>> {
+  return withAdminResult(() => getAnalyticsStats(range));
 }
 
 /**
@@ -90,11 +89,15 @@ export async function getAnalyticsStatsService(
 export async function getTopProductsByRevenueService(
   limit: number = 10,
   range?: AdminDateRange,
-) {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return await getTopProductsByRevenue(limit, range);
+): Promise<
+  AnalyticsResult<
+    Array<{
+      product_id: string;
+      product_name: string;
+      revenue: number;
+      orders: number;
+    }>
+  >
+> {
+  return withAdminResult(() => getTopProductsByRevenue(limit, range));
 }

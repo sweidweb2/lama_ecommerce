@@ -32,7 +32,7 @@ Fill in `.env.local` (see [`.env.example`](.env.example)):
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only; never expose to the client |
 | `ENCRYPTION_KEY` | Yes (order links) | 64 hex chars (32 bytes) for AES-GCM order-id encryption |
-| `DATABASE_URL` or `SUPABASE_DB_URL` | Ops / backups | Used by backup extract |
+| `DATABASE_URL` or `SUPABASE_DB_URL` | Yes (admin Extract Database) | Postgres connection string. Prefer `pg_dump` on PATH for fullest dump; otherwise paginated `pg` client export. |
 | `STRIPE_*` / `NEXT_PUBLIC_STRIPE_*` | No | Payments deferred |
 
 ### 3. Database

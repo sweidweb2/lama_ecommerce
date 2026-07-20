@@ -327,12 +327,13 @@ export async function listReviewsForAdmin(
         return { items: [], total: 0 };
       }
 
-      productIdsFilter = (matchedProducts ?? []).map(
+      const matchedIds = (matchedProducts ?? []).map(
         (p: { id: string }) => p.id,
       );
-      if (productIdsFilter.length === 0) {
+      if (matchedIds.length === 0) {
         return { items: [], total: 0 };
       }
+      productIdsFilter = matchedIds;
     }
 
     let query = (supabase as any)

@@ -6,22 +6,110 @@ import {
   REVENUE_EXCLUDED_STATUSES,
 } from "@/lib/admin/metric-definitions";
 
-function applyCreatedAtRange<T extends {
-  gte: (column: string, value: string) => T;
-  lt: (column: string, value: string) => T;
-}>(
+const ORDER_STATUSES = [
+  "pending",
+  "processing",
+  "packed",
+  "shipped",
+  "delivered",
+  "returned",
+  "cancelled",
+] as const;
+
+const PAYMENT_STATUSES = ["pending", "paid", "failed", "refunded"] as const;
+
+type QueryResult = { error: { message: string } | null };
+
+function assertNoQueryErrors(
+  labeled: Array<{ label: string; result: QueryResult }>,
+): void {
+  const failed = labeled.filter(({ result }) => result.error);
+  if (failed.length === 0) return;
+  const detail = failed
+    .map(({ label, result }) => `${label}: ${result.error!.message}`)
+    .join("; ");
+  throw new Error(`Analytics query failed (${detail})`);
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function monthKeyFromUtc(date: Date): string {
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}`;
+}
+
+function monthStartUtc(year: number, monthIndex: number): Date {
+  return new Date(Date.UTC(year, monthIndex, 1));
+}
+
+function parseMonthKey(key: string): { year: number; monthIndex: number } {
+  const [y, m] = key.split("-").map(Number);
+  return { year: y, monthIndex: m - 1 };
+}
+
+/**
+ * Fixed UTC `YYYY-MM` keys for a reporting window.
+ * Default: last 6 calendar months including the current UTC month.
+ */
+export function listUtcMonthKeysForRange(
+  range?: AdminDateRange,
+  defaultMonthCount = 6,
+): string[] {
+  let start: Date;
+  let endExclusive: Date;
+
+  if (range?.fromIso || range?.toIsoExclusive) {
+    start = range.fromIso
+      ? new Date(range.fromIso)
+      : monthStartUtc(new Date().getUTCFullYear(), new Date().getUTCMonth());
+    endExclusive = range.toIsoExclusive
+      ? new Date(range.toIsoExclusive)
+      : new Date();
+  } else {
+    endExclusive = new Date();
+    start = monthStartUtc(
+      endExclusive.getUTCFullYear(),
+      endExclusive.getUTCMonth() - (defaultMonthCount - 1),
+    );
+  }
+
+  const cursor = monthStartUtc(start.getUTCFullYear(), start.getUTCMonth());
+  const lastInclusive = new Date(
+    Math.max(endExclusive.getTime() - 1, start.getTime()),
+  );
+  const endCursor = monthStartUtc(
+    lastInclusive.getUTCFullYear(),
+    lastInclusive.getUTCMonth(),
+  );
+
+  const keys: string[] = [];
+  while (cursor.getTime() <= endCursor.getTime()) {
+    keys.push(monthKeyFromUtc(cursor));
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return keys;
+}
+
+function applyCreatedAtRange<
+  T extends {
+    gte: (column: string, value: string) => T;
+    lt: (column: string, value: string) => T;
+  },
+>(
   query: T,
-  range: AdminDateRange | undefined,
+  fromIso: string | null | undefined,
+  toIsoExclusive: string | null | undefined,
 ): T {
   let next = query;
-  if (range?.fromIso) next = next.gte("created_at", range.fromIso);
-  if (range?.toIsoExclusive) next = next.lt("created_at", range.toIsoExclusive);
+  if (fromIso) next = next.gte("created_at", fromIso);
+  if (toIsoExclusive) next = next.lt("created_at", toIsoExclusive);
   return next;
 }
 
-function applyRevenueStatusFilter<T extends {
-  neq: (column: string, value: string) => T;
-}>(query: T): T {
+function applyRevenueStatusFilter<
+  T extends { neq: (column: string, value: string) => T },
+>(query: T): T {
   let next = query;
   for (const status of REVENUE_EXCLUDED_STATUSES) {
     next = next.neq("status", status);
@@ -29,172 +117,140 @@ function applyRevenueStatusFilter<T extends {
   return next;
 }
 
+function sumFromAggregate(
+  data: Array<{ sum: number | null } | { total: number | null }> | null,
+): number {
+  const row = data?.[0] ?? null;
+  const rawSum =
+    row && "sum" in row ? row.sum : row && "total" in row ? row.total : 0;
+  return Math.round(Number(rawSum || 0) * 100) / 100;
+}
+
+function titleCaseStatus(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 /**
- * Get sales and orders data grouped by month.
- * Uses the provided range, or the last 6 months when unset.
+ * Get sales and orders data grouped by month (exact per-month aggregates).
+ * Uses the provided range, or the last 6 months when unset. Zero-fills empty months.
  */
 export async function getSalesAndOrdersByMonth(
   range?: AdminDateRange,
 ): Promise<Array<{ month: string; sales: number; orders: number }>> {
-  try {
-    const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient();
+  const monthKeys = listUtcMonthKeysForRange(range);
 
-    let query = supabase.from("orders").select("total, created_at, status");
-    if (range?.fromIso || range?.toIsoExclusive) {
-      query = applyCreatedAtRange(query, range);
-    } else {
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 6);
-      query = query.gte("created_at", sixMonthsAgo.toISOString());
-    }
-    query = applyRevenueStatusFilter(query);
+  return Promise.all(
+    monthKeys.map(async (month) => {
+      const { year, monthIndex } = parseMonthKey(month);
+      const fromIso = monthStartUtc(year, monthIndex).toISOString();
+      const toIsoExclusive = monthStartUtc(year, monthIndex + 1).toISOString();
 
-    const { data: orders, error } = await query;
+      const countQuery = applyRevenueStatusFilter(
+        applyCreatedAtRange(
+          supabase.from("orders").select("id", { count: "exact", head: true }),
+          fromIso,
+          toIsoExclusive,
+        ),
+      );
+      const sumQuery = applyRevenueStatusFilter(
+        applyCreatedAtRange(
+          supabase.from("orders").select("total.sum()"),
+          fromIso,
+          toIsoExclusive,
+        ),
+      );
 
-    if (error) {
-      console.error("Error fetching sales data:", error);
-      return [];
-    }
+      const [countRes, sumRes] = await Promise.all([countQuery, sumQuery]);
+      assertNoQueryErrors([
+        { label: `ordersCount:${month}`, result: countRes },
+        { label: `ordersSum:${month}`, result: sumRes },
+      ]);
 
-    const monthlyData = new Map<string, { sales: number; orders: number }>();
-
-    (orders || []).forEach((order) => {
-      const date = new Date(order.created_at);
-      const monthKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      const total = parseFloat(String(order.total || 0));
-
-      if (!monthlyData.has(monthKey)) {
-        monthlyData.set(monthKey, { sales: 0, orders: 0 });
-      }
-
-      const data = monthlyData.get(monthKey)!;
-      data.sales += total;
-      data.orders += 1;
-    });
-
-    return Array.from(monthlyData.entries())
-      .map(([month, data]) => ({ month, ...data }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  } catch (error) {
-    console.error("Unexpected error in getSalesAndOrdersByMonth:", error);
-    return [];
-  }
+      return {
+        month,
+        orders: countRes.count || 0,
+        sales: sumFromAggregate(
+          sumRes.data as Array<{ sum: number | null }> | null,
+        ),
+      };
+    }),
+  );
 }
 
 /**
- * Get user growth data grouped by month.
- * Uses the provided range, or the last 6 months when unset.
+ * Get user growth data grouped by month (exact per-month counts).
+ * Uses the provided range, or the last 6 months when unset. Zero-fills empty months.
  */
 export async function getUserGrowthByMonth(
   range?: AdminDateRange,
 ): Promise<Array<{ month: string; users: number }>> {
-  try {
-    const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient();
+  const monthKeys = listUtcMonthKeysForRange(range);
 
-    let query = supabase
-      .from("profiles")
-      .select("created_at")
-      .eq("is_active", true);
-    if (range?.fromIso || range?.toIsoExclusive) {
-      query = applyCreatedAtRange(query, range);
-    } else {
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 6);
-      query = query.gte("created_at", sixMonthsAgo.toISOString());
-    }
+  return Promise.all(
+    monthKeys.map(async (month) => {
+      const { year, monthIndex } = parseMonthKey(month);
+      const fromIso = monthStartUtc(year, monthIndex).toISOString();
+      const toIsoExclusive = monthStartUtc(year, monthIndex + 1).toISOString();
 
-    const { data: profiles, error } = await query;
+      const result = await applyCreatedAtRange(
+        supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true),
+        fromIso,
+        toIsoExclusive,
+      );
 
-    if (error) {
-      console.error("Error fetching user growth data:", error);
-      return [];
-    }
-
-    const monthlyData = new Map<string, number>();
-
-    (profiles || []).forEach((profile) => {
-      const date = new Date(profile.created_at);
-      const monthKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      monthlyData.set(monthKey, (monthlyData.get(monthKey) || 0) + 1);
-    });
-
-    return Array.from(monthlyData.entries())
-      .map(([month, users]) => ({ month, users }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  } catch (error) {
-    console.error("Unexpected error in getUserGrowthByMonth:", error);
-    return [];
-  }
+      assertNoQueryErrors([{ label: `users:${month}`, result }]);
+      return { month, users: result.count || 0 };
+    }),
+  );
 }
 
 /**
- * Get order status breakdown
+ * Get order status breakdown (exact head count per status).
  */
 export async function getOrderStatusBreakdown(): Promise<
   Array<{ status: string; count: number }>
 > {
-  try {
-    const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient();
 
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("status");
+  const results = await Promise.all(
+    ORDER_STATUSES.map(async (status) => {
+      const result = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("status", status);
+      assertNoQueryErrors([{ label: `orderStatus:${status}`, result }]);
+      return { status: titleCaseStatus(status), count: result.count || 0 };
+    }),
+  );
 
-    if (error) {
-      console.error("Error fetching order status data:", error);
-      return [];
-    }
-
-    const statusCounts = new Map<string, number>();
-
-    (orders || []).forEach((order) => {
-      const status = order.status;
-      statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
-    });
-
-    return Array.from(statusCounts.entries()).map(([status, count]) => ({
-      status: status.charAt(0).toUpperCase() + status.slice(1),
-      count,
-    }));
-  } catch (error) {
-    console.error("Unexpected error in getOrderStatusBreakdown:", error);
-    return [];
-  }
+  return results.filter((row) => row.count > 0);
 }
 
 /**
- * Get payment status breakdown
+ * Get payment status breakdown (exact head count per payment_status).
  */
 export async function getPaymentStatusBreakdown(): Promise<
   Array<{ status: string; count: number }>
 > {
-  try {
-    const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient();
 
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("payment_status");
+  const results = await Promise.all(
+    PAYMENT_STATUSES.map(async (status) => {
+      const result = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("payment_status", status);
+      assertNoQueryErrors([{ label: `paymentStatus:${status}`, result }]);
+      return { status: titleCaseStatus(status), count: result.count || 0 };
+    }),
+  );
 
-    if (error) {
-      console.error("Error fetching payment status data:", error);
-      return [];
-    }
-
-    const statusCounts = new Map<string, number>();
-
-    (orders || []).forEach((order) => {
-      const status = order.payment_status;
-      statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
-    });
-
-    return Array.from(statusCounts.entries()).map(([status, count]) => ({
-      status: status.charAt(0).toUpperCase() + status.slice(1),
-      count,
-    }));
-  } catch (error) {
-    console.error("Unexpected error in getPaymentStatusBreakdown:", error);
-    return [];
-  }
+  return results.filter((row) => row.count > 0);
 }
 
 /**
@@ -215,160 +271,139 @@ export interface AnalyticsStats {
 /**
  * Get overall statistics.
  * When `range` is provided (and not all-time), order/revenue/AOV are scoped to that range.
+ * Order KPIs exclude cancelled and use exact count / sum (no row dump).
  */
 export async function getAnalyticsStats(
   range?: AdminDateRange,
 ): Promise<AnalyticsStats> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const hasBoundedRange = Boolean(range?.fromIso || range?.toIsoExclusive);
+  const supabase = createSupabaseAdminClient();
+  const hasBoundedRange = Boolean(range?.fromIso || range?.toIsoExclusive);
+  const fromIso = hasBoundedRange ? (range?.fromIso ?? null) : null;
+  const toIsoExclusive = hasBoundedRange
+    ? (range?.toIsoExclusive ?? null)
+    : null;
 
-    let ordersQuery = supabase.from("orders").select("total, status");
-    if (hasBoundedRange) {
-      ordersQuery = applyCreatedAtRange(ordersQuery, range);
-    }
-    ordersQuery = applyRevenueStatusFilter(ordersQuery);
+  const ordersCountQuery = applyRevenueStatusFilter(
+    applyCreatedAtRange(
+      supabase.from("orders").select("id", { count: "exact", head: true }),
+      fromIso,
+      toIsoExclusive,
+    ),
+  );
+  const ordersSumQuery = applyRevenueStatusFilter(
+    applyCreatedAtRange(
+      supabase.from("orders").select("total.sum()"),
+      fromIso,
+      toIsoExclusive,
+    ),
+  );
 
-    const [
-      { count: userCount },
-      { count: productCount },
-      { data: orders },
-      { count: cartsCount },
-      { count: pendingReviewsCount },
-      { count: pendingContactCount },
-      { count: lowStockCount },
-    ] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true),
-      supabase
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true),
-      ordersQuery,
-      supabase.from("carts").select("id", { count: "exact", head: true }),
-      supabase
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("review_status", "pending"),
-      supabase
-        .from("contact_us")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["new", "read"]),
-      supabase
-        .from("customised_products")
-        .select("id", { count: "exact", head: true })
-        .gte("quantity_stock", LOW_STOCK_MIN)
-        .lte("quantity_stock", LOW_STOCK_MAX),
-    ]);
+  const [
+    usersRes,
+    productsRes,
+    ordersCountRes,
+    ordersSumRes,
+    cartsRes,
+    pendingReviewsRes,
+    pendingContactRes,
+    lowStockRes,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true),
+    ordersCountQuery,
+    ordersSumQuery,
+    supabase.from("carts").select("id", { count: "exact", head: true }),
+    supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("review_status", "pending"),
+    supabase
+      .from("contact_us")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["new", "read"]),
+    supabase
+      .from("customised_products")
+      .select("id", { count: "exact", head: true })
+      .gte("quantity_stock", LOW_STOCK_MIN)
+      .lte("quantity_stock", LOW_STOCK_MAX),
+  ]);
 
-    const totalRevenue =
-      (orders || []).reduce((sum, order) => {
-        return sum + parseFloat(String(order.total || 0));
-      }, 0) || 0;
+  assertNoQueryErrors([
+    { label: "users", result: usersRes },
+    { label: "products", result: productsRes },
+    { label: "ordersCount", result: ordersCountRes },
+    { label: "ordersSum", result: ordersSumRes },
+    { label: "carts", result: cartsRes },
+    { label: "pendingReviews", result: pendingReviewsRes },
+    { label: "pendingContact", result: pendingContactRes },
+    { label: "lowStock", result: lowStockRes },
+  ]);
 
-    const orderCount = (orders || []).length;
-    const averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+  const totalOrders = ordersCountRes.count || 0;
+  const totalRevenue = sumFromAggregate(
+    ordersSumRes.data as Array<{ sum: number | null }> | null,
+  );
+  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    return {
-      totalUsers: userCount || 0,
-      totalProducts: productCount || 0,
-      totalOrders: orderCount,
-      totalRevenue,
-      activeCarts: cartsCount || 0,
-      pendingReviews: pendingReviewsCount || 0,
-      pendingContactUs: pendingContactCount || 0,
-      lowStockProducts: lowStockCount || 0,
-      averageOrderValue,
-    };
-  } catch (error) {
-    console.error("Unexpected error in getAnalyticsStats:", error);
-    return {
-      totalUsers: 0,
-      totalProducts: 0,
-      totalOrders: 0,
-      totalRevenue: 0,
-      activeCarts: 0,
-      pendingReviews: 0,
-      pendingContactUs: 0,
-      lowStockProducts: 0,
-      averageOrderValue: 0,
-    };
-  }
+  return {
+    totalUsers: usersRes.count || 0,
+    totalProducts: productsRes.count || 0,
+    totalOrders,
+    totalRevenue,
+    activeCarts: cartsRes.count || 0,
+    pendingReviews: pendingReviewsRes.count || 0,
+    pendingContactUs: pendingContactRes.count || 0,
+    lowStockProducts: lowStockRes.count || 0,
+    averageOrderValue,
+  };
 }
 
 /**
- * Get top products by revenue.
- * When `range` is provided, only orders in that range (excluding cancelled) are used.
+ * Get top products by revenue via SQL RPC (excludes cancelled; optional date range).
  */
 export async function getTopProductsByRevenue(
   limit: number = 10,
   range?: AdminDateRange,
 ): Promise<
-  Array<{ product_id: string; product_name: string; revenue: number; orders: number }>
+  Array<{
+    product_id: string;
+    product_name: string;
+    revenue: number;
+    orders: number;
+  }>
 > {
-  try {
-    const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient();
 
-    let ordersQuery = supabase.from("orders").select("id");
-    if (range?.fromIso || range?.toIsoExclusive) {
-      ordersQuery = applyCreatedAtRange(ordersQuery, range);
-    }
-    ordersQuery = applyRevenueStatusFilter(ordersQuery);
+  const { data, error } = await (supabase as any).rpc(
+    "admin_top_products_by_revenue",
+    {
+      p_limit: limit,
+      p_from: range?.fromIso ?? null,
+      p_to_exclusive: range?.toIsoExclusive ?? null,
+    },
+  );
 
-    const { data: orders, error: ordersError } = await ordersQuery;
-    if (ordersError || !orders?.length) {
-      return [];
-    }
-
-    const orderIds = orders.map((o) => o.id);
-    const { data: orderItems, error } = await supabase
-      .from("order_items")
-      .select("product_name_snapshot, price_snapshot, quantity, order_id")
-      .in("order_id", orderIds);
-
-    if (error) {
-      console.error("Error fetching top products:", error);
-      return [];
-    }
-
-    const productRevenue = new Map<
-      string,
-      { product_name: string; revenue: number; orders: Set<string> }
-    >();
-
-    (orderItems || []).forEach((item) => {
-      const productName = item.product_name_snapshot || "Unknown Product";
-      const price = parseFloat(String(item.price_snapshot || 0));
-      const quantity = Number(item.quantity || 0);
-      const revenue = price * quantity;
-
-      if (!productRevenue.has(productName)) {
-        productRevenue.set(productName, {
-          product_name: productName,
-          revenue: 0,
-          orders: new Set(),
-        });
-      }
-
-      const data = productRevenue.get(productName)!;
-      data.revenue += revenue;
-      data.orders.add(item.order_id);
-    });
-
-    return Array.from(productRevenue.entries())
-      .map(([product_name, data]) => ({
-        product_id: product_name,
-        product_name,
-        revenue: data.revenue,
-        orders: data.orders.size,
-      }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, limit);
-  } catch (error) {
-    console.error("Unexpected error in getTopProductsByRevenue:", error);
-    return [];
+  if (error) {
+    throw new Error(`Analytics query failed (topProducts: ${error.message})`);
   }
-}
 
+  return (data ?? []).map(
+    (row: {
+      product_id: string;
+      product_name: string;
+      revenue: number | string;
+      order_count: number | string;
+    }) => ({
+      product_id: row.product_id,
+      product_name: row.product_name,
+      revenue: Math.round(Number(row.revenue || 0) * 100) / 100,
+      orders: Number(row.order_count || 0),
+    }),
+  );
+}

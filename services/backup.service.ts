@@ -1,7 +1,3 @@
-import {
-  createBackupSchema,
-  type CreateBackupInput,
-} from "@/lib/validators/backup/create";
 import type { BackupRow } from "@/repositories/backup.repository";
 import {
   getAdminBackups,
@@ -9,6 +5,7 @@ import {
   deleteBackup,
   extractDatabaseAsSQL,
 } from "@/repositories/backup.repository";
+import { createBackupSchema } from "@/lib/validators/backup/create";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { canAccessAdmin } from "@/lib/auth/permissions";
 
@@ -22,19 +19,35 @@ export async function getAllBackupsAdmin(): Promise<BackupRow[]> {
 }
 
 /**
- * Create a backup record (metadata). Actual backup generation is external.
+ * Create a backup metadata record (admin). UI create was removed; action may still be used.
  */
-export async function createBackupAdmin(input: unknown): Promise<BackupRow | null> {
+export async function createBackupAdmin(
+  input: unknown,
+): Promise<
+  { success: true; data: BackupRow } | { success: false; error: string }
+> {
   const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) return null;
+  if (!profile || !canAccessAdmin(profile.role)) {
+    return { success: false, error: "Forbidden" };
+  }
 
-  const parsed = createBackupSchema.parse(input) as CreateBackupInput;
-  return createBackup({
-    name: parsed.name,
-    type: parsed.type,
-    size: parsed.size ?? null,
-    storage_path: parsed.storage_path ?? null,
+  const parsed = createBackupSchema.safeParse(input);
+  if (!parsed.success) {
+    const message =
+      parsed.error.issues[0]?.message || "Invalid backup data";
+    return { success: false, error: message };
+  }
+
+  const data = await createBackup({
+    name: parsed.data.name,
+    type: parsed.data.type,
+    size: parsed.data.size ?? null,
+    storage_path: parsed.data.storage_path ?? null,
   });
+  if (!data) {
+    return { success: false, error: "Failed to create backup" };
+  }
+  return { success: true, data };
 }
 
 /**
@@ -49,7 +62,11 @@ export async function deleteBackupAdmin(id: string): Promise<boolean> {
 /**
  * Extract database as SQL dump.
  */
-export async function extractDatabaseService(): Promise<{ success: boolean; error?: string; sql?: string }> {
+export async function extractDatabaseService(): Promise<{
+  success: boolean;
+  error?: string;
+  sql?: string;
+}> {
   const profile = await getCurrentUserProfile();
   if (!profile || !canAccessAdmin(profile.role)) {
     return { success: false, error: "Forbidden" };
