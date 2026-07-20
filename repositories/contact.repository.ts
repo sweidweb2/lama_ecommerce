@@ -6,12 +6,22 @@ import {
 import type { ContactMessage, ContactStatus } from "@/types/user";
 import type { CreateContactUsInput } from "@/lib/validators/contact_us/create";
 
-type ContactMessagesFilter = {
+export type ContactMessagesFilter = {
   name?: string;
   email?: string;
   from?: string;
   to?: string;
 };
+
+export type ListContactMessagesParams = ContactMessagesFilter & {
+  page: number;
+  pageSize: number;
+};
+
+export interface ListContactMessagesResult {
+  items: ContactMessage[];
+  total: number;
+}
 
 /**
  * Insert a new contact-us message (service role — public INSERT policy removed).
@@ -38,47 +48,114 @@ export async function createContactMessage(
   }
 }
 
+function applyContactFilters(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- PostgREST builder chain
+  query: any,
+  filters?: ContactMessagesFilter,
+) {
+  if (filters?.name) {
+    query = query.ilike("full_name", `%${filters.name}%`);
+  }
+  if (filters?.email) {
+    query = query.ilike("email", `%${filters.email}%`);
+  }
+  if (filters?.from) {
+    query = query.gte("created_at", filters.from);
+  }
+  if (filters?.to) {
+    const toDate = filters.to.includes("T")
+      ? filters.to
+      : `${filters.to}T23:59:59.999Z`;
+    query = query.lte("created_at", toDate);
+  }
+  return query;
+}
+
 /**
- * Fetch all contact messages (admin use).
+ * Paginated contact messages for admin list.
  */
-export async function getAllContactMessages(
+export async function listContactMessages(
+  params: ListContactMessagesParams,
+): Promise<ListContactMessagesResult> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const page = Math.max(1, params.page);
+    const pageSize = Math.min(Math.max(1, params.pageSize), 100);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("contact_us")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    query = applyContactFilters(query, params);
+
+    const { data, error, count } = await query.range(from, to);
+
+    if (error) {
+      console.error("Failed to list contact messages:", error);
+      return { items: [], total: 0 };
+    }
+
+    return { items: (data ?? []) as ContactMessage[], total: count ?? 0 };
+  } catch (error) {
+    console.error("Unexpected error in listContactMessages:", error);
+    return { items: [], total: 0 };
+  }
+}
+
+/**
+ * All contact messages matching filters (admin CSV export).
+ * Batches with .range to avoid PostgREST max_rows truncation.
+ */
+export async function listContactMessagesForExport(
   filters?: ContactMessagesFilter,
 ): Promise<ContactMessage[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
+    const batchSize = 1000;
+    const collected: ContactMessage[] = [];
+    let offset = 0;
 
-    let query = supabase.from("contact_us").select("*");
+    for (;;) {
+      let query = supabase
+        .from("contact_us")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (filters?.name) {
-      query = query.ilike("full_name", `%${filters.name}%`);
+      query = applyContactFilters(query, filters);
+
+      const { data, error } = await query.range(
+        offset,
+        offset + batchSize - 1,
+      );
+
+      if (error) {
+        console.error("Failed to export contact messages:", error);
+        return collected;
+      }
+
+      const rows = (data ?? []) as ContactMessage[];
+      collected.push(...rows);
+      if (rows.length < batchSize) break;
+      offset += batchSize;
     }
 
-    if (filters?.email) {
-      query = query.ilike("email", `%${filters.email}%`);
-    }
-
-    if (filters?.from) {
-      query = query.gte("created_at", filters.from);
-    }
-
-    if (filters?.to) {
-      query = query.lte("created_at", filters.to);
-    }
-
-    query = query.order("created_at", { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Failed to fetch contact messages:", error);
-      return [];
-    }
-
-    return (data ?? []) as ContactMessage[];
+    return collected;
   } catch (error) {
-    console.error("Unexpected error in getAllContactMessages:", error);
+    console.error("Unexpected error in listContactMessagesForExport:", error);
     return [];
   }
+}
+
+/**
+ * Fetch all contact messages (admin use). Prefer listContactMessages for UI.
+ */
+export async function getAllContactMessages(
+  filters?: ContactMessagesFilter,
+): Promise<ContactMessage[]> {
+  return listContactMessagesForExport(filters);
 }
 
 /**

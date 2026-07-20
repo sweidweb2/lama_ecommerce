@@ -14,7 +14,7 @@
 2. `getAdminUsersAction` → `getProfilesForAdmin` → `get_admin_profiles()` RPC (email via `auth.users`) or profiles-only fallback.
 3. Table: search / role / status filters, client pagination.
 4. **Create:** `createUserAction` (Zod) → service role `auth.admin.createUser` (`email_confirm: true`) + profile (`role`, `is_active`).
-5. **Update:** `updateProfileAction` → session UPDATE `profiles` (`full_name`, `role`, `is_active`). Email read-only. Self role-change blocked by `prevent_role_change`.
+5. **Update:** `updateProfileAction` → session UPDATE `profiles` (`full_name`, `role`, `is_active`). Email read-only. Self role-change blocked by `prevent_role_change`. Optional new password via `resetUserPasswordAction` → service role `auth.admin.updateUserById`.
 6. **Delete:** not wired; soft-deactivate via `is_active` only.
 
 ### Leads (`/admin/leads`)
@@ -24,8 +24,8 @@
 4. **Delete:** SR delete.
 
 ### Contact messages (`/admin/contact`)
-1. RSC → `getAllContactUs` → `requireAdmin` → session SELECT (admin RLS).
-2. Filters / pagination / CSV / view / status / edit / delete.
+1. RSC → `parseAdminContactListParams` → `getAllContactUs(filters)` → `requireAdmin` → session SELECT (admin RLS).
+2. URL name/email/date filters (server); client pagination / CSV / view / status / edit / delete.
 3. **Create:** `CreateContactDialog` → **`createContactUsAction` (public)** → Zod → IP rate limit → SR insert → `router.refresh()`.
 4. **Update / status / delete:** `requireAdmin` → session client + admin RLS.
 
@@ -34,6 +34,7 @@
   → get_admin_profiles [session]
   → createUserAndProfile [service role]
   → updateProfileById [session + admin RLS]
+  → updateAuthUserPassword [service role Auth Admin]
 
 /admin/leads
   → requireAdmin → lead.repository (SR; unique normalized email)
@@ -68,15 +69,17 @@
   **Where:** `repositories/lead.repository.ts` `updateLead` / `deleteLead`.  
   **Do:** `.select()` / count rows; return not-found.
 
-- [ ] **User edit does not refresh table UI**  
+- [x] ✅ **User edit does not refresh table UI** done✅  
   Create calls `router.refresh()`; edit only closes dialog — stale client props possible.  
   **Where:** `components/admin/user/edit_form.tsx` vs create form.  
-  **Do:** `router.refresh()` (or optimistic update) on successful edit.
+  **Do:** `router.refresh()` (or optimistic update) on successful edit.  
+  **Done:** Edit form calls `router.refresh()` after successful update (same as create).
 
-- [ ] **Lists risk silent ~1000-row PostgREST cap**  
+- [x] ✅ **Lists risk silent ~1000-row PostgREST cap** done✅  
   Users / leads / contacts load unbounded selects/RPC without DB pagination.  
   **Where:** `profile.repository.ts`, `lead.repository.ts`, `contact.repository.ts`.  
-  **Do:** Server pagination or ranged queries.
+  **Do:** Server pagination or ranged queries.  
+  **Done:** Users: `get_admin_profiles_page` + URL-paged table; contacts: `listContactMessages` + URL filters; leads list was already `.range()`; leads/contacts CSV export batch via `.range` loops. Cart user picker uses paged active-profile fetch.
 
 - [ ] **Leads RLS is SELECT-only; manage is SR-only**  
   Correct today (repo uses SR + `requireAdmin`); session-client manage would fail.  
@@ -87,26 +90,34 @@
 
 ## P2 — DX / UX / polish
 
-- [ ] **Contact edit: Zod throws; weak field limits in UI**  
+- [x] ✅ **Contact edit: Zod throws; weak field limits in UI** done✅  
   Update uses `.parse()`; edit form lacks `maxLength` / field errors (create has caps).  
   **Where:** `services/contact_us.service.ts`; `components/admin/contact/edit_form.tsx`.  
-  **Do:** `safeParse` + Result; mirror create limits.
+  **Do:** `safeParse` + Result; mirror create limits.  
+  **Done:** `updateContactUs` / `createContactUs` use `safeParse` + Result; edit form mirrors create `maxLength` / required markers and handles Result errors.
 
-- [ ] **Create Contact: subject not HTML-required**  
+- [x] ✅ **Create Contact: subject not HTML-required** done✅  
   Zod requires subject; UI may lack `*` / `required`.  
   **Where:** `components/admin/contact/create_form.tsx`.  
-  **Do:** Align required + label with schema.
+  **Do:** Align required + label with schema.  
+  **Done:** Subject label shows `*` and input has `required`.
 
-- [ ] **Orphan `DeleteUserDialog`** — soft-delete messaging; not mounted in `UsersTable`.  
+- [x] ✅ **Orphan `DeleteUserDialog`** done✅  
+  Soft-delete messaging; not mounted in `UsersTable`.  
   **Where:** `components/admin/user/delete_form.tsx`.  
-  **Do:** Remove or wire as “Deactivate” shortcut.
+  **Do:** Remove or wire as “Deactivate” shortcut.  
+  **Done:** Removed orphan dialog. Deactivate stays via Edit → `is_active`.
 
-- [ ] **Contact repo filters unused** — repo supports name/email/dates; page filters client-side.  
-  **Where:** `repositories/contact.repository.ts`; contact table filters.
+- [x] ✅ **Contact repo filters unused** done✅  
+  Repo supports name/email/dates; page filters client-side.  
+  **Where:** `repositories/contact.repository.ts`; contact table filters.  
+  **Do:** Wire URL → service → repo filters.  
+  **Done:** `parseAdminContactListParams` + `ContactFilters` URL params; page/service pass filters to `getAllContactMessages`. Client-side `filterContacts` removed.
 
-- [ ] **No admin password reset / email change / hard delete**  
+- [x] ✅ **Admin password reset shipped; email change / hard delete deferred** done✅  
   Create sets password once; email immutable; delete disabled.  
-  **Do:** Product decision (Auth admin reset API) or keep deferred.
+  **Do:** Product decision (Auth admin reset API) or keep deferred.  
+  **Done:** Admin can set password on edit via `resetUserPasswordAction` → `auth.admin.updateUserById`. Email stays read-only; Auth hard delete stays deferred (soft `is_active` only).
 
 ---
 
@@ -115,6 +126,7 @@
 - [ ] Newsletter send / unsubscribe / double-opt-in — not Customers admin scope  
 - [ ] Contact reply emails to guest — status workflow only today  
 - [ ] User hard delete from Auth — intentionally soft-deactivate via `is_active`  
+- [ ] Admin email change via Auth Admin API — email stays immutable on edit  
 - [ ] Guest contact/lead submit details — `[02] Guest Flow` Contact / Newsletter docs  
 
 ---
@@ -128,6 +140,8 @@
 | Rate limit fail-closed (RPC) | Guest + admin-via-public-create |
 | Self role demotion blocked | `prevent_role_change` trigger |
 | User hard delete disabled | Soft status only |
+| Email immutable on edit | Auth-owned; no admin email change |
+| Admin password set on edit | `auth.admin.updateUserById` via service role |
 | Lead/contact CSV | Client export of filtered rows |
 | Create inactive user | Supported; access gap is login/`is_active` gate (P0) |
 

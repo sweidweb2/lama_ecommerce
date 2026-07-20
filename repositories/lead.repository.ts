@@ -232,28 +232,43 @@ export async function listLeads(
 
 /**
  * All leads matching optional email query (admin CSV export).
+ * Batches with .range to avoid PostgREST max_rows truncation.
  */
 export async function listLeadsForExport(query?: string): Promise<Lead[]> {
   try {
     const supabase = createSupabaseAdminClient();
     const q = query?.trim() ?? "";
+    const batchSize = 1000;
+    const collected: Lead[] = [];
+    let offset = 0;
 
-    let builder = supabase
-      .from("leads")
-      .select(LEAD_SELECT)
-      .order("created_at", { ascending: false });
+    for (;;) {
+      let builder = supabase
+        .from("leads")
+        .select(LEAD_SELECT)
+        .order("created_at", { ascending: false });
 
-    if (q) {
-      builder = builder.ilike("email", `%${q}%`);
+      if (q) {
+        builder = builder.ilike("email", `%${q}%`);
+      }
+
+      const { data, error } = await builder.range(
+        offset,
+        offset + batchSize - 1,
+      );
+
+      if (error) {
+        console.error("Failed to export leads:", error);
+        return collected;
+      }
+
+      const rows = (data ?? []) as Lead[];
+      collected.push(...rows);
+      if (rows.length < batchSize) break;
+      offset += batchSize;
     }
 
-    const { data, error } = await builder;
-
-    if (error) {
-      console.error("Failed to export leads:", error);
-      return [];
-    }
-    return (data ?? []) as Lead[];
+    return collected;
   } catch (err) {
     console.error("Unexpected error in listLeadsForExport:", err);
     return [];

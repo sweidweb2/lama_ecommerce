@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
-import { updateProfileAction } from "@/actions/profile"
+import { updateProfileAction, resetUserPasswordAction } from "@/actions/profile"
 
 export type AdminUser = {
   id: string
@@ -28,20 +29,30 @@ interface EditUserDialogProps {
 }
 
 export function EditUserDialog({ user }: EditUserDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(user.name)
   const [role, setRole] = useState(user.role)
   const [status, setStatus] = useState(user.status === "Active" ? "active" : "inactive")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const resetFields = () => {
+    setName(user.name)
+    setRole(user.role)
+    setStatus(user.status === "Active" ? "active" : "inactive")
+    setPassword("")
+    setConfirmPassword("")
+    setError(null)
+  }
+
   useEffect(() => {
     if (open) {
-      setName(user.name)
-      setRole(user.role)
-      setStatus(user.status === "Active" ? "active" : "inactive")
-      setError(null)
+      resetFields()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset from latest user when dialog opens
   }, [open, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +60,18 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
     setError(null)
     setIsSubmitting(true)
     try {
+      const wantsPasswordChange = password.length > 0 || confirmPassword.length > 0
+      if (wantsPasswordChange) {
+        const pwResult = await resetUserPasswordAction(user.id, {
+          password,
+          confirmPassword,
+        })
+        if (!pwResult?.success) {
+          setError(pwResult?.error ?? "Password update failed")
+          return
+        }
+      }
+
       const result = await updateProfileAction(user.id, {
         full_name: name || undefined,
         role: role === "Admin" ? "admin" : "user",
@@ -56,6 +79,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       })
       if (result?.success) {
         setOpen(false)
+        router.refresh()
       } else {
         setError(result?.error ?? "Update failed")
       }
@@ -65,10 +89,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
   }
 
   const handleCancel = () => {
-    setName(user.name)
-    setRole(user.role)
-    setStatus(user.status === "Active" ? "active" : "inactive")
-    setError(null)
+    resetFields()
     setOpen(false)
   }
 
@@ -83,7 +104,13 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         <Edit className="h-4 w-4" />
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) resetFields()
+          setOpen(next)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit user</DialogTitle>
@@ -112,6 +139,33 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 className="bg-muted"
               />
               <p className="text-xs text-muted-foreground">Email is managed by auth and cannot be changed here.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`user-password-${user.id}`}>New password</Label>
+              <Input
+                id={`user-password-${user.id}`}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                placeholder="Leave blank to keep current"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`user-confirm-password-${user.id}`}>Confirm password</Label>
+              <Input
+                id={`user-confirm-password-${user.id}`}
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                placeholder="Leave blank to keep current"
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional. At least 8 characters when setting a new password.
+              </p>
             </div>
 
             <div className="space-y-2">

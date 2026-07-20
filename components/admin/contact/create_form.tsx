@@ -134,13 +134,16 @@ export function CreateContactDialog() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact-subject">Subject</Label>
+                <Label htmlFor="contact-subject">
+                  Subject <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="contact-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Subject"
                   maxLength={CONTACT_US_FIELD_MAX.subject}
+                  required
                 />
               </div>
             </div>

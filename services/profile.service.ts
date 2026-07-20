@@ -3,9 +3,15 @@ import {
   getProfileByUserId,
   getProfileByUserIdAdmin,
   getAllProfilesForAdmin,
+  getProfileByIdAdmin,
+  listProfilesForAdmin,
+  listActiveProfilesExcludingUserIds,
   updateProfileById,
   createUserAndProfile,
+  updateAuthUserPassword,
   type AdminProfileRow,
+  type ListProfilesForAdminParams,
+  type ListProfilesForAdminResult,
 } from "@/repositories/profile.repository";
 import { getUserIdsWithActiveCarts } from "@/repositories/cart.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
@@ -14,6 +20,8 @@ import {
   ADMIN_CANNOT_SHOP_MESSAGE,
   canAccessAdmin,
 } from "@/lib/auth/permissions";
+
+export type { ListProfilesForAdminParams, ListProfilesForAdminResult };
 
 /**
  * Get the current authenticated user's profile (including `role`).
@@ -61,11 +69,25 @@ export async function getAdminShopBlockForUserId(
 
 /**
  * Get all profiles with email for admin. Returns empty if caller is not admin.
+ * Prefer listProfilesForAdminService for paged UI lists.
  */
 export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
   const profile = await getCurrentUserProfile();
   if (!profile || profile.role !== ROLES.ADMIN) return [];
   return getAllProfilesForAdmin();
+}
+
+/**
+ * Paginated profiles with email for admin users table.
+ */
+export async function listProfilesForAdminService(
+  params: ListProfilesForAdminParams,
+): Promise<ListProfilesForAdminResult> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) {
+    return { items: [], total: 0 };
+  }
+  return listProfilesForAdmin(params);
 }
 
 /**
@@ -75,20 +97,9 @@ export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
 export async function getUsersWithoutActiveCarts(): Promise<AdminProfileRow[]> {
   const profile = await getCurrentUserProfile();
   if (!profile || profile.role !== ROLES.ADMIN) return [];
-  
-  // Get all profiles
-  const allProfiles = await getAllProfilesForAdmin();
-  
-  // Get user IDs with active carts
+
   const userIdsWithActiveCarts = await getUserIdsWithActiveCarts();
-  
-  // Filter out users with active carts and inactive users
-  return allProfiles.filter(
-    (profile) =>
-      profile.user_id &&
-      !userIdsWithActiveCarts.includes(profile.user_id) &&
-      profile.is_active
-  );
+  return listActiveProfilesExcludingUserIds(userIdsWithActiveCarts);
 }
 
 /**
@@ -149,4 +160,29 @@ export async function createUserAdmin(params: {
       email: params.email.trim().toLowerCase(),
     },
   };
+}
+
+export type ResetUserPasswordAdminResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Set a user's auth password as admin. Fails if caller is not admin.
+ * Resolves auth user id from profile id (never trusts client-supplied auth id).
+ */
+export async function resetUserPasswordAdmin(
+  profileId: string,
+  password: string,
+): Promise<ResetUserPasswordAdminResult> {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== ROLES.ADMIN) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const target = await getProfileByIdAdmin(profileId);
+  if (!target?.user_id) {
+    return { ok: false, error: "User not found" };
+  }
+
+  return updateAuthUserPassword(target.user_id, password);
 }

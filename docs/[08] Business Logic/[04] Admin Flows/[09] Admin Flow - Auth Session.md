@@ -3,17 +3,17 @@
 **Scope:** Admin `flow.md` bullet: log out (idle timeout); login/signup redirect into `/admin`. Panel session lifecycle: enter `/admin`, stay signed in, idle/manual logout, re-entry.  
 **Out of scope:** Full guest signup/login correctness (profile trigger, wishlist merge, reset password) — see Guest Sign up. Shop-as-admin capability — see Storefront User Capabilities.
 
-**Verdict:** Password login → `/admin`, middleware bounce from login/signup → `/admin`, and idle/manual logout **work**. Same 10-minute idle path as User. Remaining issues are mostly **shared auth gaps** (`is_active`, callback cookie timing) plus small UX differences (idle → login vs manual logout → home).
+**Verdict:** Password login → `/admin`, middleware bounce from login/signup → `/admin`, and idle/manual logout **work**. Same 10-minute idle path as User (warning toast at 8m). Remaining gap: idle → login vs manual logout → home (P1).
 
 ---
 
 ## Happy path (what works today)
 
 1. Admin → `/auth/login` → `LoginForm` → `loginService` → role `admin` → **`ROUTES.ADMIN`** (`/admin`) unless safe `?redirect=`.
-2. Middleware allows `/admin` when session + `profiles.role === admin`.
-3. `AuthProvider` mounts `IdleSessionWatcher` (`enabled={Boolean(user)}`) — **10 min** (`IDLE_TIMEOUT_MS`).
-4. Activity = `pointerdown` / `keydown` / `scroll` / `touchstart` + pathname change; becoming visible again **resets** the timer (background time does not accumulate).
-5. Idle → `logoutService` → toast “Session expired…” → **`/auth/login`** + refresh.
+2. Middleware allows `/admin` when session + `profiles.role === admin` + `is_active`.
+3. `AuthProvider` mounts `IdleSessionWatcher` (`enabled={Boolean(user)}`) — **10 min** (`IDLE_TIMEOUT_MS`); warning at **8 min** (`IDLE_WARNING_BEFORE_MS` = 2m).
+4. Activity = `pointerdown` / `keydown` / `scroll` / `touchstart` + pathname change (no `mousemove`); becoming visible again **resets** the timer (background time does not accumulate).
+5. Idle warning → toast “Session will expire in 2 minutes…”; dismissed on activity. At 10m → `logoutService` → toast “Session expired…” → **`/auth/login`** + refresh.
 6. Manual logout (admin header / storefront Navbar) → `logoutService` → toast → **`/`** + refresh.
 7. Active admin revisits `/auth/login` or `/auth/signup` → middleware redirects to **`/admin`**.
 8. Public signup does **not** create admins (`SignupForm` → HOME). Admin role is seed / admin-create only.
@@ -21,11 +21,11 @@
 ```text
 /auth/login (admin)
   → loginService → role admin → /admin  (or safe ?redirect=)
-  → AuthProvider + IdleSessionWatcher (10m, all signed-in roles)
+  → AuthProvider + IdleSessionWatcher (10m, warn @8m, all signed-in roles)
   → idle → logoutService → /auth/login
   → header/Navbar logout → logoutService → /
   → hit /auth/login|/auth/signup while active admin → middleware → /admin
-  → /auth/callback admin→/admin: intended but often broken (cookie timing)
+  → /auth/callback admin→/admin (role resolved post-exchange)
 ```
 
 ---
@@ -58,16 +58,20 @@
 
 ## P2 — DX / UX
 
-- [ ] **No admin-specific idle policy**  
+- [x] ✅ **No admin-specific idle policy** done✅  
   Same 10m on panel and storefront. Long forms without scroll/click can expire. No `mousemove`. Hidden tab does not count as idle.  
-  **Where:** `hooks/use-idle-timeout.ts`; `lib/constants/session.ts`.  
-  **Do:** Document; optionally longer timeout on `/admin` or warn before logout.
+  **Where:** `hooks/use-idle-timeout.ts`; `lib/constants/session.ts`; `IdleSessionWatcher.tsx`.  
+  **Do:** Document; optionally longer timeout on `/admin` or warn before logout.  
+  **Done:** Kept shared 10m; warning toast at 8m (`IDLE_WARNING_BEFORE_MS`); activity/no-`mousemove`/visibility reset documented. No admin-only timeout.
 
-- [ ] **Signup → `/admin` N/A**  
+- [x] ✅ **Signup → `/admin` N/A** done✅  
   `SignupForm` always HOME; middleware only redirects **already** logged-in active admins away from signup.  
-  **Do:** Document “no public admin signup”; keep as-is.
+  **Do:** Document “no public admin signup”; keep as-is.  
+  **Done:** Intentional — no public admin signup; admin role via seed / admin-create only.
 
-- [ ] **Default post-login `/admin` friction for shopping** — already P2 in Storefront User Capabilities (reference only).
+- [x] ✅ **Default post-login `/admin` friction for shopping** done✅  
+  Already covered in Storefront User Capabilities (reference only).  
+  **Done:** Left as intentional operator landing; shopping rules unchanged — see `[01] Admin Flow - Storefront User Capabilities.md`.
 
 ---
 
@@ -94,17 +98,19 @@
 | Admin login `?redirect=/admin/orders` | → that path (safe) |
 | Admin login `?redirect=https://evil` | Fallback HOME |
 | Active admin opens `/auth/login` / `/auth/signup` | → `/admin` |
-| Inactive admin opens `/admin` | **Still allowed** (P0) |
-| Inactive admin opens `/auth/login` | Not bounced (needs `is_active`) |
+| Inactive admin opens `/admin` | Blocked (P0 done) |
+| Inactive admin opens `/auth/login` | Signed out / inactive message |
 | Non-admin opens `/admin` | → `/` |
+| Idle 8m in `/admin` | Warning toast |
 | Idle 10m in `/admin` | Logout → `/auth/login` |
-| Idle 10m on storefront as admin | Same |
+| Idle 10m on storefront as admin | Same (shared watcher) |
 | Manual logout from admin header | → `/` |
 | Manual logout from Navbar | → `/` |
-| Email-confirm callback as admin | Often **not** `/admin` (P1) |
+| Email-confirm callback as admin | → `/admin` (P1 done) |
 | Public signup as “admin” | Creates user role (if profile); never panel |
 | Tab hidden >10m then focused | Timer **resets**; no immediate logout |
-| Read-only stare (no scroll/click) >10m | Idle fires |
+| Read-only stare (no scroll/click) >8m | Warning; >10m idle fires |
+
 
 ---
 
@@ -114,10 +120,11 @@
 |--|------|--------|
 | Default password login | `/` | `/admin` |
 | Auth-entry while logged in | → `/` | → `/admin` (if `is_active`) |
-| Idle timeout | 10 min | 10 min (same watcher) |
+| Idle timeout | 10 min (warn @8m) | 10 min (same watcher; warn @8m) |
 | Idle landing | `/auth/login` | `/auth/login` |
 | Manual logout landing | `/` | `/` |
-| `/admin` access | Blocked | Role only (**not** `is_active` today) |
+| `/admin` access | Blocked | Role + `is_active` |
+
 
 ---
 
@@ -125,7 +132,7 @@
 
 | Concern | Path |
 |---------|------|
-| Idle | `IdleSessionWatcher.tsx`, `hooks/use-idle-timeout.ts`, `lib/constants/session.ts` |
+| Idle | `IdleSessionWatcher.tsx`, `hooks/use-idle-timeout.ts`, `lib/constants/session.ts` (`IDLE_TIMEOUT_MS`, `IDLE_WARNING_BEFORE_MS`) |
 | Session context | `providers/AuthProvider.tsx` |
 | Login redirect | `components/auth/LoginForm.tsx` |
 | Signup | `components/auth/SignupForm.tsx` |
@@ -144,4 +151,4 @@
 - Shared auth gaps: `[02] Guest Flow/[05] Guest Flow - Sign up Log in.md`
 - Inactive admin impact: `[05] Admin Flow - Customers.md`
 
-**Highest-impact fix for this goal:** enforce `is_active` on `/admin` + `/api/admin` + `requireAdmin`. Password login → `/admin` and idle logout already satisfy the `flow.md` happy path.
+**Highest-impact remaining:** idle vs manual logout destination alignment (P1). Password login → `/admin` and idle logout already satisfy the `flow.md` happy path.

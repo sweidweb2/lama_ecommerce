@@ -16,45 +16,85 @@ interface UseIdleTimeoutOptions {
   enabled: boolean
   timeoutMs: number
   onIdle: () => void
+  /** Fired once per idle cycle when `timeoutMs - warningBeforeMs` elapses. */
+  onWarning?: () => void
+  /** Lead time before logout for `onWarning`. Ignored unless `onWarning` is set. */
+  warningBeforeMs?: number
+  /** Called whenever the idle timers are restarted (activity, visibility, route). */
+  onReset?: () => void
 }
 
 /**
  * Calls onIdle after `timeoutMs` with no pointer/keyboard/scroll/touch
  * activity and no in-app route changes. Resets when the tab becomes visible.
+ * Optionally warns once via onWarning before logout.
  */
 export function useIdleTimeout({
   enabled,
   timeoutMs,
   onIdle,
+  onWarning,
+  warningBeforeMs,
+  onReset,
 }: UseIdleTimeoutOptions) {
   const pathname = usePathname()
   const onIdleRef = useRef(onIdle)
+  const onWarningRef = useRef(onWarning)
+  const onResetRef = useRef(onReset)
   const lastResetAtRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warningFiredRef = useRef(false)
 
   useEffect(() => {
     onIdleRef.current = onIdle
   }, [onIdle])
 
   useEffect(() => {
-    if (!enabled) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
+    onWarningRef.current = onWarning
+  }, [onWarning])
+
+  useEffect(() => {
+    onResetRef.current = onReset
+  }, [onReset])
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
       }
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current)
+        warningTimerRef.current = null
+      }
+    }
+
+    if (!enabled) {
+      clearTimers()
+      warningFiredRef.current = false
       return
     }
 
-    const clearTimer = () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-    }
+    const startTimers = () => {
+      clearTimers()
+      warningFiredRef.current = false
 
-    const startTimer = () => {
-      clearTimer()
-      timerRef.current = setTimeout(() => {
+      const lead =
+        typeof warningBeforeMs === "number" && warningBeforeMs > 0
+          ? warningBeforeMs
+          : 0
+      const warningDelay = timeoutMs - lead
+
+      if (onWarningRef.current && lead > 0 && warningDelay > 0) {
+        warningTimerRef.current = setTimeout(() => {
+          if (warningFiredRef.current) return
+          warningFiredRef.current = true
+          onWarningRef.current?.()
+        }, warningDelay)
+      }
+
+      idleTimerRef.current = setTimeout(() => {
         onIdleRef.current()
       }, timeoutMs)
     }
@@ -65,7 +105,8 @@ export function useIdleTimeout({
         return
       }
       lastResetAtRef.current = now
-      startTimer()
+      onResetRef.current?.()
+      startTimers()
     }
 
     // Pathname change or enable: unthrottled reset
@@ -89,11 +130,11 @@ export function useIdleTimeout({
     document.addEventListener("visibilitychange", onVisibilityChange)
 
     return () => {
-      clearTimer()
+      clearTimers()
       for (const event of ACTIVITY_EVENTS) {
         document.removeEventListener(event, onActivity, listenerOpts)
       }
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [enabled, timeoutMs, pathname])
+  }, [enabled, timeoutMs, warningBeforeMs, pathname])
 }

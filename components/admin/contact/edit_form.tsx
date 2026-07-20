@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { Edit } from "lucide-react"
 import { updateContactUsAction, updateContactStatusAction } from "@/actions/contact_us"
+import { CONTACT_US_FIELD_MAX } from "@/lib/validators/contact_us/create"
 import type { AdminContact } from "./create_form"
 
 const CONTACT_STATUSES = ['new', 'read', 'replied', 'resolved'] as const
@@ -36,18 +37,32 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const resetFields = () => {
+    setFullName(contact.full_name || "")
+    setEmail(contact.email || "")
+    setPhone(contact.phone || "")
+    setSubject(contact.subject || "")
+    setMessage(contact.message || "")
+    setStatus(contact.status)
+    setError(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsSubmitting(true)
     try {
-      await updateContactUsAction(contact.id, {
+      const result = await updateContactUsAction(contact.id, {
         full_name: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
         subject: subject.trim(),
         message: message.trim(),
       })
+      if (!result.success) {
+        setError(result.error || "Failed to update contact")
+        return
+      }
       if (status !== contact.status) {
         await updateContactStatusAction(contact.id, status)
       }
@@ -61,12 +76,7 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
   }
 
   const handleCancel = () => {
-    setFullName(contact.full_name || "")
-    setEmail(contact.email || "")
-    setPhone(contact.phone || "")
-    setSubject(contact.subject || "")
-    setMessage(contact.message || "")
-    setStatus(contact.status)
+    resetFields()
     setOpen(false)
   }
 
@@ -75,13 +85,19 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          resetFields()
+          setOpen(true)
+        }}
         aria-label={`Edit contact from ${contact.full_name || contact.email || contact.id}`}
       >
         <Edit className="h-4 w-4" />
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => {
+        if (!next) resetFields()
+        setOpen(next)
+      }}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Contact Message</DialogTitle>
@@ -95,22 +111,30 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor={`contact-full-name-${contact.id}`}>Full Name</Label>
+                <Label htmlFor={`contact-full-name-${contact.id}`}>
+                  Full Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id={`contact-full-name-${contact.id}`}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
+                  maxLength={CONTACT_US_FIELD_MAX.full_name}
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`contact-email-${contact.id}`}>Email</Label>
+                <Label htmlFor={`contact-email-${contact.id}`}>
+                  Email <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id={`contact-email-${contact.id}`}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="john.doe@example.com"
+                  maxLength={CONTACT_US_FIELD_MAX.email}
+                  required
                 />
               </div>
             </div>
@@ -123,27 +147,36 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1234567890"
+                  maxLength={CONTACT_US_FIELD_MAX.phone}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`contact-subject-${contact.id}`}>Subject</Label>
+                <Label htmlFor={`contact-subject-${contact.id}`}>
+                  Subject <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id={`contact-subject-${contact.id}`}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Subject"
+                  maxLength={CONTACT_US_FIELD_MAX.subject}
+                  required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={`contact-message-${contact.id}`}>Message</Label>
+              <Label htmlFor={`contact-message-${contact.id}`}>
+                Message <span className="text-destructive">*</span>
+              </Label>
               <Textarea
                 id={`contact-message-${contact.id}`}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write the contact message here..."
                 rows={5}
+                maxLength={CONTACT_US_FIELD_MAX.message}
+                required
               />
             </div>
 
@@ -185,4 +218,3 @@ export function EditContactDialog({ contact }: EditContactDialogProps) {
     </>
   )
 }
-

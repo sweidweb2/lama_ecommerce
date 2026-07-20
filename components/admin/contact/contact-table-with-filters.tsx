@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ContactPagination } from "./contact-pagination"
+import { ContactFilters } from "./contact-filters"
 import { format } from "date-fns"
 import {
   Table,
@@ -14,20 +15,18 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { CreateContactDialog, type AdminContact } from "@/components/admin/contact/create_form"
 import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
 import { ContactStatusToggle } from "./contact-status-toggle"
-import { Download, Eye, X } from "lucide-react"
+import { Download, Eye } from "lucide-react"
 import { toast } from "sonner"
 import { truncateText } from "@/lib/utils"
 import type { ContactMessage } from "@/types/user"
-
-const ROWS_PER_PAGE = 20
+import { exportContactsAction } from "@/actions/contact_us"
+import { ADMIN_CONTACTS_PAGE_SIZE } from "@/lib/admin/contacts-list-params"
 
 const MAX_CHARS = {
   name: 24,
@@ -50,47 +49,35 @@ const getStatusVariant = (status: AdminContact["status"]) => {
   }
 }
 
-function filterContacts(
-  contacts: ContactMessage[],
-  name: string,
-  email: string,
-  from: string,
-  to: string,
-): ContactMessage[] {
-  return contacts.filter((c) => {
-    const n = (name || "").trim().toLowerCase()
-    const e = (email || "").trim().toLowerCase()
-    if (n && !(c.full_name ?? "").toLowerCase().includes(n)) return false
-    if (e && !(c.email ?? "").toLowerCase().includes(e)) return false
-    if (from) {
-      const fromDate = new Date(from)
-      fromDate.setHours(0, 0, 0, 0)
-      const created = c.created_at ? new Date(c.created_at) : null
-      if (!created || created < fromDate) return false
-    }
-    if (to) {
-      const toDate = new Date(to)
-      toDate.setHours(23, 59, 59, 999)
-      const created = c.created_at ? new Date(c.created_at) : null
-      if (!created || created > toDate) return false
-    }
-    return true
-  })
-}
-
 interface ContactTableWithFiltersProps {
   contacts: ContactMessage[]
+  totalCount: number
+  page: number
+  pageSize?: number
   error: string | null
+  initialName: string
+  initialEmail: string
+  initialFrom: string
+  initialTo: string
 }
 
-export function ContactTableWithFilters({ contacts, error }: ContactTableWithFiltersProps) {
+export function ContactTableWithFilters({
+  contacts,
+  totalCount,
+  page,
+  pageSize = ADMIN_CONTACTS_PAGE_SIZE,
+  error,
+  initialName,
+  initialEmail,
+  initialFrom,
+  initialTo,
+}: ContactTableWithFiltersProps) {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [from, setFrom] = useState("")
-  const [to, setTo] = useState("")
-  const [page, setPage] = useState(1)
-  const [viewingContact, setViewingContact] = useState<ContactMessage | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [viewingContact, setViewingContact] = useState<ContactMessage | null>(
+    null,
+  )
 
   useEffect(() => {
     const id = searchParams.get("id")
@@ -99,79 +86,88 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
     if (match) setViewingContact(match)
   }, [contacts, searchParams])
 
-  const filteredContacts = useMemo(
-    () => filterContacts(contacts, name, email, from, to),
-    [contacts, name, email, from, to],
-  )
-
-  const pageCount = Math.max(1, Math.ceil(filteredContacts.length / ROWS_PER_PAGE))
-  const currentPage = Math.min(page, pageCount)
-
-  const paginatedContacts = useMemo(() => {
-    const start = (currentPage - 1) * ROWS_PER_PAGE
-    return filteredContacts.slice(start, start + ROWS_PER_PAGE)
-  }, [filteredContacts, currentPage])
-
-  const pageFrom =
-    filteredContacts.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1
-  const pageTo = Math.min(currentPage * ROWS_PER_PAGE, filteredContacts.length)
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize) || 1)
+  const pageFrom = contacts.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const pageTo = (page - 1) * pageSize + contacts.length
 
   const handlePageChange = (nextPage: number) => {
-    if (nextPage < 1 || nextPage > pageCount) return
-    setPage(nextPage)
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextPage <= 1) params.delete("page")
+    else params.set("page", String(nextPage))
+    const query = params.toString()
+    router.push(query ? `/admin/contact?${query}` : "/admin/contact")
   }
 
   const hasActiveFilters =
-    name.trim() !== "" || email.trim() !== "" || from !== "" || to !== ""
+    initialName.trim() !== "" ||
+    initialEmail.trim() !== "" ||
+    initialFrom !== "" ||
+    initialTo !== ""
 
-  const clearFilters = () => {
-    setName("")
-    setEmail("")
-    setFrom("")
-    setTo("")
-    setPage(1)
-  }
+  const handleExportToCSV = async () => {
+    setIsExporting(true)
+    try {
+      const rows = await exportContactsAction({
+        name: initialName.trim() || undefined,
+        email: initialEmail.trim() || undefined,
+        from: initialFrom || undefined,
+        to: initialTo || undefined,
+      })
 
-  const handleExportToCSV = () => {
-    if (filteredContacts.length === 0) {
-      toast.error("No contacts to export")
-      return
+      if (rows.length === 0) {
+        toast.error("No contacts to export")
+        return
+      }
+
+      const headers = [
+        "Name",
+        "Email",
+        "Phone",
+        "Subject",
+        "Message",
+        "Status",
+        "Date",
+      ]
+      const csvRows = [headers.join(",")]
+
+      rows.forEach((contact) => {
+        const name = `"${(contact.full_name || "").replace(/"/g, '""')}"`
+        const email = `"${(contact.email || "").replace(/"/g, '""')}"`
+        const phone = `"${(contact.phone || "").replace(/"/g, '""')}"`
+        const subject = `"${(contact.subject || "").replace(/"/g, '""')}"`
+        const message = `"${(contact.message || "")
+          .replace(/"/g, '""')
+          .replace(/\n/g, " ")}"`
+        const status = `"${contact.status}"`
+        const date = contact.created_at
+          ? `"${format(new Date(contact.created_at), "PPp")}"`
+          : '""'
+        csvRows.push(
+          [name, email, phone, subject, message, status, date].join(","),
+        )
+      })
+
+      const csvContent = csvRows.join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute(
+        "download",
+        `contact_messages_${format(new Date(), "yyyy-MM-dd_HH-mm-ss")}.csv`,
+      )
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success("Contact messages exported to CSV successfully")
+    } catch {
+      toast.error("Failed to export contacts")
+    } finally {
+      setIsExporting(false)
     }
-
-    // Create CSV headers
-    const headers = ["Name", "Email", "Phone", "Subject", "Message", "Status", "Date"]
-    const csvRows = [headers.join(",")]
-
-    // Add data rows
-    filteredContacts.forEach((contact) => {
-      const name = `"${(contact.full_name || "").replace(/"/g, '""')}"`
-      const email = `"${(contact.email || "").replace(/"/g, '""')}"`
-      const phone = `"${(contact.phone || "").replace(/"/g, '""')}"`
-      const subject = `"${(contact.subject || "").replace(/"/g, '""')}"`
-      const message = `"${(contact.message || "").replace(/"/g, '""').replace(/\n/g, " ")}"`
-      const status = `"${contact.status}"`
-      const date = contact.created_at
-        ? `"${format(new Date(contact.created_at), "PPp")}"`
-        : '""'
-      csvRows.push([name, email, phone, subject, message, status, date].join(","))
-    })
-
-    // Create CSV content
-    const csvContent = csvRows.join("\n")
-
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `contact_messages_${format(new Date(), "yyyy-MM-dd_HH-mm-ss")}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-
-    toast.success("Contact messages exported to CSV successfully")
   }
 
   return (
@@ -197,75 +193,22 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
           <Button
             variant="outline"
             onClick={handleExportToCSV}
-            disabled={filteredContacts.length === 0}
+            disabled={totalCount === 0 || isExporting}
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
-            Export to CSV
+            {isExporting ? "Exporting…" : "Export to CSV"}
           </Button>
           <CreateContactDialog />
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4 items-end">
-        <div className="space-y-1">
-          <Label htmlFor="contact-filter-name">Name</Label>
-          <Input
-            id="contact-filter-name"
-            placeholder="Search name"
-            value={name}
-            onChange={(e) => {
-            setName(e.target.value)
-            setPage(1)
-          }}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="contact-filter-email">Email</Label>
-          <Input
-            id="contact-filter-email"
-            type="email"
-            placeholder="Search email"
-            value={email}
-            onChange={(e) => {
-            setEmail(e.target.value)
-            setPage(1)
-          }}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="contact-filter-from">From date</Label>
-          <Input
-            id="contact-filter-from"
-            type="date"
-            value={from}
-            onChange={(e) => {
-            setFrom(e.target.value)
-            setPage(1)
-          }}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="contact-filter-to">To date</Label>
-          <Input
-            id="contact-filter-to"
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value)
-              setPage(1)
-            }}
-          />
-        </div>
-        {hasActiveFilters && (
-          <div className="md:col-span-4">
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="mr-2 h-4 w-4" />
-              Clear filters
-            </Button>
-          </div>
-        )}
-      </div>
+      <ContactFilters
+        initialName={initialName}
+        initialEmail={initialEmail}
+        initialFrom={initialFrom}
+        initialTo={initialTo}
+      />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -286,16 +229,19 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedContacts.length === 0 ? (
+            {contacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  {contacts.length === 0
-                    ? "No contact submissions yet"
-                    : "No contacts match the current filters"}
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  {hasActiveFilters
+                    ? "No contacts match the current filters"
+                    : "No contact submissions yet"}
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedContacts.map((contact) => {
+              contacts.map((contact) => {
                 const nameLabel = contact.full_name || "—"
                 const emailLabel = contact.email || "—"
                 const subjectLabel = contact.subject || "—"
@@ -386,11 +332,11 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
         </Table>
       </TableWrapper>
 
-      {filteredContacts.length > 0 && (
+      {totalCount > 0 && (
         <ContactPagination
-          currentPage={currentPage}
+          currentPage={page}
           pageCount={pageCount}
-          totalItems={filteredContacts.length}
+          totalItems={totalCount}
           pageFrom={pageFrom}
           pageTo={pageTo}
           onPageChange={handlePageChange}

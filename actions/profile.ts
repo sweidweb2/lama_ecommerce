@@ -5,12 +5,16 @@ import { getCurrentUserProfile } from "@/services/profile.service";
 import {
   getProfilesForAdmin,
   getUsersWithoutActiveCarts,
+  listProfilesForAdminService,
   updateProfileAdmin,
   createUserAdmin,
+  resetUserPasswordAdmin,
 } from "@/services/profile.service";
+import type { ListProfilesForAdminParams } from "@/repositories/profile.repository";
 import type { ProfileRole } from "@/types/user";
 import { profileAdminUpdateSchema } from "@/lib/validators/user_profile/base";
 import { createUserSchema } from "@/lib/validators/user_profile/create";
+import { adminResetPasswordSchema } from "@/lib/validators/user_profile/reset_password";
 
 /**
  * Server action to get the current user's profile.
@@ -22,9 +26,19 @@ export async function getProfile() {
 
 /**
  * Get all users (profiles with email) for admin. Returns empty if not admin.
+ * Prefer getAdminUsersPageAction for the users table.
  */
 export async function getAdminUsersAction() {
   return await getProfilesForAdmin();
+}
+
+/**
+ * Paginated users for admin table. Returns empty if not admin.
+ */
+export async function getAdminUsersPageAction(
+  params: ListProfilesForAdminParams,
+) {
+  return await listProfilesForAdminService(params);
 }
 
 /**
@@ -101,4 +115,34 @@ export async function createUserAction(payload: {
 
   revalidatePath("/admin/users");
   return { success: true, data: result.data };
+}
+
+/**
+ * Set a user's password as admin (Auth Admin API).
+ * Leave blank in the UI to skip; only call when a new password is provided.
+ */
+export async function resetUserPasswordAction(
+  profileId: string,
+  payload: { password: string; confirmPassword: string },
+) {
+  const parsed = adminResetPasswordSchema.safeParse(payload);
+  if (!parsed.success) {
+    const first = parsed.error.flatten().fieldErrors;
+    const formErrors = parsed.error.flatten().formErrors;
+    const msg =
+      first.password?.[0] ??
+      first.confirmPassword?.[0] ??
+      formErrors[0] ??
+      "Invalid input";
+    return { success: false, error: msg };
+  }
+
+  const result = await resetUserPasswordAdmin(
+    profileId,
+    parsed.data.password,
+  );
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+  return { success: true };
 }

@@ -1,7 +1,11 @@
 import { CreateUserDialog } from "@/components/admin/user/create_from"
 import { UsersTable } from "@/components/admin/user/UsersTable"
-import { getAdminUsersAction } from "@/actions/profile"
+import { getAdminUsersPageAction } from "@/actions/profile"
 import type { AdminUser } from "@/components/admin/user/edit_form"
+import {
+  ADMIN_USERS_PAGE_SIZE,
+  parseAdminUsersListParams,
+} from "@/lib/admin/users-list-params"
 
 function toAdminUser(row: {
   id: string
@@ -20,9 +24,20 @@ function toAdminUser(row: {
   }
 }
 
-export default async function UsersPage() {
-  const rows = await getAdminUsersAction()
-  const users: AdminUser[] = rows.map(toAdminUser)
+interface UsersPageProps {
+  searchParams: Promise<{
+    page?: string
+    q?: string
+    role?: string
+    status?: string
+  }>
+}
+
+export default async function UsersPage({ searchParams }: UsersPageProps) {
+  const params = await searchParams
+  const listParams = parseAdminUsersListParams(params, ADMIN_USERS_PAGE_SIZE)
+  const { items, total } = await getAdminUsersPageAction(listParams)
+  const users: AdminUser[] = items.map(toAdminUser)
 
   return (
     <div className="space-y-6">
@@ -38,7 +53,12 @@ export default async function UsersPage() {
         </div>
       </div>
 
-      <UsersTable users={users} />
+      <UsersTable
+        users={users}
+        totalCount={total}
+        page={listParams.page}
+        pageSize={listParams.pageSize}
+      />
     </div>
   )
 }

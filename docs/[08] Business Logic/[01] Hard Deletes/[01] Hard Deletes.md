@@ -2,7 +2,7 @@
 
 **Convention:** rows are permanently removed with `.delete()` (or SQL `DELETE`). There is no `deleted_at` column.
 
-**Profiles:** use `is_active boolean` (default `true`). Inactive users are blocked from `/account` and `/profile` in middleware. Admin status Active/Inactive maps to `is_active`; profile hard-delete UI stays disabled.
+**Profiles:** use `is_active boolean` (default `true`). Inactive users are blocked from `/account` and `/profile` in middleware. Admin status Active/Inactive maps to `is_active` via Edit; no profile hard-delete UI.
 
 ---
 
@@ -29,7 +29,7 @@ Postgres `23503` (FK violation) is caught as a fallback with a clear error when 
 1. **Checkout (`process_checkout`)** — after creating the order and decrementing stock, hard-deletes the cart (items cascade).
 2. **Guest cart merge** — hard-deletes the discarded guest cart via `deleteCartAdmin`.
 3. **Category delete** — re-parents children, then hard-deletes if no products remain.
-4. **Profiles** — inactive = `is_active = false` (reversible). Dedicated user delete dialog stays disabled.
+4. **Profiles** — inactive = `is_active = false` (reversible). No dedicated delete dialog; status-only via Edit.
 5. **Order delete** — if stock was never restored, set status to `cancelled` (restock trigger), then hard-delete; payments/shipments/items cascade.
 
 ---
@@ -37,5 +37,5 @@ Postgres `23503` (FK violation) is caught as a fallback with a clear error when 
 ## Admin UI
 
 - No “Show deleted” toggles (orders, categories, brands, carts).
-- Users: Active/Inactive from `is_active`; delete dialog disabled / status-only.
+- Users: Active/Inactive from `is_active` via Edit (no delete dialog).
 - Order delete enabled on detail; cascades payments/shipments/items.

@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -20,12 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
+import { AdminPagination } from "@/components/admin/product/AdminPagination"
 import { EditUserDialog, type AdminUser } from "@/components/admin/user/edit_form"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { X } from "lucide-react"
 import { truncateText } from "@/lib/utils"
-
-const USERS_PER_PAGE = 20
-const MAX_PAGES = 100
+import { ADMIN_USERS_PAGE_SIZE } from "@/lib/admin/users-list-params"
 
 const MAX_CHARS = {
   name: 28,
@@ -34,76 +34,110 @@ const MAX_CHARS = {
 
 interface UsersTableProps {
   users: AdminUser[]
+  totalCount: number
+  page: number
+  pageSize?: number
 }
 
-export function UsersTable({ users }: UsersTableProps) {
-  const [query, setQuery] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [currentPage, setCurrentPage] = useState(1)
+export function UsersTable({
+  users,
+  totalCount,
+  page,
+  pageSize = ADMIN_USERS_PAGE_SIZE,
+}: UsersTableProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const filteredUsers = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return users.filter((user) => {
-      const matchesRole = roleFilter === "all" || user.role === roleFilter
-      const matchesStatus = statusFilter === "all" || user.status === statusFilter
-      if (!matchesRole || !matchesStatus) return false
-      if (!q) return true
-      return (
-        user.name.toLowerCase().includes(q) ||
-        user.email.toLowerCase().includes(q)
-      )
+  const qParam = searchParams.get("q") ?? ""
+  const roleFilter = searchParams.get("role") || "all"
+  const statusFilter = searchParams.get("status") || "all"
+
+  const [queryDraft, setQueryDraft] = useState(qParam)
+
+  useEffect(() => {
+    setQueryDraft(qParam)
+  }, [qParam])
+
+  const pushParams = (mutate: (params: URLSearchParams) => void) => {
+    const params = new URLSearchParams(searchParams.toString())
+    mutate(params)
+    const query = params.toString()
+    router.push(query ? `/admin/users?${query}` : "/admin/users")
+  }
+
+  const setFilter = (name: string, value: string) => {
+    pushParams((params) => {
+      if (value === "all" || value === "") {
+        params.delete(name)
+      } else {
+        params.set(name, value)
+      }
+      params.delete("page")
     })
-  }, [users, query, roleFilter, statusFilter])
+  }
 
-  const maxToShow = MAX_PAGES * USERS_PER_PAGE
-  const limited = useMemo(
-    () => filteredUsers.slice(0, maxToShow),
-    [filteredUsers, maxToShow],
-  )
-
-  const totalPages = Math.min(
-    Math.max(1, Math.ceil(limited.length / USERS_PER_PAGE)),
-    MAX_PAGES,
-  )
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * USERS_PER_PAGE
-    return limited.slice(start, start + USERS_PER_PAGE)
-  }, [limited, currentPage])
+  const applySearch = () => {
+    pushParams((params) => {
+      const trimmed = queryDraft.trim()
+      if (!trimmed) params.delete("q")
+      else params.set("q", trimmed)
+      params.delete("page")
+    })
+  }
 
   const hasActiveFilters =
-    roleFilter !== "all" || statusFilter !== "all" || query.trim() !== ""
+    roleFilter !== "all" || statusFilter !== "all" || qParam.trim() !== ""
 
   const clearFilters = () => {
-    setQuery("")
-    setRoleFilter("all")
-    setStatusFilter("all")
-    setCurrentPage(1)
+    setQueryDraft("")
+    router.push("/admin/users")
   }
 
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return
-    setCurrentPage(page)
-  }
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize) || 1)
+  const showingStart = users.length > 0 ? (page - 1) * pageSize + 1 : 0
+  const showingEnd = (page - 1) * pageSize + users.length
+
+  // Map URL role (admin/user) to display filter values used in Select
+  const roleSelectValue =
+    roleFilter === "admin"
+      ? "Admin"
+      : roleFilter === "user"
+        ? "Customer"
+        : "all"
+
+  const statusSelectValue =
+    statusFilter === "active"
+      ? "Active"
+      : statusFilter === "inactive"
+        ? "Inactive"
+        : "all"
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <Input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setCurrentPage(1)
+        <form
+          className="flex gap-2 max-w-sm w-full"
+          onSubmit={(e) => {
+            e.preventDefault()
+            applySearch()
           }}
-          placeholder="Search name or email…"
-          className="max-w-sm"
-        />
+        >
+          <Input
+            value={queryDraft}
+            onChange={(e) => setQueryDraft(e.target.value)}
+            placeholder="Search name or email…"
+            className="flex-1"
+          />
+          <Button type="submit" variant="secondary" size="sm">
+            Search
+          </Button>
+        </form>
         <Select
-          value={roleFilter}
+          value={roleSelectValue}
           onValueChange={(value) => {
-            setRoleFilter(value)
-            setCurrentPage(1)
+            if (value === "Admin") setFilter("role", "admin")
+            else if (value === "Customer") setFilter("role", "user")
+            else setFilter("role", "all")
           }}
         >
           <SelectTrigger className="w-[160px]">
@@ -116,10 +150,11 @@ export function UsersTable({ users }: UsersTableProps) {
           </SelectContent>
         </Select>
         <Select
-          value={statusFilter}
+          value={statusSelectValue}
           onValueChange={(value) => {
-            setStatusFilter(value)
-            setCurrentPage(1)
+            if (value === "Active") setFilter("status", "active")
+            else if (value === "Inactive") setFilter("status", "inactive")
+            else setFilter("status", "all")
           }}
         >
           <SelectTrigger className="w-[160px]">
@@ -139,13 +174,12 @@ export function UsersTable({ users }: UsersTableProps) {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
+      <p className="text-xs text-muted-foreground">
+        Showing{" "}
+        <span className="font-medium">{showingStart}</span> to{" "}
+        <span className="font-medium">{showingEnd}</span> of{" "}
+        <span className="font-medium">{totalCount}</span> users
+      </p>
 
       <TableWrapper>
         <Table>
@@ -159,19 +193,19 @@ export function UsersTable({ users }: UsersTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.length === 0 ? (
+            {users.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  {users.length === 0
+                  {totalCount === 0 && !hasActiveFilters
                     ? "No users found. Sign in as an admin to see all users."
                     : "No users match these filters."}
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((user) => (
+              users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">
                     <span
@@ -215,69 +249,7 @@ export function UsersTable({ users }: UsersTableProps) {
         </Table>
       </TableWrapper>
 
-      {totalPages > 1 && (
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
-    </div>
-  )
-}
-
-function PaginationBar({
-  currentPage,
-  totalPages,
-  onPageChange,
-}: {
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-}) {
-  return (
-    <div className="flex items-center justify-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <div className="flex items-center gap-1">
-        {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-          let pageNum: number
-          if (totalPages <= 10) {
-            pageNum = i + 1
-          } else if (currentPage <= 5) {
-            pageNum = i + 1
-          } else if (currentPage >= totalPages - 4) {
-            pageNum = totalPages - 9 + i
-          } else {
-            pageNum = currentPage - 5 + i
-          }
-          return (
-            <Button
-              key={pageNum}
-              variant={currentPage === pageNum ? "default" : "outline"}
-              size="sm"
-              onClick={() => onPageChange(pageNum)}
-              className="w-10"
-            >
-              {pageNum}
-            </Button>
-          )
-        })}
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+      <AdminPagination totalPages={totalPages} basePath="/admin/users" />
     </div>
   )
 }

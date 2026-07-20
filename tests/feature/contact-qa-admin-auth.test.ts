@@ -57,6 +57,23 @@ describe("contact_us.service admin gates", () => {
     await expect(deleteContactUs("1")).rejects.toThrow("Unauthorized");
   });
 
+  it("updateContactUs returns Result failure for invalid input without throwing", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    const { updateContactUs } = await import("@/services/contact_us.service");
+    const result = await updateContactUs("1", {
+      full_name: "A",
+      email: "a@b.com",
+      message: "hi",
+      // subject missing — Zod required
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeTruthy();
+      expect(result.fieldErrors?.subject).toBeTruthy();
+    }
+    expect(updateContactMessage).not.toHaveBeenCalled();
+  });
+
   it("getAllContactUs reaches repo for admin", async () => {
     getCurrentUserProfile.mockResolvedValue(adminProfile);
     getAllContactMessages.mockResolvedValue([{ id: "c1" }]);

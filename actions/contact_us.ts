@@ -11,11 +11,15 @@ import type { ContactStatus } from "@/types/user";
 import {
   createContactUs,
   getAllContactUs,
+  listContactUs,
+  exportContactUs,
   getContactUsById,
   updateContactUs,
   updateContactStatus,
   deleteContactUs,
+  type ContactUsMutationResult,
 } from "@/services/contact_us.service";
+import type { ListContactMessagesParams } from "@/repositories/contact.repository";
 import {
   checkFormRateLimit,
   getClientIpFromHeaders,
@@ -29,6 +33,8 @@ export type CreateContactUsActionResult =
       error: string;
       fieldErrors?: Partial<Record<ContactUsFieldKey, string>>;
     };
+
+export type UpdateContactUsActionResult = ContactUsMutationResult;
 
 export async function createContactUsAction(
   input: CreateContactUsInput & { website?: string },
@@ -72,7 +78,14 @@ export async function createContactUsAction(
   }
 
   try {
-    await createContactUs(parsed.data);
+    const result = await createContactUs(parsed.data);
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error,
+        fieldErrors: result.fieldErrors,
+      };
+    }
     return { success: true as const };
   } catch {
     return {
@@ -82,10 +95,15 @@ export async function createContactUsAction(
   }
 }
 
-export async function updateContactUsAction(id: string, input: CreateContactUsInput) {
+export async function updateContactUsAction(
+  id: string,
+  input: CreateContactUsInput,
+): Promise<UpdateContactUsActionResult> {
   await requireAdmin();
   const result = await updateContactUs(id, input);
-  revalidatePath("/admin/contact");
+  if (result.success) {
+    revalidatePath("/admin/contact");
+  }
   return result;
 }
 
@@ -99,6 +117,21 @@ export async function deleteContactUsAction(id: string) {
 export async function getAllContactUsAction() {
   await requireAdmin();
   return await getAllContactUs();
+}
+
+export async function getContactsPageAction(params: ListContactMessagesParams) {
+  await requireAdmin();
+  return await listContactUs(params);
+}
+
+export async function exportContactsAction(filters?: {
+  name?: string;
+  email?: string;
+  from?: string;
+  to?: string;
+}) {
+  await requireAdmin();
+  return await exportContactUs(filters);
 }
 
 export async function getContactUsByIdAction(id: string) {
