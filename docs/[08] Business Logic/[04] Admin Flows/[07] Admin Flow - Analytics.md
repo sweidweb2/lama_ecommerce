@@ -39,7 +39,7 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 - [x] ✅ **Aggregations risk silent under-count (~1000-row PostgREST cap)** done✅  
   Status pies, revenue reduce, monthly grouping, order_items for top products — unbounded row arrays.  
   **Where:** `repositories/analytics.repository.ts`.  
-  **Done:** Exact `count` / `total.sum()` for stats + per-month series; exact per-enum pies; `admin_top_products_by_revenue` RPC (`20260720194000_admin_analytics_top_products.sql`).
+  **Done:** Exact `count` / `admin_orders_revenue_sum` RPC for stats + per-month series; exact per-enum pies; `admin_top_products_by_revenue` RPC (`20260720194000_admin_analytics_top_products.sql`, `20260720200000_admin_orders_revenue_sum.sql`).
 
 - [x] ✅ **Failures look like an empty business** done✅  
   Services/repos catch → zeros/`[]`. No error UI on page. Missing SR key → zeros.  

@@ -528,7 +528,8 @@ export async function updateCartItem(
     const supabase = await createSupabaseServerActionClient();
 
     // Build update payload with only provided fields
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Database["public"]["Tables"]["cart_items"]["Update"] =
+      {};
     if (input.quantity !== undefined) {
       const stockCheck = await assertCartItemQuantityWithinStock(
         supabase,
@@ -595,7 +596,8 @@ export async function updateCartItemForAdmin(
     const supabase = createSupabaseAdminClient();
 
     // Build update payload with only provided fields
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Database["public"]["Tables"]["cart_items"]["Update"] =
+      {};
     if (input.quantity !== undefined) {
       const stockCheck = await assertCartItemQuantityWithinStock(
         supabase,

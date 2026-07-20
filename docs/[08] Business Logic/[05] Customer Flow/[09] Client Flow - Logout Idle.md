@@ -60,9 +60,10 @@ Shared auth P0s (`is_active` ignored on login, etc.) → Guest Sign up / Admin A
   **Do:** Document; optional warning toast before logout.  
   **Done:** Shared watcher warns at 8m (`IDLE_WARNING_BEFORE_MS`); logout at 10m. Activity events / visibility reset documented.
 
-- [ ] **Orphan `LogoutButton`** — Navbar inlines `logoutService`.  
+- [x] ✅ **Orphan `LogoutButton`** done✅ — Navbar inlines `logoutService`.  
   **Where:** `components/auth/LogoutButton.tsx`.  
-  **Do:** Wire or remove.
+  **Do:** Wire or remove.  
+  **Done:** Component removed; Navbar / admin header / idle watcher use `logoutService`.
 
 ---
 

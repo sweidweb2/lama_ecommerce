@@ -39,7 +39,6 @@ import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
 import { SearchBar } from "@/components/(public)/products/SearchBar";
-import { getWishlistCountAction } from "@/actions/wishlist";
 
 const NAV_LINKS_BASE = [
   { label: "Home", href: ROUTES.HOME },
@@ -90,15 +89,25 @@ export function Navbar() {
     let cancelled = false;
     async function loadWishlistCount() {
       try {
-        const count = await getWishlistCountAction();
-        if (!cancelled) setWishlistCount(count);
+        // API route (not Server Action) — avoids soft-refresh / scroll jump on navigate.
+        const res = await fetch("/api/wishlist/count", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load wishlist count");
+        const data = (await res.json()) as { count?: number };
+        if (!cancelled) setWishlistCount(Number(data.count) || 0);
       } catch {
         if (!cancelled) setWishlistCount(0);
       }
     }
     void loadWishlistCount();
+
+    function onWishlistUpdated() {
+      void loadWishlistCount();
+    }
+    window.addEventListener("wishlist:updated", onWishlistUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("wishlist:updated", onWishlistUpdated);
     };
   }, [pathname, user?.id]);
 
@@ -193,12 +202,13 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
-            {isLoggedIn && (
+            {!isAdmin && (
               <Link
                 href={ORDERS_LINK.href}
                 className={cn(
                   "transition-colors hover:text-primary",
-                  pathname === ORDERS_LINK.href
+                  pathname === ORDERS_LINK.href ||
+                    pathname?.startsWith(`${ORDERS_LINK.href}/`)
                     ? "text-primary font-semibold"
                     : "text-muted-foreground",
                 )}
@@ -382,13 +392,14 @@ export function Navbar() {
                       {link.label}
                     </Link>
                   ))}
-                  {isLoggedIn && (
+                  {!isAdmin && (
                     <Link
                       href={ORDERS_LINK.href}
                       onClick={() => setIsOpen(false)}
                       className={cn(
                         "text-lg font-medium transition-colors hover:text-primary",
-                        pathname === ORDERS_LINK.href
+                        pathname === ORDERS_LINK.href ||
+                          pathname?.startsWith(`${ORDERS_LINK.href}/`)
                           ? "text-primary font-semibold"
                           : "text-muted-foreground",
                       )}

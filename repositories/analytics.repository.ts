@@ -117,13 +117,8 @@ function applyRevenueStatusFilter<
   return next;
 }
 
-function sumFromAggregate(
-  data: Array<{ sum: number | null } | { total: number | null }> | null,
-): number {
-  const row = data?.[0] ?? null;
-  const rawSum =
-    row && "sum" in row ? row.sum : row && "total" in row ? row.total : 0;
-  return Math.round(Number(rawSum || 0) * 100) / 100;
+function roundMoney(value: unknown): number {
+  return Math.round(Number(value || 0) * 100) / 100;
 }
 
 function titleCaseStatus(status: string): string {
@@ -153,13 +148,10 @@ export async function getSalesAndOrdersByMonth(
           toIsoExclusive,
         ),
       );
-      const sumQuery = applyRevenueStatusFilter(
-        applyCreatedAtRange(
-          supabase.from("orders").select("total.sum()"),
-          fromIso,
-          toIsoExclusive,
-        ),
-      );
+      const sumQuery = supabase.rpc("admin_orders_revenue_sum", {
+        p_from: fromIso,
+        p_to_exclusive: toIsoExclusive,
+      });
 
       const [countRes, sumRes] = await Promise.all([countQuery, sumQuery]);
       assertNoQueryErrors([
@@ -170,9 +162,7 @@ export async function getSalesAndOrdersByMonth(
       return {
         month,
         orders: countRes.count || 0,
-        sales: sumFromAggregate(
-          sumRes.data as Array<{ sum: number | null }> | null,
-        ),
+        sales: roundMoney(sumRes.data),
       };
     }),
   );
@@ -271,7 +261,7 @@ export interface AnalyticsStats {
 /**
  * Get overall statistics.
  * When `range` is provided (and not all-time), order/revenue/AOV are scoped to that range.
- * Order KPIs exclude cancelled and use exact count / sum (no row dump).
+ * Order KPIs exclude cancelled and use exact count / RPC sum (no row dump).
  */
 export async function getAnalyticsStats(
   range?: AdminDateRange,
@@ -286,13 +276,6 @@ export async function getAnalyticsStats(
   const ordersCountQuery = applyRevenueStatusFilter(
     applyCreatedAtRange(
       supabase.from("orders").select("id", { count: "exact", head: true }),
-      fromIso,
-      toIsoExclusive,
-    ),
-  );
-  const ordersSumQuery = applyRevenueStatusFilter(
-    applyCreatedAtRange(
-      supabase.from("orders").select("total.sum()"),
       fromIso,
       toIsoExclusive,
     ),
@@ -317,7 +300,10 @@ export async function getAnalyticsStats(
       .select("*", { count: "exact", head: true })
       .eq("is_active", true),
     ordersCountQuery,
-    ordersSumQuery,
+    supabase.rpc("admin_orders_revenue_sum", {
+      p_from: fromIso,
+      p_to_exclusive: toIsoExclusive,
+    }),
     supabase.from("carts").select("id", { count: "exact", head: true }),
     supabase
       .from("reviews")
@@ -346,9 +332,7 @@ export async function getAnalyticsStats(
   ]);
 
   const totalOrders = ordersCountRes.count || 0;
-  const totalRevenue = sumFromAggregate(
-    ordersSumRes.data as Array<{ sum: number | null }> | null,
-  );
+  const totalRevenue = roundMoney(ordersSumRes.data);
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   return {

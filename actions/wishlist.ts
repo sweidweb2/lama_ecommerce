@@ -55,7 +55,7 @@ export async function toggleWishlistAction(customisedProductId: string) {
   if (result.success) {
     revalidatePath('/wishlist')
     revalidatePath('/account/wishlist')
-    revalidatePath('/products')
+    // Do not revalidate /products — Server Action refresh remounts the PDP and resets scroll.
   }
 
   return result

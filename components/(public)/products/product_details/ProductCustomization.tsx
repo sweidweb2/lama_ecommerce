@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useProductVariant } from './ProductVariantProvider'
 import { addItemToCartAction } from '@/actions/cart'
-import { toggleWishlistAction, checkWishlistStatusAction } from '@/actions/wishlist'
+import { toggleWishlistAction } from '@/actions/wishlist'
 import { useAuth } from '@/providers/AuthProvider'
 import { ROLES } from '@/lib/constants/roles'
 import { ROUTES } from '@/lib/constants/routes'
@@ -309,9 +309,18 @@ export function ProductCustomization({
 
     const checkWishlistStatus = async () => {
       try {
-        const result = await checkWishlistStatusAction(selectedVariant.id)
+        // API route (not Server Action) — avoids soft-refresh / scroll jump on PDP.
+        const res = await fetch(
+          `/api/wishlist/status?customised_product_id=${encodeURIComponent(selectedVariant.id)}`,
+          { cache: "no-store" },
+        )
+        if (!res.ok) return
+        const result = (await res.json()) as {
+          success?: boolean
+          inWishlist?: boolean
+        }
         if (result.success) {
-          setIsInWishlist(result.inWishlist)
+          setIsInWishlist(Boolean(result.inWishlist))
         }
       } catch (error) {
         console.error('Error checking wishlist status:', error)
@@ -361,11 +370,20 @@ export function ProductCustomization({
         return
       }
 
-      // Success - verify the new state to ensure UI is in sync
+      // Success - verify the new state to ensure UI is in sync (API, not Server Action)
       try {
-        const statusResult = await checkWishlistStatusAction(selectedVariant.id)
-        if (statusResult.success) {
-          setIsInWishlist(statusResult.inWishlist)
+        const res = await fetch(
+          `/api/wishlist/status?customised_product_id=${encodeURIComponent(selectedVariant.id)}`,
+          { cache: "no-store" },
+        )
+        if (res.ok) {
+          const statusResult = (await res.json()) as {
+            success?: boolean
+            inWishlist?: boolean
+          }
+          if (statusResult.success) {
+            setIsInWishlist(Boolean(statusResult.inWishlist))
+          }
         }
       } catch (statusError) {
         console.error('Error verifying wishlist status:', statusError)
@@ -377,6 +395,9 @@ export function ProductCustomization({
           ? 'Item removed from your wishlist.'
           : 'Item added to your wishlist.',
       })
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('wishlist:updated'))
+      }
     } catch (error) {
       // Revert optimistic update on error
       setIsInWishlist(previousState)

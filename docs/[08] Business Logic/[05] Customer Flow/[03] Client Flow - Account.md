@@ -87,8 +87,9 @@ Misleading **John Doe** hub lives under `/profile` — tracked in `[04] Profile 
   **Where:** `ChangePasswordForm.tsx` → `auth.client.repository.ts`.  
   **Do:** Thin action/service wrapper if team wants consistency.
 
-- [ ] **`AddressForm` has `// @ts-nocheck`**  
-  **Do:** Fix types; remove nocheck.
+- [x] ✅ **`AddressForm` has `// @ts-nocheck`** done✅  
+  **Do:** Fix types; remove nocheck.  
+  **Done:** Nocheck removed; form typed via `z.input` / `z.output` of `addressBaseSchema`.
 
 - [ ] **Loose phone/country validation**  
   **Where:** `lib/validators/user_address/base.ts`.  

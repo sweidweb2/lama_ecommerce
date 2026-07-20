@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { IdleSessionWatcher } from "@/components/auth/IdleSessionWatcher";
 import { supabase } from "@/lib/supabase/client";
+import { isInvalidRefreshTokenError } from "@/lib/auth/refresh-token";
 import { mergeGuestCartOnLoginAction } from "@/actions/cart";
 import type { Profile, ProfileRole } from "@/types/user";
 
@@ -22,6 +23,10 @@ interface AuthProviderProps {
   initialProfile?: Profile | null;
 }
 
+async function clearStaleLocalSession() {
+  await supabase.auth.signOut({ scope: "local" });
+}
+
 export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
   const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null);
   const [user, setUser] = useState<User | null>(null);
@@ -31,10 +36,13 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     // 1. Initial user check
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
         // Invalid/expired refresh token - clear stale session
-        if (error?.message?.includes("Refresh Token") || error?.message?.includes("refresh_token")) {
-          await supabase.auth.signOut({ scope: "local" });
+        if (isInvalidRefreshTokenError(error)) {
+          await clearStaleLocalSession();
           setUser(null);
           setProfile(null);
           setLoading(false);
@@ -46,7 +54,10 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
         } else {
           setLoading(false);
         }
-      } catch {
+      } catch (err) {
+        if (isInvalidRefreshTokenError(err as { message?: string })) {
+          await clearStaleLocalSession();
+        }
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -74,7 +85,9 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     };
 
     // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
 
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {

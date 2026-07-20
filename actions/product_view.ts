@@ -12,12 +12,9 @@ import {
 import { getOrCreateGuestSessionId } from "@/lib/auth/guest-session";
 
 /**
- * Track a product view.
- * For authenticated users: uses user_id
- * For guests: uses session_id (from cookie or generates new one)
- *
- * Uses the read-only auth helper so a normal view never mutates auth cookies
- * (cookie writes from Server Actions soft-refresh the product page).
+ * Track a product view (admin / legacy callers).
+ * Storefront PDP must use POST /api/product-views instead — Server Actions
+ * soft-refresh the current page and reset scroll position.
  */
 export async function trackProductViewAction(
   productId: string,

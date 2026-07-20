@@ -6,6 +6,7 @@ import {
   GUEST_SESSION_COOKIE,
 } from "@/lib/auth/guest-session.constants";
 import { resolveGuestSessionCookie } from "@/lib/auth/apply-guest-session-cookie";
+import { isInvalidRefreshTokenError } from "@/lib/auth/refresh-token";
 import type { Profile } from "@/types/user";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
@@ -64,37 +65,58 @@ async function rejectInactiveApi(
 }
 
 /**
+ * Refresh/validate the auth session on every request (writes cookies on response).
+ * Clears local session cookies when the refresh token is missing/invalid so
+ * Server Components and the browser client do not keep retrying a dead token.
+ */
+async function refreshSession(request: NextRequest) {
+  const { supabase, response } = createSupabaseMiddlewareClient(request);
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (isInvalidRefreshTokenError(authError)) {
+      await supabase.auth.signOut({ scope: "local" });
+      return { profile: null, user: null, response, supabase };
+    }
+
+    if (authError || !user) {
+      return { profile: null, user: null, response, supabase };
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return { profile: null, user, response, supabase };
+    }
+
+    return {
+      profile: profile as Profile,
+      user,
+      response,
+      supabase,
+    };
+  } catch (err) {
+    if (isInvalidRefreshTokenError(err as { message?: string })) {
+      await supabase.auth.signOut({ scope: "local" });
+    }
+    return { profile: null, user: null, response, supabase };
+  }
+}
+
+/**
  * Middleware helper: Get the current user's profile and role from session.
  * Returns supabase so inactive handling can sign out on the same client.
  */
 async function getProfileFromSession(request: NextRequest) {
-  const { supabase, response } = createSupabaseMiddlewareClient(request);
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { profile: null, user: null, response, supabase };
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile) {
-    return { profile: null, user, response, supabase };
-  }
-
-  return {
-    profile: profile as Profile,
-    user,
-    response,
-    supabase,
-  };
+  return refreshSession(request);
 }
 
 export async function middleware(request: NextRequest) {
@@ -103,7 +125,9 @@ export async function middleware(request: NextRequest) {
   // API routes — explicit policy (JSON for admin APIs, not HTML redirects)
   if (pathname.startsWith("/api")) {
     if (pathname.startsWith("/api/auth")) {
-      return NextResponse.next();
+      // Refresh/clear auth cookies so profile endpoints see a consistent session
+      const { response } = await refreshSession(request);
+      return response;
     }
 
     if (pathname.startsWith("/api/admin")) {
@@ -125,8 +149,9 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    // Other /api/* — allow for now
-    return NextResponse.next();
+    // Other /api/* — still refresh so stale tokens are cleared
+    const { response } = await refreshSession(request);
+    return response;
   }
 
   // Logged-in users cannot open login / signup until they log out
@@ -159,7 +184,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/search");
 
   if (isPublicRoute) {
-    return ensureGuestSessionCookie(request, NextResponse.next());
+    const { response } = await refreshSession(request);
+    return ensureGuestSessionCookie(request, response);
   }
 
   // Cart — guests and customers only; admins are redirected to the panel
@@ -172,7 +198,7 @@ export async function middleware(request: NextRequest) {
       copyCookies(response, redirectResponse);
       return redirectResponse;
     }
-    return ensureGuestSessionCookie(request, NextResponse.next());
+    return ensureGuestSessionCookie(request, response);
   }
 
   // Wishlist — guests and customers only; admins are redirected to the panel
@@ -185,7 +211,7 @@ export async function middleware(request: NextRequest) {
       copyCookies(response, redirectResponse);
       return redirectResponse;
     }
-    return ensureGuestSessionCookie(request, NextResponse.next());
+    return ensureGuestSessionCookie(request, response);
   }
 
   // Guest order history / details — mint cookie on cold hits (does not recover expired sessions)
@@ -193,7 +219,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/orders") ||
     pathname.startsWith("/order_details")
   ) {
-    return ensureGuestSessionCookie(request, NextResponse.next());
+    const { response } = await refreshSession(request);
+    return ensureGuestSessionCookie(request, response);
   }
 
   // Account routes - require authenticated user with active profile
@@ -256,7 +283,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Default: allow access (for any other routes)
-  return NextResponse.next();
+  const { response } = await refreshSession(request);
+  return response;
 }
 
 export const config = {

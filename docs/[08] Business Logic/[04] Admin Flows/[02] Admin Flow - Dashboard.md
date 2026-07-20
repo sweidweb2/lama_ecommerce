@@ -35,7 +35,7 @@
   **Done:** Filter to non-empty carts; keep “Active carts” label.
 
 - [x] ✅ **Month revenue / order count include cancelled (and refunded) totals** done✅  
-  Month count + `total.sum()` now `.neq("status", "cancelled")`, aligned with top sellers. Revenue card description: “Excluding cancelled”. Refunded/`returned` still included (not filtered).  
+  Month count + revenue RPC now exclude `cancelled`, aligned with top sellers. Revenue card description: “Excluding cancelled”. Refunded/`returned` still included (not filtered).  
   **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats` vs `getTopSellingProducts`).  
   **Done:** Exclude `cancelled` for both count and sum.
 
@@ -43,7 +43,7 @@
   `orders.select("status")` and month `orders.select("total")` load row arrays; `totalOrdersThisMonth` uses `data.length`. Above default page size, pending/fulfillment/revenue/status mix under-report with no error.  
   **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats`, `getOrderStatusBreakdown`).  
   **Do:** Use `count: exact` + filtered head counts, or SQL/RPC aggregates; never rely on unbounded `.select()` for totals.  
-  **Done:** Month order count / pending / fulfillment / status mix use exact head counts; revenue uses `total.sum()`; query errors are checked and thrown.
+  **Done:** Month order count / pending / fulfillment / status mix use exact head counts; revenue uses `admin_orders_revenue_sum` RPC (PostgREST column aggregates disabled); query errors are checked and thrown.
 
 - [x] **Failures look like an empty store**  
   Services catch `requireAdmin` / errors and return empty stats; repos catch and return zeros/`[]`. Dashboard has no per-widget error UI (only `app/admin/error.tsx` if something throws). Missing service-role key or auth glitch → all zeros.  

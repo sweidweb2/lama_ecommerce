@@ -917,6 +917,26 @@ export type Database = {
           email: string | null
         }[]
       }
+      admin_orders_revenue_sum: {
+        Args: {
+          p_from?: string | null
+          p_to_exclusive?: string | null
+        }
+        Returns: number
+      }
+      admin_top_products_by_revenue: {
+        Args: {
+          p_limit?: number
+          p_from?: string | null
+          p_to_exclusive?: string | null
+        }
+        Returns: {
+          product_id: string
+          product_name: string
+          revenue: number
+          order_count: number
+        }[]
+      }
     }
     Enums: {
       profile_role: 'user' | 'admin'

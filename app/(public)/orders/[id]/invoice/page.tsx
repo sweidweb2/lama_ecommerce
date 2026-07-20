@@ -5,7 +5,7 @@ import { PrintInvoiceButton } from "@/components/(public)/orders/PrintInvoiceBut
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { getOrderDetails } from "@/services/order.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
-import { decryptOrderId } from "@/lib/utils/encryption";
+import { resolveEncryptedOrRawId } from "@/lib/utils/encryption";
 import {
   formatOrderCurrency,
   formatShortOrderId,
@@ -31,7 +31,7 @@ export default async function OrderInvoicePage({
 
   let orderId = encryptedOrRawId;
   try {
-    orderId = decryptOrderId(decodeURIComponent(encryptedOrRawId));
+    orderId = resolveEncryptedOrRawId(encryptedOrRawId);
   } catch {
     // Keep raw id from URL
   }

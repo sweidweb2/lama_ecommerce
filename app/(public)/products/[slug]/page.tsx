@@ -69,15 +69,28 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  const user = await getCurrentAuthUserFromComponent()
+  // Parallelize remaining PDP data so loading.tsx covers the full wait
+  const [user, realVariants, relatedProducts, reviews, questions] =
+    await Promise.all([
+      getCurrentAuthUserFromComponent(),
+      getProductVariantsByProductIdService(product.id),
+      getRelatedProductsService(
+        {
+          id: product.id,
+          brand_id: product.brand_id,
+          category_id: product.category_id,
+        },
+        12,
+      ),
+      getProductReviewsService(product.id),
+      getProductQuestionsService(product.id),
+    ])
 
   // Extract related data from product relations
   const category = product.category ?? undefined
   const brand = product.brand ?? undefined
   const images = product.images || []
   
-  // Fetch real variants from database
-  const realVariants = await getProductVariantsByProductIdService(product.id)
   const variants: ProductVariant[] = realVariants.map((variant) => ({
     id: variant.id,
     product_id: variant.product_id,
@@ -89,20 +102,6 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
     price_override: variant.price_override,
     created_at: variant.created_at,
   }))
-
-  // Related products: tiered bounded queries (no full-catalog fetch)
-  const relatedProducts = await getRelatedProductsService(
-    {
-      id: product.id,
-      brand_id: product.brand_id,
-      category_id: product.category_id,
-    },
-    12,
-  )
-
-  // Fetch reviews for this product
-  const reviews = await getProductReviewsService(product.id)
-  const questions = await getProductQuestionsService(product.id)
 
   return (
     <div className="min-h-screen bg-background">

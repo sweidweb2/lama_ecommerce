@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
+import type { Database } from "@/types/supabase";
 
 /**
  * Create a new cart.
@@ -344,7 +345,7 @@ export async function updateCart(
     const supabase = await createSupabaseServerActionClient();
 
     // Build update payload with only provided fields
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Database["public"]["Tables"]["carts"]["Update"] = {};
     if (input.user_id !== undefined) {
       updatePayload.user_id = input.user_id;
     }

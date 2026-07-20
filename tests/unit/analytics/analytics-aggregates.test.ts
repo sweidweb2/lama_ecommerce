@@ -62,10 +62,10 @@ describe("analytics aggregates", () => {
     vi.clearAllMocks();
   });
 
-  it("getAnalyticsStats applies cancelled exclude via neq on orders queries", async () => {
+  it("getAnalyticsStats applies cancelled exclude via neq on orders count query", async () => {
     const neq = vi.fn();
     const makeOrdersChain = () => {
-      const api = chainable({ count: 2, data: [{ sum: 50 }], error: null });
+      const api = chainable({ count: 2, data: null, error: null });
       api.neq = (...args: unknown[]) => {
         neq(...args);
         return api;
@@ -77,6 +77,7 @@ describe("analytics aggregates", () => {
       if (table === "orders") return makeOrdersChain();
       return chainable({ count: 0, data: null, error: null });
     });
+    rpc.mockResolvedValue({ data: 50, error: null });
 
     const { getAnalyticsStats } = await import(
       "@/repositories/analytics.repository"
@@ -85,6 +86,10 @@ describe("analytics aggregates", () => {
     expect(stats.totalOrders).toBe(2);
     expect(stats.totalRevenue).toBe(50);
     expect(stats.averageOrderValue).toBe(25);
+    expect(rpc).toHaveBeenCalledWith("admin_orders_revenue_sum", {
+      p_from: null,
+      p_to_exclusive: null,
+    });
     for (const status of REVENUE_EXCLUDED_STATUSES) {
       expect(neq).toHaveBeenCalledWith("status", status);
     }
@@ -136,13 +141,14 @@ describe("analytics aggregates", () => {
   it("getSalesAndOrdersByMonth returns one row per month key without dumping orders", async () => {
     const select = vi.fn();
     from.mockImplementation(() => {
-      const api = chainable({ count: 0, data: [{ sum: 0 }], error: null });
+      const api = chainable({ count: 0, data: null, error: null });
       api.select = (...args: unknown[]) => {
         select(...args);
         return api;
       };
       return api;
     });
+    rpc.mockResolvedValue({ data: 0, error: null });
 
     const { getSalesAndOrdersByMonth } = await import(
       "@/repositories/analytics.repository"
@@ -160,9 +166,13 @@ describe("analytics aggregates", () => {
 
     expect(rows.map((r) => r.month)).toEqual(["2026-01", "2026-02"]);
     expect(rows.every((r) => r.orders === 0 && r.sales === 0)).toBe(true);
-    // Head count + sum per month — never select full order rows
+    // Head count + RPC sum per month — never select full order rows or PostgREST aggregates
     expect(select).toHaveBeenCalledWith("id", { count: "exact", head: true });
-    expect(select).toHaveBeenCalledWith("total.sum()");
+    expect(select).not.toHaveBeenCalledWith("total.sum()");
     expect(select).not.toHaveBeenCalledWith("total, created_at, status");
+    expect(rpc).toHaveBeenCalledWith("admin_orders_revenue_sum", {
+      p_from: "2026-01-01T00:00:00.000Z",
+      p_to_exclusive: "2026-02-01T00:00:00.000Z",
+    });
   });
 });

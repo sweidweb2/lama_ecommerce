@@ -4,6 +4,7 @@ import {
 } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Order, OrderItem, Payment, Shipment, AddressSnapshot } from "@/types/order";
+import type { Database } from "@/types/supabase";
 
 /**
  * Admin-facing order row with denormalised user name.
@@ -701,7 +702,7 @@ export async function updateOrder(
     const supabase = createSupabaseAdminClient();
 
     // Build update payload with only provided fields
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Database["public"]["Tables"]["orders"]["Update"] = {};
     if (input.user_id !== undefined) updatePayload.user_id = input.user_id;
     if (input.status !== undefined) updatePayload.status = input.status;
     if (input.payment_status !== undefined) updatePayload.payment_status = input.payment_status;

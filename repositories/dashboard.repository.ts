@@ -110,15 +110,6 @@ function assertNoQueryErrors(
   throw new Error(`Dashboard query failed (${detail})`);
 }
 
-function sumFromAggregate(
-  data: Array<{ sum: number | null } | { total: number | null }> | null,
-): number {
-  const row = data?.[0] ?? null;
-  const rawSum =
-    row && "sum" in row ? row.sum : row && "total" in row ? row.total : 0;
-  return Math.round(Number(rawSum || 0) * 100) / 100;
-}
-
 type OrdersFilterBuilder = {
   gte: (column: string, value: string) => OrdersFilterBuilder;
   lt: (column: string, value: string) => OrdersFilterBuilder;
@@ -139,9 +130,14 @@ function applyOrderRangeFilters<T extends OrdersFilterBuilder>(
   return next;
 }
 
+function roundMoney(value: unknown): number {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
 /**
  * Get dashboard statistics from live tables.
- * Order counts/sums use exact head counts / PostgREST aggregates (not row loads).
+ * Order counts use exact head counts; revenue uses admin_orders_revenue_sum RPC
+ * (PostgREST column aggregates are disabled on this project).
  */
 export async function getDashboardStats(
   range: AdminDateRange = parseAdminDateRange(undefined, {
@@ -156,21 +152,9 @@ export async function getDashboardStats(
       range.fromIso,
       range.toIsoExclusive,
     );
-  const rangeRevenueQuery = () =>
-    applyOrderRangeFilters(
-      supabase.from("orders").select("total.sum()"),
-      range.fromIso,
-      range.toIsoExclusive,
-    );
   const compareCountQuery = () =>
     applyOrderRangeFilters(
       supabase.from("orders").select("id", { count: "exact", head: true }),
-      range.compareFromIso,
-      range.compareToIsoExclusive,
-    );
-  const compareRevenueQuery = () =>
-    applyOrderRangeFilters(
-      supabase.from("orders").select("total.sum()"),
       range.compareFromIso,
       range.compareToIsoExclusive,
     );
@@ -209,9 +193,15 @@ export async function getDashboardStats(
       .select("*", { count: "exact", head: true })
       .eq("is_active", true),
     rangeCountQuery(),
-    rangeRevenueQuery(),
+    supabase.rpc("admin_orders_revenue_sum", {
+      p_from: range.fromIso,
+      p_to_exclusive: range.toIsoExclusive,
+    }),
     compareCountQuery(),
-    compareRevenueQuery(),
+    supabase.rpc("admin_orders_revenue_sum", {
+      p_from: range.compareFromIso,
+      p_to_exclusive: range.compareToIsoExclusive,
+    }),
     supabase
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -275,17 +265,9 @@ export async function getDashboardStats(
     totalUsers: usersRes.count || 0,
     totalProducts: productsRes.count || 0,
     totalOrdersThisMonth: ordersMonthCountRes.count || 0,
-    revenueThisMonth: sumFromAggregate(
-      ordersMonthRevenueRes.data as
-        | Array<{ sum: number | null } | { total: number | null }>
-        | null,
-    ),
+    revenueThisMonth: roundMoney(ordersMonthRevenueRes.data),
     ordersLastMonth: ordersLastMonthCountRes.count || 0,
-    revenueLastMonth: sumFromAggregate(
-      ordersLastMonthRevenueRes.data as
-        | Array<{ sum: number | null } | { total: number | null }>
-        | null,
-    ),
+    revenueLastMonth: roundMoney(ordersLastMonthRevenueRes.data),
     pendingOrders: pendingOrdersRes.count || 0,
     processingOrders: processingOrdersRes.count || 0,
     lowStockItems: lowStockRes.count || 0,

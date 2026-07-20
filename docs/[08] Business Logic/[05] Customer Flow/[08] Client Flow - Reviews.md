@@ -3,7 +3,7 @@
 **Scope:** Logged-in customer `flow.md` bullet: write product reviews (PDP form → insert → public approved list).  
 **Out of scope:** Admin moderation UI (Engagement Admin Flow); guest cannot write (sign-in CTA only).
 
-**Verdict:** **Broken (P0).** Auth gate and UI exist, but repo inserts `review_status: "approved"` while RLS requires `pending` for user INSERT — submit fails for normal customers. Toast may imply pending approval. Public list correctly shows approved-only. Fix insert to `pending` (or change RLS if auto-publish is intentional).
+**Verdict:** Happy path **works** — auth gate, insert as **`pending`** (matches RLS), toast says pending approval, public list shows approved-only. Remaining: own pending not shown on PDP; revalidatePath literal; no self edit/delete; Zod vs service comment required.
 
 ---
 
@@ -18,8 +18,7 @@
 ```text
 PDP (auth)
   → createReviewAction → createReviewService
-  → createReview INSERT review_status=??? 
-       ✗ code: approved  |  RLS: pending only
+  → createReview INSERT review_status=pending (RLS OK)
   → getProductReviews (approved only)
 ```
 
@@ -31,11 +30,11 @@ PDP (auth)
 |-------|--------|
 | DB default | `'pending'` |
 | RLS user INSERT | `auth.uid() = user_id AND review_status = 'pending'` |
-| Repo insert | **`review_status: "approved"`** |
-| Toast | Implies pending approval |
+| Repo insert | **`review_status: "pending"`** |
+| Toast | Pending approval |
 | Public SELECT | Approved (+ own in some policies) |
 
-**Result:** Non-admin insert fails RLS. Success toast never reached for normal users. Admin Engagement P0 matches this.
+**Result:** Customer submit succeeds; review waits in admin moderation queue until approved.
 
 Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL`.
 
@@ -47,28 +46,30 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 |------------|--------|--------|
 | Guest write | No | Sign-in CTA |
 | Auth write UI | Yes | Form shown when authenticated |
-| Auth insert succeeds | **No** | RLS vs `approved` (P0) |
+| Auth insert succeeds | **Yes** | Insert `pending` matches RLS |
 | See approved reviews | Yes | List path |
-| See own pending on PDP | No | Filter + insert never succeeds |
+| See own pending on PDP | No | Approved-only filter |
 | Edit/delete own review | No | No policy / no UI |
 
 ---
 
 ## P0 — Correctness (fix first)
 
-- [ ] **Insert `approved` vs RLS `pending` → customer submit broken**  
+- [x] ✅ **Insert `approved` vs RLS `pending` → customer submit broken** done✅  
   Repo hard-codes `review_status: "approved"`. User INSERT policy requires `pending`. Submit fails; moderation queue stays empty for real users.  
-  **Where:** `repositories/review.repository.ts` (~71); RLS in `supabase/migrations/20260126141860_initial.sql`; `lib/validators/product_review/create.ts` comment; `ProductComments.tsx` toast.  
+  **Where:** `repositories/review.repository.ts`; RLS in `supabase/migrations/20260126141860_initial.sql`; `lib/validators/product_review/create.ts` comment; `ProductComments.tsx` toast.  
   **Do:** Insert **`pending`**; align toast + comments; publish via admin approve.  
-  **Also tracked:** `[04] Admin Flows/[06] Admin Flow - Engagement.md`.
+  **Also tracked:** `[04] Admin Flows/[06] Admin Flow - Engagement.md`.  
+  **Done:** Insert uses `review_status: "pending"`; toast says pending approval; publish via admin approve.
 
 ---
 
 ## P1 — Incomplete / wrong review behavior
 
-- [ ] **Success toast claims pending while code intends approved**  
+- [x] ✅ **Success toast claims pending while code intends approved** done✅  
   **Where:** `ProductComments.tsx`.  
-  **Do:** Match chosen policy (moderation vs auto-publish) after P0 fix.
+  **Do:** Match chosen policy (moderation vs auto-publish) after P0 fix.  
+  **Done:** Toast matches moderation policy (“submitted and is pending approval”).
 
 - [ ] **Own pending never shown on PDP even after insert fix**  
   `getProductReviews` forces `approved` only.  
@@ -109,7 +110,7 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 | Case | Status |
 |------|--------|
 | Guest submit | Form hidden; sign-in CTA |
-| Auth submit (current) | **Fails RLS** (P0) |
+| Auth submit (current) | Works → pending moderation |
 | Auth duplicate product | App check / `23505` |
 | Auth empty comment | Service error |
 | Auth rating 0 | Client toast |
@@ -138,4 +139,4 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 - Admin moderation: `[04] Admin Flows/[06] Admin Flow - Engagement.md`
 - Auth for PDP: Guest Capabilities / Sign up
 
-**Highest-impact fix:** insert `pending` to match RLS → then toast + optional “your review awaiting approval” on PDP.
+**Highest-impact remaining:** show own pending on PDP; then revalidatePath / Zod alignment polish.

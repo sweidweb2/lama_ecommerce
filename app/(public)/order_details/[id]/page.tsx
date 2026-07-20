@@ -27,7 +27,7 @@ import { OrderBreadcrumbs } from "@/components/(public)/orders/OrderBreadcrumbs"
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
 import { getOrderDetails } from "@/services/order.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
-import { decryptOrderId } from "@/lib/utils/encryption";
+import { resolveEncryptedOrRawId } from "@/lib/utils/encryption";
 import {
   formatOrderCurrency,
   formatShortOrderId,
@@ -103,7 +103,7 @@ export default async function OrderDetailsPage({
   // Support encrypted IDs (post-checkout) and raw UUIDs (order list links)
   let orderId = encryptedOrRawId;
   try {
-    orderId = decryptOrderId(decodeURIComponent(encryptedOrRawId));
+    orderId = resolveEncryptedOrRawId(encryptedOrRawId);
   } catch {
     // Keep raw id from URL
   }

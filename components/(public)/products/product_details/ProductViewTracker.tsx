@@ -1,15 +1,14 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { trackProductViewAction } from "@/actions/product_view"
 
 interface ProductViewTrackerProps {
   productId: string
 }
 
 /**
- * Client component to track product views once per product visit.
- * Deduped so a soft RSC refresh / remount does not fire again.
+ * Track product views once per product visit via API route.
+ * Must not use a Server Action — those soft-refresh the PDP and reset scroll.
  */
 export function ProductViewTracker({ productId }: ProductViewTrackerProps) {
   const trackedRef = useRef(false)
@@ -34,7 +33,20 @@ export function ProductViewTracker({ productId }: ProductViewTrackerProps) {
       // ignore quota / private mode
     }
 
-    trackProductViewAction(productId).catch((error: unknown) => {
+    const body = JSON.stringify({ productId })
+    const track = () =>
+      fetch("/api/product-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`Track failed (${res.status})`)
+        }
+      })
+
+    track().catch((error: unknown) => {
       console.error("Failed to track product view:", error)
       trackedRef.current = false
       try {
