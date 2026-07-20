@@ -117,10 +117,10 @@ Upload → storage bucket `products` + `product_images` (auto-primary if first).
   **Where:** `getAdminProducts`; `ProductsTable`; `app/admin/products/grid/page.tsx`.  
   **Do:** Server-side filter + pagination.
 
-- [ ] **Sidebar Catalog omits Product Views + Grid**  
-  `matchPrefixes` includes product-views; children are Products / Categories / Brands only. Grid via button only.  
+- [ ] **Sidebar Catalog omits Grid**  
+  Product Views is in Catalog children; Grid (`/admin/products/grid`) remains button-only.  
   **Where:** `components/admin/app-sidebar.tsx`.  
-  **Do:** Add nav children.
+  **Do:** Add Grid nav child if desired.
 
 - [ ] **Category products count stub** — `productsCount = 0 // TODO`.  
   **Where:** `components/admin/category/categories-table.tsx`.

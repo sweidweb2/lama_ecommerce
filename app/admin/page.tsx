@@ -24,11 +24,13 @@ import {
   getRecentContactsService,
   getTopSellingProductsService,
   getOrderStatusBreakdownService,
+  type DashboardResult,
 } from "@/services/dashboard.service"
 import Link from "@/components/ui/link"
 import { Badge } from "@/components/ui/badge"
 import { encryptOrderId } from "@/lib/utils/encryption"
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs"
+import { computeMomTrend } from "@/lib/admin/mom"
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -85,17 +87,23 @@ function getStatusBadgeVariant(
   }
 }
 
+const UNAVAILABLE = "—"
+
+function unwrapOrEmpty<T>(result: DashboardResult<T>, empty: T): T {
+  return result.ok ? result.data : empty
+}
+
 export default async function AdminDashboard() {
   const [
-    stats,
-    recentOrders,
-    recentUsers,
-    lowStock,
-    pendingReviews,
-    unansweredQuestions,
-    recentContacts,
-    topProducts,
-    orderStatuses,
+    statsResult,
+    recentOrdersResult,
+    recentUsersResult,
+    lowStockResult,
+    pendingReviewsResult,
+    unansweredQuestionsResult,
+    recentContactsResult,
+    topProductsResult,
+    orderStatusesResult,
   ] = await Promise.all([
     getDashboardStatsService(),
     getRecentOrdersService(6),
@@ -108,13 +116,53 @@ export default async function AdminDashboard() {
     getOrderStatusBreakdownService(),
   ])
 
-  const attentionTotal =
-    stats.pendingOrders +
-    stats.lowStockItems +
-    stats.outOfStockItems +
-    stats.unansweredQA +
-    stats.pendingReviews +
-    stats.newContacts
+  const fetchResults = [
+    { label: "stats", result: statsResult },
+    { label: "recent orders", result: recentOrdersResult },
+    { label: "recent users", result: recentUsersResult },
+    { label: "low stock", result: lowStockResult },
+    { label: "pending reviews", result: pendingReviewsResult },
+    { label: "unanswered Q&A", result: unansweredQuestionsResult },
+    { label: "contacts", result: recentContactsResult },
+    { label: "top sellers", result: topProductsResult },
+    { label: "order status", result: orderStatusesResult },
+  ]
+  const failedFetches = fetchResults.filter(({ result }) => !result.ok)
+  const hasFetchError = failedFetches.length > 0
+  const statsOk = statsResult.ok
+  const stats = statsOk ? statsResult.data : null
+  const orderStatusesOk = orderStatusesResult.ok
+  const orderStatuses = unwrapOrEmpty(orderStatusesResult, [])
+  const recentOrders = unwrapOrEmpty(recentOrdersResult, [])
+  const recentUsers = unwrapOrEmpty(recentUsersResult, [])
+  const lowStock = unwrapOrEmpty(lowStockResult, [])
+  const pendingReviews = unwrapOrEmpty(pendingReviewsResult, [])
+  const unansweredQuestions = unwrapOrEmpty(unansweredQuestionsResult, [])
+  const recentContacts = unwrapOrEmpty(recentContactsResult, [])
+  const topProducts = unwrapOrEmpty(topProductsResult, [])
+
+  const attentionTotal = stats
+    ? stats.pendingOrders +
+      stats.lowStockItems +
+      stats.outOfStockItems +
+      stats.unansweredQA +
+      stats.pendingReviews +
+      stats.newContacts
+    : 0
+
+  const formatStatNumber = (value: number | undefined) =>
+    statsOk && value !== undefined ? formatNumber(value) : UNAVAILABLE
+  const formatStatCurrency = (value: number | undefined) =>
+    statsOk && value !== undefined ? formatCurrency(value) : UNAVAILABLE
+  const formatStatRaw = (value: number | undefined) =>
+    statsOk && value !== undefined ? value : UNAVAILABLE
+
+  const ordersTrend = stats
+    ? computeMomTrend(stats.totalOrdersThisMonth, stats.ordersLastMonth)
+    : undefined
+  const revenueTrend = stats
+    ? computeMomTrend(stats.revenueThisMonth, stats.revenueLastMonth)
+    : undefined
 
   return (
     <div className="space-y-6">
@@ -124,79 +172,115 @@ export default async function AdminDashboard() {
         <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground text-sm sm:text-base">
           Live overview from your store database
-          {attentionTotal > 0
+          {statsOk && attentionTotal > 0
             ? ` · ${formatNumber(attentionTotal)} items need attention`
             : ""}
         </p>
       </div>
 
+      {hasFetchError && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-2 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">
+                Some dashboard data could not be loaded
+              </p>
+              <p className="text-muted-foreground mt-0.5">
+                {failedFetches
+                  .map(({ label, result }) =>
+                    !result.ok ? `${label}: ${result.error}` : null,
+                  )
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin"
+            className="shrink-0 text-sm font-medium text-primary hover:underline"
+          >
+            Reload
+          </Link>
+        </div>
+      )}
+
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Active users"
-          value={formatNumber(stats.totalUsers)}
+          value={formatStatNumber(stats?.totalUsers)}
           description="Profiles marked active"
           icon={Users}
         />
         <StatCard
           title="Active products"
-          value={formatNumber(stats.totalProducts)}
+          value={formatStatNumber(stats?.totalProducts)}
           description="Listed in catalog"
           icon={Package}
         />
         <StatCard
           title="Orders this month"
-          value={formatNumber(stats.totalOrdersThisMonth)}
-          description={`${formatNumber(stats.pendingOrders)} pending`}
+          value={formatStatNumber(stats?.totalOrdersThisMonth)}
+          description={
+            statsOk
+              ? `${formatNumber(stats!.pendingOrders)} pending`
+              : "Unavailable"
+          }
           icon={ShoppingCart}
+          trend={ordersTrend}
         />
         <StatCard
           title="Revenue this month"
-          value={formatCurrency(stats.revenueThisMonth)}
+          value={formatStatCurrency(stats?.revenueThisMonth)}
           description="From order totals"
           icon={DollarSign}
+          trend={revenueTrend}
         />
       </div>
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Link
-          href="/admin/orders"
+          href="/admin/orders?status=pending"
           className="rounded-lg border bg-card p-4 shadow-sm hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
             <Clock className="h-3.5 w-3.5 text-orange-500" />
             Pending orders
           </div>
-          <p className="text-xl font-bold mt-2">{stats.pendingOrders}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.pendingOrders)}</p>
         </Link>
         <Link
-          href="/admin/orders"
+          href="/admin/orders?status=fulfillment"
           className="rounded-lg border bg-card p-4 shadow-sm hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
             <Boxes className="h-3.5 w-3.5 text-sky-500" />
             In fulfillment
           </div>
-          <p className="text-xl font-bold mt-2">{stats.processingOrders}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.processingOrders)}</p>
         </Link>
         <Link
-          href="/admin/products"
+          href="/admin/products?stock=low"
           className="rounded-lg border bg-card p-4 shadow-sm hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
             <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
             Low stock
           </div>
-          <p className="text-xl font-bold mt-2">{stats.lowStockItems}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.lowStockItems)}</p>
         </Link>
         <Link
-          href="/admin/products"
+          href="/admin/products?stock=out"
           className="rounded-lg border bg-card p-4 shadow-sm hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium">
             <Warehouse className="h-3.5 w-3.5 text-red-500" />
             Out of stock
           </div>
-          <p className="text-xl font-bold mt-2">{stats.outOfStockItems}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.outOfStockItems)}</p>
         </Link>
         <Link
           href="/admin/qa"
@@ -206,7 +290,7 @@ export default async function AdminDashboard() {
             <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
             Open Q&A
           </div>
-          <p className="text-xl font-bold mt-2">{stats.unansweredQA}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.unansweredQA)}</p>
         </Link>
         <Link
           href="/admin/reviews"
@@ -216,7 +300,7 @@ export default async function AdminDashboard() {
             <Star className="h-3.5 w-3.5 text-purple-500" />
             Pending reviews
           </div>
-          <p className="text-xl font-bold mt-2">{stats.pendingReviews}</p>
+          <p className="text-xl font-bold mt-2">{formatStatRaw(stats?.pendingReviews)}</p>
         </Link>
       </div>
 
@@ -229,7 +313,7 @@ export default async function AdminDashboard() {
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <Mail className="h-4 w-4" /> New contact messages
             </p>
-            <p className="text-2xl font-bold mt-1">{stats.newContacts}</p>
+            <p className="text-2xl font-bold mt-1">{formatStatRaw(stats?.newContacts)}</p>
           </div>
         </Link>
         <Link
@@ -240,7 +324,7 @@ export default async function AdminDashboard() {
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <UserPlus className="h-4 w-4" /> Leads this month
             </p>
-            <p className="text-2xl font-bold mt-1">{stats.newLeadsThisMonth}</p>
+            <p className="text-2xl font-bold mt-1">{formatStatRaw(stats?.newLeadsThisMonth)}</p>
           </div>
         </Link>
         <Link
@@ -251,7 +335,7 @@ export default async function AdminDashboard() {
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <ShoppingCart className="h-4 w-4" /> Active carts
             </p>
-            <p className="text-2xl font-bold mt-1">{stats.activeCarts}</p>
+            <p className="text-2xl font-bold mt-1">{formatStatRaw(stats?.activeCarts)}</p>
           </div>
         </Link>
       </div>
@@ -265,7 +349,9 @@ export default async function AdminDashboard() {
             </Link>
           </div>
           <div className="space-y-2 max-h-[360px] overflow-y-auto">
-            {recentOrders.length === 0 ? (
+            {!recentOrdersResult.ok ? (
+              <p className="text-sm text-destructive">Could not load recent orders</p>
+            ) : recentOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No orders yet</p>
             ) : (
               recentOrders.map((order) => (
@@ -307,7 +393,9 @@ export default async function AdminDashboard() {
               Manage
             </Link>
           </div>
-          {orderStatuses.length === 0 ? (
+          {!orderStatusesOk ? (
+            <p className="text-sm text-destructive">Could not load order status mix</p>
+          ) : orderStatuses.length === 0 ? (
             <p className="text-sm text-muted-foreground">No order data</p>
           ) : (
             <div className="space-y-3">
@@ -344,7 +432,9 @@ export default async function AdminDashboard() {
               Catalog
             </Link>
           </div>
-          {topProducts.length === 0 ? (
+          {!topProductsResult.ok ? (
+            <p className="text-sm text-destructive">Could not load top sellers</p>
+          ) : topProducts.length === 0 ? (
             <p className="text-sm text-muted-foreground">No sales this month</p>
           ) : (
             <div className="space-y-3">
@@ -376,18 +466,21 @@ export default async function AdminDashboard() {
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold">Low stock variants</h3>
-            <Link href="/admin/products" className="text-sm text-primary hover:underline">
+            <Link href="/admin/products?stock=low" className="text-sm text-primary hover:underline">
               Restock
             </Link>
           </div>
-          {lowStock.length === 0 ? (
+          {!lowStockResult.ok ? (
+            <p className="text-sm text-destructive">Could not load low stock</p>
+          ) : lowStock.length === 0 ? (
             <p className="text-sm text-muted-foreground">No low-stock variants</p>
           ) : (
             <div className="space-y-2 max-h-[320px] overflow-y-auto">
               {lowStock.map((item) => (
-                <div
+                <Link
                   key={item.id}
-                  className="flex items-center justify-between rounded-md p-2 hover:bg-muted/40"
+                  href={`/admin/products/${encryptOrderId(item.productId)}`}
+                  className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50 transition-colors"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.productName}</p>
@@ -401,7 +494,7 @@ export default async function AdminDashboard() {
                   >
                     {item.quantity_stock} left
                   </Badge>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -416,18 +509,24 @@ export default async function AdminDashboard() {
               Moderate
             </Link>
           </div>
-          {pendingReviews.length === 0 ? (
+          {!pendingReviewsResult.ok ? (
+            <p className="text-sm text-destructive">Could not load reviews</p>
+          ) : pendingReviews.length === 0 ? (
             <p className="text-sm text-muted-foreground">Queue is clear</p>
           ) : (
             <div className="space-y-3">
               {pendingReviews.map((review) => (
-                <div key={review.id} className="rounded-md p-2 hover:bg-muted/40">
+                <Link
+                  key={review.id}
+                  href={`/admin/products/${encryptOrderId(review.productId)}`}
+                  className="block rounded-md p-2 hover:bg-muted/50 transition-colors"
+                >
                   <p className="text-sm font-medium truncate">{review.productName}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {review.rating}/5 · {review.title || "No title"} ·{" "}
                     {formatTimeAgo(review.created_at)}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -440,12 +539,18 @@ export default async function AdminDashboard() {
               Answer
             </Link>
           </div>
-          {unansweredQuestions.length === 0 ? (
+          {!unansweredQuestionsResult.ok ? (
+            <p className="text-sm text-destructive">Could not load Q&A</p>
+          ) : unansweredQuestions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No open questions</p>
           ) : (
             <div className="space-y-3">
               {unansweredQuestions.map((q) => (
-                <div key={q.id} className="rounded-md p-2 hover:bg-muted/40">
+                <Link
+                  key={q.id}
+                  href={`/admin/products/${encryptOrderId(q.productId)}`}
+                  className="block rounded-md p-2 hover:bg-muted/50 transition-colors"
+                >
                   <p className="text-sm font-medium truncate">{q.productName}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                     {q.question}
@@ -453,7 +558,7 @@ export default async function AdminDashboard() {
                   <p className="text-[10px] text-muted-foreground mt-1">
                     {formatTimeAgo(q.created_at)}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -471,12 +576,18 @@ export default async function AdminDashboard() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 Latest contacts
               </p>
-              {recentContacts.length === 0 ? (
+              {!recentContactsResult.ok ? (
+                <p className="text-sm text-destructive">Could not load contacts</p>
+              ) : recentContacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No messages</p>
               ) : (
                 <div className="space-y-2">
                   {recentContacts.map((c) => (
-                    <div key={c.id} className="rounded-md p-2 hover:bg-muted/40">
+                    <Link
+                      key={c.id}
+                      href={`/admin/contact?id=${c.id}`}
+                      className="block rounded-md p-2 hover:bg-muted/50 transition-colors"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium truncate">
                           {c.full_name || c.email || "Anonymous"}
@@ -488,7 +599,7 @@ export default async function AdminDashboard() {
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {c.subject || "No subject"} · {formatTimeAgo(c.created_at)}
                       </p>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -502,7 +613,9 @@ export default async function AdminDashboard() {
                   All
                 </Link>
               </div>
-              {recentUsers.length === 0 ? (
+              {!recentUsersResult.ok ? (
+                <p className="text-sm text-destructive">Could not load users</p>
+              ) : recentUsers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No users</p>
               ) : (
                 <div className="space-y-2">

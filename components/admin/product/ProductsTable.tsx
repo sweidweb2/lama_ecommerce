@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -25,22 +26,47 @@ import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import Link from "@/components/ui/link"
 import type { Brand, Category } from "@/types/product"
 
+type AdminProductRow = AdminProduct & {
+  encryptedId?: string
+  hasLowStock?: boolean
+  hasOutOfStock?: boolean
+}
+
 interface ProductsTableProps {
-  products: AdminProduct[]
+  products: AdminProductRow[]
   brands: Brand[]
   categories: Category[]
 }
 
 const PRODUCTS_PER_PAGE = 25
 const MAX_PAGES = 60
+const VALID_STOCK_FILTERS = new Set(["all", "low", "out"])
 
 export function ProductsTable({ products, brands, categories }: ProductsTableProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialStock = searchParams.get("stock") || "all"
+
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [featuredFilter, setFeaturedFilter] = useState<string>("all")
   const [trendingFilter, setTrendingFilter] = useState<string>("all")
   const [activeFilter, setActiveFilter] = useState<string>("all")
+  const [stockFilter, setStockFilter] = useState<string>(
+    VALID_STOCK_FILTERS.has(initialStock) ? initialStock : "all",
+  )
   const [currentPage, setCurrentPage] = useState(1)
+
+  const syncStockToUrl = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === "all") {
+      params.delete("stock")
+    } else {
+      params.set("stock", value)
+    }
+    const query = params.toString()
+    router.push(query ? `/admin/products?${query}` : "/admin/products")
+  }
 
   // Filter products (on full products data)
   const filteredProducts = useMemo(() => {
@@ -53,10 +79,13 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
         (trendingFilter === "true" ? product.is_trending : !product.is_trending)
       const matchesActive = activeFilter === "all" || 
         (activeFilter === "true" ? product.is_active : !product.is_active)
+      const matchesStock =
+        stockFilter === "all" ||
+        (stockFilter === "low" ? Boolean(product.hasLowStock) : Boolean(product.hasOutOfStock))
       
-      return matchesCategory && matchesBrand && matchesFeatured && matchesTrending && matchesActive
+      return matchesCategory && matchesBrand && matchesFeatured && matchesTrending && matchesActive && matchesStock
     })
-  }, [products, categoryFilter, brandFilter, featuredFilter, trendingFilter, activeFilter])
+  }, [products, categoryFilter, brandFilter, featuredFilter, trendingFilter, activeFilter, stockFilter])
 
   // Calculate pagination
   const maxProductsToShow = MAX_PAGES * PRODUCTS_PER_PAGE
@@ -64,7 +93,6 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
     return filteredProducts.slice(0, maxProductsToShow)
   }, [filteredProducts, maxProductsToShow])
 
-  const totalFilteredProducts = filteredProducts.length
   const totalPages = useMemo(() => {
     return Math.min(
       Math.ceil(limitedFilteredProducts.length / PRODUCTS_PER_PAGE),
@@ -79,7 +107,10 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
     return limitedFilteredProducts.slice(startIndex, endIndex)
   }, [limitedFilteredProducts, currentPage])
 
-  const handleFilterChange = (value: string, type: "category" | "brand" | "featured" | "trending" | "active") => {
+  const handleFilterChange = (
+    value: string,
+    type: "category" | "brand" | "featured" | "trending" | "active" | "stock",
+  ) => {
     switch (type) {
       case "category":
         setCategoryFilter(value)
@@ -96,6 +127,10 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
       case "active":
         setActiveFilter(value)
         break
+      case "stock":
+        setStockFilter(value)
+        syncStockToUrl(value)
+        break
     }
     // Reset to page 1 when filters change
     setCurrentPage(1)
@@ -106,7 +141,8 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
     brandFilter !== "all" || 
     featuredFilter !== "all" || 
     trendingFilter !== "all" || 
-    activeFilter !== "all"
+    activeFilter !== "all" ||
+    stockFilter !== "all"
 
   const clearFilters = () => {
     setCategoryFilter("all")
@@ -114,7 +150,9 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
     setFeaturedFilter("all")
     setTrendingFilter("all")
     setActiveFilter("all")
+    setStockFilter("all")
     setCurrentPage(1)
+    syncStockToUrl("all")
   }
 
   const handlePageChange = (page: number) => {
@@ -214,6 +252,23 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="true">Active</SelectItem>
                 <SelectItem value="false">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Stock:</span>
+            <Select
+              value={stockFilter}
+              onValueChange={(value) => handleFilterChange(value, "stock")}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="low">Low stock</SelectItem>
+                <SelectItem value="out">Out of stock</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -330,7 +385,7 @@ export function ProductsTable({ products, brands, categories }: ProductsTablePro
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Link href={`/admin/products/${(product as any).encryptedId || product.id}`}>
+                      <Link href={`/admin/products/${product.encryptedId || product.id}`}>
                         <Button variant="ghost" size="icon" aria-label={`View ${product.name}`}>
                           <Eye className="h-4 w-4" />
                         </Button>

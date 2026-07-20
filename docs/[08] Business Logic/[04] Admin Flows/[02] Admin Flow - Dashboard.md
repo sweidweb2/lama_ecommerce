@@ -3,7 +3,7 @@
 **Scope:** Admin landing overview at `/admin` — KPI cards, attention tiles, preview lists, deep links into other admin modules.  
 **Out of scope:** Full `/admin/analytics` charts (separate `flow.md` Analytics bullet), catalog CRUD, sales ops, customers, engagement, backups. Analytics is noted only where metric definitions collide with the dashboard.
 
-**Verdict:** Happy path **works** — live DB-backed overview (service-role repos + `requireAdmin`), real empty states, and working deep links. Not finance-grade or scale-safe: **“active carts” is all carts**, **month revenue/order totals include cancelled**, PostgREST **~1000-row caps** can silently under-count, and auth/data failures often render as **zeros** instead of errors.
+**Verdict:** Happy path **works** — live DB-backed overview (service-role repos + `requireAdmin`), real empty states, and working deep links. Not finance-grade or scale-safe: PostgREST **~1000-row caps** can silently under-count status mix / some previews, and auth/data failures often render as **zeros** instead of errors. Month revenue/orders exclude `cancelled`; active carts = carts with ≥1 item.
 
 ---
 
@@ -29,25 +29,27 @@
 
 ## P0 — Correctness (fix first)
 
-- [ ] **“Active carts” counts every cart row**  
-  `carts` has no status / abandoned flag. `select(..., { count: "exact", head: true })` on all rows is labeled as active carts. Misleading for ops. Same pattern on Analytics.  
+- [x] ✅ **“Active carts” counts every cart row** done✅  
+  `carts` has no status / abandoned flag. Count now uses `cart_items!inner` so only carts with ≥1 item are labeled active (Dashboard + Analytics).  
   **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats`); `app/admin/page.tsx`; `repositories/analytics.repository.ts`.  
-  **Do:** Define “active” (e.g. updated within N days, or has items) and filter; or relabel to “Total carts”.
+  **Done:** Filter to non-empty carts; keep “Active carts” label.
 
-- [ ] **Month revenue / order count include cancelled (and refunded) totals**  
-  Month query selects all `orders.total` since `startOfMonth` with **no** status / `payment_status` filter. Top sellers exclude `cancelled`, but KPI cards do not. Cancelled money still inflates “Revenue this month”.  
-  **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats` ~129–186 vs `getTopSellingProducts` `.neq("status", "cancelled")`).  
-  **Do:** Align with business rule (e.g. exclude `cancelled` / `returned` and unpaid/`refunded` as required) for both count and sum.
+- [x] ✅ **Month revenue / order count include cancelled (and refunded) totals** done✅  
+  Month count + `total.sum()` now `.neq("status", "cancelled")`, aligned with top sellers. Revenue card description: “Excluding cancelled”. Refunded/`returned` still included (not filtered).  
+  **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats` vs `getTopSellingProducts`).  
+  **Done:** Exclude `cancelled` for both count and sum.
 
-- [ ] **Status / month aggregations risk silent under-count (~1000-row PostgREST cap)**  
+- [x] **Status / month aggregations risk silent under-count (~1000-row PostgREST cap)**  
   `orders.select("status")` and month `orders.select("total")` load row arrays; `totalOrdersThisMonth` uses `data.length`. Above default page size, pending/fulfillment/revenue/status mix under-report with no error.  
   **Where:** `repositories/dashboard.repository.ts` (`getDashboardStats`, `getOrderStatusBreakdown`).  
-  **Do:** Use `count: exact` + filtered head counts, or SQL/RPC aggregates; never rely on unbounded `.select()` for totals.
+  **Do:** Use `count: exact` + filtered head counts, or SQL/RPC aggregates; never rely on unbounded `.select()` for totals.  
+  **Done:** Month order count / pending / fulfillment / status mix use exact head counts; revenue uses `total.sum()`; query errors are checked and thrown.
 
-- [ ] **Failures look like an empty store**  
+- [x] **Failures look like an empty store**  
   Services catch `requireAdmin` / errors and return empty stats; repos catch and return zeros/`[]`. Dashboard has no per-widget error UI (only `app/admin/error.tsx` if something throws). Missing service-role key or auth glitch → all zeros.  
   **Where:** `services/dashboard.service.ts`; `repositories/dashboard.repository.ts`; `app/admin/page.tsx`.  
-  **Do:** Propagate errors (or a `ok: false` envelope) and show an error banner / retry; do not equate catch → empty.
+  **Do:** Propagate errors (or a `ok: false` envelope) and show an error banner / retry; do not equate catch → empty.  
+  **Done:** Stats/status throw from repo; services return `{ ok, data } | { ok: false, error }`; page shows banner + “—” KPIs / section errors instead of silent zeros.
 
 ---
 
@@ -63,20 +65,23 @@
   **Where:** `repositories/dashboard.repository.ts` vs `repositories/analytics.repository.ts`.  
   **Do:** Shared metric helpers + identical labels (track full Analytics in its own Admin Flow doc).
 
-- [ ] **Unanswered Q&A preview can disagree with KPI**  
+- [x] ✅ **Unanswered Q&A preview can disagree with KPI** done✅  
   Count scans all Q/A; preview takes latest N questions then filters unanswered → old unanswered invisible while count &gt; 0.  
   **Where:** `getUnansweredQuestionsPreview` in `repositories/dashboard.repository.ts`.  
-  **Do:** Query unanswered directly (order by created_at) for the preview.
+  **Do:** Query unanswered directly (order by created_at) for the preview.  
+  **Done:** Preview queries unanswered questions directly (exclude answered IDs), ordered by `created_at`.
 
-- [ ] **Attention deep-links don’t pre-filter**  
+- [x] ✅ **Attention deep-links don’t pre-filter** done✅  
   Pending orders → `/admin/orders` (client default `all`); low/OOS → `/admin/products` with no stock filter.  
   **Where:** `app/admin/page.tsx`; `OrdersTable`; `ProductsTable`.  
-  **Do:** Pass query params (`?status=pending`, `?stock=low`) and honor them in tables.
+  **Do:** Pass query params (`?status=pending`, `?stock=low`) and honor them in tables.  
+  **Done:** Attention tiles use `?status=pending|fulfillment` and `?stock=low|out`; tables init + sync URL filters.
 
-- [ ] **Many preview rows are not clickable**  
+- [x] ✅ **Many preview rows are not clickable** done✅  
   Reviews / Q&A / contacts / low-stock show data; section headers link out, but rows often lack entity links (`productId` on low stock unused).  
   **Where:** `app/admin/page.tsx`.  
-  **Do:** Link rows to encrypted product/order/review/contact detail where pages exist.
+  **Do:** Link rows to encrypted product/order/review/contact detail where pages exist.  
+  **Done:** Low stock / reviews / Q&A → encrypted product detail; contacts → `/admin/contact?id=` opens view dialog.
 
 - [x] ✅ **`is_active` ignored for `/admin` access** done✅  
   Deactivated admin still reaches dashboard (shared Guest Sign up P0).  
@@ -88,19 +93,21 @@
 
 ## P2 — DX / UX
 
-- [ ] **`StatCard` `trend` unused** — no MoM % on dashboard.  
-  **Where:** `components/admin/stat-card.tsx`; `app/admin/page.tsx`.
+- [x] ✅ **`StatCard` `trend` unused** — no MoM % on dashboard. done✅  
+  **Where:** `components/admin/stat-card.tsx`; `app/admin/page.tsx`.  
+  **Done:** Prior-month order/revenue queries + `computeMomTrend` on Orders/Revenue StatCards.
 
-- [ ] **“In fulfillment” includes `shipped`** — `processing` + `packed` + `shipped` may confuse ops.  
+- [x] ✅ **“In fulfillment” includes `shipped`** — `processing` + `packed` + `shipped` may confuse ops. done✅  
   **Where:** `repositories/dashboard.repository.ts`.  
-  **Do:** Rename or split “Shipped” vs in-progress.
+  **Done:** Count is `processing` + `packed` only (aligned with orders page).
 
-- [ ] **Shared admin loading only** — no per-widget skeletons.  
-  **Where:** `app/admin/loading.tsx`.
+- [x] ✅ **Shared admin loading only** — no per-widget skeletons. done✅  
+  **Where:** `app/admin/loading.tsx`.  
+  **Done:** Dashboard-shaped Skeleton layout replaces FullPageLoader.
 
-- [ ] **Product Views not in Catalog sidebar children** — matchPrefixes includes `/admin/product-views`, but children are Products / Categories / Brands only; views reachable from products header / URL.  
+- [x] ✅ **Product Views not in Catalog sidebar children** — matchPrefixes includes `/admin/product-views`, but children are Products / Categories / Brands only; views reachable from products header / URL. done✅  
   **Where:** `components/admin/app-sidebar.tsx`.  
-  **Do:** Add Catalog child (also tracked under Catalog Admin Flow).
+  **Done:** Catalog child “Product Views” added (also tracked under Catalog Admin Flow).
 
 ---
 
@@ -132,7 +139,7 @@
 |-----------|--------|
 | Empty DB | Works — zeros + empty messages; attention total hidden when 0 |
 | Large order history | Risk — silent under-count (P0 row cap) |
-| Cancelled orders this month | Inflate revenue/count until filtered (P0) |
+| Cancelled orders this month | Excluded from month revenue/order KPIs |
 | Duplicate product names in top sellers | Aggregates by name string |
 | Server TZ for “this month” | Follows runtime TZ (often UTC in prod) |
 | Missing `SUPABASE_SERVICE_ROLE_KEY` | Silent empty dashboard (P0 failure UX) |
@@ -164,7 +171,7 @@
 | `profiles` | Active user count; newest users |
 | `products` / `customised_products` | Active products; low/OOS stock |
 | `orders` / `order_items` | Month KPIs, recent, status mix, top sellers |
-| `carts` | Cart count (currently all rows) |
+| `carts` / `cart_items` | Active carts = carts with ≥1 item |
 | `reviews` | Pending count + preview |
 | `product_questions` / answers | Unanswered count + preview |
 | `contact_us` / `leads` | New / recent previews |
@@ -178,4 +185,4 @@
 - Auth `is_active` gap: `[02] Guest Flow/[05] Guest Flow - Sign up Log in.md`
 - Catalog / Analytics: sibling Admin Flow docs (Catalog next; Analytics later)
 
-**Highest-impact fixes:** redefine carts + month revenue filters; aggregate with exact counts/RPC; surface errors instead of zeroed KPIs.
+**Highest-impact remaining:** redefine carts + month revenue filters (exclude cancelled/refunded as required).

@@ -3,7 +3,7 @@
 **Scope:** Admin Analytics from `flow.md`: `/admin/analytics` KPI cards + charts (sales, users, order/payment status, top products).  
 **Out of scope:** Dashboard layout (sibling doc); Catalog product-views module.
 
-**Verdict:** Happy path **works** — **real DB queries** (service-role), not mock charts; empty states exist. Same correctness debt as Dashboard: **“active carts” = all carts**, **revenue/orders include cancelled**, **~1000-row silent under-count**, **auth/errors → zeros**. Extra: **“Active products” label is false** (counts all products). No date-range UI; metrics **diverge from Dashboard**.
+**Verdict:** Happy path **works** — **real DB queries** (service-role), not mock charts; empty states exist. Remaining correctness debt: **revenue/orders include cancelled**, **~1000-row silent under-count**, **auth/errors → zeros**. Extra: **“Active products” label is false** (counts all products). Active carts aligned with Dashboard (non-empty only). No date-range UI; some metrics **diverge from Dashboard**.
 
 ---
 
@@ -26,10 +26,10 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 
 ## P0 — Correctness (fix first)
 
-- [ ] **“Active carts” = every cart row**  
-  Same as Dashboard.  
+- [x] ✅ **“Active carts” = every cart row** done✅  
+  Aligned with Dashboard: `cart_items!inner` + exact head count.  
   **Where:** `repositories/analytics.repository.ts` (`getAnalyticsStats`); `AnalyticsStats.tsx`.  
-  **Do:** Filter or relabel “Total carts”.
+  **Done:** Count only carts with ≥1 item; keep “Active Carts” label.
 
 - [ ] **Revenue / order count / AOV / monthly sales include cancelled**  
   No status / `payment_status` filter on aggregates. Top products do **not** exclude cancelled (Dashboard top sellers do).  
@@ -115,7 +115,7 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 | Empty DB | Charts empty copy; stats 0 |
 | Large order history | Silent under-count (P0) |
 | Cancelled / refunded | Inflate revenue/AOV/charts/top (P0) |
-| Many carts | Mislabeled “active” (P0) |
+| Many carts | Active = non-empty only (aligned with Dashboard) |
 | Inactive products | Counted as “Active” (P0) |
 | Missing SR key | Zeros / empty (P0) |
 | Non-admin `/admin/analytics` | Middleware redirect |
@@ -144,4 +144,4 @@ All series/stats come from live tables (`orders`, `profiles`, `products`, `carts
 - Shared metric debt: `[02] Admin Flow - Dashboard.md`
 - Sales revenue filters: `[04] Admin Flow - Sales.md`
 
-**Highest-impact fixes:** shared revenue/cart/product definitions with Dashboard → RPC/exact aggregates → surface errors → fix Active products label/filter.
+**Highest-impact fixes:** shared revenue/product definitions with Dashboard → RPC/exact aggregates → surface errors → fix Active products label/filter.

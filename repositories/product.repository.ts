@@ -328,6 +328,54 @@ async function attachOutOfStockFlags(
   }));
 }
 
+export type AdminProductStockFlags = {
+  hasLowStock: boolean;
+  hasOutOfStock: boolean;
+};
+
+/**
+ * Per-product stock flags for admin list filters.
+ * Low = any variant with quantity 1–10; out = any variant at 0 (dashboard definitions).
+ */
+export async function getAdminProductStockFlags(
+  productIds: string[],
+): Promise<Record<string, AdminProductStockFlags>> {
+  const result: Record<string, AdminProductStockFlags> = {};
+  for (const id of productIds) {
+    result[id] = { hasLowStock: false, hasOutOfStock: false };
+  }
+  if (productIds.length === 0) return result;
+
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+    const { data: variantRows, error } = await supabase
+      .from("customised_products")
+      .select("product_id, quantity_stock")
+      .in("product_id", productIds);
+
+    if (error) {
+      console.error("Error fetching admin product stock flags:", error);
+      return result;
+    }
+
+    for (const row of variantRows ?? []) {
+      const { product_id, quantity_stock } = row as {
+        product_id: string;
+        quantity_stock: number;
+      };
+      const flags = result[product_id];
+      if (!flags) continue;
+      if (quantity_stock === 0) flags.hasOutOfStock = true;
+      if (quantity_stock > 0 && quantity_stock <= 10) flags.hasLowStock = true;
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Unexpected error in getAdminProductStockFlags:", error);
+    return result;
+  }
+}
+
 /**
  * Distinct color / size values from variants of active products (storefront facets).
  */

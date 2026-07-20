@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { ContactPagination } from "./contact-pagination"
 import { format } from "date-fns"
 import {
@@ -21,7 +22,7 @@ import { EditContactDialog } from "@/components/admin/contact/edit_form"
 import { DeleteContactDialog } from "@/components/admin/contact/delete_dialog"
 import { ViewContactDialog } from "@/components/admin/contact/view_dialog"
 import { ContactStatusToggle } from "./contact-status-toggle"
-import { Download, X } from "lucide-react"
+import { Download, Eye, X } from "lucide-react"
 import { toast } from "sonner"
 import { truncateText } from "@/lib/utils"
 import type { ContactMessage } from "@/types/user"
@@ -83,12 +84,20 @@ interface ContactTableWithFiltersProps {
 }
 
 export function ContactTableWithFilters({ contacts, error }: ContactTableWithFiltersProps) {
+  const searchParams = useSearchParams()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
   const [page, setPage] = useState(1)
   const [viewingContact, setViewingContact] = useState<ContactMessage | null>(null)
+
+  useEffect(() => {
+    const id = searchParams.get("id")
+    if (!id) return
+    const match = contacts.find((c) => c.id === id)
+    if (match) setViewingContact(match)
+  }, [contacts, searchParams])
 
   const filteredContacts = useMemo(
     () => filterContacts(contacts, name, email, from, to),
@@ -167,6 +176,16 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
 
   return (
     <div className="space-y-6">
+      {viewingContact && (
+        <ViewContactDialog
+          contact={viewingContact as AdminContact}
+          open={true}
+          showTrigger={false}
+          onOpenChange={(next) => {
+            if (!next) setViewingContact(null)
+          }}
+        />
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Contact Us</h1>
@@ -340,16 +359,14 @@ export function ContactTableWithFilters({ contacts, error }: ContactTableWithFil
                       onKeyDown={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-2">
-                        <ViewContactDialog
-                          contact={contact as AdminContact}
-                          open={viewingContact?.id === contact.id}
-                          onOpenChange={(next) => {
-                            if (next) setViewingContact(contact)
-                            else if (viewingContact?.id === contact.id) {
-                              setViewingContact(null)
-                            }
-                          }}
-                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setViewingContact(contact)}
+                          aria-label={`View contact from ${contact.full_name || contact.email || contact.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <EditContactDialog contact={contact as AdminContact} />
                         <DeleteContactDialog
                           contact={{

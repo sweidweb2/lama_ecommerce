@@ -16,6 +16,7 @@ import {
   List,
   Tag,
   Tags,
+  Eye,
   UserPlus,
   ChevronRight,
   ExternalLink,
@@ -81,6 +82,7 @@ const menuItems: MenuItem[] = [
     ],
     children: [
       { href: "/admin/products", label: "All Products", icon: List },
+      { href: "/admin/product-views", label: "Product Views", icon: Eye },
       { href: "/admin/categories", label: "Categories", icon: Tag },
       { href: "/admin/brands", label: "Brands", icon: Tags },
     ],

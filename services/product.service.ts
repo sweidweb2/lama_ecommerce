@@ -8,6 +8,8 @@ import {
 import {
   createProduct,
   getAdminProducts,
+  getAdminProductStockFlags,
+  type AdminProductStockFlags,
   getProducts as getProductsRepo,
   getProductPriceBounds,
   getProductVariantFacets,
@@ -89,6 +91,20 @@ export async function getAdminProductsService(): Promise<ProductWithRelations[]>
     return [];
   }
   return getAdminProducts();
+}
+
+/**
+ * Stock flags for admin products table filters (low / out of stock).
+ */
+export async function getAdminProductStockFlagsService(
+  productIds: string[],
+): Promise<Record<string, AdminProductStockFlags>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return {};
+  }
+  return getAdminProductStockFlags(productIds);
 }
 
 /**

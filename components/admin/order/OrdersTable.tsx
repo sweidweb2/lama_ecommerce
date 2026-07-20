@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -44,6 +44,8 @@ const MAX_PAGES = 100
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled']
 const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
+const FULFILLMENT_STATUSES: OrderStatus[] = ['processing', 'packed', 'shipped']
+const VALID_STATUS_FILTERS = new Set<string>(['all', 'fulfillment', ...ORDER_STATUSES])
 
 const getStatusVariant = (status: string) => {
   switch (status) {
@@ -67,9 +69,21 @@ const getStatusVariant = (status: string) => {
   }
 }
 
+function matchesStatusFilter(orderStatus: string, statusFilter: string): boolean {
+  if (statusFilter === "all") return true
+  if (statusFilter === "fulfillment") {
+    return FULFILLMENT_STATUSES.includes(orderStatus as OrderStatus)
+  }
+  return orderStatus === statusFilter
+}
+
 export function OrdersTable({ orders }: OrdersTableProps) {
   const router = useRouter()
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const searchParams = useSearchParams()
+  const initialStatus = searchParams.get("status") || "all"
+  const [statusFilter, setStatusFilter] = useState<string>(
+    VALID_STATUS_FILTERS.has(initialStatus) ? initialStatus : "all",
+  )
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -80,10 +94,21 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     router.push(getOrderHref(order))
   }
 
+  const syncStatusToUrl = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === "all") {
+      params.delete("status")
+    } else {
+      params.set("status", value)
+    }
+    const query = params.toString()
+    router.push(query ? `/admin/orders?${query}` : "/admin/orders")
+  }
+
   // Filter orders (on full orders data)
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter
+      const matchesStatus = matchesStatusFilter(order.status, statusFilter)
       const matchesPaymentStatus = paymentStatusFilter === "all" || order.payment_status === paymentStatusFilter
       
       return matchesStatus && matchesPaymentStatus
@@ -113,6 +138,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   const handleFilterChange = (value: string, type: "status" | "paymentStatus") => {
     if (type === "status") {
       setStatusFilter(value)
+      syncStatusToUrl(value)
     } else {
       setPaymentStatusFilter(value)
     }
@@ -126,6 +152,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     setStatusFilter("all")
     setPaymentStatusFilter("all")
     setCurrentPage(1)
+    syncStatusToUrl("all")
   }
 
   const handlePageChange = (page: number) => {
@@ -149,6 +176,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="fulfillment">In fulfillment</SelectItem>
                 {ORDER_STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}

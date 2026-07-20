@@ -20,21 +20,9 @@ import {
   type OrderStatusBreakdown,
 } from "@/repositories/dashboard.repository";
 
-const EMPTY_DASHBOARD_STATS: DashboardStats = {
-  totalUsers: 0,
-  totalProducts: 0,
-  totalOrdersThisMonth: 0,
-  revenueThisMonth: 0,
-  pendingOrders: 0,
-  processingOrders: 0,
-  lowStockItems: 0,
-  outOfStockItems: 0,
-  unansweredQA: 0,
-  pendingReviews: 0,
-  newContacts: 0,
-  activeCarts: 0,
-  newLeadsThisMonth: 0,
-};
+export type DashboardResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 export type {
   DashboardStats,
@@ -48,99 +36,76 @@ export type {
   OrderStatusBreakdown,
 };
 
-export async function getDashboardStatsService(): Promise<DashboardStats> {
+async function withAdminResult<T>(
+  load: () => Promise<T>,
+): Promise<DashboardResult<T>> {
   try {
     await requireAdmin();
   } catch {
-    return EMPTY_DASHBOARD_STATS;
+    return { ok: false, error: "Unauthorized" };
   }
-  return getDashboardStats();
+
+  try {
+    const data = await load();
+    return { ok: true, data };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to load dashboard data";
+    console.error("Dashboard service error:", error);
+    return { ok: false, error: message };
+  }
+}
+
+export async function getDashboardStatsService(): Promise<
+  DashboardResult<DashboardStats>
+> {
+  return withAdminResult(getDashboardStats);
 }
 
 export async function getRecentOrdersService(
   limit: number = 5,
-): Promise<RecentOrder[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getRecentOrders(limit);
+): Promise<DashboardResult<RecentOrder[]>> {
+  return withAdminResult(() => getRecentOrders(limit));
 }
 
 export async function getRecentUsersService(
   limit: number = 5,
-): Promise<RecentUser[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getRecentUsers(limit);
+): Promise<DashboardResult<RecentUser[]>> {
+  return withAdminResult(() => getRecentUsers(limit));
 }
 
 export async function getLowStockItemsService(
   limit: number = 8,
-): Promise<LowStockItem[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getLowStockItems(limit);
+): Promise<DashboardResult<LowStockItem[]>> {
+  return withAdminResult(() => getLowStockItems(limit));
 }
 
 export async function getPendingReviewsPreviewService(
   limit: number = 5,
-): Promise<PendingReviewItem[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getPendingReviewsPreview(limit);
+): Promise<DashboardResult<PendingReviewItem[]>> {
+  return withAdminResult(() => getPendingReviewsPreview(limit));
 }
 
 export async function getUnansweredQuestionsPreviewService(
   limit: number = 5,
-): Promise<UnansweredQuestionItem[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getUnansweredQuestionsPreview(limit);
+): Promise<DashboardResult<UnansweredQuestionItem[]>> {
+  return withAdminResult(() => getUnansweredQuestionsPreview(limit));
 }
 
 export async function getRecentContactsService(
   limit: number = 5,
-): Promise<RecentContactItem[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getRecentContacts(limit);
+): Promise<DashboardResult<RecentContactItem[]>> {
+  return withAdminResult(() => getRecentContacts(limit));
 }
 
 export async function getTopSellingProductsService(
   limit: number = 5,
-): Promise<TopProductItem[]> {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getTopSellingProducts(limit);
+): Promise<DashboardResult<TopProductItem[]>> {
+  return withAdminResult(() => getTopSellingProducts(limit));
 }
 
 export async function getOrderStatusBreakdownService(): Promise<
-  OrderStatusBreakdown[]
+  DashboardResult<OrderStatusBreakdown[]>
 > {
-  try {
-    await requireAdmin();
-  } catch {
-    return [];
-  }
-  return getOrderStatusBreakdown();
+  return withAdminResult(getOrderStatusBreakdown);
 }

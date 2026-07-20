@@ -4,11 +4,20 @@ import Link from "@/components/ui/link";
 import { ProductsTable } from "@/components/admin/product/ProductsTable";
 import { ProductStats } from "@/components/admin/product/ProductStats";
 import { type AdminProduct } from "@/components/admin/product/edit_form";
-import { getAdminProductsService } from "@/services/product.service";
+import {
+  getAdminProductsService,
+  getAdminProductStockFlagsService,
+} from "@/services/product.service";
 import { getBrandsService } from "@/services/brand.service";
 import { getCategoriesService } from "@/services/categories.service";
 import { encryptOrderId } from "@/lib/utils/encryption";
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs";
+
+export type AdminProductRow = AdminProduct & {
+  encryptedId?: string;
+  hasLowStock?: boolean;
+  hasOutOfStock?: boolean;
+};
 
 export default async function ProductsPage() {
   const [productsFromDb, brands, categories] = await Promise.all([
@@ -17,27 +26,33 @@ export default async function ProductsPage() {
     getCategoriesService(),
   ]);
 
-  const adminProducts: (AdminProduct & { encryptedId?: string })[] =
-    productsFromDb.map((p) => {
-      const primaryImage =
-        p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
+  const stockFlags = await getAdminProductStockFlagsService(
+    productsFromDb.map((p) => p.id),
+  );
 
-      return {
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        slug: p.slug,
-        brand_id: p.brand_id ?? undefined,
-        category_id: p.category_id ?? undefined,
-        sku: p.sku ?? undefined,
-        price: p.price,
-        is_featured: p.is_featured,
-        is_trending: p.is_trending,
-        is_active: p.is_active,
-        image: primaryImage ? primaryImage.url_image : undefined,
-        encryptedId: encryptOrderId(p.id),
-      };
-    });
+  const adminProducts: AdminProductRow[] = productsFromDb.map((p) => {
+    const primaryImage =
+      p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
+    const flags = stockFlags[p.id];
+
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      slug: p.slug,
+      brand_id: p.brand_id ?? undefined,
+      category_id: p.category_id ?? undefined,
+      sku: p.sku ?? undefined,
+      price: p.price,
+      is_featured: p.is_featured,
+      is_trending: p.is_trending,
+      is_active: p.is_active,
+      image: primaryImage ? primaryImage.url_image : undefined,
+      encryptedId: encryptOrderId(p.id),
+      hasLowStock: flags?.hasLowStock ?? false,
+      hasOutOfStock: flags?.hasOutOfStock ?? false,
+    };
+  });
 
   return (
     <div className="space-y-6">

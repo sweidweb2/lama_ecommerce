@@ -5,6 +5,8 @@ export interface DashboardStats {
   totalProducts: number;
   totalOrdersThisMonth: number;
   revenueThisMonth: number;
+  ordersLastMonth: number;
+  revenueLastMonth: number;
   pendingOrders: number;
   processingOrders: number;
   lowStockItems: number;
@@ -45,6 +47,7 @@ export interface PendingReviewItem {
   rating: number;
   title: string | null;
   productName: string;
+  productId: string;
   created_at: string;
 }
 
@@ -52,6 +55,7 @@ export interface UnansweredQuestionItem {
   id: string;
   question: string;
   productName: string;
+  productId: string;
   created_at: string;
 }
 
@@ -75,129 +79,193 @@ export interface OrderStatusBreakdown {
   count: number;
 }
 
-const EMPTY_STATS: DashboardStats = {
-  totalUsers: 0,
-  totalProducts: 0,
-  totalOrdersThisMonth: 0,
-  revenueThisMonth: 0,
-  pendingOrders: 0,
-  processingOrders: 0,
-  lowStockItems: 0,
-  outOfStockItems: 0,
-  unansweredQA: 0,
-  pendingReviews: 0,
-  newContacts: 0,
-  activeCarts: 0,
-  newLeadsThisMonth: 0,
-};
+const ORDER_STATUSES = [
+  "pending",
+  "processing",
+  "packed",
+  "shipped",
+  "delivered",
+  "returned",
+  "cancelled",
+] as const;
+
+type QueryResult = { error: { message: string } | null };
+
+function assertNoQueryErrors(
+  labeled: Array<{ label: string; result: QueryResult }>,
+): void {
+  const failed = labeled.filter(({ result }) => result.error);
+  if (failed.length === 0) return;
+  const detail = failed
+    .map(({ label, result }) => `${label}: ${result.error!.message}`)
+    .join("; ");
+  throw new Error(`Dashboard query failed (${detail})`);
+}
+
+function sumFromAggregate(
+  data: Array<{ sum: number | null } | { total: number | null }> | null,
+): number {
+  const row = data?.[0] ?? null;
+  const rawSum =
+    row && "sum" in row ? row.sum : row && "total" in row ? row.total : 0;
+  return Math.round(Number(rawSum || 0) * 100) / 100;
+}
 
 /**
  * Get dashboard statistics from live tables.
+ * Order counts/sums use exact head counts / PostgREST aggregates (not row loads).
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const startOfMonth = new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
-      1,
-    ).toISOString();
+  const supabase = createSupabaseAdminClient();
+  const now = new Date();
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  ).toISOString();
+  const startOfLastMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+  ).toISOString();
 
-    const [
-      usersRes,
-      productsRes,
-      ordersMonthRes,
-      ordersStatusRes,
-      lowStockRes,
-      outOfStockRes,
-      questionsRes,
-      answersRes,
-      reviewsRes,
-      contactsRes,
-      cartsRes,
-      leadsRes,
-    ] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true),
-      supabase
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true),
-      supabase
-        .from("orders")
-        .select("total")
-        .gte("created_at", startOfMonth),
-      supabase.from("orders").select("status"),
-      supabase
-        .from("customised_products")
-        .select("id", { count: "exact", head: true })
-        .gt("quantity_stock", 0)
-        .lte("quantity_stock", 10),
-      supabase
-        .from("customised_products")
-        .select("id", { count: "exact", head: true })
-        .eq("quantity_stock", 0),
-      supabase.from("product_questions").select("id"),
-      supabase.from("product_answers").select("product_question_id"),
-      supabase
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("review_status", "pending"),
-      supabase
-        .from("contact_us")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "new"),
-      supabase.from("carts").select("id", { count: "exact", head: true }),
-      supabase
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", startOfMonth),
-    ]);
+  const [
+    usersRes,
+    productsRes,
+    ordersMonthCountRes,
+    ordersMonthRevenueRes,
+    ordersLastMonthCountRes,
+    ordersLastMonthRevenueRes,
+    pendingOrdersRes,
+    processingOrdersRes,
+    lowStockRes,
+    outOfStockRes,
+    questionsRes,
+    answersRes,
+    reviewsRes,
+    contactsRes,
+    cartsRes,
+    leadsRes,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfMonth)
+      .neq("status", "cancelled"),
+    supabase
+      .from("orders")
+      .select("total.sum()")
+      .gte("created_at", startOfMonth)
+      .neq("status", "cancelled"),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfLastMonth)
+      .lt("created_at", startOfMonth)
+      .neq("status", "cancelled"),
+    supabase
+      .from("orders")
+      .select("total.sum()")
+      .gte("created_at", startOfLastMonth)
+      .lt("created_at", startOfMonth)
+      .neq("status", "cancelled"),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["processing", "packed"]),
+    supabase
+      .from("customised_products")
+      .select("id", { count: "exact", head: true })
+      .gt("quantity_stock", 0)
+      .lte("quantity_stock", 10),
+    supabase
+      .from("customised_products")
+      .select("id", { count: "exact", head: true })
+      .eq("quantity_stock", 0),
+    supabase.from("product_questions").select("id"),
+    supabase.from("product_answers").select("product_question_id"),
+    supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("review_status", "pending"),
+    supabase
+      .from("contact_us")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
+    supabase
+      .from("carts")
+      .select("id, cart_items!inner(id)", { count: "exact", head: true }),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfMonth),
+  ]);
 
-    const answeredIds = new Set(
-      (answersRes.data || []).map(
-        (a: { product_question_id: string }) => a.product_question_id,
-      ),
-    );
-    const unansweredQA = (questionsRes.data || []).filter(
-      (q: { id: string }) => !answeredIds.has(q.id),
-    ).length;
+  assertNoQueryErrors([
+    { label: "users", result: usersRes },
+    { label: "products", result: productsRes },
+    { label: "ordersMonthCount", result: ordersMonthCountRes },
+    { label: "ordersMonthRevenue", result: ordersMonthRevenueRes },
+    { label: "ordersLastMonthCount", result: ordersLastMonthCountRes },
+    { label: "ordersLastMonthRevenue", result: ordersLastMonthRevenueRes },
+    { label: "pendingOrders", result: pendingOrdersRes },
+    { label: "processingOrders", result: processingOrdersRes },
+    { label: "lowStock", result: lowStockRes },
+    { label: "outOfStock", result: outOfStockRes },
+    { label: "questions", result: questionsRes },
+    { label: "answers", result: answersRes },
+    { label: "reviews", result: reviewsRes },
+    { label: "contacts", result: contactsRes },
+    { label: "carts", result: cartsRes },
+    { label: "leads", result: leadsRes },
+  ]);
 
-    const revenueThisMonth = (ordersMonthRes.data || []).reduce(
-      (sum: number, order: { total: number | null }) =>
-        sum + Number(order.total || 0),
-      0,
-    );
+  const answeredIds = new Set(
+    (answersRes.data || []).map(
+      (a: { product_question_id: string }) => a.product_question_id,
+    ),
+  );
+  const unansweredQA = (questionsRes.data || []).filter(
+    (q: { id: string }) => !answeredIds.has(q.id),
+  ).length;
 
-    const statuses = ordersStatusRes.data || [];
-    const pendingOrders = statuses.filter(
-      (o: { status: string }) => o.status === "pending",
-    ).length;
-    const processingOrders = statuses.filter((o: { status: string }) =>
-      ["processing", "packed", "shipped"].includes(o.status),
-    ).length;
-
-    return {
-      totalUsers: usersRes.count || 0,
-      totalProducts: productsRes.count || 0,
-      totalOrdersThisMonth: ordersMonthRes.data?.length || 0,
-      revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
-      pendingOrders,
-      processingOrders,
-      lowStockItems: lowStockRes.count || 0,
-      outOfStockItems: outOfStockRes.count || 0,
-      unansweredQA,
-      pendingReviews: reviewsRes.count || 0,
-      newContacts: contactsRes.count || 0,
-      activeCarts: cartsRes.count || 0,
-      newLeadsThisMonth: leadsRes.count || 0,
-    };
-  } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
-    return { ...EMPTY_STATS };
-  }
+  return {
+    totalUsers: usersRes.count || 0,
+    totalProducts: productsRes.count || 0,
+    totalOrdersThisMonth: ordersMonthCountRes.count || 0,
+    revenueThisMonth: sumFromAggregate(
+      ordersMonthRevenueRes.data as
+        | Array<{ sum: number | null } | { total: number | null }>
+        | null,
+    ),
+    ordersLastMonth: ordersLastMonthCountRes.count || 0,
+    revenueLastMonth: sumFromAggregate(
+      ordersLastMonthRevenueRes.data as
+        | Array<{ sum: number | null } | { total: number | null }>
+        | null,
+    ),
+    pendingOrders: pendingOrdersRes.count || 0,
+    processingOrders: processingOrdersRes.count || 0,
+    lowStockItems: lowStockRes.count || 0,
+    outOfStockItems: outOfStockRes.count || 0,
+    unansweredQA,
+    pendingReviews: reviewsRes.count || 0,
+    newContacts: contactsRes.count || 0,
+    activeCarts: cartsRes.count || 0,
+    newLeadsThisMonth: leadsRes.count || 0,
+  };
 }
 
 export async function getRecentOrders(limit: number = 5): Promise<RecentOrder[]> {
@@ -363,6 +431,7 @@ export async function getPendingReviewsPreview(
         rating: row.rating,
         title: row.title,
         productName: productRow?.name || "Unknown product",
+        productId: row.product_id,
         created_at: row.created_at,
       };
     });
@@ -377,38 +446,55 @@ export async function getUnansweredQuestionsPreview(
 ): Promise<UnansweredQuestionItem[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    const { data: questions, error } = await supabase
+
+    const { data: answers, error: answersError } = await supabase
+      .from("product_answers")
+      .select("product_question_id");
+
+    if (answersError) {
+      console.error("Error fetching answers for unanswered preview:", answersError);
+      return [];
+    }
+
+    const answeredIds = [
+      ...new Set(
+        (answers || []).map(
+          (a: { product_question_id: string }) => a.product_question_id,
+        ),
+      ),
+    ];
+
+    let query = supabase
       .from("product_questions")
-      .select(
-        "id, question, created_at, product_id, products(name), product_answers(id)",
-      )
+      .select("id, question, created_at, product_id, products(name)")
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(limit);
+
+    if (answeredIds.length > 0) {
+      query = query.not("id", "in", `(${answeredIds.join(",")})`);
+    }
+
+    const { data: questions, error } = await query;
 
     if (error || !questions) {
       console.error("Error fetching unanswered questions:", error);
       return [];
     }
 
-    return questions
-      .filter((q) => {
-        const answers = q.product_answers as { id: string }[] | null;
-        return !answers || answers.length === 0;
-      })
-      .slice(0, limit)
-      .map((row) => {
-        const product = row.products as
-          | { name: string }
-          | { name: string }[]
-          | null;
-        const productRow = Array.isArray(product) ? product[0] : product;
-        return {
-          id: row.id,
-          question: row.question,
-          productName: productRow?.name || "Unknown product",
-          created_at: row.created_at,
-        };
-      });
+    return questions.map((row) => {
+      const product = row.products as
+        | { name: string }
+        | { name: string }[]
+        | null;
+      const productRow = Array.isArray(product) ? product[0] : product;
+      return {
+        id: row.id,
+        question: row.question,
+        productName: productRow?.name || "Unknown product",
+        productId: row.product_id,
+        created_at: row.created_at,
+      };
+    });
   } catch (error) {
     console.error("Error fetching unanswered questions:", error);
     return [];
@@ -503,24 +589,30 @@ export async function getTopSellingProducts(
 }
 
 export async function getOrderStatusBreakdown(): Promise<OrderStatusBreakdown[]> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.from("orders").select("status");
-    if (error || !data) {
-      console.error("Error fetching order status breakdown:", error);
-      return [];
-    }
+  const supabase = createSupabaseAdminClient();
 
-    const counts = new Map<string, number>();
-    for (const row of data) {
-      counts.set(row.status, (counts.get(row.status) || 0) + 1);
-    }
+  const results = await Promise.all(
+    ORDER_STATUSES.map((status) =>
+      supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("status", status)
+        .then((result) => ({ status, result })),
+    ),
+  );
 
-    return [...counts.entries()]
-      .map(([status, count]) => ({ status, count }))
-      .sort((a, b) => b.count - a.count);
-  } catch (error) {
-    console.error("Error fetching order status breakdown:", error);
-    return [];
-  }
+  assertNoQueryErrors(
+    results.map(({ status, result }) => ({
+      label: `status:${status}`,
+      result,
+    })),
+  );
+
+  return results
+    .map(({ status, result }) => ({
+      status,
+      count: result.count || 0,
+    }))
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count);
 }

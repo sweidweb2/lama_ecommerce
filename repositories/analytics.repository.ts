@@ -200,7 +200,7 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       { count: userCount },
       { count: productCount },
       { data: orders },
-      { data: carts },
+      { count: cartsCount },
       { data: reviews },
       { data: contactUs },
       { data: products },
@@ -217,7 +217,7 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
         .select("total"),
       supabase
         .from("carts")
-        .select("id"),
+        .select("id, cart_items!inner(id)", { count: "exact", head: true }),
       supabase
         .from("reviews")
         .select("id")
@@ -260,7 +260,7 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
       totalProducts: productCount || 0,
       totalOrders: orderCount,
       totalRevenue,
-      activeCarts: (carts || []).length,
+      activeCarts: cartsCount || 0,
       pendingReviews: (reviews || []).length,
       pendingContactUs: (contactUs || []).length,
       lowStockProducts: lowStockProductIds.size,
