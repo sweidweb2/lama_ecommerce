@@ -23,7 +23,7 @@ export default function AboutUsPage() {
               About LAMA
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Your trusted destination for quality products. We're committed to providing exceptional shopping experiences with a wide selection of products and outstanding customer service.
+              Your trusted destination for quality products. We{"'"}re committed to providing exceptional shopping experiences with a wide selection of products and outstanding customer service.
             </p>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function AboutUsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground leading-relaxed text-lg">
-                  At LAMA, we believe that shopping should be simple, enjoyable, and accessible to everyone. Our mission is to provide a seamless online marketplace where customers can discover quality products, enjoy competitive prices, and receive exceptional service. We're dedicated to building trust, fostering community, and continuously improving our platform to meet your needs.
+                  At LAMA, we believe that shopping should be simple, enjoyable, and accessible to everyone. Our mission is to provide a seamless online marketplace where customers can discover quality products, enjoy competitive prices, and receive exceptional service. We{"'"}re dedicated to building trust, fostering community, and continuously improving our platform to meet your needs.
                 </p>
               </CardContent>
             </Card>

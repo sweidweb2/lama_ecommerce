@@ -1,28 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "@/components/ui/link";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { PENDING_ORDER_DETAILS_PATH_KEY } from "@/lib/validators/checkout/checkout";
+
+function subscribePendingOrderPath(_onStoreChange: () => void) {
+  return () => {};
+}
+
+function getPendingOrderPathSnapshot(): string | null {
+  try {
+    const stored = sessionStorage.getItem(PENDING_ORDER_DETAILS_PATH_KEY);
+    if (stored && stored.startsWith("/order_details/")) {
+      return stored;
+    }
+  } catch {
+    // sessionStorage unavailable — no banner
+  }
+  return null;
+}
+
+function getPendingOrderPathServerSnapshot(): string | null {
+  return null;
+}
 
 /**
  * Shows when checkout succeeded but the user may have missed the redirect
  * (e.g. navigated away mid-flow). Path is stored in sessionStorage by CartSidebar.
  */
 export function PendingOrderResumeBanner() {
-  const [orderPath, setOrderPath] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(PENDING_ORDER_DETAILS_PATH_KEY);
-      if (stored && stored.startsWith("/order_details/")) {
-        setOrderPath(stored);
-      }
-    } catch {
-      // sessionStorage unavailable — no banner
-    }
-  }, []);
+  const storedPath = useSyncExternalStore(
+    subscribePendingOrderPath,
+    getPendingOrderPathSnapshot,
+    getPendingOrderPathServerSnapshot,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  const orderPath = dismissed ? null : storedPath;
 
   const clearPending = () => {
     try {
@@ -30,7 +45,7 @@ export function PendingOrderResumeBanner() {
     } catch {
       // ignore
     }
-    setOrderPath(null);
+    setDismissed(true);
   };
 
   if (!orderPath) return null;

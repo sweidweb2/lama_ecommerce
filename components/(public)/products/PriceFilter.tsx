@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Slider } from '@/components/ui/slider'
 
@@ -14,6 +14,25 @@ interface PriceFilterProps {
 const DEFAULT_MIN = 0
 const DEFAULT_MAX = 1000
 
+function resolveRange(
+    value: [number, number] | undefined,
+    searchParams: URLSearchParams,
+    minPrice: number,
+    maxPrice: number,
+): [number, number] {
+    if (value !== undefined) return value
+    const minParam = searchParams.get('minPrice')
+    const maxParam = searchParams.get('maxPrice')
+    if (minParam && maxParam) {
+        const min = parseFloat(minParam)
+        const max = parseFloat(maxParam)
+        if (!isNaN(min) && !isNaN(max)) {
+            return [min, max]
+        }
+    }
+    return [minPrice, maxPrice]
+}
+
 export function PriceFilter({ 
     minPrice = DEFAULT_MIN, 
     maxPrice = DEFAULT_MAX,
@@ -22,27 +41,17 @@ export function PriceFilter({
 }: PriceFilterProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const [localValue, setLocalValue] = useState<[number, number]>(
-        value ?? [minPrice, maxPrice]
-    )
+    const externalValue = resolveRange(value, searchParams, minPrice, maxPrice)
+    const [localValue, setLocalValue] = useState<[number, number]>(externalValue)
+    const [prevExternal, setPrevExternal] = useState(externalValue)
 
-    useEffect(() => {
-        if (value !== undefined) {
-            setLocalValue(value)
-            return
-        }
-        const minParam = searchParams.get('minPrice')
-        const maxParam = searchParams.get('maxPrice')
-        if (minParam && maxParam) {
-            const min = parseFloat(minParam)
-            const max = parseFloat(maxParam)
-            if (!isNaN(min) && !isNaN(max)) {
-                setLocalValue([min, max])
-                return
-            }
-        }
-        setLocalValue([minPrice, maxPrice])
-    }, [minPrice, maxPrice, searchParams, value])
+    if (
+        externalValue[0] !== prevExternal[0] ||
+        externalValue[1] !== prevExternal[1]
+    ) {
+        setPrevExternal(externalValue)
+        setLocalValue(externalValue)
+    }
 
     const handleValueChange = (newValue: number[]) => {
         setLocalValue([newValue[0], newValue[1]])

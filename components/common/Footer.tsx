@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import Link from "@/components/ui/link"
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -22,13 +22,28 @@ import { toast } from 'sonner'
 const LOGO_LIGHT = '/aviora-logo-nav-footer-light.png'
 const LOGO_DARK = '/aviora-logo-white.png'
 
+function subscribeToNothing(_onStoreChange: () => void) {
+  return () => {}
+}
+
+function getClientMountedSnapshot() {
+  return true
+}
+
+function getServerMountedSnapshot() {
+  return false
+}
+
 export function Footer() {
   const pathname = usePathname()
   const { resolvedTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot,
+  )
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  useEffect(() => setMounted(true), [])
   const logoSrc = mounted && resolvedTheme === 'dark' ? LOGO_DARK : LOGO_LIGHT
 
   // Hide footer on admin routes and product detail pages

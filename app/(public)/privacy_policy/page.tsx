@@ -106,7 +106,7 @@ export default function PolicyPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">1. Introduction</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  Your privacy is important to us. This Privacy Policy explains how LAMA ("we," "us," "our") collects, uses, and protects your personal information when you use our Platform and services.
+                  Your privacy is important to us. This Privacy Policy explains how LAMA ({'"'}we,{'"'} {'"'}us,{'"'} {'"'}our{'"'}) collects, uses, and protects your personal information when you use our Platform and services.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   We are committed to protecting your privacy and ensuring the security of your personal data in accordance with applicable data protection laws and regulations.
@@ -268,7 +268,7 @@ export default function PolicyPage() {
                 id="children" 
                 className="mb-8 scroll-mt-24 p-6 w-full"
               >
-                <h2 className="text-2xl font-semibold text-foreground mb-4">11. Children's Privacy</h2>
+                <h2 className="text-2xl font-semibold text-foreground mb-4">11. Children{"'"}s Privacy</h2>
                 <p className="text-muted-foreground leading-relaxed">
                   We do not knowingly collect information from minors under 13. Parents or guardians who believe a child has provided data may contact us for immediate deletion.
                 </p>

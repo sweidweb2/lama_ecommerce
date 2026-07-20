@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
     Dialog,
@@ -54,40 +54,40 @@ function getColorValue(colorName: string): string {
     return colorMap[normalized] || '#6b7280'
 }
 
+function parseColorsParam(param: string | null): string[] {
+    if (!param) return []
+    return param
+        .split(',')
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean)
+}
+
+function parseSizesParam(param: string | null): string[] {
+    if (!param) return []
+    return param
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+}
+
 export function VariantFilterButton() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
+    const urlColors = parseColorsParam(searchParams.get('colors'))
+    const urlSizes = parseSizesParam(searchParams.get('sizes'))
+
     const [open, setOpen] = useState(false)
-    const [selectedColors, setSelectedColors] = useState<string[]>([])
-    const [selectedSizes, setSelectedSizes] = useState<string[]>([])
+    const [selectedColors, setSelectedColors] = useState<string[]>(urlColors)
+    const [selectedSizes, setSelectedSizes] = useState<string[]>(urlSizes)
 
-    // Sync from URL
-    useEffect(() => {
-        const colorsParam = searchParams.get('colors')
-        if (!colorsParam) {
-            setSelectedColors([])
-        } else {
-            setSelectedColors(
-                colorsParam
-                    .split(',')
-                    .map((c) => c.trim().toLowerCase())
-                    .filter(Boolean),
-            )
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (nextOpen) {
+            setSelectedColors(urlColors)
+            setSelectedSizes(urlSizes)
         }
-
-        const sizesParam = searchParams.get('sizes')
-        if (!sizesParam) {
-            setSelectedSizes([])
-        } else {
-            setSelectedSizes(
-                sizesParam
-                    .split(',')
-                    .map((s) => s.trim().toUpperCase())
-                    .filter(Boolean),
-            )
-        }
-    }, [searchParams])
+        setOpen(nextOpen)
+    }
 
     const toggleColor = (color: string) => {
         const normalized = color.toLowerCase()
@@ -137,22 +137,21 @@ export function VariantFilterButton() {
         setOpen(false)
     }
 
-    const hasActive =
-        selectedColors.length > 0 || selectedSizes.length > 0
+    const hasActive = urlColors.length > 0 || urlSizes.length > 0
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <Button
                 type="button"
                 variant={hasActive ? 'default' : 'outline'}
                 size="sm"
                 className="w-full justify-between"
-                onClick={() => setOpen(true)}
+                onClick={() => handleOpenChange(true)}
             >
                 Filters
                 {hasActive && (
                     <span className="ml-2 rounded-full bg-background/80 border border-border px-2 text-xs">
-                        {selectedColors.length + selectedSizes.length}
+                        {urlColors.length + urlSizes.length}
                     </span>
                 )}
             </Button>
@@ -262,4 +261,3 @@ export function VariantFilterButton() {
         </Dialog>
     )
 }
-

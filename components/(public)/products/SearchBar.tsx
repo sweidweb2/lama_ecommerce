@@ -26,9 +26,18 @@ export function SearchBar({
     const router = useRouter()
     const searchParams = useSearchParams()
     const queryParam = href === ROUTES.PRODUCTS ? 'search' : 'q'
-    const [query, setQuery] = useState(
-        searchParams.get(queryParam) || searchParams.get('search') || searchParams.get('q') || '',
-    )
+    const urlQuery =
+        searchParams.get(queryParam) ||
+        searchParams.get('search') ||
+        searchParams.get('q') ||
+        ''
+    const [query, setQuery] = useState(urlQuery)
+    const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery)
+
+    if (urlQuery !== prevUrlQuery) {
+        setPrevUrlQuery(urlQuery)
+        setQuery(urlQuery)
+    }
 
     // Handle '/' keyboard shortcut
     useEffect(() => {
@@ -42,16 +51,10 @@ export function SearchBar({
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [])
 
-    // Update query when URL search param changes
+    // Notify parent when URL-driven query changes (no setState here)
     useEffect(() => {
-        const urlQuery =
-            searchParams.get(queryParam) ||
-            searchParams.get('search') ||
-            searchParams.get('q') ||
-            ''
-        setQuery(urlQuery)
         onSearchChange?.(urlQuery)
-    }, [searchParams, onSearchChange, queryParam])
+    }, [urlQuery, onSearchChange])
 
     // If onSearchChange is provided, use client-side filtering
     const isClientSide = !!onSearchChange

@@ -221,7 +221,9 @@ export async function getAdminProductsPage(
 
     let from = (page - 1) * pageSize;
     let to = from + pageSize - 1;
-    let { data, error, count } = await buildQuery().range(from, to);
+    const firstPage = await buildQuery().range(from, to);
+    const { error, count } = firstPage;
+    let { data } = firstPage;
 
     if (error) {
       console.error("Error fetching admin products page:", error);

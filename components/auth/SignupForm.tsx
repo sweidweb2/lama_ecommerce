@@ -132,7 +132,7 @@ export function SignupForm() {
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
           <p className="text-sm text-muted-foreground">
-            We've sent a verification link to{" "}
+            We{"'"}ve sent a verification link to{" "}
             <span className="font-medium text-foreground">
               {form.getValues("email")}
             </span>

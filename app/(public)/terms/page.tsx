@@ -107,7 +107,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  By accessing or using the LAMA E-Commerce website, platform, or any associated digital services ("Platform"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, you must not use the Platform.
+                  By accessing or using the LAMA E-Commerce website, platform, or any associated digital services ({'"'}Platform{'"'}), you agree to be bound by these Terms of Service ({'"'}Terms{'"'}). If you do not agree, you must not use the Platform.
                 </p>
               </Card>
 

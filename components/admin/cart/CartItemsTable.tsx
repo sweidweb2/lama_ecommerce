@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import {
   Table,
   TableBody,
@@ -37,6 +37,21 @@ export function CartItemsTable({ cartId, items, isDeleted = false }: CartItemsTa
   const [minQuantityFilter, setMinQuantityFilter] = useState<string>("")
   const [maxQuantityFilter, setMaxQuantityFilter] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
+
+  const filterKey = [
+    productNameFilter,
+    variantFilter,
+    minPriceFilter,
+    maxPriceFilter,
+    minQuantityFilter,
+    maxQuantityFilter,
+  ].join("|")
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey)
+
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey)
+    setCurrentPage(1)
+  }
 
   const calculateItemTotal = (item: CartItem) => {
     const price = item.price || 0
@@ -122,11 +137,6 @@ export function CartItemsTable({ cartId, items, isDeleted = false }: CartItemsTa
     setCurrentPage(page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [productNameFilter, variantFilter, minPriceFilter, maxPriceFilter, minQuantityFilter, maxQuantityFilter])
 
   return (
     <div className="space-y-4">

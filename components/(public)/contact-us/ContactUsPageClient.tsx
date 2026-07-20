@@ -93,7 +93,7 @@ export function ContactUsPageClient() {
                 <CardHeader>
                   <CardTitle className="text-2xl">Send us a Message</CardTitle>
                   <CardDescription>
-                    Fill out the form below and we'll get back to you as soon as possible.
+                    Fill out the form below and we{"'"}ll get back to you as soon as possible.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -338,7 +338,7 @@ export function ContactUsPageClient() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground text-sm">
-                    Once your order ships, you'll receive a tracking number via email. You can use this to track your package on our website.
+                    Once your order ships, you{"'"}ll receive a tracking number via email. You can use this to track your package on our website.
                   </p>
                 </CardContent>
               </Card>
@@ -371,7 +371,7 @@ export function ContactUsPageClient() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground text-sm">
-                    Please contact us immediately if you need to modify your order. We'll do our best to accommodate your request.
+                    Please contact us immediately if you need to modify your order. We{"'"}ll do our best to accommodate your request.
                   </p>
                 </CardContent>
               </Card>

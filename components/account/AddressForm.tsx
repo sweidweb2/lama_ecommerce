@@ -1,11 +1,11 @@
-// @ts-nocheck
 "use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { addressBaseSchema, type AddressBaseInput } from "@/lib/validators/user_address/base";
+import { z } from "zod";
+import { addressBaseSchema } from "@/lib/validators/user_address/base";
 import { createAddressAction, updateAddressAction } from "@/actions/address";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/form";
 import type { UserAddress } from "@/types/user";
 
+type AddressFormValues = z.input<typeof addressBaseSchema>;
+type AddressFormOutput = z.output<typeof addressBaseSchema>;
+
 interface AddressFormProps {
   address?: UserAddress | null;
   onSuccess?: () => void;
@@ -28,7 +31,7 @@ interface AddressFormProps {
 export function AddressForm({ address, onSuccess, onCancel }: AddressFormProps) {
   const isEdit = Boolean(address?.id);
 
-  const form = useForm<AddressBaseInput>({
+  const form = useForm<AddressFormValues, unknown, AddressFormOutput>({
     resolver: zodResolver(addressBaseSchema),
     defaultValues: {
       country: address?.country ?? "",
@@ -40,7 +43,7 @@ export function AddressForm({ address, onSuccess, onCancel }: AddressFormProps) 
     },
   });
 
-  const onSubmit = async (data: AddressBaseInput) => {
+  const onSubmit = async (data: AddressFormOutput) => {
     if (isEdit && address) {
       const result = await updateAddressAction(address.id, {
         country: data.country,
@@ -165,7 +168,7 @@ export function AddressForm({ address, onSuccess, onCancel }: AddressFormProps) 
               <FormControl>
                 <input
                   type="checkbox"
-                  checked={field.value}
+                  checked={Boolean(field.value)}
                   onChange={field.onChange}
                   className="h-4 w-4 rounded border-input"
                 />

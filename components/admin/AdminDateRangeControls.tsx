@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "@/components/ui/link"
 import { Input } from "@/components/ui/input"
@@ -41,11 +41,15 @@ export function AdminDateRangeControls({
   const router = useRouter()
   const [from, setFrom] = useState(fromDate)
   const [to, setTo] = useState(toDate)
+  const [prevFromDate, setPrevFromDate] = useState(fromDate)
+  const [prevToDate, setPrevToDate] = useState(toDate)
 
-  useEffect(() => {
+  if (fromDate !== prevFromDate || toDate !== prevToDate) {
+    setPrevFromDate(fromDate)
+    setPrevToDate(toDate)
     setFrom(fromDate)
     setTo(toDate)
-  }, [fromDate, toDate])
+  }
 
   const navigate = useCallback(
     (params: URLSearchParams) => {

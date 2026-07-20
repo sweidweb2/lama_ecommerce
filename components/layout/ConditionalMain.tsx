@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { Navbar } from "@/components/common/Navbar"
 import { Footer } from "@/components/common/Footer"
@@ -9,13 +9,25 @@ interface ConditionalLayoutProps {
   children: React.ReactNode
 }
 
+function subscribeToNothing(_onStoreChange: () => void) {
+  return () => {}
+}
+
+function getClientMountedSnapshot() {
+  return true
+}
+
+function getServerMountedSnapshot() {
+  return false
+}
+
 export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot,
+  )
 
   // During SSR and initial render, always render public layout to avoid hydration mismatch
   // After mount, we can safely check the pathname

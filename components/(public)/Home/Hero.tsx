@@ -24,11 +24,17 @@ export function Hero() {
             return;
         }
 
-        setCurrent(api.selectedScrollSnap());
-
-        api.on("select", () => {
+        const onSelect = () => {
             setCurrent(api.selectedScrollSnap());
-        });
+        };
+
+        // Defer initial sync so setState is not synchronous inside the effect.
+        queueMicrotask(onSelect);
+        api.on("select", onSelect);
+
+        return () => {
+            api.off("select", onSelect);
+        };
     }, [api]);
 
     // Trigger zoom animation when slide changes

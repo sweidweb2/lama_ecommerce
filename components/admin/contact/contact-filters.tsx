@@ -28,6 +28,25 @@ export function ContactFilters({
   const [email, setEmail] = useState(initialEmail)
   const [from, setFrom] = useState(initialFrom)
   const [to, setTo] = useState(initialTo)
+  const [prevInitials, setPrevInitials] = useState({
+    initialName,
+    initialEmail,
+    initialFrom,
+    initialTo,
+  })
+
+  if (
+    initialName !== prevInitials.initialName ||
+    initialEmail !== prevInitials.initialEmail ||
+    initialFrom !== prevInitials.initialFrom ||
+    initialTo !== prevInitials.initialTo
+  ) {
+    setPrevInitials({ initialName, initialEmail, initialFrom, initialTo })
+    setName(initialName)
+    setEmail(initialEmail)
+    setFrom(initialFrom)
+    setTo(initialTo)
+  }
 
   const pushParams = useCallback(
     (n: string, e: string, f: string, t: string) => {
@@ -47,13 +66,7 @@ export function ContactFilters({
     [pathname, router],
   )
 
-  useEffect(() => {
-    setName(initialName)
-    setEmail(initialEmail)
-    setFrom(initialFrom)
-    setTo(initialTo)
-  }, [initialName, initialEmail, initialFrom, initialTo])
-
+  // Debounce URL updates from local filter state
   useEffect(() => {
     const timer = setTimeout(() => pushParams(name, email, from, to), DEBOUNCE_MS)
     return () => clearTimeout(timer)

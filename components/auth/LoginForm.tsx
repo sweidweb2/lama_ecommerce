@@ -210,7 +210,7 @@ export function LoginForm() {
       </Form>
 
       <div className="text-center text-sm text-muted-foreground">
-        Don't have an account?{" "}
+        Don{"'"}t have an account?{" "}
         <Link
           href={ROUTES.SIGNUP || "/auth/signup"}
           className="text-primary hover:underline font-medium transition-colors"

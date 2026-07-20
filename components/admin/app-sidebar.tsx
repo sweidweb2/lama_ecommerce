@@ -25,7 +25,7 @@ import {
 } from "lucide-react"
 import Link from "@/components/ui/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -222,20 +222,25 @@ export function AppSidebar(
       .map((item) => item.id)
   }, [pathname])
 
-  useEffect(() => {
-    if (activeGroupIds.length === 0) return
-    setExpanded((prev) => {
-      const next = { ...prev }
-      let changed = false
-      for (const id of activeGroupIds) {
-        if (!next[id]) {
-          next[id] = true
-          changed = true
+  const activeGroupKey = activeGroupIds.join("|")
+  const [prevActiveGroupKey, setPrevActiveGroupKey] = useState(activeGroupKey)
+
+  if (activeGroupKey !== prevActiveGroupKey) {
+    setPrevActiveGroupKey(activeGroupKey)
+    if (activeGroupIds.length > 0) {
+      setExpanded((prev) => {
+        const next = { ...prev }
+        let changed = false
+        for (const id of activeGroupIds) {
+          if (!next[id]) {
+            next[id] = true
+            changed = true
+          }
         }
-      }
-      return changed ? next : prev
-    })
-  }, [activeGroupIds])
+        return changed ? next : prev
+      })
+    }
+  }
 
   return (
     <Sidebar collapsible="icon" {...props}>
