@@ -95,7 +95,7 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {error && <p className="text-sm text-destructive">{error}</p>}
                   <p className="text-xs text-muted-foreground">
-                    Submitting an answer also approves this question for the storefront.
+                    Submitting an answer also approves this question for the user pages.
                   </p>
                   <Textarea
                     value={answer}
@@ -106,9 +106,10 @@ export function ViewQuestionDialog({ question }: ViewQuestionDialogProps) {
                   <div className="flex justify-end">
                     <Button
                       type="submit"
-                      disabled={isSubmitting || !answer.trim()}
+                      loading={isSubmitting}
+                      disabled={!answer.trim()}
                     >
-                      {isSubmitting ? "Submitting..." : "Submit Answer"}
+                      Submit Answer
                     </Button>
                   </div>
                 </form>

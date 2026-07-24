@@ -210,8 +210,8 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save changes
               </Button>
             </DialogFooter>
           </form>

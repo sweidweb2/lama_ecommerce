@@ -94,7 +94,7 @@ _None verified that block an active user from changing password or managing addr
 
 
 
-Misleading **John Doe** hub under `/profile` — **resolved:** `/profile` and `/profile/setting` redirect to `/account`; admin header → `/account` (see `[04]`).
+Misleading **John Doe** hub under `/profile` — **resolved:** `/profile` and `/profile/setting` redirect to `/account`. Admins are redirected from `/account` to `/admin/account` (name + password only; no addresses).
 
 
 

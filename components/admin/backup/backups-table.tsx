@@ -112,9 +112,9 @@ function DeleteBackupDialog({ backup }: { backup: BackupRow }) {
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -188,10 +188,11 @@ export function BackupsTable({ backups }: BackupsTableProps) {
         <Button
           className="w-full sm:w-auto"
           onClick={handleExtractDatabase}
-          disabled={extracting}
+          loading={extracting}
+          loadingText="Extract Database"
         >
           <FileDown className="mr-2 h-4 w-4" />
-          {extracting ? "Extracting..." : "Extract Database"}
+          Extract Database
         </Button>
       </div>
 

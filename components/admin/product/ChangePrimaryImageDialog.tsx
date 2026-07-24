@@ -160,9 +160,10 @@ export function ChangePrimaryImageDialog({
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting}
+              loading={isSubmitting}
+              disabled={!canSubmit}
             >
-              {isSubmitting ? "Saving..." : "Change Primary"}
+              Change Primary
             </Button>
           </DialogFooter>
         </DialogContent>

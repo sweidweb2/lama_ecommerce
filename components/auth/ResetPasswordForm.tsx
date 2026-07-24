@@ -5,7 +5,7 @@ import Link from "@/components/ui/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { CheckCircle2Icon, Loader2Icon, MailIcon } from "lucide-react";
+import { CheckCircle2Icon, MailIcon } from "lucide-react";
 import {
   requestPasswordResetSchema,
   type RequestPasswordResetInput,
@@ -147,17 +147,10 @@ export function ResetPasswordForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            loading={isLoading}
             size="lg"
           >
-            {isLoading ? (
-              <>
-                <Loader2Icon className="size-4 animate-spin" />
-                Sending link...
-              </>
-            ) : (
-              "Send reset link"
-            )}
+            Send reset link
           </Button>
         </form>
       </Form>

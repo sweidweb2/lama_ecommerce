@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageIcon, Loader2, X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { removeWishlistItemAction } from "@/actions/wishlist";
 import { Button } from "@/components/ui/button";
@@ -71,14 +71,11 @@ export function UnavailableWishlistCard({
               "hover:bg-background",
             )}
             onClick={handleRemove}
-            disabled={isRemoving}
+            loading={isRemoving}
+            loadingText=""
             aria-label="Remove unavailable item from wishlist"
           >
-            {isRemoving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <X className="h-4 w-4" />
-            )}
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>

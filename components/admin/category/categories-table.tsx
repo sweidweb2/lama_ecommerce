@@ -19,7 +19,9 @@ interface CategoriesTableProps {
   allCategories: Category[]
   productCounts: Record<string, number>
   updateCategoryAction: (formData: FormData) => void | Promise<void>
-  deleteCategoryAction: (formData: FormData) => void | Promise<void>
+  deleteCategoryAction: (
+    formData: FormData,
+  ) => Promise<{ success: true } | { success: false; error: string }>
 }
 
 export function CategoriesTable({

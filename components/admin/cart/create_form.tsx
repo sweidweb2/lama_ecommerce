@@ -168,9 +168,10 @@ export function CreateCartDialog() {
               </Button>
               <Button
                 type="submit"
-                disabled={(userId === NONE_VALUE && !sessionId.trim()) || isSubmitting}
+                loading={isSubmitting}
+                disabled={userId === NONE_VALUE && !sessionId.trim()}
               >
-                {isSubmitting ? "Creating..." : "Create Cart"}
+                Create Cart
               </Button>
             </DialogFooter>
           </form>

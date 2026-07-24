@@ -227,9 +227,10 @@ export function Footer() {
                   disabled={isSubmitting}
                   aria-label="Email for updates"
                 />
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
+                <Button
+                  type="submit"
+                  loading={isSubmitting}
+                  loadingText={<span className="sr-only">Subscribe</span>}
                   size="icon"
                   className="h-8 w-8 shrink-0"
                 >

@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import {
   EyeIcon,
   EyeOffIcon,
-  Loader2Icon,
   MailIcon,
   LockIcon,
   UserIcon,
@@ -317,17 +316,10 @@ export function SignupForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            loading={isLoading}
             size="lg"
           >
-            {isLoading ? (
-              <>
-                <Loader2Icon className="size-4 animate-spin" />
-                Creating account...
-              </>
-            ) : (
-              "Create account"
-            )}
+            Create account
           </Button>
         </form>
       </Form>

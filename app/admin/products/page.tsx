@@ -1,14 +1,17 @@
 import { Button } from "@/components/ui/button";
-import { Eye, Grid3x3, Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import Link from "@/components/ui/link";
-import { ProductsTable } from "@/components/admin/product/ProductsTable";
+import {
+  ProductsCatalogClient,
+  type AdminProductRow,
+} from "@/components/admin/product/ProductsCatalogClient";
 import { ProductStats } from "@/components/admin/product/ProductStats";
-import { type AdminProduct } from "@/components/admin/product/edit_form";
 import {
   getAdminProductsPageService,
   getAdminProductCatalogStatsService,
   getAdminProductStockFlagsService,
 } from "@/services/product.service";
+import { getProductVariantsByProductIdsService } from "@/services/product_variant.service";
 import { getBrandsService } from "@/services/brand.service";
 import { getAdminCategoriesService } from "@/services/categories.service";
 import { encryptOrderId } from "@/lib/utils/encryption";
@@ -17,12 +20,7 @@ import {
   ADMIN_PRODUCTS_TABLE_PAGE_SIZE,
   parseAdminProductsListParams,
 } from "@/lib/admin/products-list-params";
-
-export type AdminProductRow = AdminProduct & {
-  encryptedId?: string;
-  hasLowStock?: boolean;
-  hasOutOfStock?: boolean;
-};
+import type { ProductVariant } from "@/types/product";
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -54,7 +52,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     pageResult.products.map((p) => p.id),
   );
 
-  const adminProducts: AdminProductRow[] = pageResult.products.map((p) => {
+  const variantsByProductId = new Map<string, ProductVariant[]>();
+  if (pageResult.products.length > 0) {
+    const variants = await getProductVariantsByProductIdsService(
+      pageResult.products.map((p) => p.id),
+    );
+    for (const variant of variants) {
+      const list = variantsByProductId.get(variant.product_id) ?? [];
+      list.push(variant);
+      variantsByProductId.set(variant.product_id, list);
+    }
+  }
+
+  const tableProducts: AdminProductRow[] = pageResult.products.map((p) => {
     const primaryImage =
       p.images?.find((img) => img.is_primary) ?? p.images?.[0] ?? null;
     const flags = stockFlags[p.id];
@@ -75,8 +85,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       encryptedId: encryptOrderId(p.id),
       hasLowStock: flags?.hasLowStock ?? false,
       hasOutOfStock: flags?.hasOutOfStock ?? false,
+      variants: variantsByProductId.get(p.id) ?? [],
     };
   });
+
+  const gridProducts = pageResult.products.map((p) => ({
+    ...p,
+    encryptedId: encryptOrderId(p.id),
+  }));
 
   return (
     <div className="space-y-6">
@@ -101,12 +117,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               Product Views
             </Button>
           </Link>
-          <Link href="/admin/products/grid">
-            <Button variant="outline" className="w-full sm:w-auto">
-              <Grid3x3 className="mr-2 h-4 w-4" />
-              Grid view
-            </Button>
-          </Link>
           <Link href="/admin/products/create">
             <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
@@ -118,8 +128,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
       <ProductStats stats={catalogStats} />
 
-      <ProductsTable
-        products={adminProducts}
+      <ProductsCatalogClient
+        tableProducts={tableProducts}
+        gridProducts={gridProducts}
         brands={brands}
         categories={categories}
         totalCount={pageResult.totalCount}

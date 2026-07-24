@@ -103,10 +103,11 @@ export function WishlistItemCard({
         size="icon"
         className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full shadow-sm border border-border/60 bg-background/95 hover:bg-background"
         onClick={handleRemove}
-        disabled={isPending}
+        loading={isPending}
+        loadingText=""
         aria-label={`Remove ${product.name} from wishlist`}
       >
-        <X className={`h-4 w-4 ${isPending ? 'opacity-50' : ''}`} />
+        <X className="h-4 w-4" />
       </Button>
       {variantLine && (
         <p
@@ -121,11 +122,12 @@ export function WishlistItemCard({
         variant="outline"
         size="sm"
         className="w-full gap-1.5"
-        disabled={isAdding}
+        loading={isAdding}
+        loadingText="Add to cart"
         onClick={handleAddToCart}
       >
         <ShoppingBag className="h-3.5 w-3.5" />
-        {isAdding ? 'Adding…' : 'Add to cart'}
+        Add to cart
       </Button>
     </div>
   )

@@ -25,6 +25,8 @@ const GENERIC_HANDOFF_TOAST = {
     "Refresh the page or sign in again to retry. Your guest session is still saved.",
 } as const;
 
+const HANDOFF_AUTH_RETRY_DELAYS_MS = [0, 150, 400] as const;
+
 function guestHandoffFailureToast(result: GuestHandoffResult): {
   title: string;
   description: string;
@@ -56,6 +58,12 @@ function guestHandoffFailureToast(result: GuestHandoffResult): {
     default:
       return GENERIC_HANDOFF_TOAST;
   }
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 interface AuthProviderProps {
@@ -104,21 +112,40 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       }
     };
 
-    const runGuestHandoff = () => {
-      mergeGuestCartOnLoginAction()
-        .then((result) => {
-          if (!result.success) {
-            const { title, description } = guestHandoffFailureToast(result);
-            toast.error(title, { description });
-            console.error("Guest session handoff failed:", result.error);
-          }
-        })
-        .catch((err) => {
+    const runGuestHandoff = async (event: "SIGNED_IN" | "INITIAL_SESSION") => {
+      // onAuthStateChange can fire before @supabase/ssr finishes writing cookies,
+      // so the server action briefly sees no session. Retry with short backoff.
+      let result: GuestHandoffResult | null = null;
+
+      for (let attempt = 0; attempt < HANDOFF_AUTH_RETRY_DELAYS_MS.length; attempt++) {
+        const waitMs = HANDOFF_AUTH_RETRY_DELAYS_MS[attempt];
+        if (waitMs > 0) await delay(waitMs);
+
+        try {
+          result = await mergeGuestCartOnLoginAction();
+        } catch (err) {
+          console.error("Guest session handoff failed:", err);
           toast.error(GENERIC_HANDOFF_TOAST.title, {
             description: GENERIC_HANDOFF_TOAST.description,
           });
-          console.error("Guest session handoff failed:", err);
-        });
+          return;
+        }
+
+        if (result.success) return;
+        if (result.failedStep !== "auth") break;
+      }
+
+      if (!result || result.success) return;
+
+      // INITIAL_SESSION often races cookies on hard refresh; don't alarm the user.
+      // SIGNED_IN after retries still warrants a toast (guest cart may be stuck).
+      if (result.failedStep === "auth" && event === "INITIAL_SESSION") {
+        return;
+      }
+
+      const { title, description } = guestHandoffFailureToast(result);
+      toast.error(title, { description });
+      console.error("Guest session handoff failed:", result.error);
     };
 
     // 2. Listen for auth changes
@@ -132,13 +159,13 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
 
         // Claim orders + merge cart + claim wishlist; cookie cleared only on full success
         if (event === "SIGNED_IN") {
-          runGuestHandoff();
+          void runGuestHandoff("SIGNED_IN");
         }
       } else if (event === "INITIAL_SESSION") {
         // Email-confirm / hard refresh: often INITIAL_SESSION instead of SIGNED_IN.
         // No-ops when there is no guest cookie.
         if (session?.user) {
-          runGuestHandoff();
+          void runGuestHandoff("INITIAL_SESSION");
         }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);

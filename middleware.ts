@@ -223,7 +223,7 @@ export async function middleware(request: NextRequest) {
     return ensureGuestSessionCookie(request, response);
   }
 
-  // Account routes - require authenticated user with active profile
+  // Account routes - customers only; admins use /admin/account
   if (pathname.startsWith("/account")) {
     const { profile, user, response, supabase } =
       await getProfileFromSession(request);
@@ -236,6 +236,14 @@ export async function middleware(request: NextRequest) {
 
     if (!profile.is_active) {
       return rejectInactiveHtml(request, supabase, response);
+    }
+
+    if (profile.role === ROLES.ADMIN) {
+      const redirectResponse = NextResponse.redirect(
+        new URL("/admin/account", request.url),
+      );
+      copyCookies(response, redirectResponse);
+      return redirectResponse;
     }
 
     return response;

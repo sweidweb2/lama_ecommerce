@@ -67,9 +67,9 @@ export function DeleteShippingZoneDialog({ zone, onDelete, showText = false }: D
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Zone"}
+              Delete Zone
             </Button>
           </DialogFooter>
         </DialogContent>

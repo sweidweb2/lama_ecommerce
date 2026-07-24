@@ -98,9 +98,9 @@ export function DeleteReviewDialog({ review, onDelete, showText = false }: Delet
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Review"}
+              Delete Review
             </Button>
           </DialogFooter>
         </DialogContent>

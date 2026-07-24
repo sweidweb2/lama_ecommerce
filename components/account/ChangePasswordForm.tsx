@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import {
   accountChangePasswordSchema,
   type AccountChangePasswordInput,
@@ -169,15 +169,8 @@ export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto">
-          {form.formState.isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            "Update password"
-          )}
+        <Button type="submit" loading={form.formState.isSubmitting} className="w-full sm:w-auto">
+          Update password
         </Button>
       </form>
     </Form>

@@ -97,9 +97,9 @@ export function DeleteOrderDialog({ order, onDelete, showText = false, redirectA
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Order"}
+              Delete Order
             </Button>
           </DialogFooter>
         </DialogContent>

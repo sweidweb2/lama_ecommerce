@@ -62,7 +62,7 @@ export async function getAllProductViewsAction(
 export async function getProductViewsByProductIdAction(
   productId: string,
   page: number = 1,
-  pageSize: number = 20,
+  pageSize: number = 25,
 ) {
   await requireAdmin();
   return getProductViewsByProductIdService(productId, page, pageSize);

@@ -10,11 +10,16 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import type { Category } from "@/types/product"
+
+type DeleteCategoryActionResult =
+  | { success: true }
+  | { success: false; error: string }
 
 interface DeleteCategoryDialogProps {
   category: Category
-  action: (formData: FormData) => void | Promise<void>
+  action: (formData: FormData) => Promise<DeleteCategoryActionResult>
   showText?: boolean
 }
 
@@ -34,11 +39,18 @@ export function DeleteCategoryDialog({
 
     setIsDeleting(true)
     try {
-      await action(formData)
+      const result = await action(formData)
+      if (!result.success) {
+        toast.error("Cannot delete category", {
+          description: result.error,
+        })
+        return
+      }
+      toast.success("Category deleted")
       setOpen(false)
     } catch (error) {
       console.error("Error deleting category:", error)
-      // TODO: Show error toast
+      toast.error("Failed to delete category")
     } finally {
       setIsDeleting(false)
     }
@@ -69,8 +81,9 @@ export function DeleteCategoryDialog({
                 <span className="font-semibold text-foreground">{category.name}</span>?
               </p>
               <p>
-                Products that use this category will still exist but may show without a category
-                until reassigned. This action cannot be undone.
+                Categories with products assigned cannot be deleted. Reassign
+                those products first. Child categories will be moved to this
+                category&apos;s parent. This action cannot be undone.
               </p>
             </div>
             <DialogFooter className="mt-4 flex justify-end gap-2">
@@ -85,9 +98,9 @@ export function DeleteCategoryDialog({
               <Button
                 type="submit"
                 variant="destructive"
-                disabled={isDeleting}
+                loading={isDeleting}
               >
-                {isDeleting ? "Deleting..." : "Delete Category"}
+                Delete Category
               </Button>
             </DialogFooter>
           </form>
@@ -96,4 +109,3 @@ export function DeleteCategoryDialog({
     </>
   )
 }
-

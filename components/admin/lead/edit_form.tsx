@@ -87,8 +87,8 @@ export function EditLeadDialog({ lead, onUpdated }: EditLeadDialogProps) {
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

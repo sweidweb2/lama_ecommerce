@@ -98,9 +98,9 @@ export function DeleteCartItemDialog({ cartItem, onDelete, showText = false }: D
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Item"}
+              Delete Item
             </Button>
           </DialogFooter>
         </DialogContent>

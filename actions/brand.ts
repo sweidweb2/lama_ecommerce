@@ -82,7 +82,9 @@ export async function updateBrandAction(formData: FormData): Promise<void> {
   }
 }
 
-export async function deleteBrandAction(formData: FormData): Promise<void> {
+export async function deleteBrandAction(
+  formData: FormData,
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     await requireAdmin();
 
@@ -92,12 +94,17 @@ export async function deleteBrandAction(formData: FormData): Promise<void> {
     const success = await deleteBrandService(id, logoUrl);
 
     if (!success) {
-      throw new Error("Failed to delete brand");
+      return { success: false, error: "Failed to delete brand" };
     }
 
     revalidatePath("/admin/brands");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in deleteBrandAction:", error);
-    throw error;
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to delete brand",
+    };
   }
 }

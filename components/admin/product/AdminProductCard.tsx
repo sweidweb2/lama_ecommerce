@@ -1,15 +1,17 @@
 'use client'
 
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import Link from "@/components/ui/link"
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Edit, Trash2, Eye, ImageIcon } from 'lucide-react'
+import { Eye, ImageIcon } from 'lucide-react'
 import { ProductWithRelations } from '@/types/product'
 import type { Brand, Category } from '@/types/product'
-import { formatPrice } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 import { EditProductDialog } from './edit_form'
 import { DeleteProductDialog } from './delete_dialog'
 import type { AdminProduct } from './edit_form'
@@ -20,7 +22,6 @@ interface AdminProductCardProps {
   categories: Category[]
 }
 
-// Convert ProductWithRelations to AdminProduct format
 function toAdminProduct(product: ProductWithRelations): AdminProduct {
   return {
     id: product.id,
@@ -38,13 +39,52 @@ function toAdminProduct(product: ProductWithRelations): AdminProduct {
   }
 }
 
+function isInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest(
+      'a, button, input, select, textarea, [role="button"], [data-card-ignore-click]',
+    ),
+  )
+}
+
 export function AdminProductCard({ product, brands, categories }: AdminProductCardProps) {
+  const router = useRouter()
   const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0]
   const hasImage = !!primaryImage?.url_image
   const adminProduct = toAdminProduct(product)
+  const detailsHref = `/admin/products/${product.encryptedId || product.id}`
+
+  const openDetails = () => {
+    router.push(detailsHref)
+  }
+
+  const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (isInteractiveTarget(event.target)) return
+    openDetails()
+  }
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    if (isInteractiveTarget(event.target)) return
+    event.preventDefault()
+    openDetails()
+  }
 
   return (
-    <Card className="h-full border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden p-0 flex flex-col gap-2">
+    <Card
+      role="link"
+      tabIndex={0}
+      aria-label={`Open details for ${product.name}`}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      className={cn(
+        'h-full border border-border/40 shadow-sm overflow-hidden p-0 flex flex-col gap-2',
+        'cursor-pointer transition-shadow duration-300',
+        'hover:shadow-md hover:border-border',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      )}
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {hasImage ? (
           <Image
@@ -74,12 +114,15 @@ export function AdminProductCard({ product, brands, categories }: AdminProductCa
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="absolute top-2 right-2">
+        <div
+          className="absolute top-2 right-2"
+          data-card-ignore-click
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="flex gap-1 bg-background/90 backdrop-blur-sm rounded-lg p-1 border border-border/40 shadow-sm">
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
-              <EditProductDialog 
-                product={adminProduct} 
+              <EditProductDialog
+                product={adminProduct}
                 brands={brands}
                 categories={categories}
               />
@@ -87,7 +130,7 @@ export function AdminProductCard({ product, brands, categories }: AdminProductCa
             <div className="[&_button]:h-7 [&_button]:w-7 [&_button]:p-0">
               <DeleteProductDialog product={adminProduct} />
             </div>
-            <Link href={`/admin/products/${(product as any).encryptedId || product.id}`}>
+            <Link href={detailsHref}>
               <Button
                 variant="ghost"
                 size="icon"

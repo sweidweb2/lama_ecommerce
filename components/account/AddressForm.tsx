@@ -3,7 +3,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import { addressBaseSchema } from "@/lib/validators/user_address/base";
 import { createAddressAction, updateAddressAction } from "@/actions/address";
@@ -178,17 +177,8 @@ export function AddressForm({ address, onSuccess, onCancel }: AddressFormProps) 
           )}
         />
         <div className="flex gap-2">
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : isEdit ? (
-              "Save changes"
-            ) : (
-              "Add address"
-            )}
+          <Button type="submit" loading={form.formState.isSubmitting}>
+            {isEdit ? "Save changes" : "Add address"}
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>

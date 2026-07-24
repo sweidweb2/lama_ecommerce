@@ -124,8 +124,8 @@ export function CreateShippingZoneDialog({ onCreated }: CreateShippingZoneDialog
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Zone"}
+              <Button type="submit" loading={isSubmitting}>
+                Create Zone
               </Button>
             </DialogFooter>
           </form>

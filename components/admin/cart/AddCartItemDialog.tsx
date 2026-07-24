@@ -440,9 +440,10 @@ export function AddCartItemDialog({ cartId, onAdd, showText = false }: AddCartIt
               </Button>
               <Button
                 type="submit"
-                disabled={!isFormValid || isSubmitting}
+                loading={isSubmitting}
+                disabled={!isFormValid}
               >
-                {isSubmitting ? "Adding..." : "Add to Cart"}
+                Add to Cart
               </Button>
             </DialogFooter>
           </form>

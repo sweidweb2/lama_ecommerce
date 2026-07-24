@@ -34,7 +34,7 @@ interface ProductViewsTableProps {
   productId: string;
 }
 
-const VIEWS_PER_PAGE = 20;
+const VIEWS_PER_PAGE = 25;
 
 const EMPTY_STATS: ProductScopedViewsStats = {
   totalViews: 0,

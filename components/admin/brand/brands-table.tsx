@@ -16,7 +16,9 @@ import type { Brand } from "@/types/product"
 interface BrandsTableProps {
   brands: Brand[]
   updateBrandAction: (formData: FormData) => void | Promise<void>
-  deleteBrandAction: (formData: FormData) => void | Promise<void>
+  deleteBrandAction: (
+    formData: FormData,
+  ) => Promise<{ success: true } | { success: false; error: string }>
 }
 
 export function BrandsTable({

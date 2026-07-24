@@ -6,6 +6,8 @@ import type {
 export const ADMIN_PRODUCTS_TABLE_PAGE_SIZE = 25;
 export const ADMIN_PRODUCTS_GRID_PAGE_SIZE = 12;
 
+export type AdminProductsView = "table" | "grid";
+
 const VALID_STOCK = new Set<AdminProductStockFilter>(["all", "low", "out"]);
 
 function parseBooleanFilter(value: string | undefined): boolean | null {

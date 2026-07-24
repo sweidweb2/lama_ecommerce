@@ -62,9 +62,10 @@ export function UnsubscribeClient({ token }: UnsubscribeClientProps) {
       <Button
         type="button"
         onClick={handleConfirm}
-        disabled={isPending || !token}
+        loading={isPending}
+        disabled={!token}
       >
-        {isPending ? "Unsubscribing…" : "Confirm unsubscribe"}
+        Confirm unsubscribe
       </Button>
     </div>
   );

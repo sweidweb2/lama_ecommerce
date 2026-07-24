@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -46,7 +46,7 @@ export function CheckoutDialog({
   onSuccess,
 }: CheckoutDialogProps) {
   const router = useRouter()
-  const isProcessingRef = useRef(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [subtotal, setSubtotal] = useState(0)
   const [shippingZones, setShippingZones] = useState<ShippingZoneOption[]>([])
@@ -137,8 +137,8 @@ export function CheckoutDialog({
 
   const handleCheckout = async () => {
     // Double-click protection
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
+    if (isProcessing) return
+    setIsProcessing(true)
 
     try {
       const result = await checkoutForAdminAction({
@@ -177,7 +177,7 @@ export function CheckoutDialog({
         description: 'An unexpected error occurred.',
       })
     } finally {
-      isProcessingRef.current = false
+      setIsProcessing(false)
     }
   }
 
@@ -373,16 +373,15 @@ export function CheckoutDialog({
             <Button
               size="lg"
               className="w-full rounded-2xl text-sm"
-              disabled={!isFormValid || isProcessingRef.current}
+              loading={isProcessing}
+              disabled={!isFormValid}
               onClick={handleCheckout}
             >
               {!selectedZoneId
                 ? 'Select Shipping Zone to Continue'
                 : !isFormValid
                   ? 'Fill All Required Fields'
-                  : isProcessingRef.current
-                    ? 'Processing...'
-                    : 'Place Order'}
+                  : 'Place Order'}
             </Button>
 
             {!isFormValid && (

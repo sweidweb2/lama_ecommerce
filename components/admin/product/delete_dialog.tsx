@@ -53,7 +53,6 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
       const isProductDetailPage =
         segments.length === 4 &&
         segments[2] === "products" &&
-        segments[3] !== "grid" &&
         segments[3] !== "create"
       if (isProductDetailPage) {
         router.push("/admin/products")
@@ -111,9 +110,9 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
               variant="destructive"
               className="!bg-red-600 !hover:bg-red-700 !text-white"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Product"}
+              Delete Product
             </Button>
           </DialogFooter>
         </DialogContent>

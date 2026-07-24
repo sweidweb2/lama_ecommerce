@@ -148,8 +148,8 @@ export function ProductQA({
                     required
                   />
                 </div>
-                <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Submitting…' : 'Submit question'}
+                <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
+                  Submit question
                 </Button>
               </form>
             )}

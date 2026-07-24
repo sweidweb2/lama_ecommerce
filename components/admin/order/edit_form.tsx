@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Edit, Loader2 } from "lucide-react"
+import { Edit } from "lucide-react"
 import { toast } from "sonner"
 import { updateOrderAction } from "@/actions/order"
 import { getAllowedOrderStatuses } from "@/lib/admin/order-status-transitions"
@@ -341,15 +341,8 @@ export function EditOrderDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
+              <Button type="submit" loading={isSubmitting}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

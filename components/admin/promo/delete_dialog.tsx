@@ -67,9 +67,9 @@ export function DeletePromoCodeDialog({ promoCode, onDelete, showText = false }:
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Promo Code"}
+              Delete Promo Code
             </Button>
           </DialogFooter>
         </DialogContent>

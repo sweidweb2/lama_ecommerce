@@ -12,7 +12,9 @@ interface AdminCategoriesClientProps {
   productCounts: Record<string, number>;
   createCategoryAction: (formData: FormData) => void | Promise<void>;
   updateCategoryAction: (formData: FormData) => void | Promise<void>;
-  deleteCategoryAction: (formData: FormData) => void | Promise<void>;
+  deleteCategoryAction: (
+    formData: FormData,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
 }
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50];

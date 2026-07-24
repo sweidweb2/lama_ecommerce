@@ -82,9 +82,9 @@ export function DeleteContactDialog({ contact, onDelete, showText = false }: Del
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Message"}
+              Delete Message
             </Button>
           </DialogFooter>
         </DialogContent>

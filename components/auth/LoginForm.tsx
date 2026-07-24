@@ -6,7 +6,7 @@ import Link from "@/components/ui/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { EyeIcon, EyeOffIcon, Loader2Icon, MailIcon, LockIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, MailIcon, LockIcon } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/lib/validators/auth/auth";
 import { loginService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
@@ -194,17 +194,10 @@ export function LoginForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            loading={isLoading}
             size="lg"
           >
-            {isLoading ? (
-              <>
-                <Loader2Icon className="size-4 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              "Sign in"
-            )}
+            Sign in
           </Button>
         </form>
       </Form>

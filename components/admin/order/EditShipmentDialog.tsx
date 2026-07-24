@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Edit, Loader2 } from "lucide-react";
+import { Edit } from "lucide-react";
 import { updateShipmentAction } from "@/actions/shipment";
 import { toast } from "sonner";
 import type { Shipment } from "@/types/order";
@@ -142,10 +142,7 @@ export function EditShipmentDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+              <Button type="submit" loading={isSubmitting}>
                 Save
               </Button>
             </DialogFooter>

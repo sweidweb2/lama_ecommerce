@@ -10,11 +10,16 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import type { Brand } from "@/types/product"
+
+type DeleteBrandActionResult =
+  | { success: true }
+  | { success: false; error: string }
 
 interface DeleteBrandDialogProps {
   brand: Brand
-  action: (formData: FormData) => void | Promise<void>
+  action: (formData: FormData) => Promise<DeleteBrandActionResult>
   showText?: boolean
 }
 
@@ -33,10 +38,18 @@ export function DeleteBrandDialog({
 
     setIsDeleting(true)
     try {
-      await action(formData)
+      const result = await action(formData)
+      if (!result.success) {
+        toast.error("Cannot delete brand", {
+          description: result.error,
+        })
+        return
+      }
+      toast.success("Brand deleted")
       setOpen(false)
     } catch (error) {
       console.error("Error deleting brand:", error)
+      toast.error("Failed to delete brand")
     } finally {
       setIsDeleting(false)
     }
@@ -72,8 +85,8 @@ export function DeleteBrandDialog({
                 <span className="font-semibold text-foreground">{brand.name}</span>?
               </p>
               <p>
-                Products that reference this brand will still exist but may lose their
-                brand association. This action cannot be undone.
+                Brands with products assigned cannot be deleted. Reassign or
+                remove those products first. This action cannot be undone.
               </p>
             </div>
             <DialogFooter className="mt-4 flex justify-end gap-2">
@@ -88,9 +101,9 @@ export function DeleteBrandDialog({
               <Button
                 type="submit"
                 variant="destructive"
-                disabled={isDeleting}
+                loading={isDeleting}
               >
-                {isDeleting ? "Deleting..." : "Delete Brand"}
+                Delete Brand
               </Button>
             </DialogFooter>
           </form>
@@ -99,4 +112,3 @@ export function DeleteBrandDialog({
     </>
   )
 }
-

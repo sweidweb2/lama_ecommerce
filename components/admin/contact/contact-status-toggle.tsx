@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { updateContactStatusAction } from "@/actions/contact_us"
 import type { ContactStatus } from "@/types/user"
-import { Loader2 } from "lucide-react"
 
 interface ContactStatusToggleProps {
   contactId: string
@@ -35,15 +34,11 @@ export function ContactStatusToggle({ contactId, currentStatus }: ContactStatusT
       variant="outline"
       size="sm"
       onClick={handleToggle}
-      disabled={isPending}
+      loading={isPending}
       className="shrink-0"
       aria-label={currentStatus === "new" ? "Mark as read" : "Mark as new"}
     >
-      {isPending ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <span>{currentStatus === "new" ? "Mark read" : "Mark new"}</span>
-      )}
+      {currentStatus === "new" ? "Mark read" : "Mark new"}
     </Button>
   )
 }

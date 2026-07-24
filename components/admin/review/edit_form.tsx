@@ -189,8 +189,8 @@ export function EditReviewDialog({ review, showText = false }: EditReviewDialogP
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

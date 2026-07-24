@@ -155,8 +155,8 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Brand"}
+              <Button type="submit" loading={isSubmitting}>
+                Create Brand
               </Button>
             </DialogFooter>
           </form>

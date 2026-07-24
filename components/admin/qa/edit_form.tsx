@@ -156,8 +156,8 @@ export function EditQuestionDialog({ question, showText = false }: EditQuestionD
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!questionText.trim() || isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" loading={isSubmitting} disabled={!questionText.trim()}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

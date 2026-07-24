@@ -78,9 +78,9 @@ export function DeleteLeadDialog({
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Lead"}
+              Delete Lead
             </Button>
           </DialogFooter>
         </DialogContent>

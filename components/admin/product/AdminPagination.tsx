@@ -21,7 +21,7 @@ function visiblePages(current: number, total: number): number[] {
   return [...pages].sort((a, b) => a - b)
 }
 
-export function AdminPagination({ totalPages, basePath = '/admin/products/grid' }: AdminPaginationProps) {
+export function AdminPagination({ totalPages, basePath = '/admin/products' }: AdminPaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPage = Number(searchParams.get('page')) || 1
@@ -33,6 +33,8 @@ export function AdminPagination({ totalPages, basePath = '/admin/products/grid' 
     } else {
       params.set('page', page.toString())
     }
+    // Display mode is client-only; never keep it in the URL.
+    params.delete('view')
     const query = params.toString()
     router.push(query ? `${basePath}?${query}` : basePath)
     window.scrollTo({ top: 0, behavior: 'smooth' })

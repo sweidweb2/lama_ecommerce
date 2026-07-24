@@ -102,10 +102,10 @@ export function DeleteVariantDialog({ variant }: DeleteVariantDialogProps) {
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
               className="!bg-red-600 !hover:bg-red-700 !text-white"
             >
-              {isDeleting ? "Deleting..." : "Delete Variant"}
+              Delete Variant
             </Button>
           </DialogFooter>
         </DialogContent>

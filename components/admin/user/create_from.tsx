@@ -187,8 +187,8 @@ export function CreateUserDialog({ onCreated }: CreateUserDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create user"}
+              <Button type="submit" loading={isSubmitting}>
+                Create user
               </Button>
             </DialogFooter>
           </form>

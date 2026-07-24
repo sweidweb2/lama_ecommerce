@@ -454,8 +454,8 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
             <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Variant"}
+            <Button type="submit" loading={isSubmitting}>
+              Create Variant
             </Button>
           </div>
         </form>

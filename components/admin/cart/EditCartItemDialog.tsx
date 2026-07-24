@@ -181,9 +181,10 @@ export function EditCartItemDialog({ cartItem, showText = false }: EditCartItemD
               </Button>
               <Button
                 type="submit"
-                disabled={!quantity || parseInt(quantity) <= 0 || isSubmitting}
+                loading={isSubmitting}
+                disabled={!quantity || parseInt(quantity) <= 0}
               >
-                {isSubmitting ? "Updating..." : "Update Quantity"}
+                Update Quantity
               </Button>
             </DialogFooter>
           </form>

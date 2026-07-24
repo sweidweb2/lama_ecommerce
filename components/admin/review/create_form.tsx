@@ -231,8 +231,8 @@ export function CreateReviewDialog({ products, profiles }: CreateReviewDialogPro
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!productId || !rating || isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Review"}
+              <Button type="submit" loading={isSubmitting} disabled={!productId || !rating}>
+                Create Review
               </Button>
             </DialogFooter>
           </form>

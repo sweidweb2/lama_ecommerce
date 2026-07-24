@@ -157,7 +157,7 @@ export function EditCategoryDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                URL-friendly identifier used in storefront category filters.
+                URL-friendly identifier used in user pages category filters.
               </p>
               {errors.slug && (
                 <p className="text-xs text-destructive">{errors.slug}</p>
@@ -220,8 +220,8 @@ export function EditCategoryDialog({
                 name="is_active"
                 value={isActive ? "true" : "false"}
               />
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

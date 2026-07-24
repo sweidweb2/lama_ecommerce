@@ -10,7 +10,7 @@ import {
   updateProductService,
   deleteProductService,
 } from "@/services/product.service";
-import { createProductSchema } from "@/lib/validators/product/create";
+import { createProductWithVariantsSchema } from "@/lib/validators/product/create_with_variants";
 import { updateProductSchema } from "@/lib/validators/product/update";
 import {
   uploadAndAddProductImageService,
@@ -39,6 +39,9 @@ export type CreateProductActionResult =
       encryptedId: string;
       imageUploadFailed?: boolean;
       imageError?: string;
+      variantCreateFailed?: boolean;
+      variantError?: string;
+      variantsCreated?: number;
     }
   | { success: false; error: string };
 
@@ -65,6 +68,16 @@ export async function createProductAction(
       return { success: false, error: "Unauthorized" };
     }
 
+    let variantsRaw: unknown = [];
+    const variantsJson = formData.get("variants")?.toString();
+    if (variantsJson) {
+      try {
+        variantsRaw = JSON.parse(variantsJson);
+      } catch {
+        return { success: false, error: "Invalid variants payload" };
+      }
+    }
+
     const raw = {
       name: formData.get("name"),
       description: formData.get("description"),
@@ -78,7 +91,7 @@ export async function createProductAction(
       is_active: formData.get("is_active"),
     };
 
-    const parsed = createProductSchema.parse({
+    const parsed = createProductWithVariantsSchema.parse({
       name: raw.name?.toString().trim(),
       description: raw.description
         ? raw.description.toString().trim() || null
@@ -104,9 +117,12 @@ export async function createProductAction(
         raw.is_active !== null && raw.is_active !== undefined
           ? raw.is_active === "on" || raw.is_active === "true"
           : undefined,
+      variants: variantsRaw,
     });
 
-    const created = await createProductService(parsed, profile.user_id);
+    const { variants, ...productPayload } = parsed;
+
+    const created = await createProductService(productPayload, profile.user_id);
     if (!created) {
       return { success: false, error: "Failed to create product" };
     }
@@ -114,6 +130,37 @@ export async function createProductAction(
     const encryptedId = encryptOrderId(created.id);
     let imageUploadFailed = false;
     let imageError: string | undefined;
+    let variantCreateFailed = false;
+    let variantError: string | undefined;
+    let variantsCreated = 0;
+
+    for (const variant of variants) {
+      try {
+        const createdVariant = await createProductVariantService({
+          product_id: created.id,
+          color: variant.color,
+          size: variant.size,
+          material: variant.material,
+          quantity_stock: variant.quantity_stock,
+          sku_variant: variant.sku_variant,
+          price_override: variant.price_override,
+        });
+        if (!createdVariant) {
+          variantCreateFailed = true;
+          variantError = "Failed to create product variant";
+          break;
+        }
+        variantsCreated += 1;
+      } catch (error) {
+        console.error("Error creating product variant on create:", error);
+        variantCreateFailed = true;
+        variantError =
+          error instanceof Error
+            ? error.message
+            : "Failed to create product variant";
+        break;
+      }
+    }
 
     const imageFile = formData.get("images");
 
@@ -133,17 +180,21 @@ export async function createProductAction(
     }
 
     revalidatePath("/admin/products");
+    revalidatePath("/admin/products", "layout");
 
-    if (imageUploadFailed) {
+    if (imageUploadFailed || variantCreateFailed) {
       return {
         success: true,
         encryptedId,
-        imageUploadFailed: true,
+        imageUploadFailed: imageUploadFailed || undefined,
         imageError,
+        variantCreateFailed: variantCreateFailed || undefined,
+        variantError,
+        variantsCreated,
       };
     }
 
-    return { success: true, encryptedId };
+    return { success: true, encryptedId, variantsCreated };
   } catch (error) {
     console.error("Unexpected error in createProductAction:", error);
     return {
@@ -253,7 +304,6 @@ export async function deleteProductAction(
     }
 
     revalidatePath("/admin/products");
-    revalidatePath("/admin/products/grid");
     return { success: true };
   } catch (error) {
     console.error("Unexpected error in deleteProductAction:", error);

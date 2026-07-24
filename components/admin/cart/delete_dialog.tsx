@@ -105,9 +105,9 @@ export function DeleteCartDialog({ cart, onDelete, showText = false }: DeleteCar
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Cart"}
+              Delete Cart
             </Button>
           </DialogFooter>
         </DialogContent>

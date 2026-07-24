@@ -590,7 +590,7 @@ export function ProductCustomization({
       {/* Add to Cart Button with Wishlist Icon — hidden for admins */}
       {isAdmin ? (
         <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          <p>Admins cannot shop on the storefront.</p>
+          <p>Admins cannot shop on the user pages.</p>
           <Link
             href={ROUTES.ADMIN}
             className="mt-2 inline-block font-medium text-primary hover:underline"
@@ -604,13 +604,12 @@ export function ProductCustomization({
           size="lg"
           className="flex-1 h-12"
           onClick={handleAddToCart}
-          disabled={isAddingToCart}
+          loading={isAddingToCart}
+          loadingText="Adding to cart"
           variant={!hasRequiredSelections ? 'outline' : 'default'}
         >
           <ShoppingCart className="mr-2 h-5 w-5" />
-          {isAddingToCart
-            ? 'Adding...'
-            : !hasRequiredSelections
+          {!hasRequiredSelections
             ? 'Add to Cart'
             : !isAvailable
             ? 'Out of Stock'

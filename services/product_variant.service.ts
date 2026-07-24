@@ -5,6 +5,7 @@ import {
   hardDeleteProductVariant,
   getProductVariantById,
   getProductVariantsByProductId,
+  getProductVariantsByProductIds,
   getVariantOrderedQuantity,
   getVariantCartReservedQuantity,
   type CreateProductVariantInput,
@@ -118,6 +119,15 @@ export async function getProductVariantsByProductIdService(
   productId: string,
 ): Promise<ProductVariant[]> {
   return getProductVariantsByProductId(productId);
+}
+
+/**
+ * Get variants for many products (batched for admin products table).
+ */
+export async function getProductVariantsByProductIdsService(
+  productIds: string[],
+): Promise<ProductVariant[]> {
+  return getProductVariantsByProductIds(productIds);
 }
 
 /**

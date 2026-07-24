@@ -5,7 +5,7 @@ import Link from "@/components/ui/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { CheckCircle2Icon, Loader2Icon, MailIcon, HashIcon } from "lucide-react";
+import { CheckCircle2Icon, MailIcon, HashIcon } from "lucide-react";
 import {
   findOrderSchema,
   type FindOrderInput,
@@ -169,15 +169,8 @@ export function FindOrderForm() {
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2Icon className="size-4 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              "Email me a link"
-            )}
+          <Button type="submit" className="w-full" loading={isLoading}>
+            Email me a link
           </Button>
         </form>
       </Form>

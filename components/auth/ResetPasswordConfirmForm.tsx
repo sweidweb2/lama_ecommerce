@@ -242,17 +242,10 @@ export function ResetPasswordConfirmForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            loading={isLoading}
             size="lg"
           >
-            {isLoading ? (
-              <>
-                <Loader2Icon className="size-4 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              "Update password"
-            )}
+            Update password
           </Button>
         </form>
       </Form>

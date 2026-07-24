@@ -252,9 +252,9 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
               variant="destructive"
               className="!bg-red-600 !hover:bg-red-700 !text-white"
               onClick={handleConfirmDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Delete Image'}
+              Delete Image
             </Button>
           </DialogFooter>
         </DialogContent>

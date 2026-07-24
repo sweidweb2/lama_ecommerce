@@ -262,14 +262,29 @@ export async function updateCategory(
 
 /**
  * Hard-delete a category (admin).
- * Re-parents children first:
+ * Blocks when products still reference this category.
+ * Otherwise re-parents children first:
  * - If the deleted category has a parent, children move to that parent.
  * - If it is a root category, children become root (parent_id = null).
- * Blocks when products still reference this category.
  */
 export async function deleteCategory(id: string): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
+
+    const { count: productCount, error: productError } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("category_id", id);
+
+    if (productError) {
+      console.error("Error checking products before category delete:", productError);
+      return false;
+    }
+    if ((productCount ?? 0) > 0) {
+      throw new Error(
+        "Cannot delete category: products still reference it. Reassign them first.",
+      );
+    }
 
     const { data: category, error: fetchError } = await supabase
       .from("categories")
@@ -293,21 +308,6 @@ export async function deleteCategory(id: string): Promise<boolean> {
     if (childrenError) {
       console.error("Error re-parenting child categories:", childrenError);
       return false;
-    }
-
-    const { count: productCount, error: productError } = await supabase
-      .from("products")
-      .select("*", { count: "exact", head: true })
-      .eq("category_id", id);
-
-    if (productError) {
-      console.error("Error checking products before category delete:", productError);
-      return false;
-    }
-    if ((productCount ?? 0) > 0) {
-      throw new Error(
-        "Cannot delete category: products still reference it. Reassign them first.",
-      );
     }
 
     const { error: deleteError } = await supabase

@@ -280,9 +280,9 @@ export function CartItem({
               type="button"
               variant="destructive"
               onClick={handleConfirmDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Removing..." : "Remove item"}
+              Remove item
             </Button>
           </DialogFooter>
         </DialogContent>

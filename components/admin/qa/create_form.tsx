@@ -203,9 +203,10 @@ export function CreateQuestionDialog({ products, profiles }: CreateQuestionDialo
               </Button>
               <Button
                 type="submit"
-                disabled={!productId || !question.trim() || isSubmitting}
+                loading={isSubmitting}
+                disabled={!productId || !question.trim()}
               >
-                {isSubmitting ? "Creating..." : "Create Question"}
+                Create Question
               </Button>
             </DialogFooter>
           </form>

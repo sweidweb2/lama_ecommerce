@@ -325,11 +325,12 @@ export interface AdminProductViewRow {
 
 /**
  * Get product views for a specific product with pagination
+ * (25 per page, capped at 1000 pages).
  */
 export async function getProductViewsByProductIdForAdmin(
   productId: string,
   page: number = 1,
-  pageSize: number = 20,
+  pageSize: number = 25,
 ): Promise<{
   data: AdminProductViewRow[];
   total: number;
@@ -337,6 +338,9 @@ export async function getProductViewsByProductIdForAdmin(
   pageSize: number;
   totalPages: number;
 }> {
+  const PRODUCT_SCOPED_VIEWS_MAX_PAGES = 1000;
+  const safePageSize = pageSize > 0 ? pageSize : 25;
+
   try {
     const supabase = createSupabaseAdminClient();
 
@@ -351,15 +355,22 @@ export async function getProductViewsByProductIdForAdmin(
       return {
         data: [],
         total: 0,
-        page,
-        pageSize,
+        page: 1,
+        pageSize: safePageSize,
         totalPages: 0,
       };
     }
 
     const total = count || 0;
-    const totalPages = Math.min(Math.ceil(total / pageSize), 500); // Max 500 pages
-    const offset = (page - 1) * pageSize;
+    const totalPages = Math.min(
+      Math.ceil(total / safePageSize) || 0,
+      PRODUCT_SCOPED_VIEWS_MAX_PAGES,
+    );
+    const safePage =
+      totalPages > 0
+        ? Math.min(Math.max(1, page), totalPages)
+        : 1;
+    const offset = (safePage - 1) * safePageSize;
 
     // Fetch product views with pagination
     const { data: views, error } = await (supabase as any)
@@ -373,15 +384,15 @@ export async function getProductViewsByProductIdForAdmin(
       `)
       .eq("product_id", productId)
       .order("viewed_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+      .range(offset, offset + safePageSize - 1);
 
     if (error) {
       console.error("Error fetching product views:", error);
       return {
         data: [],
         total: 0,
-        page,
-        pageSize,
+        page: safePage,
+        pageSize: safePageSize,
         totalPages: 0,
       };
     }
@@ -390,8 +401,8 @@ export async function getProductViewsByProductIdForAdmin(
       return {
         data: [],
         total,
-        page,
-        pageSize,
+        page: safePage,
+        pageSize: safePageSize,
         totalPages,
       };
     }
@@ -435,8 +446,8 @@ export async function getProductViewsByProductIdForAdmin(
     return {
       data: mappedViews,
       total,
-      page,
-      pageSize,
+      page: safePage,
+      pageSize: safePageSize,
       totalPages,
     };
   } catch (error) {
@@ -444,8 +455,8 @@ export async function getProductViewsByProductIdForAdmin(
     return {
       data: [],
       total: 0,
-      page,
-      pageSize,
+      page: 1,
+      pageSize: safePageSize,
       totalPages: 0,
     };
   }

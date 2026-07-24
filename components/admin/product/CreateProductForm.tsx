@@ -1,66 +1,83 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
-import Link from "@/components/ui/link"
-import type { Brand, Category } from "@/types/product"
-import { createProductSchema } from "@/lib/validators/product/create"
-import type { CreateProductActionResult } from "@/actions/product"
-import type { z } from "zod"
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import Link from "@/components/ui/link";
+import type { Brand, Category } from "@/types/product";
+import {
+  createProductWithVariantsSchema,
+  type CreateProductWithVariantsSchemaInput,
+} from "@/lib/validators/product/create_with_variants";
+import type { CreateProductActionResult } from "@/actions/product";
+import {
+  ProductVariantsRepeater,
+  createEmptyVariantDraft,
+  type VariantDraftRow,
+  type VariantFieldErrors,
+} from "@/components/admin/product/ProductVariantsRepeater";
 
-const NONE_VALUE = "__none__"
+const NONE_VALUE = "__none__";
 
 interface CreateProductFormProps {
-  action: (formData: FormData) => Promise<CreateProductActionResult>
-  brands: Brand[]
-  categories: Category[]
+  action: (formData: FormData) => Promise<CreateProductActionResult>;
+  brands: Brand[];
+  categories: Category[];
 }
 
-type CreateProductSchemaInput = z.input<typeof createProductSchema>
+type ProductFieldKey = Exclude<
+  keyof CreateProductWithVariantsSchemaInput,
+  "variants"
+>;
 
 export function CreateProductForm({
   action,
   brands,
   categories,
 }: CreateProductFormProps) {
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [slug, setSlug] = useState("")
-  const [brandId, setBrandId] = useState(NONE_VALUE)
-  const [categoryId, setCategoryId] = useState(NONE_VALUE)
-  const [sku, setSku] = useState("")
-  const [price, setPrice] = useState("")
-  const [isFeatured, setIsFeatured] = useState(false)
-  const [isTrending, setIsTrending] = useState(false)
-  const [isActive, setIsActive] = useState(true)
-  const [errors, setErrors] = useState<Partial<Record<keyof CreateProductSchemaInput, string>>>(
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [slug, setSlug] = useState("");
+  const [brandId, setBrandId] = useState(NONE_VALUE);
+  const [categoryId, setCategoryId] = useState(NONE_VALUE);
+  const [sku, setSku] = useState("");
+  const [price, setPrice] = useState("");
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [isTrending, setIsTrending] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [variants, setVariants] = useState<VariantDraftRow[]>([
+    createEmptyVariantDraft(),
+  ]);
+  const [errors, setErrors] = useState<Partial<Record<ProductFieldKey, string>>>(
     {},
-  )
+  );
+  const [variantErrors, setVariantErrors] = useState<
+    Record<number, VariantFieldErrors>
+  >({});
+  const [variantsFormError, setVariantsFormError] = useState<string | undefined>();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const trimmedName = name.trim()
-    const trimmedDescription = description.trim()
-    const trimmedSlug = slug.trim()
-    const trimmedSku = sku.trim()
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim();
+    const trimmedSlug = slug.trim();
+    const trimmedSku = sku.trim();
 
-    const candidate: CreateProductSchemaInput = {
+    const candidate: CreateProductWithVariantsSchemaInput = {
       name: trimmedName,
       description: trimmedDescription ? trimmedDescription : null,
       slug: trimmedSlug,
@@ -71,94 +88,137 @@ export function CreateProductForm({
       is_featured: isFeatured,
       is_trending: isTrending,
       is_active: isActive,
-    }
+      variants: variants.map((row) => ({
+        color: row.color.trim(),
+        size: row.size.trim(),
+        material: row.material.trim(),
+        quantity_stock: row.quantity_stock ? Number(row.quantity_stock) : NaN,
+        sku_variant: row.sku_variant.trim() || null,
+        price_override: row.price_override
+          ? Number(row.price_override)
+          : null,
+      })),
+    };
 
-    const parsed = createProductSchema.safeParse(candidate)
+    const parsed = createProductWithVariantsSchema.safeParse(candidate);
 
     if (!parsed.success) {
-      const fieldErrors: Partial<Record<keyof CreateProductSchemaInput, string>> = {}
+      const fieldErrors: Partial<Record<ProductFieldKey, string>> = {};
+      const nextVariantErrors: Record<number, VariantFieldErrors> = {};
+      let nextVariantsFormError: string | undefined;
+
       for (const issue of parsed.error.issues) {
-        const pathKey = issue.path[0] as keyof CreateProductSchemaInput
+        const [head, index, field] = issue.path;
+        if (head === "variants") {
+          if (typeof index === "number" && typeof field === "string") {
+            const row = nextVariantErrors[index] ?? {};
+            if (!row[field as keyof VariantFieldErrors]) {
+              row[field as keyof VariantFieldErrors] = issue.message;
+              nextVariantErrors[index] = row;
+            }
+          } else if (!nextVariantsFormError) {
+            nextVariantsFormError = issue.message;
+          }
+          continue;
+        }
+
+        const pathKey = head as ProductFieldKey;
         if (pathKey && !fieldErrors[pathKey]) {
-          fieldErrors[pathKey] = issue.message
+          fieldErrors[pathKey] = issue.message;
         }
       }
-      setErrors(fieldErrors)
-      toast.error("Please fix the highlighted errors and try again.")
-      return
+
+      setErrors(fieldErrors);
+      setVariantErrors(nextVariantErrors);
+      setVariantsFormError(nextVariantsFormError);
+      toast.error("Please fix the highlighted errors and try again.");
+      return;
     }
 
-    setErrors({})
+    setErrors({});
+    setVariantErrors({});
+    setVariantsFormError(undefined);
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const form = e.currentTarget
-      const formData = new FormData(form)
+      const form = e.currentTarget;
+      const formData = new FormData(form);
 
-      formData.set("name", parsed.data.name)
-      formData.set("description", parsed.data.description ?? "")
-      formData.set("slug", parsed.data.slug)
-      formData.set("brand_id", parsed.data.brand_id ?? "")
-      formData.set("category_id", parsed.data.category_id ?? "")
-      formData.set("sku", parsed.data.sku ?? "")
-      formData.set("price", parsed.data.price.toString())
-      formData.set("is_featured", parsed.data.is_featured ? "true" : "false")
-      formData.set("is_trending", parsed.data.is_trending ? "true" : "false")
-      formData.set("is_active", parsed.data.is_active ? "true" : "false")
+      formData.set("name", parsed.data.name);
+      formData.set("description", parsed.data.description ?? "");
+      formData.set("slug", parsed.data.slug);
+      formData.set("brand_id", parsed.data.brand_id ?? "");
+      formData.set("category_id", parsed.data.category_id ?? "");
+      formData.set("sku", parsed.data.sku ?? "");
+      formData.set("price", parsed.data.price.toString());
+      formData.set("is_featured", parsed.data.is_featured ? "true" : "false");
+      formData.set("is_trending", parsed.data.is_trending ? "true" : "false");
+      formData.set("is_active", parsed.data.is_active ? "true" : "false");
+      formData.set("variants", JSON.stringify(parsed.data.variants));
 
-      const result = await action(formData)
+      const result = await action(formData);
 
       if (!result.success) {
-        toast.error(result.error)
-        return
+        toast.error(result.error);
+        return;
       }
 
-      if (result.imageUploadFailed) {
-        toast.warning("Product created, but image upload failed", {
-          description:
-            result.imageError ?? "Add an image from the product page.",
-        })
-        router.push(`/admin/products/${result.encryptedId}`)
-        return
+      if (result.variantCreateFailed || result.imageUploadFailed) {
+        const parts: string[] = [];
+        if (result.variantCreateFailed) {
+          parts.push(
+            result.variantError ??
+              `Created ${result.variantsCreated ?? 0} variant(s); remaining failed.`,
+          );
+        }
+        if (result.imageUploadFailed) {
+          parts.push(result.imageError ?? "Image upload failed.");
+        }
+        toast.warning("Product created with partial issues", {
+          description: parts.join(" "),
+        });
+        router.push(`/admin/products/${result.encryptedId}`);
+        return;
       }
 
-      toast.success("Product created successfully!")
+      toast.success("Product and variants created successfully!");
+      router.push(`/admin/products/${result.encryptedId}`);
 
-      setName("")
-      setDescription("")
-      setSlug("")
-      setBrandId(NONE_VALUE)
-      setCategoryId(NONE_VALUE)
-      setSku("")
-      setPrice("")
-      setIsFeatured(false)
-      setIsTrending(false)
-      setIsActive(true)
+      setName("");
+      setDescription("");
+      setSlug("");
+      setBrandId(NONE_VALUE);
+      setCategoryId(NONE_VALUE);
+      setSku("");
+      setPrice("");
+      setIsFeatured(false);
+      setIsTrending(false);
+      setIsActive(true);
+      setVariants([createEmptyVariantDraft()]);
     } catch (error) {
-      toast.error("Failed to create product")
-      console.error("Error creating product:", error)
+      toast.error("Failed to create product");
+      console.error("Error creating product:", error);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
+
+  const productPriceNumber = price ? Number(price) : 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/admin/products">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Create Product</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Add a new product to your catalog
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Create Product</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Add a new product and its variants to your catalog
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6" encType="multipart/form-data">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+        encType="multipart/form-data"
+      >
         <div className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">
@@ -171,6 +231,7 @@ export function CreateProductForm({
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter product name"
               required
+              disabled={isSubmitting}
             />
             {errors.name && (
               <p className="text-xs text-destructive">{errors.name}</p>
@@ -196,6 +257,7 @@ export function CreateProductForm({
               placeholder="product-slug"
               maxLength={40}
               required
+              disabled={isSubmitting}
             />
             {errors.slug && (
               <p className="text-xs text-destructive">{errors.slug}</p>
@@ -210,6 +272,7 @@ export function CreateProductForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter product description"
+              disabled={isSubmitting}
             />
             {errors.description && (
               <p className="text-xs text-destructive">{errors.description}</p>
@@ -219,7 +282,11 @@ export function CreateProductForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="brand">Brand</Label>
-              <Select value={brandId} onValueChange={setBrandId}>
+              <Select
+                value={brandId}
+                onValueChange={setBrandId}
+                disabled={isSubmitting}
+              >
                 <SelectTrigger id="brand" className="w-full">
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
@@ -236,7 +303,11 @@ export function CreateProductForm({
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select
+                value={categoryId}
+                onValueChange={setCategoryId}
+                disabled={isSubmitting}
+              >
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -261,9 +332,11 @@ export function CreateProductForm({
               name="images"
               type="file"
               accept="image/*"
+              disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">
-              Optional. You can add more images later from the product details page.
+              Optional. You can add more images later from the product details
+              page.
             </p>
           </div>
 
@@ -274,8 +347,11 @@ export function CreateProductForm({
                 id="sku"
                 name="sku"
                 value={sku}
-                onChange={(e) => setSku(e.target.value.toUpperCase().slice(0, 32))}
+                onChange={(e) =>
+                  setSku(e.target.value.toUpperCase().slice(0, 32))
+                }
                 placeholder="PROD-001"
+                disabled={isSubmitting}
               />
               {errors.sku && (
                 <p className="text-xs text-destructive">{errors.sku}</p>
@@ -295,6 +371,7 @@ export function CreateProductForm({
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
                 required
+                disabled={isSubmitting}
               />
               {errors.price && (
                 <p className="text-xs text-destructive">{errors.price}</p>
@@ -310,6 +387,7 @@ export function CreateProductForm({
                 checked={isFeatured}
                 onChange={(e) => setIsFeatured(e.target.checked)}
                 className="h-4 w-4 rounded border-input"
+                disabled={isSubmitting}
               />
               <Label htmlFor="featured" className="cursor-pointer">
                 Featured Product
@@ -323,6 +401,7 @@ export function CreateProductForm({
                 checked={isTrending}
                 onChange={(e) => setIsTrending(e.target.checked)}
                 className="h-4 w-4 rounded border-input"
+                disabled={isSubmitting}
               />
               <Label htmlFor="trending" className="cursor-pointer">
                 Trending Product
@@ -336,6 +415,7 @@ export function CreateProductForm({
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="h-4 w-4 rounded border-input"
+                disabled={isSubmitting}
               />
               <Label htmlFor="active" className="cursor-pointer">
                 Active (Visible to customers)
@@ -344,18 +424,28 @@ export function CreateProductForm({
           </div>
         </div>
 
+        <ProductVariantsRepeater
+          variants={variants}
+          errorsByIndex={variantErrors}
+          formError={variantsFormError}
+          productPrice={
+            Number.isFinite(productPriceNumber) ? productPriceNumber : 0
+          }
+          disabled={isSubmitting}
+          onChange={setVariants}
+        />
+
         <div className="flex justify-end gap-4">
           <Link href="/admin/products">
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isSubmitting}>
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Product"}
+          <Button type="submit" loading={isSubmitting}>
+            Create Product
           </Button>
         </div>
       </form>
     </div>
-  )
+  );
 }
-

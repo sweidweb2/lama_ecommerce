@@ -35,6 +35,7 @@ interface CreateOrderDialogProps {
 
 export function CreateOrderDialog({ disabled = false }: CreateOrderDialogProps) {
   const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [userId, setUserId] = useState<string>(NONE_VALUE)
   const [status, setStatus] = useState<OrderStatus>('pending')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pending')
@@ -46,39 +47,43 @@ export function CreateOrderDialog({ disabled = false }: CreateOrderDialogProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
+    try {
+      // Calculate total
+      const subtotalNum = parseFloat(subtotal) || 0
+      const shippingFeeNum = parseFloat(shippingFee) || 0
+      const discountNum = parseFloat(discount) || 0
+      const total = subtotalNum + shippingFeeNum - discountNum
 
-    // Calculate total
-    const subtotalNum = parseFloat(subtotal) || 0
-    const shippingFeeNum = parseFloat(shippingFee) || 0
-    const discountNum = parseFloat(discount) || 0
-    const total = subtotalNum + shippingFeeNum - discountNum
+      // TODO: Wire this up to a real admin create action / API
+      const newOrder = {
+        user_id: userId !== NONE_VALUE ? userId : null,
+        status,
+        payment_status: paymentStatus,
+        subtotal: subtotalNum || null,
+        shipping_fee: shippingFeeNum || null,
+        discount: discountNum || null,
+        total: total || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        address_snapshot: null,
+      }
 
-    // TODO: Wire this up to a real admin create action / API
-    const newOrder = {
-      user_id: userId !== NONE_VALUE ? userId : null,
-      status,
-      payment_status: paymentStatus,
-      subtotal: subtotalNum || null,
-      shipping_fee: shippingFeeNum || null,
-      discount: discountNum || null,
-      total: total || null,
-      phone: phone.trim() || null,
-      email: email.trim() || null,
-      address_snapshot: null,
+      console.log("Creating order:", newOrder)
+
+      // Reset form
+      setUserId(NONE_VALUE)
+      setStatus('pending')
+      setPaymentStatus('pending')
+      setSubtotal("")
+      setShippingFee("")
+      setDiscount("")
+      setPhone("")
+      setEmail("")
+      setOpen(false)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    console.log("Creating order:", newOrder)
-
-    // Reset form
-    setUserId(NONE_VALUE)
-    setStatus('pending')
-    setPaymentStatus('pending')
-    setSubtotal("")
-    setShippingFee("")
-    setDiscount("")
-    setPhone("")
-    setEmail("")
-    setOpen(false)
   }
 
   const handleCancel = () => {
@@ -250,10 +255,11 @@ export function CreateOrderDialog({ disabled = false }: CreateOrderDialogProps) 
                 type="button"
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" loading={isSubmitting}>
                 Create Order
               </Button>
             </DialogFooter>

@@ -357,8 +357,8 @@ export function EditProductDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {isSubmitting ? "Saving..." : "Save changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save changes
               </Button>
             </DialogFooter>
           </form>

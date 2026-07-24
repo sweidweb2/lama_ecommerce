@@ -267,8 +267,8 @@ export function CreatePromoCodeDialog({ onCreated }: CreatePromoCodeDialogProps)
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Promo Code"}
+              <Button type="submit" loading={isSubmitting}>
+                Create Promo Code
               </Button>
             </DialogFooter>
           </form>

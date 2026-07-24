@@ -172,8 +172,8 @@ export function CreateContactDialog() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating…" : "Create"}
+              <Button type="submit" loading={isSubmitting}>
+                Create
               </Button>
             </DialogFooter>
           </form>

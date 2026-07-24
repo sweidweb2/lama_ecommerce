@@ -14,11 +14,11 @@ import {
   Truck,
   Ticket,
   List,
-  Grid3x3,
   Tag,
   Tags,
   Eye,
   UserPlus,
+  UserCircle,
   ChevronRight,
   ExternalLink,
   type LucideIcon,
@@ -73,7 +73,7 @@ const menuItems: MenuItem[] = [
   },
   {
     id: "catalog",
-    label: "Catalog",
+    label: "Products",
     icon: Package,
     matchPrefixes: [
       "/admin/products",
@@ -83,7 +83,6 @@ const menuItems: MenuItem[] = [
     ],
     children: [
       { href: "/admin/products", label: "All Products", icon: List },
-      { href: "/admin/products/grid", label: "Grid", icon: Grid3x3 },
       { href: "/admin/product-views", label: "Product Views", icon: Eye },
       { href: "/admin/categories", label: "Categories", icon: Tag },
       { href: "/admin/brands", label: "Brands", icon: Tags },
@@ -138,6 +137,12 @@ const menuItems: MenuItem[] = [
     href: "/admin/backups",
     label: "Backups",
     icon: Database,
+  },
+  {
+    id: "account",
+    href: "/admin/account",
+    label: "Account",
+    icon: UserCircle,
   },
 ]
 
@@ -354,10 +359,10 @@ export function AppSidebar(
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="View storefront">
+            <SidebarMenuButton asChild tooltip="View user pages">
               <a href={ROUTES.HOME} target="_blank" rel="noopener noreferrer">
                 <ExternalLink />
-                <span>View storefront</span>
+                <span>View user pages</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

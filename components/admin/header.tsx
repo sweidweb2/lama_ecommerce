@@ -1,7 +1,7 @@
 "use client"
 
 import { ModeToggle } from "@/components/theme/mode-toggle"
-import { Search, User, LogOut, ExternalLink } from "lucide-react"
+import { Search, LogOut, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -31,7 +31,6 @@ const ADMIN_PAGES = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/products", label: "Products" },
-  { href: "/admin/products/grid", label: "Grid Products" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/brands", label: "Brands" },
   { href: "/admin/products/create", label: "Create Product" },
@@ -46,6 +45,7 @@ const ADMIN_PAGES = [
   { href: "/admin/backups", label: "Backups" },
   { href: "/admin/shippings", label: "Shippings" },
   { href: "/admin/promocodes", label: "Promo Codes" },
+  { href: "/admin/account", label: "Account" },
 ]
 
 export function AdminHeader() {
@@ -205,12 +205,6 @@ export function AdminHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <a href="/account" className="flex items-center cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </a>
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <a
                 href={ROUTES.HOME}

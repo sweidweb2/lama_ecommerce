@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import {
   updateProfileSchema,
   type UpdateProfileInput,
@@ -69,17 +68,10 @@ export function EditProfileForm({ fullName, onSuccess }: EditProfileFormProps) {
         />
         <Button
           type="submit"
-          disabled={form.formState.isSubmitting}
+          loading={form.formState.isSubmitting}
           className="w-full sm:w-auto"
         >
-          {form.formState.isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save"
-          )}
+          Save
         </Button>
       </form>
     </Form>

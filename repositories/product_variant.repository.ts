@@ -310,6 +310,35 @@ export async function getProductVariantsByProductId(
 }
 
 /**
+ * Get variants for many products in one query (admin products table tree).
+ */
+export async function getProductVariantsByProductIds(
+  productIds: string[],
+): Promise<ProductVariant[]> {
+  if (productIds.length === 0) return [];
+
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+
+    const { data, error } = await supabase
+      .from("customised_products")
+      .select("*")
+      .in("product_id", productIds)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching product variants by ids:", error);
+      return [];
+    }
+
+    return (data ?? []) as ProductVariant[];
+  } catch (error) {
+    console.error("Unexpected error in getProductVariantsByProductIds:", error);
+    return [];
+  }
+}
+
+/**
  * Hard delete a product variant.
  * Blocks when wishlists, cart_items, or order_items still reference it.
  */

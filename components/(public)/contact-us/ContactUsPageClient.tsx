@@ -209,19 +209,14 @@ export function ContactUsPageClient() {
                       )}
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      disabled={isSubmitting}
+                    <Button
+                      type="submit"
+                      loading={isSubmitting}
+                      loadingText="Send Message"
                       className="w-full sm:w-auto"
                     >
-                      {isSubmitting ? (
-                        <>Sending...</>
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Message
-                        </>
-                      )}
+                      <Send className="h-4 w-4" />
+                      Send Message
                     </Button>
                   </form>
                 </CardContent>

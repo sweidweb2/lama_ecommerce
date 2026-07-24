@@ -11,7 +11,9 @@ interface AdminBrandsClientProps {
   brands: Brand[]
   createBrandAction: (formData: FormData) => void | Promise<void>
   updateBrandAction: (formData: FormData) => void | Promise<void>
-  deleteBrandAction: (formData: FormData) => void | Promise<void>
+  deleteBrandAction: (
+    formData: FormData,
+  ) => Promise<{ success: true } | { success: false; error: string }>
 }
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50]

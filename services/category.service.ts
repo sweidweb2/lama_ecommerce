@@ -33,5 +33,16 @@ export async function updateCategoryService(
 // Hard-delete a category (admin). Re-parents children; refuses if products still reference it.
 export async function deleteCategoryService(id: string): Promise<boolean> {
   await requireAdmin();
-  return deleteCategory(id);
+  try {
+    return await deleteCategory(id);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Cannot delete category:")
+    ) {
+      throw error;
+    }
+    console.error("Unexpected error in deleteCategoryService:", error);
+    return false;
+  }
 }

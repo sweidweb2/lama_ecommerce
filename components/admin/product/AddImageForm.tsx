@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Upload } from "lucide-react"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { addProductImageAction } from "@/actions/product"
 
@@ -130,19 +130,10 @@ export function AddImageForm({ productId }: AddImageFormProps) {
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedFile || isUploading}
+                loading={isUploading}
+                disabled={!selectedFile}
               >
-                {isUploading ? (
-                  <>
-                    <Upload className="h-4 w-4 mr-2 animate-pulse" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Image
-                  </>
-                )}
+                Upload Image
               </Button>
             </DialogFooter>
           </form>

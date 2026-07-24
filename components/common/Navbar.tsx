@@ -116,11 +116,10 @@ export function Navbar() {
     return null;
   }
 
-  // Check if user is admin
-  const isAdmin = role === ROLES.ADMIN && user !== null;
-  // Only check isLoggedIn after mount to avoid hydration mismatch
-  // During SSR, we'll render as if not logged in, then update after mount
+  // Auth-dependent UI must wait for mount so SSR HTML matches the first client render
+  // (AuthProvider starts with user=null, then hydrates the session).
   const isLoggedIn = mounted && user !== null && !loading;
+  const isAdmin = mounted && role === ROLES.ADMIN && user !== null;
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -300,12 +299,14 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/account" className="flex items-center cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
+                  {!isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/account" className="flex items-center cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link
@@ -477,12 +478,14 @@ export function Navbar() {
                         )}
                       </div>
                       <hr className="my-2" />
-                      <Link href="/account" onClick={() => setIsOpen(false)}>
-                        <Button className="w-full justify-start" variant="ghost">
-                          <User className="mr-2 h-4 w-4" />
-                          Profile
-                        </Button>
-                      </Link>
+                      {!isAdmin && (
+                        <Link href="/account" onClick={() => setIsOpen(false)}>
+                          <Button className="w-full justify-start" variant="ghost">
+                            <User className="mr-2 h-4 w-4" />
+                            Profile
+                          </Button>
+                        </Link>
+                      )}
                       {isAdmin && (
                         <Link
                           href={ROUTES.ADMIN}

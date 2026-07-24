@@ -25,7 +25,6 @@ import {
   Truck,
   CircleCheckBig,
   Check,
-  Loader2,
 } from 'lucide-react'
 import type { OrderStatus } from '@/types/order'
 
@@ -369,16 +368,10 @@ export function OrderStatusStepper({
             <Button
               type="button"
               onClick={handleConfirm}
-              disabled={isUpdating || !canConfirmShipment}
+              loading={isUpdating}
+              disabled={!canConfirmShipment}
             >
-              {isUpdating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating…
-                </>
-              ) : (
-                'Confirm'
-              )}
+              Confirm
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -77,6 +77,7 @@ export async function updateOwnProfileAction(payload: {
   }
 
   revalidatePath("/account");
+  revalidatePath("/admin/account");
   return { success: true, data: updated };
 }
 

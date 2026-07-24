@@ -70,7 +70,7 @@ export async function getAllProductViewsForAdminService(
 export async function getProductViewsByProductIdService(
   productId: string,
   page: number = 1,
-  pageSize: number = 20,
+  pageSize: number = 25,
 ): Promise<{
   data: AdminProductViewRow[];
   total: number;

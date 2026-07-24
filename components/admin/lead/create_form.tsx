@@ -93,8 +93,8 @@ export function CreateLeadDialog({ onCreated }: CreateLeadDialogProps) {
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Add Lead"}
+              <Button type="submit" loading={isSubmitting}>
+                Add Lead
               </Button>
             </DialogFooter>
           </form>

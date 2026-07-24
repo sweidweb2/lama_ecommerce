@@ -91,9 +91,9 @@ export function DeleteQuestionDialog({
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              loading={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete Question"}
+              Delete Question
             </Button>
           </DialogFooter>
         </DialogContent>

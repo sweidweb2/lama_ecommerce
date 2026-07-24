@@ -149,7 +149,7 @@ export function CreateCategoryDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                URL-friendly identifier used in storefront category filters.
+                URL-friendly identifier used in user pages category filters.
               </p>
               {errors.slug && (
                 <p className="text-xs text-destructive">{errors.slug}</p>
@@ -193,7 +193,7 @@ export function CreateCategoryDialog({
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Inactive categories will not be shown in the storefront.
+                Inactive categories will not be shown in the user pages.
               </p>
             </div>
 
@@ -216,8 +216,8 @@ export function CreateCategoryDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Category"}
+              <Button type="submit" loading={isSubmitting}>
+                Create Category
               </Button>
             </DialogFooter>
           </form>

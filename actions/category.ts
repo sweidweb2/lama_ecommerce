@@ -104,11 +104,13 @@ export async function updateCategoryAction(formData: FormData): Promise<void> {
   }
 }
 
-export async function deleteCategoryAction(formData: FormData): Promise<void> {
+export async function deleteCategoryAction(
+  formData: FormData,
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
     const idRaw = formData.get("id")?.toString();
@@ -116,13 +118,18 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
 
     const success = await deleteCategoryService(id);
     if (!success) {
-      throw new Error("Failed to delete category");
+      return { success: false, error: "Failed to delete category" };
     }
 
     revalidatePath("/admin/categories");
+    return { success: true };
   } catch (error) {
     console.error("Unexpected error in deleteCategoryAction:", error);
-    throw error;
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to delete category",
+    };
   }
 }
 

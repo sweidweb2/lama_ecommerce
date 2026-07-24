@@ -165,8 +165,8 @@ export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" loading={isSubmitting}>
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

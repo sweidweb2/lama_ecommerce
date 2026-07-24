@@ -1,10 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ImageIcon } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductImage as ProductImageType } from '@/types/product_utf8'
 
@@ -16,16 +21,7 @@ interface ProductMediaGalleryProps {
 }
 
 /**
- * ProductMediaGallery Component
- * 
- * Maps to: product_images table
- * 
- * Features:
- * - Main image display with click-to-view
- * - Thumbnail navigation
- * - Full-screen image viewer
- * - Primary image prioritization
- * - Badge display for featured/trending
+ * Product media gallery with thumbnail strip and full-screen lightbox viewer.
  */
 export function ProductMediaGallery({
   productName,
@@ -36,23 +32,52 @@ export function ProductMediaGallery({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [viewerOpen, setViewerOpen] = useState(false)
 
-  // Sort images: primary first, then by creation date
   const sortedImages = useMemo(() => {
-    const sorted = [...images].filter(img => img.url_image).sort((a, b) => {
-      if (a.is_primary && !b.is_primary) return -1
-      if (!a.is_primary && b.is_primary) return 1
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    })
-
-    return sorted
+    return [...images]
+      .filter((img) => img.url_image)
+      .sort((a, b) => {
+        if (a.is_primary && !b.is_primary) return -1
+        if (!a.is_primary && b.is_primary) return 1
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      })
   }, [images])
 
   const currentImage = sortedImages[selectedIndex] || sortedImages[0]
-  const hasImage = currentImage?.url_image
+  const hasImage = Boolean(currentImage?.url_image)
+  const imageCount = sortedImages.length
+  const canNavigate = imageCount > 1
+
+  const goTo = useCallback(
+    (index: number) => {
+      if (imageCount === 0) return
+      setSelectedIndex(((index % imageCount) + imageCount) % imageCount)
+    },
+    [imageCount],
+  )
+
+  const goPrev = useCallback(() => goTo(selectedIndex - 1), [goTo, selectedIndex])
+  const goNext = useCallback(() => goTo(selectedIndex + 1), [goTo, selectedIndex])
+
+  useEffect(() => {
+    if (!viewerOpen || !canNavigate) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        goPrev()
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        goNext()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [viewerOpen, canNavigate, goPrev, goNext])
 
   if (sortedImages.length === 0 || !hasImage) {
     return (
-      <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-muted border flex items-center justify-center">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <ImageIcon className="h-16 w-16 opacity-50" />
           <span className="text-sm opacity-75">No Image Available</span>
@@ -64,28 +89,17 @@ export function ProductMediaGallery({
   return (
     <>
       <div className="space-y-4">
-        {/* Main Image */}
-        <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-muted border group">
-          {hasImage ? (
-            <Image
-              src={currentImage.url_image}
-              alt={productName}
-              fill
-              className="object-cover cursor-pointer transition-transform group-hover:scale-105"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority
-              onClick={() => setViewerOpen(true)}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted">
-              <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <ImageIcon className="h-16 w-16 opacity-50" />
-                <span className="text-sm opacity-75">No Image Available</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Badges */}
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border bg-muted group">
+          <Image
+            src={currentImage.url_image}
+            alt={productName}
+            fill
+            className="object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            priority
+            onClick={() => setViewerOpen(true)}
+          />
+
           <div className="absolute top-4 left-4 flex flex-col gap-2">
             {isFeatured && (
               <Badge className="bg-primary text-primary-foreground border-none">
@@ -100,8 +114,7 @@ export function ProductMediaGallery({
           </div>
         </div>
 
-        {/* Thumbnails */}
-        {sortedImages.length > 0 && (
+        {imageCount > 1 && (
           <div className="flex gap-2 overflow-x-auto hide-scrollbar">
             {sortedImages.map((image, index) => {
               const isSelected = index === selectedIndex
@@ -111,10 +124,10 @@ export function ProductMediaGallery({
                   type="button"
                   onClick={() => setSelectedIndex(index)}
                   className={cn(
-                    "relative aspect-square w-24 h-24 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
+                    'relative aspect-square h-24 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-all',
                     isSelected
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/50"
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-border hover:border-primary/50',
                   )}
                   aria-label={`View image ${index + 1}`}
                 >
@@ -132,57 +145,133 @@ export function ProductMediaGallery({
         )}
       </div>
 
-      {/* Full-Screen Viewer */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] p-0 bg-transparent border-none">
+        <DialogContent
+          showCloseButton={false}
+          className={cn(
+            'fixed inset-0 left-0 top-0 z-50 flex h-dvh max-h-dvh w-screen max-w-none',
+            'translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0',
+            'bg-[#14110e]/95 p-0 shadow-none outline-none backdrop-blur-md',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200',
+          )}
+        >
           <DialogHeader className="sr-only">
-            <DialogTitle>View {productName} Image</DialogTitle>
+            <DialogTitle>View {productName} images</DialogTitle>
           </DialogHeader>
-          <div className="relative w-full h-[80vh] rounded-lg overflow-hidden bg-background p-4">
-            {hasImage ? (
+
+          {/* Top bar */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between px-4 pt-4 sm:px-6 sm:pt-5">
+            <div className="pointer-events-auto max-w-[60%] truncate rounded-full bg-black/40 px-3 py-1.5 text-xs tracking-wide text-white/80 backdrop-blur-sm sm:text-sm">
+              <span className="font-medium text-white/95">{productName}</span>
+              {canNavigate && (
+                <span className="ml-2 text-white/55">
+                  {selectedIndex + 1} / {imageCount}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewerOpen(false)}
+              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              aria-label="Close image viewer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Main stage */}
+          <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-28 pt-16 sm:px-16 sm:pb-32 sm:pt-20">
+            {canNavigate && (
+              <button
+                type="button"
+                onClick={goPrev}
+                className="absolute left-2 z-10 hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20 sm:left-4 sm:inline-flex"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+
+            <div className="relative h-full w-full max-w-5xl">
               <Image
+                key={currentImage.id}
                 src={currentImage.url_image}
                 alt={productName}
                 fill
-                className="object-contain"
+                className="object-contain animate-in fade-in-0 duration-200"
                 sizes="100vw"
+                priority
               />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <ImageIcon className="h-16 w-16 opacity-50" />
-                  <span className="text-sm opacity-75">No Image Available</span>
-                </div>
-              </div>
+            </div>
+
+            {canNavigate && (
+              <button
+                type="button"
+                onClick={goNext}
+                className="absolute right-2 z-10 hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20 sm:right-4 sm:inline-flex"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
             )}
           </div>
-          {sortedImages.length > 0 && (
-            <div className="flex gap-2 justify-center overflow-x-auto hide-scrollbar p-4 bg-background/95 backdrop-blur-sm">
-              {sortedImages.map((image, index) => {
-                const isSelected = index === selectedIndex
-                return (
-                  <button
-                    key={image.id}
-                    type="button"
-                    onClick={() => setSelectedIndex(index)}
-                    className={cn(
-                      "relative aspect-square w-24 h-24 shrink-0 rounded-lg overflow-hidden border-2 transition-all",
-                      isSelected
-                        ? "border-primary ring-2 ring-primary/50"
-                        : "border-border hover:border-primary/50"
-                    )}
-                    aria-label={`Select image ${index + 1}`}
-                  >
-                    <Image
-                      src={image.url_image}
-                      alt={`${productName} - Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="96px"
-                    />
-                  </button>
-                )
-              })}
+
+          {/* Filmstrip */}
+          {canNavigate && (
+            <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 pb-5 pt-10 sm:px-6 sm:pb-6">
+              <div className="mx-auto flex max-w-3xl justify-center gap-2 overflow-x-auto hide-scrollbar">
+                {sortedImages.map((image, index) => {
+                  const isSelected = index === selectedIndex
+                  return (
+                    <button
+                      key={image.id}
+                      type="button"
+                      onClick={() => setSelectedIndex(index)}
+                      className={cn(
+                        'relative h-14 w-14 shrink-0 overflow-hidden rounded-md transition-all sm:h-16 sm:w-16',
+                        isSelected
+                          ? 'ring-2 ring-white ring-offset-2 ring-offset-black/80'
+                          : 'opacity-55 hover:opacity-100',
+                      )}
+                      aria-label={`Select image ${index + 1}`}
+                      aria-current={isSelected ? 'true' : undefined}
+                    >
+                      <Image
+                        src={image.url_image}
+                        alt={`${productName} - Image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Mobile prev/next */}
+              <div className="mt-4 flex items-center justify-center gap-3 sm:hidden">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/90"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="min-w-12 text-center text-xs text-white/70">
+                  {selectedIndex + 1} / {imageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/90"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           )}
         </DialogContent>

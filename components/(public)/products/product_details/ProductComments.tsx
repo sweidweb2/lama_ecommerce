@@ -152,7 +152,7 @@ export function ProductComments({
       return (
         <div className="space-y-4 rounded-lg border p-6">
           <p className="text-muted-foreground">
-            Admins cannot leave storefront reviews. Moderate reviews from the admin panel.
+            Admins cannot leave user pages reviews. Moderate reviews from the admin panel.
           </p>
           <Button asChild size="lg" className="w-full" variant="outline">
             <Link href={ROUTES.ADMIN}>Go to Admin Panel</Link>
@@ -250,10 +250,11 @@ export function ProductComments({
         <Button
           type="submit"
           size="lg"
-          disabled={isSubmitting || rating === 0 || !comment.trim()}
+          loading={isSubmitting}
+          disabled={rating === 0 || !comment.trim()}
           className="w-full"
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Review'}
+          Submit Review
         </Button>
       </form>
     )
