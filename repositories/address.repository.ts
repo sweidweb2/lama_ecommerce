@@ -40,20 +40,90 @@ export type CreateAddressPayload = {
   is_default?: boolean;
 };
 
+export type AddressMatchFields = {
+  country: string;
+  city: string;
+  address: string;
+  postal_code?: string | null;
+  phone: string;
+};
+
+/**
+ * Find an existing address for the user matching core fields.
+ * Treats null / empty postal_code as equal. Returns first match if duplicates exist.
+ */
+export async function findAddressByFields(
+  userId: string,
+  fields: AddressMatchFields,
+): Promise<UserAddress | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const postal =
+      fields.postal_code && fields.postal_code.trim().length > 0
+        ? fields.postal_code.trim()
+        : null;
+
+    let query = (supabase as any)
+      .from("user_addresses")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("country", fields.country)
+      .eq("city", fields.city)
+      .eq("address", fields.address)
+      .eq("phone", fields.phone);
+
+    if (postal === null) {
+      query = query.is("postal_code", null);
+    } else {
+      query = query.eq("postal_code", postal);
+    }
+
+    const { data, error } = await query
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (error) {
+      console.error("Error finding address by fields:", error);
+      return null;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return (row as UserAddress | undefined) ?? null;
+  } catch (error) {
+    console.error("Unexpected error in findAddressByFields:", error);
+    return null;
+  }
+}
+
+/**
+ * Call set_default_user_address RPC (ownership check + atomic swap).
+ */
+async function rpcSetDefaultAddress(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerActionClient>>,
+  addressId: string,
+): Promise<UserAddress | null> {
+  const { data, error } = await (supabase as any).rpc(
+    "set_default_user_address",
+    { p_address_id: addressId },
+  );
+
+  if (error) {
+    console.error("Error setting default address via RPC:", error);
+    return null;
+  }
+
+  return (data as UserAddress | null) ?? null;
+}
+
 /**
  * Create a new address. RLS ensures user can only insert for own user_id.
+ * When is_default, insert first then atomically promote via RPC (no pre-clear).
  */
 export async function createAddress(
   payload: CreateAddressPayload,
 ): Promise<UserAddress | null> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    if (payload.is_default) {
-      await (supabase as any)
-        .from("user_addresses")
-        .update({ is_default: false })
-        .eq("user_id", payload.user_id);
-    }
     const { data, error } = await (supabase as any)
       .from("user_addresses")
       .insert({
@@ -72,7 +142,12 @@ export async function createAddress(
       console.error("Error creating address:", error);
       return null;
     }
-    return data as UserAddress;
+
+    const created = data as UserAddress;
+    if (!payload.is_default) return created;
+
+    const asDefault = await rpcSetDefaultAddress(supabase, created.id);
+    return asDefault ?? created;
   } catch (error) {
     console.error("Unexpected error in createAddress:", error);
     return null;
@@ -90,6 +165,7 @@ export type UpdateAddressPayload = {
 
 /**
  * Update an address by id. RLS ensures user can only update own addresses.
+ * When setting is_default, update first then atomically promote via RPC (no pre-clear).
  */
 export async function updateAddressById(
   addressId: string,
@@ -98,12 +174,6 @@ export async function updateAddressById(
 ): Promise<UserAddress | null> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    if (updates.is_default === true) {
-      await (supabase as any)
-        .from("user_addresses")
-        .update({ is_default: false })
-        .eq("user_id", userId);
-    }
     const payload: Record<string, unknown> = {};
     if (updates.country !== undefined) payload.country = updates.country;
     if (updates.city !== undefined) payload.city = updates.city;
@@ -124,7 +194,14 @@ export async function updateAddressById(
       console.error("Error updating address:", error);
       return null;
     }
-    return data as UserAddress | null;
+
+    if (!data) return null;
+
+    const updated = data as UserAddress;
+    if (updates.is_default !== true) return updated;
+
+    const asDefault = await rpcSetDefaultAddress(supabase, addressId);
+    return asDefault ?? updated;
   } catch (error) {
     console.error("Unexpected error in updateAddressById:", error);
     return null;
@@ -140,17 +217,18 @@ export async function deleteAddressById(
 ): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("user_addresses")
       .delete()
       .eq("id", addressId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("id");
 
     if (error) {
       console.error("Error deleting address:", error);
       return false;
     }
-    return true;
+    return Boolean(data?.length);
   } catch (error) {
     console.error("Unexpected error in deleteAddressById:", error);
     return false;
@@ -159,31 +237,16 @@ export async function deleteAddressById(
 
 /**
  * Set one address as default; clear default on others for this user.
+ * Uses atomic RPC (set target then clear others). userId kept for call-site
+ * compatibility; ownership is enforced inside the RPC via auth.uid().
  */
 export async function setDefaultAddress(
   addressId: string,
-  userId: string,
+  _userId: string,
 ): Promise<UserAddress | null> {
   try {
     const supabase = await createSupabaseServerActionClient();
-    await (supabase as any)
-      .from("user_addresses")
-      .update({ is_default: false })
-      .eq("user_id", userId);
-
-    const { data, error } = await (supabase as any)
-      .from("user_addresses")
-      .update({ is_default: true })
-      .eq("id", addressId)
-      .eq("user_id", userId)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error setting default address:", error);
-      return null;
-    }
-    return data as UserAddress | null;
+    return await rpcSetDefaultAddress(supabase, addressId);
   } catch (error) {
     console.error("Unexpected error in setDefaultAddress:", error);
     return null;

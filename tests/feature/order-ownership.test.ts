@@ -177,7 +177,7 @@ describe("claimGuestOrdersService", () => {
     vi.clearAllMocks();
   });
 
-  it("delegates to claimOrdersBySessionId with session then user", async () => {
+  it("delegates to claimOrdersBySessionId with session, user, and email", async () => {
     claimOrdersBySessionId.mockResolvedValue({
       success: true,
       claimedCount: 2,
@@ -186,9 +186,31 @@ describe("claimGuestOrdersService", () => {
       "@/services/order.service"
     );
     await expect(
-      claimGuestOrdersService("user-1", "sess-1"),
+      claimGuestOrdersService("user-1", "sess-1", "guest@example.com"),
     ).resolves.toEqual({ success: true, claimedCount: 2 });
-    expect(claimOrdersBySessionId).toHaveBeenCalledWith("sess-1", "user-1");
+    expect(claimOrdersBySessionId).toHaveBeenCalledWith(
+      "sess-1",
+      "user-1",
+      "guest@example.com",
+    );
+  });
+
+  it("passes empty string when email is missing (repo no-ops claim)", async () => {
+    claimOrdersBySessionId.mockResolvedValue({
+      success: true,
+      claimedCount: 0,
+    });
+    const { claimGuestOrdersService } = await import(
+      "@/services/order.service"
+    );
+    await expect(
+      claimGuestOrdersService("user-1", "sess-1", null),
+    ).resolves.toEqual({ success: true, claimedCount: 0 });
+    expect(claimOrdersBySessionId).toHaveBeenCalledWith(
+      "sess-1",
+      "user-1",
+      "",
+    );
   });
 
   it("returns repo failure unchanged (idempotent zero-claim is success)", async () => {
@@ -200,7 +222,7 @@ describe("claimGuestOrdersService", () => {
       "@/services/order.service"
     );
     await expect(
-      claimGuestOrdersService("user-1", "sess-1"),
+      claimGuestOrdersService("user-1", "sess-1", "a@b.com"),
     ).resolves.toEqual({ success: true, claimedCount: 0 });
   });
 });

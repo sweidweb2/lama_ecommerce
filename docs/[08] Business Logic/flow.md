@@ -11,8 +11,7 @@
 
 ## User (User / Customer)
 - All guest capabilities (with logged-in cart merge on login)
-- Account: profile, change password, manage addresses
-- Profile / settings
+- Account: profile (edit name), change password, manage addresses (`/account`; `/profile*` redirects here)
 - Wishlist (account + public)
 - Place order with saved addresses / save address after checkout
 - View own orders & order details
@@ -22,7 +21,7 @@
 
 ## Admin (Admin)
 - Browse storefront catalog (no cart, wishlist, checkout, review-write, or storefront ask)
-- Account / profile (no guest cart/order/wishlist merge on login — cookie cleared only)
+- Account / profile → `/account` (no guest cart/order/wishlist merge on login — cookie cleared only)
 - Admin dashboard
 - Catalog: products (CRUD, variants, images, grid), categories, brands, product views
 - Sales: orders (view/edit/status/payment/shipment), carts (view/manage/checkout), shipping zones, promo codes

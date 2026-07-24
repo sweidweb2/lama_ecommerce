@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getAllShippingZonesWithFee = vi.fn();
 const processCheckout = vi.fn();
 const incrementPurchaseCountForOrderService = vi.fn();
+const createAddressForUser = vi.fn();
+const updateAddressForUser = vi.fn();
+const getAddressesByUserId = vi.fn();
 
 vi.mock("@/repositories/shipping_zone.repository", () => ({
   getAllShippingZonesWithFee: (...args: unknown[]) =>
@@ -16,6 +19,20 @@ vi.mock("@/repositories/order.repository", () => ({
 vi.mock("@/services/product_view.service", () => ({
   incrementPurchaseCountForOrderService: (...args: unknown[]) =>
     incrementPurchaseCountForOrderService(...args),
+}));
+
+vi.mock("@/services/order_email.service", () => ({
+  sendOrderConfirmationEmailService: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/services/address.service", () => ({
+  createAddressForUser: (...args: unknown[]) => createAddressForUser(...args),
+  updateAddressForUser: (...args: unknown[]) => updateAddressForUser(...args),
+  getAddressesByUserId: (...args: unknown[]) => getAddressesByUserId(...args),
+}));
+
+vi.mock("@/services/profile.service", () => ({
+  getAdminShopBlockForUserId: vi.fn().mockResolvedValue(null),
 }));
 
 const baseInput = {
@@ -33,10 +50,25 @@ const baseInput = {
   email: "buyer@example.com",
 };
 
+const savedAddressId = "dddddddd-eeee-ffff-0000-111111111111";
+
 describe("checkoutService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     incrementPurchaseCountForOrderService.mockResolvedValue(undefined);
+    getAllShippingZonesWithFee.mockResolvedValue([
+      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
+    ]);
+    processCheckout.mockResolvedValue({
+      success: true,
+      orderId: "order-1",
+    });
+    getAddressesByUserId.mockResolvedValue([]);
+    createAddressForUser.mockResolvedValue({
+      ok: true,
+      data: { id: savedAddressId },
+    });
+    updateAddressForUser.mockResolvedValue({ id: savedAddressId });
   });
 
   it("rejects unknown shipping zone", async () => {
@@ -50,14 +82,6 @@ describe("checkoutService", () => {
   });
 
   it("passes shipping_zone_id into processCheckout (fee resolved in SQL)", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
-    ]);
-    processCheckout.mockResolvedValue({
-      success: true,
-      orderId: "order-1",
-    });
-
     const { checkoutService } = await import("@/services/checkout.service");
     const result = await checkoutService(baseInput);
 
@@ -103,9 +127,6 @@ describe("checkoutService", () => {
   });
 
   it("surfaces stock race errors from processCheckout", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
-    ]);
     processCheckout.mockResolvedValue({
       success: false,
       error:
@@ -121,9 +142,6 @@ describe("checkoutService", () => {
   });
 
   it("maps thrown stock race exceptions to failure result", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
-    ]);
     processCheckout.mockRejectedValue(
       new Error('Stock race condition for "Tee": stock changed since validation'),
     );
@@ -151,5 +169,108 @@ describe("checkoutService", () => {
       }),
     );
     expect(processCheckout.mock.calls[0][0]).not.toHaveProperty("shipping_fee");
+  });
+
+  it("does not touch address book when save_address is false", async () => {
+    const { checkoutService } = await import("@/services/checkout.service");
+    const result = await checkoutService({
+      ...baseInput,
+      save_address: false,
+    });
+
+    expect(result).toEqual({ success: true, orderId: "order-1" });
+    expect(createAddressForUser).not.toHaveBeenCalled();
+    expect(updateAddressForUser).not.toHaveBeenCalled();
+  });
+
+  it("creates address after checkout and returns addressSaved true", async () => {
+    const { checkoutService } = await import("@/services/checkout.service");
+    const result = await checkoutService({
+      ...baseInput,
+      save_address: true,
+      save_address_mode: "create",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      orderId: "order-1",
+      addressSaved: true,
+    });
+    expect(getAddressesByUserId).toHaveBeenCalledWith(baseInput.user_id);
+    expect(createAddressForUser).toHaveBeenCalledWith(baseInput.user_id, {
+      country: baseInput.address.country,
+      city: baseInput.address.city,
+      address: baseInput.address.address,
+      postal_code: baseInput.address.postal_code,
+      phone: baseInput.phone,
+      is_default: true,
+    });
+    expect(updateAddressForUser).not.toHaveBeenCalled();
+  });
+
+  it("returns addressSaved false when create fails but order still succeeds", async () => {
+    createAddressForUser.mockResolvedValue({
+      ok: false,
+      error: "Failed to save address",
+    });
+
+    const { checkoutService } = await import("@/services/checkout.service");
+    const result = await checkoutService({
+      ...baseInput,
+      save_address: true,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      orderId: "order-1",
+      addressSaved: false,
+    });
+  });
+
+  it("updates selected address when save_address_mode is update", async () => {
+    const { checkoutService } = await import("@/services/checkout.service");
+    const result = await checkoutService({
+      ...baseInput,
+      save_address: true,
+      save_address_mode: "update",
+      saved_address_id: savedAddressId,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      orderId: "order-1",
+      addressSaved: true,
+    });
+    expect(updateAddressForUser).toHaveBeenCalledWith(
+      baseInput.user_id,
+      savedAddressId,
+      {
+        country: baseInput.address.country,
+        city: baseInput.address.city,
+        address: baseInput.address.address,
+        postal_code: baseInput.address.postal_code,
+        phone: baseInput.phone,
+      },
+    );
+    expect(createAddressForUser).not.toHaveBeenCalled();
+  });
+
+  it("returns addressSaved false when update returns null", async () => {
+    updateAddressForUser.mockResolvedValue(null);
+
+    const { checkoutService } = await import("@/services/checkout.service");
+    const result = await checkoutService({
+      ...baseInput,
+      save_address: true,
+      save_address_mode: "update",
+      saved_address_id: savedAddressId,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      orderId: "order-1",
+      addressSaved: false,
+    });
+    expect(createAddressForUser).not.toHaveBeenCalled();
   });
 });

@@ -61,14 +61,19 @@ export async function GET(request: NextRequest) {
       // so mergeGuestCartOnLoginAction's getUser would miss the new session.
       // Failures are non-blocking; cookie stays for AuthProvider retry.
       let exchangedUserId: string | null = null;
+      let exchangedUserEmail: string | null = null;
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
         exchangedUserId = user?.id ?? null;
+        exchangedUserEmail = user?.email ?? null;
 
         if (exchangedUserId) {
-          const handoff = await performGuestSessionHandoff(exchangedUserId);
+          const handoff = await performGuestSessionHandoff(
+            exchangedUserId,
+            exchangedUserEmail,
+          );
           if (!handoff.success) {
             console.error(
               "Guest session handoff failed in auth callback:",

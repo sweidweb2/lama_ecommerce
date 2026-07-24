@@ -67,18 +67,61 @@ export async function getSessionOrders(
 }
 
 /**
+ * Storefront order list for `/orders`.
+ * - Auth only: user-owned orders.
+ * - Guest only: unclaimed session orders.
+ * - Auth + guest cookie: union both (covers pre-claim / claim-fail window).
+ * Session rows are already `user_id IS NULL`; on id collision, user row wins.
+ */
+export async function getStorefrontOrders(
+  userId: string | null,
+  sessionId: string | null,
+): Promise<Order[]> {
+  if (!userId && !sessionId) return [];
+
+  if (userId && !sessionId) {
+    return getUserOrders(userId);
+  }
+
+  if (!userId && sessionId) {
+    return getSessionOrders(sessionId);
+  }
+
+  const [userOrders, sessionOrders] = await Promise.all([
+    getUserOrders(userId!),
+    getSessionOrders(sessionId!),
+  ]);
+
+  const byId = new Map<string, Order>();
+  for (const order of sessionOrders) {
+    byId.set(order.id, order);
+  }
+  for (const order of userOrders) {
+    byId.set(order.id, order);
+  }
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const aTime = a.created_at ? Date.parse(a.created_at) : 0;
+    const bTime = b.created_at ? Date.parse(b.created_at) : 0;
+    return bTime - aTime;
+  });
+}
+
+/**
  * Attach guest orders for a session to a user account (login handoff).
+ * Only claims when checkout email matches userEmail (case-insensitive).
  * Idempotent; uses service-role claim under the hood.
  */
 export async function claimGuestOrdersService(
   userId: string,
   sessionId: string,
+  userEmail: string | null | undefined,
 ): Promise<{ success: boolean; error?: string; claimedCount: number }> {
   const shopBlock = await getAdminShopBlockForUserId(userId);
   if (shopBlock) {
     return { success: false, error: shopBlock, claimedCount: 0 };
   }
-  return claimOrdersBySessionId(sessionId, userId);
+  return claimOrdersBySessionId(sessionId, userId, userEmail ?? "");
 }
 
 /**

@@ -206,7 +206,7 @@ export function AdminHeader() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href="/profile" className="flex items-center cursor-pointer">
+              <a href="/account" className="flex items-center cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </a>

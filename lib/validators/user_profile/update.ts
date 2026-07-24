@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { profileBaseSchema } from "./base";
 
-// User profile update (from account settings).
+// Customer self-edit on /account (full_name only).
 
-export const updateProfileSchema = profileBaseSchema.partial();
+export const updateProfileSchema = z.object({
+  full_name: z.string().trim().min(1, "Name is required").max(200),
+});
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
-

@@ -1,6 +1,7 @@
 import type { UserAddress } from "@/types/user";
 import {
   getAddressesByUserId as repoGetByUserId,
+  findAddressByFields as repoFindByFields,
   createAddress as repoCreate,
   updateAddressById as repoUpdate,
   deleteAddressById as repoDelete,
@@ -25,7 +26,9 @@ export type CreateAddressResult =
   | { ok: false; error: string };
 
 /**
- * Create an address for the given user. Validate with Zod. Call from server action after verifying user.
+ * Create an address for the given user. Validate with Zod.
+ * Skips insert when an identical row already exists; may promote to default.
+ * Call from server action after verifying user.
  */
 export async function createAddressForUser(
   userId: string,
@@ -37,7 +40,28 @@ export async function createAddressForUser(
     const msg = Object.values(first).flat().find(Boolean) ?? "Invalid address data";
     return { ok: false, error: String(msg) };
   }
-  const created = await repoCreate({ ...parsed.data, user_id: userId });
+
+  const data = parsed.data;
+  const existing = await repoFindByFields(userId, {
+    country: data.country,
+    city: data.city,
+    address: data.address,
+    postal_code: data.postal_code ?? null,
+    phone: data.phone,
+  });
+
+  if (existing) {
+    if (data.is_default === true && !existing.is_default) {
+      const promoted = await repoSetDefault(existing.id, userId);
+      if (!promoted) {
+        return { ok: false, error: "Failed to set default address" };
+      }
+      return { ok: true, data: promoted };
+    }
+    return { ok: true, data: existing };
+  }
+
+  const created = await repoCreate({ ...data, user_id: userId });
   if (!created) return { ok: false, error: "Failed to save address" };
   return { ok: true, data: created };
 }

@@ -3,7 +3,7 @@
 **Scope:** Logged-in customer `flow.md` bullet: log out (idle timeout) — manual Navbar logout + idle session watcher.  
 **Out of scope:** Admin panel idle quirks beyond shared watcher (Admin Auth Session); forgot-password / signup (Guest Sign up); full auth `is_active` gaps (reference only).
 
-**Verdict:** **Works.** Same `IdleSessionWatcher` / `logoutService` as admin. User password login defaults to **`/`**. Idle (10 min, warning at 8m) → **`/auth/login`**; manual Navbar logout → **`/`**. Document destination asymmetry; no capability denial.
+**Verdict:** **Works.** Same `IdleSessionWatcher` / `logoutService` as admin. User password login defaults to **`/`**. Idle (10 min, warning at 8m) → **`/auth/login?reason=idle`** (banner); manual Navbar logout → **`/`**. Destination asymmetry is intentional.
 
 ---
 
@@ -11,14 +11,14 @@
 
 1. Any signed-in user → `AuthProvider` mounts `IdleSessionWatcher` (`enabled={Boolean(user)}`).
 2. Idle = **10 min** (`IDLE_TIMEOUT_MS`) without `pointerdown` / `keydown` / `scroll` / `touchstart` or pathname change (no `mousemove`); becoming **visible** resets (hidden tab time does not accumulate). Warning toast at **8 min** (`IDLE_WARNING_BEFORE_MS`).
-3. Idle → `logoutService` → toast “Session expired…” → **`/auth/login`** + refresh.
+3. Idle → `logoutService` → toast “Session expired…” → **`/auth/login?reason=idle`** + refresh (login banner).
 4. Manual Navbar logout → `logoutService` → toast → **`/`** + refresh.
 5. User password login (no `?redirect`) → **`/`** (`LoginForm`; admin → `/admin`).
 
 ```text
 Signed-in user
   → AuthProvider + IdleSessionWatcher (10m, warn @8m)
-  → idle → logoutService → /auth/login
+  → idle → logoutService → /auth/login?reason=idle
   → Navbar logout → logoutService → /
   → password login → /  (or safe ?redirect=)
 ```
@@ -30,7 +30,7 @@ Signed-in user
 | Capability | Status | Notes |
 |------------|--------|--------|
 | Manual logout | Yes | Navbar → `/` |
-| Idle logout | Yes | Warn @8m; 10 min → `/auth/login` |
+| Idle logout | Yes | Warn @8m; 10 min → `/auth/login?reason=idle` |
 | Idle applies on storefront | Yes | Any `user`, not role-gated |
 | User login landing | `/` | vs admin `/admin` |
 
@@ -46,10 +46,11 @@ Shared auth P0s (`is_active` ignored on login, etc.) → Guest Sign up / Admin A
 
 ## P1 — Incomplete / wrong logout behavior
 
-- [ ] **Idle → login vs manual → `/`**  
+- [x] ✅ **Idle → login vs manual → `/`** done✅  
   Intentional but confusing when documenting “session expired.”  
   **Where:** `IdleSessionWatcher.tsx` vs `Navbar.tsx`.  
-  **Do:** Align destinations, or idle with `?reason=idle` banner (login banners already support `reason` for inactive).
+  **Do:** Align destinations, or idle with `?reason=idle` banner (login banners already support `reason` for inactive).  
+  **Done:** Idle keeps `/auth/login`; redirects with `?reason=idle`; `getLoginAuthBannerMessage` shows inactivity message. Manual logout still → `/`.
 
 ---
 
@@ -84,7 +85,7 @@ Shared auth P0s (`is_active` ignored on login, etc.) → Guest Sign up / Admin A
 | Case | Status |
 |------|--------|
 | User idle 8m | Warning toast |
-| User idle 10m | Logout → `/auth/login` |
+| User idle 10m | Logout → `/auth/login?reason=idle` |
 | Manual Navbar logout | → `/` |
 | User login no redirect | → `/` |
 | User login `?redirect=/orders` | Safe path |
@@ -100,7 +101,7 @@ Shared auth P0s (`is_active` ignored on login, etc.) → Guest Sign up / Admin A
 | | User | Admin |
 |--|------|--------|
 | Default password login | `/` | `/admin` |
-| Idle landing | `/auth/login` | `/auth/login` |
+| Idle landing | `/auth/login?reason=idle` | `/auth/login?reason=idle` |
 | Manual logout landing | `/` | `/` (header/Navbar) |
 | Idle duration | 10 min (warn @8m) | 10 min (same) |
 
@@ -125,4 +126,4 @@ Shared auth P0s (`is_active` ignored on login, etc.) → Guest Sign up / Admin A
 - Shared auth gaps: `[02] Guest Flow/[05] Guest Flow - Sign up Log in.md`
 - Guest capabilities inheritance: `[02] Client Flow - Guest Capabilities.md`
 
-**Highest-impact remaining:** idle vs manual destination alignment / `?reason=idle` (P1); otherwise this goal is satisfied.
+**Highest-impact remaining:** none for this bullet; idle vs manual destinations stay intentional with `?reason=idle` banner.

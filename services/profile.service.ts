@@ -103,6 +103,18 @@ export async function getUsersWithoutActiveCarts(): Promise<AdminProfileRow[]> {
 }
 
 /**
+ * Update the current user's own profile (`full_name` only).
+ * Returns null if unauthenticated or update fails.
+ */
+export async function updateOwnProfile(
+  fullName: string,
+): Promise<Profile | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+  return updateProfileById(profile.id, { full_name: fullName });
+}
+
+/**
  * Update a profile (full_name, role, is_active/status) as admin. Fails if caller is not admin.
  */
 export async function updateProfileAdmin(

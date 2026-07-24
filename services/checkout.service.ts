@@ -5,7 +5,11 @@ import {
   type ProcessCheckoutInput,
 } from "@/repositories/order.repository";
 import { getAllShippingZonesWithFee } from "@/repositories/shipping_zone.repository";
-import { createAddressForUser } from "@/services/address.service";
+import {
+  createAddressForUser,
+  getAddressesByUserId,
+  updateAddressForUser,
+} from "@/services/address.service";
 import { sendOrderConfirmationEmailService } from "@/services/order_email.service";
 import { incrementPurchaseCountForOrderService } from "@/services/product_view.service";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
@@ -24,9 +28,21 @@ export interface CheckoutServiceInput {
   email: string;
   /** Persist submitted address to user_addresses after a successful order. */
   save_address?: boolean;
+  /** create = insert (default); update = edit selected saved address. */
+  save_address_mode?: "create" | "update";
+  /** Required when save_address_mode is update. */
+  saved_address_id?: string;
   /** Optional promo code; validated and applied inside process_checkout. */
   promo_code?: string | null;
 }
+
+export type CheckoutServiceResult = {
+  success: boolean;
+  error?: string;
+  orderId?: string;
+  /** Present only when save_address was requested; true if address book write succeeded. */
+  addressSaved?: boolean;
+};
 
 /**
  * Orchestrate the checkout flow:
@@ -37,7 +53,7 @@ export interface CheckoutServiceInput {
  */
 export async function checkoutService(
   input: CheckoutServiceInput,
-): Promise<{ success: boolean; error?: string; orderId?: string }> {
+): Promise<CheckoutServiceResult> {
   try {
     if (input.user_id) {
       const shopBlock = await getAdminShopBlockForUserId(input.user_id);
@@ -69,7 +85,9 @@ export async function checkoutService(
     // 3. Execute atomic checkout
     const result = await processCheckout(rpcInput);
 
-    // 4. Post-checkout side effects (non-blocking for order success)
+    // 4. Post-checkout side effects (order success is independent of these)
+    let addressSaved: boolean | undefined;
+
     if (result.success && result.orderId) {
       incrementPurchaseCountForOrderService(result.orderId).catch((error: unknown) => {
         console.error("Failed to increment purchase_count:", error);
@@ -80,20 +98,52 @@ export async function checkoutService(
       });
 
       if (input.save_address && input.user_id) {
-        createAddressForUser(input.user_id, {
-          country: input.address.country,
-          city: input.address.city,
-          address: input.address.address,
-          postal_code: input.address.postal_code ?? null,
-          phone: input.phone,
-          is_default: false,
-        }).catch((error: unknown) => {
+        try {
+          const addressFields = {
+            country: input.address.country,
+            city: input.address.city,
+            address: input.address.address,
+            postal_code: input.address.postal_code ?? null,
+            phone: input.phone,
+          };
+
+          if (
+            input.save_address_mode === "update" &&
+            input.saved_address_id
+          ) {
+            const updated = await updateAddressForUser(
+              input.user_id,
+              input.saved_address_id,
+              addressFields,
+            );
+            addressSaved = updated != null;
+            if (!updated) {
+              console.error(
+                "Failed to update address after checkout: not found or invalid",
+              );
+            }
+          } else {
+            const existingAddresses = await getAddressesByUserId(input.user_id);
+            const saveResult = await createAddressForUser(input.user_id, {
+              ...addressFields,
+              is_default: existingAddresses.length === 0,
+            });
+            addressSaved = saveResult.ok;
+            if (!saveResult.ok) {
+              console.error(
+                "Failed to save address after checkout:",
+                saveResult.error,
+              );
+            }
+          }
+        } catch (error: unknown) {
+          addressSaved = false;
           console.error("Failed to save address after checkout:", error);
-        });
+        }
       }
     }
 
-    return result;
+    return addressSaved === undefined ? result : { ...result, addressSaved };
   } catch (error) {
     console.error("Error in checkoutService:", error);
     return {
@@ -110,7 +160,7 @@ export async function checkoutService(
  */
 export async function checkoutForAdminService(
   input: Omit<CheckoutServiceInput, "user_id" | "session_id" | "save_address">,
-): Promise<{ success: boolean; error?: string; orderId?: string }> {
+): Promise<CheckoutServiceResult> {
   try {
     await requireAdmin();
   } catch {

@@ -24,7 +24,12 @@ import { checkoutSchema, type CheckoutInput } from "@/lib/validators/checkout/ch
  */
 export async function checkoutAction(
   raw: CheckoutInput,
-): Promise<{ success: boolean; error?: string; orderId?: string }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  orderId?: string;
+  addressSaved?: boolean;
+}> {
   const shopBlock = await getAdminShopBlockForCurrentUser();
   if (shopBlock) {
     return { success: false, error: shopBlock };
@@ -57,6 +62,7 @@ export async function checkoutAction(
   }
 
   // 3. Run checkout
+  const shouldSaveAddress = Boolean(user && input.save_address);
   const result = await checkoutService({
     cart_id: input.cart_id,
     user_id: user?.id ?? null,
@@ -66,7 +72,14 @@ export async function checkoutAction(
     phone: input.phone,
     email: input.email,
     promo_code: input.promo_code ?? null,
-    save_address: Boolean(user && input.save_address),
+    save_address: shouldSaveAddress,
+    save_address_mode: shouldSaveAddress
+      ? input.save_address_mode
+      : undefined,
+    saved_address_id:
+      shouldSaveAddress && input.save_address_mode === "update"
+        ? input.saved_address_id
+        : undefined,
   });
 
   // 4. Revalidate on success
@@ -74,7 +87,7 @@ export async function checkoutAction(
     revalidatePath("/cart");
     revalidatePath("/orders");
     revalidatePath("/order_details");
-    if (input.save_address && user) {
+    if (result.addressSaved) {
       revalidatePath("/account");
     }
   }

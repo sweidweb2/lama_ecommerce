@@ -29,6 +29,22 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** Logged-in account password change — requires current password for re-auth. */
+export const accountChangePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, { message: "Current password is required." }),
+    newPassword: z
+      .string()
+      .min(8, { message: "Password must be at least 8 characters long." }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
 export const requestPasswordResetSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
 });
@@ -36,6 +52,9 @@ export const requestPasswordResetSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type AccountChangePasswordInput = z.infer<
+  typeof accountChangePasswordSchema
+>;
 export type RequestPasswordResetInput = z.infer<
   typeof requestPasswordResetSchema
 >;

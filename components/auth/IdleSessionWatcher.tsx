@@ -48,7 +48,7 @@ export function IdleSessionWatcher({ enabled }: IdleSessionWatcherProps) {
     try {
       await logoutService()
       toast.info("Session expired due to inactivity")
-      router.push(ROUTES.LOGIN)
+      router.push(`${ROUTES.LOGIN}?reason=idle`)
       router.refresh()
     } finally {
       loggingOutRef.current = false

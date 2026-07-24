@@ -220,15 +220,15 @@ export async function getOrderItemsByOrderIdForAdmin(
 }
 
 /**
- * Get the payment record for an order.
- * Uses admin client because payments table has no user-facing RLS policies.
- * Access control is enforced at the service layer.
+ * Get the payment record for an order (authenticated owner path).
+ * Uses session client + RLS ("Users can read own payments").
+ * Guest cookie / signed-token paths use getPaymentByOrderIdForAdmin.
  */
 export async function getPaymentByOrderId(
   orderId: string,
 ): Promise<Payment | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await supabase
       .from("payments")
       .select("*")
@@ -279,15 +279,15 @@ export async function getPaymentByOrderIdForAdmin(
 }
 
 /**
- * Get the shipment record for an order.
- * Uses admin client because shipments table has no user-facing RLS policies.
- * Access control is enforced at the service layer.
+ * Get the shipment record for an order (authenticated owner path).
+ * Uses session client + RLS ("Users can read own shipments").
+ * Guest cookie / signed-token paths use getShipmentByOrderIdForAdmin.
  */
 export async function getShipmentByOrderId(
   orderId: string,
 ): Promise<Shipment | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await supabase
       .from("shipments")
       .select("*")
@@ -451,20 +451,30 @@ export async function getOrdersBySessionId(
 /**
  * Claim guest orders for a session onto a user account.
  * Uses service-role client (RLS only allows user_id = auth.uid() updates).
+ * Only claims rows whose checkout email matches userEmail (case-insensitive),
+ * reducing shared-device wrongful attribution.
  * Idempotent: already-claimed rows (user_id set) are skipped.
  * Leaves session_id intact for audit.
+ * Empty/missing email → success with claimedCount 0 (no claim).
  */
 export async function claimOrdersBySessionId(
   sessionId: string,
   userId: string,
+  userEmail: string,
 ): Promise<{ success: boolean; error?: string; claimedCount: number }> {
   try {
+    const normalizedEmail = userEmail.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return { success: true, claimedCount: 0 };
+    }
+
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("orders")
       .update({ user_id: userId })
       .eq("session_id", sessionId)
       .is("user_id", null)
+      .ilike("email", normalizedEmail)
       .select("id");
 
     if (error) {

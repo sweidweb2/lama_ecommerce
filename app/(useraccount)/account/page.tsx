@@ -5,6 +5,7 @@ import { getAddressesByUserId } from "@/services/address.service";
 import { ProfileHeader } from "@/components/(public)/profile/ProfileHeader";
 import { AddressList } from "@/components/account/AddressList";
 import { ChangePasswordDialog } from "@/components/account/ChangePasswordDialog";
+import { EditProfileDialog } from "@/components/account/EditProfileDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
 
@@ -39,6 +40,7 @@ export default async function AccountProfilePage() {
         <ProfileHeader profile={profile} email={user.email ?? null} />
 
         <div className="flex items-center gap-2">
+          <EditProfileDialog fullName={profile.full_name} />
           <ChangePasswordDialog />
         </div>
 

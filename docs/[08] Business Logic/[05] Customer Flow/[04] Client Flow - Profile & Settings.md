@@ -1,31 +1,30 @@
 # Client Flow — Profile & Settings
 
-**Scope:** Logged-in customer `flow.md` bullet “Profile / settings” — `/profile` hub and `/profile/setting`.  
-**Out of scope:** Live account management (password, addresses, real profile read) — that is `/account` ([03] Client Flow - Account). Admin user CRUD.
+**Scope:** Logged-in customer `flow.md` bullet “Profile / settings” — historical `/profile` hub and `/profile/setting`.  
+**Out of scope:** Live account management (password, addresses, profile edit) — that is `/account` ([03] Client Flow - Account). Admin user CRUD.
 
-**Verdict:** **Not implemented as a product surface.** `/profile` is a **dummy John Doe** page with fake orders/stats (misleading if linked). `/profile/setting` is an explicit **“coming soon”** stub. Middleware still requires auth + `is_active`. Navbar correctly sends customers to `/account`; **admin header still links `/profile`**.
+**Verdict:** **Consolidated onto `/account`.** `/profile` and `/profile/setting` **redirect** to `/account`. Dummy John Doe hub removed. Navbar and admin header both link to `/account`. Middleware still gates `/profile*` (auth + `is_active`) before redirect.
 
 ---
 
 ## Happy path (what works today)
 
-1. Authed active user can open `/profile` and `/profile/setting` (middleware gate only).
-2. `/profile` renders hard-coded `dummyProfile` / `dummyOrders` / fake stats — **not** the session user.
-3. Quick actions on the dummy hub: Addresses → `/account` (real); Settings → `/profile/setting` (stub); Orders → `/orders` (real list).
-4. `/profile/setting` shows “Settings page coming soon…”.
-5. Storefront Navbar “Profile” → **`/account`** (correct live path).
+1. Authed active user opens `/profile` or `/profile/setting` → **redirect to `/account`**.
+2. Storefront Navbar “Profile” → **`/account`**.
+3. Admin header “Profile” → **`/account`**.
+4. Live management (name, password, addresses) is only on `/account` — see Account doc.
 
 ```text
 /profile
   → middleware (auth + is_active)
-  → dummy John Doe + fake orders/stats  ✗ not session data
+  → redirect /account  ✅
 
 /profile/setting
   → middleware (auth + is_active)
-  → “coming soon…” stub
+  → redirect /account  ✅
 
 Navbar → /account  ✅
-Admin header → /profile  ✗ dummy
+Admin header → /account  ✅
 ```
 
 ---
@@ -34,55 +33,49 @@ Admin header → /profile  ✗ dummy
 
 | Surface | Route | Status |
 |---------|--------|--------|
-| Account | `/account` | Live — real profile read, password, addresses |
-| Profile hub | `/profile` | Stub — fake identity/orders |
-| Settings | `/profile/setting` | Stub — placeholder copy |
+| Account | `/account` | Live — real profile read/edit, password, addresses |
+| Profile hub | `/profile` | Redirect → `/account` |
+| Settings | `/profile/setting` | Redirect → `/account` |
 
-They are **different unfinished product shapes**, not two UIs of the same feature. Live management is **only** on `/account`.
+Single product surface: **`/account`**. Legacy `/profile*` routes exist only as redirects.
 
 ---
 
 ## P0 — Correctness (fix first)
 
-- [ ] **`/profile` shows fake identity and orders to real logged-in users**  
+- [x] ✅ **`/profile` shows fake identity and orders to real logged-in users** done✅  
   Hard-coded John Doe, fabricated order totals/status. Anyone with an active session who lands here (e.g. admin header “Profile”) sees **wrong** personal data.  
-  **Where:** `app/(public)/profile/page.tsx` (`dummyProfile`, `dummyOrders`); `components/(public)/profile/*`.  
-  **Do:** Wire to `getCurrentUserProfile` + real orders/wishlist **or** redirect `/profile` → `/account` and remove dummy components; fix admin header link to `/account`.
+  **Where:** `app/(public)/profile/page.tsx`; hub components.  
+  **Do:** Wire to real data **or** redirect `/profile` → `/account` and remove dummy components; fix admin header link to `/account`.  
+  **Done:** Both `/profile` and `/profile/setting` redirect to `/account`; dummy hub components removed; admin header → `/account`.
 
 ---
 
 ## P1 — Incomplete / wrong profile/settings behavior
 
-- [ ] **Admin header links to `/profile` (dummy)**  
-  Customers use Navbar → `/account`; admins shopping/panel chrome hit the stub.  
+- [x] ✅ **Admin header links to `/profile` (dummy)** done✅  
   **Where:** `components/admin/header.tsx`.  
-  **Do:** Point to `/account`.
+  **Done:** Points to `/account`.
 
-- [ ] **`flow.md` “Profile / settings” unmet**  
-  Password/addresses live on `/account`; settings page is empty.  
-  **Where:** `app/(public)/profile/setting/page.tsx`.  
-  **Do:** Implement settings (name, password, prefs) **or** redirect → `/account` and treat Account doc as the single source; update `flow.md` if consolidating.
+- [x] ✅ **`flow.md` “Profile / settings” unmet** done✅  
+  **Do:** Implement settings **or** redirect → `/account` and treat Account doc as the single source; update `flow.md` if consolidating.  
+  **Done:** Redirects to `/account`; `flow.md` notes consolidation.
 
-- [x] ✅ **`ProfileOrders` uses raw UUID links** done✅  
-  Production order details often use encrypted ids. Dummy links would be wrong even if data were real.  
-  **Where:** `components/(public)/profile/ProfileOrders.tsx`.  
-  **Do:** When wiring, use `encryptOrderId` like elsewhere.  
-  **Done:** Links use `encryptedId ?? id`; profile page maps `encryptOrderId`.
+- [x] ✅ **`ProfileOrders` uses raw UUID links** done✅ / **n/a**  
+  Component removed with hub; orders live under `/orders`.
 
 ---
 
 ## P2 — DX / polish
 
-- [ ] **`ProfileStats` “Active Orders” hard-coded `0`**  
-  **Where:** `ProfileStats.tsx`.  
-  **Do:** Compute from real data or drop with stub.
+- [x] ✅ **`ProfileStats` “Active Orders” hard-coded `0`** done✅ / **n/a**  
+  Component removed with hub redirect.
 
 - [x] ✅ **Duplicate wishlist entry points** (`/account/wishlist` vs `/wishlist`) done✅  
-  **Do:** Clarify single wishlist surface (later Wishlist Customer Flow bullet).  
   **Done:** `/account/wishlist` redirects to `/wishlist`.
 
-- [ ] **`data-testid="profile-settings-heading"` without product**  
-  **Do:** Keep only if shipping real settings.
+- [x] ✅ **`data-testid="profile-settings-heading"` without product** done✅ / **n/a**  
+  Settings page is redirect-only; testid removed.
 
 ---
 
@@ -90,10 +83,9 @@ They are **different unfinished product shapes**, not two UIs of the same featur
 
 | Behavior | Why OK / deferred |
 |----------|-------------------|
-| Middleware gate on `/profile*` | Same as `/account` — intentional |
-| Placeholder settings copy | Explicit stub |
-| Hub concept (stats, quick actions, recent orders) | Never finished — product decision |
-| Real password / addresses | Implemented on `/account` ([03]) |
+| Middleware gate on `/profile*` | Same as `/account` — intentional before redirect |
+| Hub concept (stats, quick actions, recent orders) | Dropped; `/account` + `/orders` / `/wishlist` cover needs |
+| Real password / addresses / name edit | Implemented on `/account` ([03]) |
 
 ---
 
@@ -101,14 +93,11 @@ They are **different unfinished product shapes**, not two UIs of the same featur
 
 | Case | Status |
 |------|--------|
-| Authed → `/profile` | Dummy John Doe UI (**P0**) |
-| Authed → `/profile/setting` | Stub copy |
+| Authed → `/profile` | Redirect → `/account` |
+| Authed → `/profile/setting` | Redirect → `/account` |
 | Unauthed / inactive | Middleware → login |
-| Click Addresses on hub | → `/account` (real) |
-| Click Settings on hub | → stub |
-| Click order “View Details” | Wrong/fake ids vs production |
-| Navbar Profile | → `/account` (good) |
-| Admin header Profile | → `/profile` (bad) |
+| Navbar Profile | → `/account` |
+| Admin header Profile | → `/account` |
 
 ---
 
@@ -116,21 +105,21 @@ They are **different unfinished product shapes**, not two UIs of the same featur
 
 | Concern | Path |
 |---------|------|
-| Profile hub | `app/(public)/profile/page.tsx` |
-| Settings stub | `app/(public)/profile/setting/page.tsx` |
-| Hub UI | `components/(public)/profile/ProfileHeader.tsx`, `ProfileStats.tsx`, `ProfileActions.tsx`, `ProfileOrders.tsx` |
+| Profile redirect | `app/(public)/profile/page.tsx` |
+| Settings redirect | `app/(public)/profile/setting/page.tsx` |
+| Shared header (account) | `components/(public)/profile/ProfileHeader.tsx` |
 | Live account | `app/(useraccount)/account/page.tsx` |
 | Nav | `components/common/Navbar.tsx` → `/account` |
-| Admin link | `components/admin/header.tsx` → `/profile` |
+| Admin link | `components/admin/header.tsx` → `/account` |
 | Gate | `middleware.ts` (`/profile`) |
 
 ---
 
 ## Related docs
 
-- Index: `flow.md` (User → Profile / settings)
+- Index: `flow.md` (User → Profile / settings → `/account`)
 - Live account: `[03] Client Flow - Account.md`
 - Guest capabilities / idle: `[02] Client Flow - Guest Capabilities.md`
 - Auth inactive gate: Guest Sign up
 
-**Highest-impact decision:** redirect or remove `/profile*` stubs and fix admin header → `/account`, **or** wire hub/settings to real data. Do not leave dummy identity linked in production chrome.
+**Status:** Profile/settings consolidated to `/account`. No dummy identity in production chrome.

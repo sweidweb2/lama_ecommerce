@@ -34,7 +34,9 @@ import { revalidatePath } from "next/cache";
 import type { Cart, CartItem } from "@/types/order";
 import type { CartItemWithProduct } from "@/repositories/cart_item.repository";
 
-type GuestHandoffResult = {
+type GuestHandoffFailedStep = "orders" | "cart" | "wishlist" | "auth";
+
+export type GuestHandoffResult = {
   success: boolean;
   error?: string;
   merged: boolean;
@@ -42,6 +44,11 @@ type GuestHandoffResult = {
   clearedGuestCookie?: boolean;
   /** True when handoff skipped claim/merge because the user is an admin. */
   skippedAsAdmin?: boolean;
+  /** What completed before failure (or all true on full success). */
+  ordersClaimed?: boolean;
+  cartMerged?: boolean;
+  wishlistClaimed?: boolean;
+  failedStep?: GuestHandoffFailedStep;
 };
 
 type CartMutationResult = {
@@ -70,6 +77,7 @@ type CartWithItemsResult = {
  */
 export async function performGuestSessionHandoff(
   userId: string,
+  userEmail?: string | null,
 ): Promise<GuestHandoffResult> {
   const sessionId = await getGuestSessionId();
 
@@ -88,13 +96,19 @@ export async function performGuestSessionHandoff(
     };
   }
 
-  const claimResult = await claimGuestOrdersService(userId, sessionId);
+  const claimResult = await claimGuestOrdersService(
+    userId,
+    sessionId,
+    userEmail,
+  );
   if (!claimResult.success) {
     return {
       success: false,
       error: claimResult.error || "Failed to claim guest orders",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: false,
+      failedStep: "orders",
     };
   }
 
@@ -105,6 +119,9 @@ export async function performGuestSessionHandoff(
       error: mergeResult.error || "Failed to merge guest cart",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: true,
+      cartMerged: false,
+      failedStep: "cart",
     };
   }
 
@@ -115,6 +132,10 @@ export async function performGuestSessionHandoff(
       error: wishlistResult.error || "Failed to claim guest wishlist",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: true,
+      cartMerged: true,
+      wishlistClaimed: false,
+      failedStep: "wishlist",
     };
   }
 
@@ -124,7 +145,13 @@ export async function performGuestSessionHandoff(
   revalidatePath("/order_details");
   revalidatePath("/wishlist");
 
-  return { ...mergeResult, clearedGuestCookie: true };
+  return {
+    ...mergeResult,
+    clearedGuestCookie: true,
+    ordersClaimed: true,
+    cartMerged: true,
+    wishlistClaimed: true,
+  };
 }
 
 /**
@@ -135,7 +162,7 @@ export async function performGuestSessionHandoff(
  * 1. Verify the caller is authenticated.
  * 2. Read the guest_session_id cookie.
  * 3. If no session cookie → nothing to do, return early.
- * 4. Claim guest orders (session_id → user_id) via service role.
+ * 4. Claim guest orders (session_id → user_id, email must match) via service role.
  * 5. Merge guest cart into the user's cart.
  * 6. Claim guest wishlist onto the user (delete dupes).
  * 7. Clear guest_session_id only after all three succeed.
@@ -145,10 +172,15 @@ export async function mergeGuestCartOnLoginAction(): Promise<GuestHandoffResult>
   const user = await getCurrentAuthUserFromAction();
 
   if (!user) {
-    return { success: false, error: "Not authenticated", merged: false };
+    return {
+      success: false,
+      error: "Not authenticated",
+      merged: false,
+      failedStep: "auth",
+    };
   }
 
-  return performGuestSessionHandoff(user.id);
+  return performGuestSessionHandoff(user.id, user.email);
 }
 
 /**

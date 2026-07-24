@@ -3,7 +3,7 @@
 **Scope:** Logged-in customer `flow.md` bullet: write product reviews (PDP form → insert → public approved list).  
 **Out of scope:** Admin moderation UI (Engagement Admin Flow); guest cannot write (sign-in CTA only).
 
-**Verdict:** Happy path **works** — auth gate, insert as **`pending`** (matches RLS), toast says pending approval, public list shows approved-only. Remaining: own pending not shown on PDP; revalidatePath literal; no self edit/delete; Zod vs service comment required.
+**Verdict:** Happy path **works** — auth gate, insert as **`pending`** (matches RLS), toast says pending approval, public list shows approved; author also sees own pending on PDP. Revalidate uses concrete slug; comment required in Zod; self edit/delete is admin-only by design.
 
 ---
 
@@ -12,14 +12,14 @@
 1. PDP → `ProductComments` with `isAuthenticated={!!user}`.
 2. Guest → “Sign in to review” (`?redirect` to product).
 3. Auth → rating + comment → `createReviewAction` → `createReviewService` (Zod) → `createReview` insert → revalidate → toast.
-4. Public list: `getProductReviews` / UI filter `review_status === 'approved'`.
+4. Public list: approved for everyone; authenticated also see own pending/rejected (RLS). Aggregates stay approved-only.
 5. One review per `(product_id, user_id)` (unique + app check).
 
 ```text
 PDP (auth)
   → createReviewAction → createReviewService
   → createReview INSERT review_status=pending (RLS OK)
-  → getProductReviews (approved only)
+  → getProductReviews (RLS: approved + own)
 ```
 
 ---
@@ -48,8 +48,8 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 | Auth write UI | Yes | Form shown when authenticated |
 | Auth insert succeeds | **Yes** | Insert `pending` matches RLS |
 | See approved reviews | Yes | List path |
-| See own pending on PDP | No | Approved-only filter |
-| Edit/delete own review | No | No policy / no UI |
+| See own pending on PDP | Yes | Approved + own via RLS; badge in list |
+| Edit/delete own review | No | Admin-only (documented) |
 
 ---
 
@@ -71,25 +71,29 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
   **Do:** Match chosen policy (moderation vs auto-publish) after P0 fix.  
   **Done:** Toast matches moderation policy (“submitted and is pending approval”).
 
-- [ ] **Own pending never shown on PDP even after insert fix**  
+- [x] ✅ **Own pending never shown on PDP even after insert fix** done✅  
   `getProductReviews` forces `approved` only.  
-  **Where:** `repositories/review.repository.ts`.  
-  **Do:** Include caller’s own non-approved, or “awaiting approval” UI.
+  **Where:** `repositories/review.repository.ts`; `ProductComments.tsx`.  
+  **Do:** Include caller’s own non-approved, or “awaiting approval” UI.  
+  **Done:** Repo relies on RLS (approved + own); list shows own pending/rejected with badges; form hidden after submit; `router.refresh()` after create.
 
 ---
 
 ## P2 — DX / polish
 
-- [ ] **`revalidatePath('/products/[slug]')` literal may not hit real slug**  
+- [x] ✅ **`revalidatePath('/products/[slug]')` literal may not hit real slug** done✅  
   **Where:** `actions/review.ts`.  
-  **Do:** Pass concrete `/products/${slug}`.
+  **Do:** Pass concrete `/products/${slug}`.  
+  **Done:** Customer create passes `product_slug`; admin paths resolve slug via `getProductById` / delete `product_id` select.
 
-- [ ] **No user edit/delete of own review**  
-  **Do:** Add policies/UI or document admin-only.
+- [x] ✅ **No user edit/delete of own review** done✅ (documented)  
+  **Do:** Add policies/UI or document admin-only.  
+  **Done:** Documented as admin-only — customers have no UPDATE/DELETE policies or PDP UI; moderation/edit/delete lives in admin Engagement.
 
-- [ ] **Comment required in service, optional in Zod**  
+- [x] ✅ **Comment required in service, optional in Zod** done✅  
   **Where:** `review.service.ts` vs create schema.  
-  **Do:** Align schema + UI.
+  **Do:** Align schema + UI.  
+  **Done:** `createReviewSchema` requires trimmed comment; service relies on Zod; UI unchanged. Admin base schema still allows optional comment.
 
 ---
 
@@ -101,7 +105,8 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 | Guest CTA + login redirect | Intended |
 | Unique one review per user per product | App + DB |
 | Admin approve/reject | Engagement admin |
-| Approved-only public display | SELECT design |
+| Approved-only public display | SELECT design (guests); auth also sees own |
+| No customer edit/delete of own review | Admin-only; no user UPDATE/DELETE RLS or PDP UI |
 
 ---
 
@@ -112,11 +117,11 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 | Guest submit | Form hidden; sign-in CTA |
 | Auth submit (current) | Works → pending moderation |
 | Auth duplicate product | App check / `23505` |
-| Auth empty comment | Service error |
+| Auth empty comment | Zod + client toast |
 | Auth rating 0 | Client toast |
 | List approved reviews | Works |
-| User sees own pending | No |
-| User update/delete own | No |
+| User sees own pending | Yes (badge + form replaced) |
+| User update/delete own | No (admin-only) |
 | Admin approve/reject | Works (Engagement) |
 
 ---
@@ -139,4 +144,4 @@ Users have **no UPDATE/DELETE** policies for own reviews — only admin `FOR ALL
 - Admin moderation: `[04] Admin Flows/[06] Admin Flow - Engagement.md`
 - Auth for PDP: Guest Capabilities / Sign up
 
-**Highest-impact remaining:** show own pending on PDP; then revalidatePath / Zod alignment polish.
+**Highest-impact remaining:** Account/Reviews customer P2 closed for this doc.

@@ -113,7 +113,7 @@ Guest (guest_session_id)
 ## Deferred (not bugs — planned later)
 
 - [ ] OAuth / social login (`signInWithOAuth`; callback exists mainly for email links)
-- [ ] Claiming historical guest orders by email match (product decision; same-session claim on login is done)
+- [ ] Claiming historical guest orders by email match (product decision; same-session claim on login is email-gated via checkout email)
 
 ---
 

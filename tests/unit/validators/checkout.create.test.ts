@@ -54,4 +54,35 @@ describe("checkoutSchema", () => {
       expect(result.data.address.postal_code).toBe("");
     }
   });
+
+  it("defaults save_address_mode to create", () => {
+    const result = checkoutSchema.safeParse({
+      ...valid,
+      save_address: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.save_address_mode).toBe("create");
+    }
+  });
+
+  it("rejects update mode without saved_address_id", () => {
+    expect(
+      checkoutSchema.safeParse({
+        ...valid,
+        save_address: true,
+        save_address_mode: "update",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts update mode with saved_address_id", () => {
+    const result = checkoutSchema.safeParse({
+      ...valid,
+      save_address: true,
+      save_address_mode: "update",
+      saved_address_id: "550e8400-e29b-41d4-a716-446655440099",
+    });
+    expect(result.success).toBe(true);
+  });
 });

@@ -265,15 +265,15 @@ export async function createReviewForAdmin(input: {
 }
 
 /**
- * Get reviews for a product (approved only, or user's own reviews).
+ * Get reviews for a product as visible to the current session.
  * Used in Server Components.
- * 
- * Note: RLS policy automatically filters to show:
- * - Approved reviews (visible to everyone including anonymous users)
- * - User's own reviews (if logged in, even if pending/rejected)
- * 
- * We explicitly filter for approved reviews here for clarity and performance,
- * but RLS provides the security layer.
+ *
+ * RLS filters rows:
+ * - Anonymous: approved reviews only
+ * - Authenticated: approved reviews + the caller's own (pending/rejected included)
+ *
+ * Do not add an approved-only filter here — that would hide the author's
+ * pending review on the PDP after submit.
  */
 export async function getProductReviews(
   productId: string,
@@ -284,7 +284,6 @@ export async function getProductReviews(
       .from("reviews")
       .select("*")
       .eq("product_id", productId)
-      .eq("review_status", "approved") // Explicitly filter for approved reviews
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -524,14 +523,18 @@ export async function updateReview(
  * Hard-delete a review (admin use).
  * RLS policy allows admins to delete all reviews.
  */
-export async function deleteReview(reviewId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteReview(
+  reviewId: string,
+): Promise<{ success: boolean; error?: string; productId?: string }> {
   try {
     const supabase = await createSupabaseServerActionClient();
 
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("reviews")
       .delete()
-      .eq("id", reviewId);
+      .eq("id", reviewId)
+      .select("product_id")
+      .maybeSingle();
 
     if (error) {
       console.error("Error deleting review:", error);
@@ -543,6 +546,7 @@ export async function deleteReview(reviewId: string): Promise<{ success: boolean
 
     return {
       success: true,
+      productId: (data?.product_id as string | undefined) ?? undefined,
     };
   } catch (error) {
     console.error("Unexpected error in deleteReview:", error);

@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
+import { getProductById } from "@/repositories/product.repository";
 import {
   createReviewService,
   createReviewForAdminService,
@@ -11,6 +12,21 @@ import { revalidatePath } from "next/cache";
 import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
 import { requireAdmin } from "@/lib/auth/require-admin";
 
+async function revalidateProductPages(
+  productId?: string | null,
+  slug?: string | null,
+) {
+  let productSlug = slug?.trim() || null;
+  if (!productSlug && productId) {
+    const product = await getProductById(productId);
+    productSlug = product?.slug ?? null;
+  }
+  if (productSlug) {
+    revalidatePath(`/products/${productSlug}`);
+  }
+  revalidatePath("/products");
+}
+
 /**
  * Create a review for a product.
  * This is the server action called from client components.
@@ -20,6 +36,7 @@ export async function createReviewAction(input: {
   rating: number;
   title?: string | null;
   comment?: string | null;
+  product_slug?: string;
 }): Promise<{ success: boolean; error?: string; data?: any }> {
   const shopBlock = await getAdminShopBlockForCurrentUser();
   if (shopBlock) {
@@ -36,12 +53,11 @@ export async function createReviewAction(input: {
   }
 
   // Call service to create the review
-  const result = await createReviewService(user.id, input);
+  const { product_slug, ...reviewInput } = input;
+  const result = await createReviewService(user.id, reviewInput);
 
-  // Revalidate the product page to show the new review
   if (result.success) {
-    revalidatePath(`/products/[slug]`, "page");
-    revalidatePath("/products");
+    await revalidateProductPages(input.product_id, product_slug);
   }
 
   return result;
@@ -63,8 +79,7 @@ export async function createReviewAdminAction(input: {
 
   if (result.success) {
     revalidatePath("/admin/reviews");
-    revalidatePath(`/products/[slug]`, "page");
-    revalidatePath("/products");
+    await revalidateProductPages(input.product_id);
   }
 
   return result;
@@ -89,14 +104,11 @@ export async function updateReviewAction(
     return { success: false, error: "Unauthorized" };
   }
 
-  // Call service to update the review
   const result = await updateReviewService(reviewId, input);
 
-  // Revalidate admin reviews page and product pages
   if (result.success) {
     revalidatePath("/admin/reviews");
-    revalidatePath(`/products/[slug]`, "page");
-    revalidatePath("/products");
+    await revalidateProductPages(result.data?.product_id);
   }
 
   return result;
@@ -115,15 +127,12 @@ export async function deleteReviewAction(
     return { success: false, error: "Unauthorized" };
   }
 
-  // Call service to delete the review
   const result = await deleteReviewService(reviewId);
 
-  // Revalidate admin reviews page and product pages
   if (result.success) {
     revalidatePath("/admin/reviews");
-    revalidatePath(`/products/[slug]`, "page");
-    revalidatePath("/products");
+    await revalidateProductPages(result.productId);
   }
 
-  return result;
+  return { success: result.success, error: result.error };
 }

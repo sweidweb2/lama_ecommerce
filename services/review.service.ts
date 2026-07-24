@@ -45,22 +45,13 @@ export async function createReviewService(
       return { success: false, error: shopBlock };
     }
 
-    // Validate input using Zod schema
+    // Validate input using Zod schema (comment required)
     const validated = createReviewSchema.parse({
       product_id: input.product_id,
       rating: input.rating,
       title: input.title || null,
-      comment: input.comment || null,
+      comment: input.comment ?? "",
     });
-
-    // Business logic: Ensure at least rating or comment is provided
-    // (Rating is required by schema, but comment should be provided for meaningful reviews)
-    if (!validated.comment || validated.comment.trim().length === 0) {
-      return {
-        success: false,
-        error: "Please provide a comment with your review",
-      };
-    }
 
     // Call repository to create the review
     return await createReview(userId, validated);
@@ -218,7 +209,7 @@ export async function updateReviewService(
  */
 export async function deleteReviewService(
   reviewId: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; productId?: string }> {
   try {
     await requireAdmin();
   } catch {

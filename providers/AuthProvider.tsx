@@ -7,6 +7,7 @@ import { IdleSessionWatcher } from "@/components/auth/IdleSessionWatcher";
 import { supabase } from "@/lib/supabase/client";
 import { isInvalidRefreshTokenError } from "@/lib/auth/refresh-token";
 import { mergeGuestCartOnLoginAction } from "@/actions/cart";
+import type { GuestHandoffResult } from "@/actions/cart";
 import type { Profile, ProfileRole } from "@/types/user";
 
 type AuthContextValue = {
@@ -17,6 +18,45 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const GENERIC_HANDOFF_TOAST = {
+  title: "Couldn't transfer your cart, orders, or wishlist",
+  description:
+    "Refresh the page or sign in again to retry. Your guest session is still saved.",
+} as const;
+
+function guestHandoffFailureToast(result: GuestHandoffResult): {
+  title: string;
+  description: string;
+} {
+  switch (result.failedStep) {
+    case "orders":
+      return {
+        title: "Couldn't link your guest orders",
+        description:
+          "Refresh the page or sign in again to retry. Your guest session is still saved.",
+      };
+    case "cart":
+      return {
+        title: "Your guest orders were linked, but we couldn't move your cart",
+        description:
+          "Refresh the page to retry the cart. Your guest session is still saved.",
+      };
+    case "wishlist":
+      return {
+        title: "Orders and cart transferred, but wishlist didn't",
+        description:
+          "Refresh the page to retry the wishlist. Your guest session is still saved.",
+      };
+    case "auth":
+      return {
+        title: "Couldn't transfer your guest session",
+        description: "Please sign in again to retry.",
+      };
+    default:
+      return GENERIC_HANDOFF_TOAST;
+  }
+}
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -68,17 +108,14 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       mergeGuestCartOnLoginAction()
         .then((result) => {
           if (!result.success) {
-            toast.error("Couldn't transfer your cart, orders, or wishlist", {
-              description:
-                "Refresh the page or sign in again to retry. Your guest session is still saved.",
-            });
+            const { title, description } = guestHandoffFailureToast(result);
+            toast.error(title, { description });
             console.error("Guest session handoff failed:", result.error);
           }
         })
         .catch((err) => {
-          toast.error("Couldn't transfer your cart, orders, or wishlist", {
-            description:
-              "Refresh the page or sign in again to retry. Your guest session is still saved.",
+          toast.error(GENERIC_HANDOFF_TOAST.title, {
+            description: GENERIC_HANDOFF_TOAST.description,
           });
           console.error("Guest session handoff failed:", err);
         });

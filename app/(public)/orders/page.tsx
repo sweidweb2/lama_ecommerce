@@ -1,6 +1,6 @@
 import { OrdersTable } from "@/components/(public)/orders/OrdersTable";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
-import { getUserOrders, getSessionOrders } from "@/services/order.service";
+import { getStorefrontOrders } from "@/services/order.service";
 import { getGuestSessionId } from "@/lib/auth/guest-session";
 import { encryptOrderId } from "@/lib/utils/encryption";
 import Link from "@/components/ui/link";
@@ -12,20 +12,9 @@ export const metadata = {
 };
 
 export default async function OrdersPage() {
-  // Check if the user is authenticated
   const user = await getCurrentAuthUserFromComponent();
-
-  let orders;
-
-  if (user) {
-    // Authenticated → fetch orders by user_id
-    orders = await getUserOrders(user.id);
-  } else {
-    // Guest → read session cookie and fetch orders by session_id
-    const sessionId = await getGuestSessionId();
-
-    orders = sessionId ? await getSessionOrders(sessionId) : [];
-  }
+  const sessionId = await getGuestSessionId();
+  const orders = await getStorefrontOrders(user?.id ?? null, sessionId);
 
   const ordersWithEncryptedIds = orders.map((order) => ({
     ...order,

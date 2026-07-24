@@ -114,6 +114,9 @@ export function CartSidebar({
   const [phone, setPhone] = useState(initialFilled?.phone ?? "");
   const [email, setEmail] = useState("");
   const [saveAddress, setSaveAddress] = useState(false);
+  const [saveAddressMode, setSaveAddressMode] = useState<"create" | "update">(
+    "update",
+  );
   const [promoCode, setPromoCode] = useState("");
 
   // Validation errors
@@ -159,6 +162,15 @@ export function CartSidebar({
       selectedAddressId === NEW_ADDRESS_VALUE ||
       !fieldsMatchSelected);
 
+  const canUpdateSelectedAddress =
+    showSaveAddressCheckbox &&
+    selectedAddressId !== NEW_ADDRESS_VALUE &&
+    selectedSaved != null;
+
+  const resolvedSaveAddressMode: "create" | "update" = canUpdateSelectedAddress
+    ? saveAddressMode
+    : "create";
+
   const applySavedAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
     if (addressId === NEW_ADDRESS_VALUE || !savedAddresses) {
@@ -168,6 +180,7 @@ export function CartSidebar({
       setPostalCode("");
       setPhone("");
       setSaveAddress(false);
+      setSaveAddressMode("create");
       return;
     }
     const addr = savedAddresses.find((a) => a.id === addressId);
@@ -179,6 +192,7 @@ export function CartSidebar({
     setPostalCode(filled.postalCode);
     setPhone(filled.phone);
     setSaveAddress(false);
+    setSaveAddressMode("update");
   };
 
   const validateForm = () => {
@@ -282,6 +296,16 @@ export function CartSidebar({
         phone: phone.trim(),
         email: email.trim(),
         save_address: showSaveAddressCheckbox && saveAddress,
+        save_address_mode:
+          showSaveAddressCheckbox && saveAddress
+            ? resolvedSaveAddressMode
+            : undefined,
+        saved_address_id:
+          showSaveAddressCheckbox &&
+          saveAddress &&
+          resolvedSaveAddressMode === "update"
+            ? selectedAddressId
+            : undefined,
         promo_code: promoCode.trim() || undefined,
       });
 
@@ -291,6 +315,17 @@ export function CartSidebar({
         toast.success("Order placed!", {
           description: "Your order was created. Payment status is pending.",
         });
+
+        if (showSaveAddressCheckbox && saveAddress) {
+          if (result.addressSaved === true) {
+            toast.success("Address saved");
+          } else if (result.addressSaved === false) {
+            toast.error("Address not saved", {
+              description:
+                "Your order was placed, but we could not save this address to your account.",
+            });
+          }
+        }
 
         let orderDetailsPath: string | null = null;
         try {
@@ -545,18 +580,54 @@ export function CartSidebar({
           </div>
 
           {showSaveAddressCheckbox && (
-            <label className="flex items-center gap-2 pt-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={saveAddress}
-                onChange={(e) => setSaveAddress(e.target.checked)}
-                className="h-4 w-4 rounded border-input"
-                data-testid="save-address-checkbox"
-              />
-              <span className="text-xs text-muted-foreground">
-                Save this address to my account
-              </span>
-            </label>
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={(e) => setSaveAddress(e.target.checked)}
+                  className="h-4 w-4 rounded border-input"
+                  data-testid="save-address-checkbox"
+                />
+                <span className="text-xs text-muted-foreground">
+                  Save this address to my account
+                </span>
+              </label>
+              {saveAddress && canUpdateSelectedAddress && (
+                <div
+                  className="ml-6 space-y-1.5"
+                  role="radiogroup"
+                  aria-label="How to save address"
+                >
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="save-address-mode"
+                      checked={saveAddressMode === "update"}
+                      onChange={() => setSaveAddressMode("update")}
+                      className="h-3.5 w-3.5 border-input"
+                      data-testid="save-address-mode-update"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Update existing address
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="save-address-mode"
+                      checked={saveAddressMode === "create"}
+                      onChange={() => setSaveAddressMode("create")}
+                      className="h-3.5 w-3.5 border-input"
+                      data-testid="save-address-mode-create"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Save as a new address
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

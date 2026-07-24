@@ -57,10 +57,10 @@ Login / auth callback → performGuestSessionHandoff
 ## P1 — Incomplete / wrong wishlist behavior
 
 - [x] ✅ **Duplicate surfaces diverge** done✅  
-  Navbar + ProfileActions → `/wishlist` only. `/account/wishlist` has no filters/stats; toggle never revalidates account path.  
-  **Where:** both pages; `Navbar.tsx`; `ProfileActions.tsx`; `actions/wishlist.ts`.  
+  Navbar → `/wishlist` only. `/account/wishlist` has no filters/stats; toggle never revalidates account path.  
+  **Where:** both pages; `Navbar.tsx`; `actions/wishlist.ts`.  
   **Do:** Canonical page + redirect, or shared RSC; `revalidatePath` both.  
-  **Done:** `/account/wishlist` redirects to `/wishlist`.
+  **Done:** `/account/wishlist` redirects to `/wishlist`. (Former hub `ProfileActions` removed with `/profile` → `/account` redirect.)
 
 - [x] ✅ **Featured / trending filters + stats broken** done✅  
   Select omits `is_featured` / `is_trending`.  

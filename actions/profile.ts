@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUserProfile } from "@/services/profile.service";
+import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
+  getCurrentUserProfile,
   getProfilesForAdmin,
   getUsersWithoutActiveCarts,
   listProfilesForAdminService,
+  updateOwnProfile,
   updateProfileAdmin,
   createUserAdmin,
   resetUserPasswordAdmin,
@@ -13,8 +15,11 @@ import {
 import type { ListProfilesForAdminParams } from "@/repositories/profile.repository";
 import type { ProfileRole } from "@/types/user";
 import { profileAdminUpdateSchema } from "@/lib/validators/user_profile/base";
+import { updateProfileSchema } from "@/lib/validators/user_profile/update";
 import { createUserSchema } from "@/lib/validators/user_profile/create";
 import { adminResetPasswordSchema } from "@/lib/validators/user_profile/reset_password";
+
+type Result = { success: true; data?: unknown } | { success: false; error: string };
 
 /**
  * Server action to get the current user's profile.
@@ -46,6 +51,33 @@ export async function getAdminUsersPageAction(
  */
 export async function getUsersWithoutActiveCartsAction() {
   return await getUsersWithoutActiveCarts();
+}
+
+/**
+ * Update the current user's own profile (`full_name` only). Revalidates /account.
+ */
+export async function updateOwnProfileAction(payload: {
+  full_name: string;
+}): Promise<Result> {
+  const user = await getCurrentAuthUserFromAction();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const parsed = updateProfileSchema.safeParse(payload);
+  if (!parsed.success) {
+    const first = parsed.error.flatten().fieldErrors;
+    return {
+      success: false,
+      error: first.full_name?.[0] ?? "Invalid input",
+    };
+  }
+
+  const updated = await updateOwnProfile(parsed.data.full_name);
+  if (!updated) {
+    return { success: false, error: "Update failed" };
+  }
+
+  revalidatePath("/account");
+  return { success: true, data: updated };
 }
 
 /**

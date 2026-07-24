@@ -8,6 +8,12 @@ describe("getLoginAuthBannerMessage", () => {
     ).toBe("Your account is inactive. Please contact support for help.");
   });
 
+  it("returns idle session message for reason=idle", () => {
+    expect(getLoginAuthBannerMessage({ reason: "idle", error: null })).toBe(
+      "Your session expired due to inactivity. Please sign in again.",
+    );
+  });
+
   it("returns callback failure message for error=auth_callback_error", () => {
     expect(
       getLoginAuthBannerMessage({

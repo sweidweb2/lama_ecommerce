@@ -102,16 +102,14 @@ Optional re-entry on the **same browser** (cookie still valid): open `/orders` �
   **Done:** Middleware calls `ensureGuestSessionCookie` for `/orders` and `/order_details`. Reminting does not restore expired-session orders (still needs claim/token).
 
 - [x] ✅ **List links use raw UUID; post-checkout uses encrypted id** done✅  
-  Page accepts both by design. `OrdersTable` / `ProfileOrders` link `/order_details/${order.id}`. Ownership still required; encrypted URLs are obfuscation only, not auth.  
-  **Where:** `components/(public)/orders/OrdersTable.tsx` (~329); `app/(public)/order_details/[id]/page.tsx` (~105–111); `CartSidebar.tsx` redirect.  
+  Page accepts both by design. `OrdersTable` links `/order_details/...`. Ownership still required; encrypted URLs are obfuscation only, not auth.  
+  **Where:** `components/(public)/orders/OrdersTable.tsx`; `app/(public)/order_details/[id]/page.tsx`; `CartSidebar.tsx` redirect.  
   **Do:** Unify on encrypted links for consistency, or document dual support intentionally.  
-  **Done:** `/orders` and `/profile` map `encryptedId` via `encryptOrderId`; list hrefs use `encodeURIComponent(encryptedId)`. Detail page still accepts raw UUID fallback for old bookmarks.
+  **Done:** `/orders` map `encryptedId` via `encryptOrderId`; list hrefs use `encodeURIComponent(encryptedId)`. Detail page still accepts raw UUID fallback for old bookmarks.
 
-- [x] ✅ **Profile “orders” are dummy data** done✅  
-  `app/(public)/profile/page.tsx` feeds `ProfileOrders` with fabricated orders, not real `getUserOrders`. Misleading next to real `/orders`.  
-  **Where:** `app/(public)/profile/page.tsx`; `components/(public)/profile/ProfileOrders.tsx`.  
-  **Do:** Wire real orders or remove the section.  
-  **Done:** Profile page fetches `getUserOrders(user.id, 6)` with encrypted ids; header/stats dummy data unchanged.
+- [x] ✅ **Profile “orders” are dummy data** done✅ / superseded  
+  `app/(public)/profile/page.tsx` formerly fed `ProfileOrders` with fabricated/real mix.  
+  **Done (later):** `/profile` redirects to `/account`; hub `ProfileOrders` removed. Orders live on `/orders`.
 
 - [x] ✅ **`formatCurrency` treats `0` as empty** done✅  
   `if (!amount) return "$0.00"` collapses legitimate `0` the same as null — OK for money often, but masks null vs zero inconsistently vs email helper.  

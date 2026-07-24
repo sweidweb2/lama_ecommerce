@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MapPin, Pencil, Trash2, Star, Plus } from "lucide-react";
@@ -25,6 +25,10 @@ export function AddressList({ addresses: initialAddresses }: AddressListProps) {
   const [addresses, setAddresses] = useState(initialAddresses);
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAddresses(initialAddresses);
+  }, [initialAddresses]);
 
   const refresh = () => {
     router.refresh();

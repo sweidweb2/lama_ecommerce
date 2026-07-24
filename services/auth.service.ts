@@ -11,11 +11,14 @@ import {
   signOut as repoSignOut,
   getOwnProfileAuth as repoGetOwnProfileAuth,
   resetPasswordForEmail as repoResetPasswordForEmail,
+  updatePassword as repoUpdatePassword,
 } from "@/repositories/auth.client.repository";
-import type {
-  LoginInput,
-  SignupInput,
-  RequestPasswordResetInput,
+import {
+  changePasswordSchema,
+  type ChangePasswordInput,
+  type LoginInput,
+  type SignupInput,
+  type RequestPasswordResetInput,
 } from "@/lib/validators/auth/auth";
 import { ROUTES } from "@/lib/constants/routes";
 import type { ProfileRole } from "@/types/user";
@@ -168,6 +171,79 @@ export async function requestPasswordResetService(
       return {
         success: false,
         error: "Unable to send reset email. Please try again.",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Change password for a signed-in user. Re-auth with current password first.
+ * Call from a client component (browser session required).
+ */
+export async function changePasswordService(input: {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const email = input.email.trim().toLowerCase();
+    const { error: signInError } = await repoSignIn({
+      email,
+      password: input.currentPassword,
+    });
+
+    if (signInError) {
+      return { success: false, error: "Current password is incorrect." };
+    }
+
+    const { error: updateError } = await repoUpdatePassword(input.newPassword);
+    if (updateError) {
+      return {
+        success: false,
+        error: updateError.message ?? "Password update failed. Please try again.",
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Set a new password from a recovery session (forgot-password confirm).
+ * Call from a client component; user must already have a recovery session.
+ */
+export async function confirmPasswordResetService(
+  data: ChangePasswordInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const parsed = changePasswordSchema.safeParse(data);
+    if (!parsed.success) {
+      const first =
+        Object.values(parsed.error.flatten().fieldErrors)
+          .flat()
+          .find(Boolean) ?? "Invalid password data";
+      return { success: false, error: String(first) };
+    }
+
+    const { error } = await repoUpdatePassword(parsed.data.newPassword);
+    if (error) {
+      return {
+        success: false,
+        error: error.message ?? "Please try again.",
       };
     }
 

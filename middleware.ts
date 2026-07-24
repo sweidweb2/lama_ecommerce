@@ -242,7 +242,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Profile routes - only the profile owner (logged-in user) or an admin may access
-  // /profile and /profile/setting always show the current user's own profile
+  // /profile* redirects to /account; still require auth + is_active
   if (pathname.startsWith("/profile")) {
     const { profile, user, response, supabase } =
       await getProfileFromSession(request);

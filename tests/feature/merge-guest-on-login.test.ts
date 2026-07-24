@@ -75,7 +75,10 @@ vi.mock("next/cache", () => ({
 describe("mergeGuestCartOnLoginAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-1" });
+    getCurrentAuthUserFromAction.mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+    });
     getGuestSessionId.mockResolvedValue("sess-1");
     getAdminShopBlockForUserId.mockResolvedValue(null);
     claimGuestOrdersService.mockResolvedValue({
@@ -114,9 +117,16 @@ describe("mergeGuestCartOnLoginAction", () => {
       success: true,
       merged: true,
       clearedGuestCookie: true,
+      ordersClaimed: true,
+      cartMerged: true,
+      wishlistClaimed: true,
     });
     expect(callOrder).toEqual(["claim", "merge", "wishlist"]);
-    expect(claimGuestOrdersService).toHaveBeenCalledWith("user-1", "sess-1");
+    expect(claimGuestOrdersService).toHaveBeenCalledWith(
+      "user-1",
+      "sess-1",
+      "user@example.com",
+    );
     expect(mergeGuestCartToUserService).toHaveBeenCalledWith(
       "user-1",
       "sess-1",
@@ -163,6 +173,8 @@ describe("mergeGuestCartOnLoginAction", () => {
       error: "claim failed",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: false,
+      failedStep: "orders",
     });
     expect(mergeGuestCartToUserService).not.toHaveBeenCalled();
     expect(claimGuestWishlistService).not.toHaveBeenCalled();
@@ -184,6 +196,9 @@ describe("mergeGuestCartOnLoginAction", () => {
       error: "merge failed",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: true,
+      cartMerged: false,
+      failedStep: "cart",
     });
     expect(claimGuestOrdersService).toHaveBeenCalled();
     expect(claimGuestWishlistService).not.toHaveBeenCalled();
@@ -205,6 +220,10 @@ describe("mergeGuestCartOnLoginAction", () => {
       error: "wishlist failed",
       merged: false,
       clearedGuestCookie: false,
+      ordersClaimed: true,
+      cartMerged: true,
+      wishlistClaimed: false,
+      failedStep: "wishlist",
     });
     expect(clearGuestSessionCookie).not.toHaveBeenCalled();
   });

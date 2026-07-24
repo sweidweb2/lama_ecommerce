@@ -16,10 +16,8 @@ import {
   changePasswordSchema,
   type ChangePasswordInput,
 } from "@/lib/validators/auth/auth";
-import {
-  getSession,
-  updatePassword,
-} from "@/repositories/auth.client.repository";
+import { getSession } from "@/repositories/auth.client.repository";
+import { confirmPasswordResetService } from "@/services/auth.service";
 import { ROUTES } from "@/lib/constants/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,13 +76,13 @@ export function ResetPasswordConfirmForm() {
 
     setIsLoading(true);
     try {
-      const { error } = await updatePassword(data.newPassword);
-      if (error) {
+      const result = await confirmPasswordResetService(data);
+      if (!result.success) {
         toast.error("Password update failed", {
-          description: error.message ?? "Please try again.",
+          description: result.error ?? "Please try again.",
         });
         form.setError("root", {
-          message: error.message ?? "Please try again.",
+          message: result.error ?? "Please try again.",
         });
         return;
       }
