@@ -35,7 +35,6 @@ vi.mock("@/repositories/order.repository", () => ({
 
 function order(partial: Partial<Order> & Pick<Order, "id">): Order {
   return {
-    id: partial.id,
     user_id: null,
     session_id: null,
     status: "pending",

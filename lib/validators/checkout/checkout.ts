@@ -65,7 +65,8 @@ export const checkoutSchema = z
     },
   );
 
-export type CheckoutInput = z.infer<typeof checkoutSchema>;
+export type CheckoutInput = z.input<typeof checkoutSchema>;
+export type CheckoutParsed = z.output<typeof checkoutSchema>;
 
 /** sessionStorage key for last successful checkout order-details path. */
 export const PENDING_ORDER_DETAILS_PATH_KEY = "lama_pending_order_details_path";

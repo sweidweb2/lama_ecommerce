@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ProductsTable } from "@/components/admin/product/ProductsTable";
 import { ProductsViewToggle } from "@/components/admin/product/ProductsViewToggle";
 import { ProductsFilters } from "@/components/admin/product/ProductsFilters";
@@ -11,6 +11,34 @@ import type { AdminProductsView } from "@/lib/admin/products-list-params";
 import type { Brand, Category, ProductVariant, ProductWithRelations } from "@/types/product";
 
 const VIEW_STORAGE_KEY = "admin-products-view";
+
+function subscribeToProductsView(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === VIEW_STORAGE_KEY || event.key === null) {
+      onStoreChange();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+}
+
+function getProductsViewSnapshot(): AdminProductsView {
+  const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY);
+  return stored === "grid" ? "grid" : "table";
+}
+
+function getProductsViewServerSnapshot(): AdminProductsView {
+  return "table";
+}
+
+function setProductsView(next: AdminProductsView) {
+  window.sessionStorage.setItem(VIEW_STORAGE_KEY, next);
+  // Same-tab listeners: storage events only fire across tabs.
+  window.dispatchEvent(
+    new StorageEvent("storage", { key: VIEW_STORAGE_KEY, newValue: next }),
+  );
+}
 
 export type AdminProductRow = AdminProduct & {
   encryptedId?: string;
@@ -40,18 +68,14 @@ export function ProductsCatalogClient({
   pageSize,
   page,
 }: ProductsCatalogClientProps) {
-  const [view, setView] = useState<AdminProductsView>("table");
-
-  useEffect(() => {
-    const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY);
-    if (stored === "grid" || stored === "table") {
-      setView(stored);
-    }
-  }, []);
+  const view = useSyncExternalStore(
+    subscribeToProductsView,
+    getProductsViewSnapshot,
+    getProductsViewServerSnapshot,
+  );
 
   const handleViewChange = (next: AdminProductsView) => {
-    setView(next);
-    window.sessionStorage.setItem(VIEW_STORAGE_KEY, next);
+    setProductsView(next);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize) || 1);

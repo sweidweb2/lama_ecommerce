@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChromePicker, type ColorResult } from "react-color";
+import { ChromePicker } from "react-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -69,7 +69,7 @@ export function ColorPicker({
           <ChromePicker
             color={displayColor}
             disableAlpha
-            onChange={(updated: ColorResult) => {
+            onChange={(updated: { hex: string }) => {
               onChange(updated.hex.toUpperCase());
             }}
           />
