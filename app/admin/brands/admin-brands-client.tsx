@@ -16,8 +16,7 @@ interface AdminBrandsClientProps {
   ) => Promise<{ success: true } | { success: false; error: string }>
 }
 
-const ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
-const MAX_ROWS_PER_PAGE = 50
+const ROWS_PER_PAGE = 10
 
 export default function AdminBrandsClient({
   brands,
@@ -26,7 +25,6 @@ export default function AdminBrandsClient({
   deleteBrandAction,
 }: AdminBrandsClientProps) {
   const [nameFilter, setNameFilter] = useState("")
-  const [rowsPerPage, setRowsPerPage] = useState<number>(ROWS_PER_PAGE_OPTIONS[0])
   const [page, setPage] = useState(1)
 
   const filteredBrands = useMemo(() => {
@@ -42,21 +40,13 @@ export default function AdminBrandsClient({
     })
   }, [brands, nameFilter])
 
-  const safeRowsPerPage = Math.min(rowsPerPage, MAX_ROWS_PER_PAGE)
-  const pageCount = Math.max(1, Math.ceil(filteredBrands.length / safeRowsPerPage))
+  const pageCount = Math.max(1, Math.ceil(filteredBrands.length / ROWS_PER_PAGE))
   const currentPage = Math.min(page, pageCount)
 
   const paginatedBrands = useMemo(() => {
-    const start = (currentPage - 1) * safeRowsPerPage
-    return filteredBrands.slice(start, start + safeRowsPerPage)
-  }, [filteredBrands, currentPage, safeRowsPerPage])
-
-  const handleChangeRowsPerPage = (value: string) => {
-    const next = Number(value) || ROWS_PER_PAGE_OPTIONS[0]
-    const clamped = Math.min(next, MAX_ROWS_PER_PAGE)
-    setRowsPerPage(clamped)
-    setPage(1)
-  }
+    const start = (currentPage - 1) * ROWS_PER_PAGE
+    return filteredBrands.slice(start, start + ROWS_PER_PAGE)
+  }, [filteredBrands, currentPage])
 
   const handleChangePage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount) return
@@ -64,21 +54,19 @@ export default function AdminBrandsClient({
   }
 
   const pageFrom =
-    filteredBrands.length === 0 ? 0 : (currentPage - 1) * safeRowsPerPage + 1
-  const pageTo = Math.min(currentPage * safeRowsPerPage, filteredBrands.length)
+    filteredBrands.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1
+  const pageTo = Math.min(currentPage * ROWS_PER_PAGE, filteredBrands.length)
+
   return (
     <div className="space-y-6">
       <BrandsHeader createBrandAction={createBrandAction} />
 
       <BrandsFilters
         nameFilter={nameFilter}
-        rowsPerPage={safeRowsPerPage}
-        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
         onNameFilterChange={(value) => {
           setNameFilter(value)
           setPage(1)
         }}
-        onRowsPerPageChange={(value) => handleChangeRowsPerPage(String(value))}
       />
 
       <BrandsTable

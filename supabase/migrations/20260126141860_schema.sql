@@ -1,5 +1,11 @@
--- Consolidated schema migration (all prior migrations merged).
--- Cron jobs remain in separate migrations.
+-- Consolidated schema migration (all prior schema migrations merged).
+-- Jobs / cron remain in a separate migration.
+-- Generated for a fresh DB reset — do not apply on top of an already-migrated DB.
+
+
+-- ============================================================
+-- Source: 20260126141860_initial.sql
+-- ============================================================
 
 
 -- ============================================================
@@ -496,7 +502,7 @@ alter table promo_codes         enable row level security;
 -- Goal: Database enforces access; frontend cannot bypass it.
 --
 -- Global Auth Assumptions:
--- - auth.uid() â†’ current authenticated user ID
+-- - auth.uid() Ã¢â€ â€™ current authenticated user ID
 -- - User role is read from profiles.role
 -- - Never trust a role coming from the frontend
 --------------------------------------------------
@@ -1621,7 +1627,7 @@ with check (public.get_user_role() = 'admin'::profile_role);
 -- =============================================================================
 
 --------------------------------------------------
--- Checkout Function â€“ Atomic Order Creation
+-- Checkout Function Ã¢â‚¬â€œ Atomic Order Creation
 --
 -- Goal:
 -- - Validate stock for all cart items
@@ -2562,7 +2568,7 @@ using (public.get_user_role() = 'admin'::profile_role)
 with check (public.get_user_role() = 'admin'::profile_role);
 
 --------------------------------------------------
--- PROMO CODES (admin only â€” no public read)
+-- PROMO CODES (admin only Ã¢â‚¬â€ no public read)
 --------------------------------------------------
 drop policy if exists "Admins can manage promo codes" on promo_codes;
 create policy "Admins can manage promo codes"
@@ -4108,4 +4114,1047 @@ ALTER TABLE public.order_items
   ON DELETE RESTRICT;
 
 
+-- ============================================================
+-- Source: 20260714190000_public_read_brands.sql
+-- ============================================================
+
+-- Allow anon / authenticated guests to read brands (product embed brand:brands(*)).
+-- Admin CRUD remains via "Admins can manage brands".
+
+DROP POLICY IF EXISTS "Public can read brands" ON brands;
+CREATE POLICY "Public can read brands"
+ON brands
+FOR SELECT
+USING (true);
+
+
+-- ============================================================
+-- Source: 20260714190001_require_product_slug.sql
+-- ============================================================
+
+-- Backfill null/empty product slugs, then require slug going forward.
+-- Storefront routes are /products/[slug]; links with null/id 404 against getProductBySlug.
+
+UPDATE products
+SET slug = left(
+  trim(
+    both '-'
+    from regexp_replace(
+      lower(coalesce(nullif(btrim(name), ''), 'product')),
+      '[^a-z0-9]+',
+      '-',
+      'g'
+    )
+  )
+  || '-'
+  || left(replace(id::text, '-', ''), 8),
+  40
+)
+WHERE slug IS NULL OR btrim(slug) = '';
+
+ALTER TABLE products
+  ALTER COLUMN slug SET NOT NULL;
+
+
+-- ============================================================
+-- Source: 20260714200000_product_effective_prices.sql
+-- ============================================================
+
+-- Denormalized min/max effective prices for storefront list/filter/sort.
+-- Effective unit price = COALESCE(customised_products.price_override, products.price).
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS min_effective_price numeric(10, 2),
+  ADD COLUMN IF NOT EXISTS max_effective_price numeric(10, 2);
+
+-- Backfill from variants (no variants â†’ base price)
+UPDATE public.products p
+SET
+  min_effective_price = sub.min_eff,
+  max_effective_price = sub.max_eff
+FROM (
+  SELECT
+    p2.id,
+    COALESCE(
+      MIN(COALESCE(cp.price_override, p2.price)),
+      p2.price
+    ) AS min_eff,
+    COALESCE(
+      MAX(COALESCE(cp.price_override, p2.price)),
+      p2.price
+    ) AS max_eff
+  FROM public.products p2
+  LEFT JOIN public.customised_products cp ON cp.product_id = p2.id
+  GROUP BY p2.id, p2.price
+) sub
+WHERE p.id = sub.id;
+
+ALTER TABLE public.products
+  ALTER COLUMN min_effective_price SET NOT NULL,
+  ALTER COLUMN max_effective_price SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_products_min_effective_price
+  ON public.products (min_effective_price);
+
+CREATE INDEX IF NOT EXISTS idx_products_max_effective_price
+  ON public.products (max_effective_price);
+
+COMMENT ON COLUMN public.products.min_effective_price IS
+  'Min COALESCE(variant price_override, base price) across variants; equals price when no variants.';
+COMMENT ON COLUMN public.products.max_effective_price IS
+  'Max COALESCE(variant price_override, base price) across variants; equals price when no variants.';
+
+-- Recompute for a single product
+CREATE OR REPLACE FUNCTION public.refresh_product_effective_prices(p_product_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.products p
+  SET
+    min_effective_price = COALESCE(
+      (
+        SELECT MIN(COALESCE(cp.price_override, p.price))
+        FROM public.customised_products cp
+        WHERE cp.product_id = p.id
+      ),
+      p.price
+    ),
+    max_effective_price = COALESCE(
+      (
+        SELECT MAX(COALESCE(cp.price_override, p.price))
+        FROM public.customised_products cp
+        WHERE cp.product_id = p.id
+      ),
+      p.price
+    )
+  WHERE p.id = p_product_id;
+END;
+$$;
+
+-- New products: seed from base price before insert
+CREATE OR REPLACE FUNCTION public.products_set_effective_prices_on_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.min_effective_price := NEW.price;
+  NEW.max_effective_price := NEW.price;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_products_set_effective_prices_on_insert ON public.products;
+CREATE TRIGGER trg_products_set_effective_prices_on_insert
+  BEFORE INSERT ON public.products
+  FOR EACH ROW
+  EXECUTE FUNCTION public.products_set_effective_prices_on_insert();
+
+-- Base price change: recompute from variants (does not touch price â†’ no recursion)
+CREATE OR REPLACE FUNCTION public.products_refresh_effective_prices_on_price_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.price IS DISTINCT FROM OLD.price THEN
+    PERFORM public.refresh_product_effective_prices(NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_products_refresh_effective_prices_on_price_update ON public.products;
+CREATE TRIGGER trg_products_refresh_effective_prices_on_price_update
+  AFTER UPDATE OF price ON public.products
+  FOR EACH ROW
+  EXECUTE FUNCTION public.products_refresh_effective_prices_on_price_update();
+
+-- Variant changes: keep product aggregates in sync
+CREATE OR REPLACE FUNCTION public.customised_products_refresh_effective_prices()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    PERFORM public.refresh_product_effective_prices(OLD.product_id);
+    RETURN OLD;
+  END IF;
+
+  PERFORM public.refresh_product_effective_prices(NEW.product_id);
+
+  IF TG_OP = 'UPDATE'
+    AND OLD.product_id IS DISTINCT FROM NEW.product_id THEN
+    PERFORM public.refresh_product_effective_prices(OLD.product_id);
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_customised_products_refresh_effective_prices ON public.customised_products;
+CREATE TRIGGER trg_customised_products_refresh_effective_prices
+  AFTER INSERT OR UPDATE OR DELETE ON public.customised_products
+  FOR EACH ROW
+  EXECUTE FUNCTION public.customised_products_refresh_effective_prices();
+
+
+-- ============================================================
+-- Source: 20260714210000_public_read_product_stats.sql
+-- ============================================================
+
+-- Allow anon / authenticated guests to read product_stats aggregates (PDP views / ATC / purchases).
+-- Writes remain admin / service-role only via "Admins can manage product stats".
+
+DROP POLICY IF EXISTS "Public can read product stats" ON product_stats;
+CREATE POLICY "Public can read product stats"
+ON product_stats
+FOR SELECT
+USING (true);
+
+
+-- ============================================================
+-- Source: 20260719143000_carts_unique_guest_session.sql
+-- ============================================================
+
+-- Enforce one open guest cart per session_id.
+-- Carts have no status column; checkout hard-deletes the cart row.
+-- Concurrent guest ATC previously could insert multiple carts for the same
+-- session; lookups used created_at DESC LIMIT 1 and orphaned older rows.
+
+---------------------------------------------------
+-- 1. Dedupe orphan guest carts (keep newest per session_id)
+---------------------------------------------------
+
+-- Identify keeper cart (newest) per guest session with duplicates
+CREATE TEMP TABLE _guest_cart_keepers AS
+SELECT DISTINCT ON (session_id)
+  id AS keeper_id,
+  session_id
+FROM carts
+WHERE user_id IS NULL
+  AND session_id IS NOT NULL
+ORDER BY session_id, created_at DESC, id DESC;
+
+-- Older carts for the same session (to merge then delete)
+CREATE TEMP TABLE _guest_cart_orphans AS
+SELECT c.id AS orphan_id, k.keeper_id
+FROM carts c
+JOIN _guest_cart_keepers k ON k.session_id = c.session_id
+WHERE c.user_id IS NULL
+  AND c.session_id IS NOT NULL
+  AND c.id <> k.keeper_id;
+
+-- When orphan and keeper share the same variant: sum qty onto keeper, drop orphan row
+UPDATE cart_items AS keeper
+SET quantity = keeper.quantity + orphan.quantity
+FROM cart_items AS orphan
+JOIN _guest_cart_orphans o ON o.orphan_id = orphan.cart_id
+WHERE keeper.cart_id = o.keeper_id
+  AND keeper.customised_product_id = orphan.customised_product_id;
+
+DELETE FROM cart_items AS orphan
+USING _guest_cart_orphans o, cart_items AS keeper
+WHERE orphan.cart_id = o.orphan_id
+  AND keeper.cart_id = o.keeper_id
+  AND keeper.customised_product_id = orphan.customised_product_id;
+
+-- Move remaining orphan items onto the keeper cart
+UPDATE cart_items AS orphan
+SET cart_id = o.keeper_id
+FROM _guest_cart_orphans o
+WHERE orphan.cart_id = o.orphan_id;
+
+-- Delete orphan cart rows (any leftover items cascade-delete)
+DELETE FROM carts c
+USING _guest_cart_orphans o
+WHERE c.id = o.orphan_id;
+
+DROP TABLE _guest_cart_orphans;
+DROP TABLE _guest_cart_keepers;
+
+---------------------------------------------------
+-- 2. Partial unique index: one guest cart per session
+---------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS carts_unique_guest_session
+ON carts (session_id)
+WHERE user_id IS NULL AND session_id IS NOT NULL;
+
+
+-- ============================================================
+-- Source: 20260719150000_check_form_rate_limit.sql
+-- ============================================================
+
+-- Atomic form rate-limit check for contact/lead public actions.
+-- Replaces non-atomic read â†’ decide â†’ write (TOCTOU) and enables fail-closed TS.
+
+CREATE OR REPLACE FUNCTION public.check_form_rate_limit(
+  p_key text,
+  p_limit integer,
+  p_window_seconds integer
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.form_rate_limits%ROWTYPE;
+  v_now timestamptz := now();
+BEGIN
+  IF p_key IS NULL OR length(trim(p_key)) = 0 THEN
+    RAISE EXCEPTION 'p_key is required';
+  END IF;
+  IF p_limit IS NULL OR p_limit < 1 THEN
+    RAISE EXCEPTION 'p_limit must be >= 1';
+  END IF;
+  IF p_window_seconds IS NULL OR p_window_seconds < 1 THEN
+    RAISE EXCEPTION 'p_window_seconds must be >= 1';
+  END IF;
+
+  -- Lock existing row if present
+  SELECT * INTO v_row
+  FROM public.form_rate_limits
+  WHERE key = p_key
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    BEGIN
+      INSERT INTO public.form_rate_limits (key, window_started_at, hit_count)
+      VALUES (p_key, v_now, 1);
+      RETURN true;
+    EXCEPTION
+      WHEN unique_violation THEN
+        -- Concurrent first insert: lock winner and continue
+        SELECT * INTO v_row
+        FROM public.form_rate_limits
+        WHERE key = p_key
+        FOR UPDATE;
+    END;
+  END IF;
+
+  IF v_now - v_row.window_started_at >= make_interval(secs => p_window_seconds) THEN
+    UPDATE public.form_rate_limits
+    SET window_started_at = v_now,
+        hit_count = 1
+    WHERE key = p_key;
+    RETURN true;
+  END IF;
+
+  IF v_row.hit_count >= p_limit THEN
+    RETURN false;
+  END IF;
+
+  UPDATE public.form_rate_limits
+  SET hit_count = hit_count + 1
+  WHERE key = p_key;
+
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.check_form_rate_limit(text, integer, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.check_form_rate_limit(text, integer, integer) FROM anon;
+REVOKE ALL ON FUNCTION public.check_form_rate_limit(text, integer, integer) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.check_form_rate_limit(text, integer, integer) TO service_role;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- ============================================================
+-- Source: 20260719151000_leads_unique_normalized_email.sql
+-- ============================================================
+
+-- Enforce one lead per normalized email (lower(trim(email))).
+-- Public re-subscribe becomes idempotent; admin create/update gets clear conflicts.
+
+---------------------------------------------------
+-- 1. Dedupe (keep earliest created_at per normalized email)
+---------------------------------------------------
+
+CREATE TEMP TABLE _lead_keepers AS
+SELECT DISTINCT ON (lower(trim(email)))
+  id AS keeper_id,
+  lower(trim(email)) AS email_key
+FROM leads
+ORDER BY lower(trim(email)), created_at ASC NULLS LAST, id ASC;
+
+DELETE FROM leads AS l
+USING _lead_keepers k
+WHERE lower(trim(l.email)) = k.email_key
+  AND l.id <> k.keeper_id;
+
+DROP TABLE _lead_keepers;
+
+---------------------------------------------------
+-- 2. Normalize remaining emails
+---------------------------------------------------
+
+UPDATE leads
+SET email = lower(trim(email));
+
+---------------------------------------------------
+-- 3. Unique index + drop obsolete non-unique index
+---------------------------------------------------
+
+DROP INDEX IF EXISTS idx_leads_email;
+
+CREATE UNIQUE INDEX leads_email_normalized_uidx
+  ON leads (lower(trim(email)));
+
+
+-- ============================================================
+-- Source: 20260719152000_leads_user_id.sql
+-- ============================================================
+
+-- Link newsletter leads to auth users when subscribed while logged in.
+-- Nullable: guests remain user_id null; ON DELETE SET NULL if account removed.
+
+alter table public.leads
+  add column if not exists user_id uuid references auth.users (id) on delete set null;
+
+create index if not exists idx_leads_user_id on public.leads (user_id);
+
+
+-- ============================================================
+-- Source: 20260719160000_leads_status_unsubscribe.sql
+-- ============================================================
+
+-- Lead consent / unsubscribe fields for marketing list hygiene.
+
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS status text,
+  ADD COLUMN IF NOT EXISTS source text,
+  ADD COLUMN IF NOT EXISTS unsubscribed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS unsubscribe_token uuid;
+
+-- Backfill existing rows before NOT NULL / defaults
+UPDATE public.leads
+SET
+  status = COALESCE(status, 'subscribed'),
+  source = COALESCE(source, 'footer'),
+  unsubscribe_token = COALESCE(unsubscribe_token, gen_random_uuid())
+WHERE status IS NULL
+   OR source IS NULL
+   OR unsubscribe_token IS NULL;
+
+ALTER TABLE public.leads
+  ALTER COLUMN status SET DEFAULT 'subscribed',
+  ALTER COLUMN status SET NOT NULL,
+  ALTER COLUMN source SET DEFAULT 'footer',
+  ALTER COLUMN source SET NOT NULL,
+  ALTER COLUMN unsubscribe_token SET DEFAULT gen_random_uuid(),
+  ALTER COLUMN unsubscribe_token SET NOT NULL;
+
+ALTER TABLE public.leads
+  DROP CONSTRAINT IF EXISTS leads_status_check;
+
+ALTER TABLE public.leads
+  ADD CONSTRAINT leads_status_check
+  CHECK (status IN ('subscribed', 'unsubscribed'));
+
+ALTER TABLE public.leads
+  DROP CONSTRAINT IF EXISTS leads_source_check;
+
+ALTER TABLE public.leads
+  ADD CONSTRAINT leads_source_check
+  CHECK (source IN ('footer', 'admin', 'unknown'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS leads_unsubscribe_token_uidx
+  ON public.leads (unsubscribe_token);
+
+
+-- ============================================================
+-- Source: 20260719170000_wishlists_unique_owner_variant.sql
+-- ============================================================
+
+-- Unique wishlist ownership per variant (auth user and guest session).
+-- Dedupes keep the newest row so claim + concurrent toggles cannot double-insert.
+
+---------------------------------------------------
+-- 1. Dedupe user wishlist rows (keep newest per user + variant)
+---------------------------------------------------
+
+DELETE FROM wishlists AS w
+USING wishlists AS newer
+WHERE w.user_id IS NOT NULL
+  AND newer.user_id IS NOT NULL
+  AND w.user_id = newer.user_id
+  AND w.customised_product_id = newer.customised_product_id
+  AND (
+    newer.created_at > w.created_at
+    OR (newer.created_at = w.created_at AND newer.id > w.id)
+  );
+
+---------------------------------------------------
+-- 2. Dedupe guest wishlist rows (keep newest per session + variant)
+---------------------------------------------------
+
+DELETE FROM wishlists AS w
+USING wishlists AS newer
+WHERE w.user_id IS NULL
+  AND w.session_id IS NOT NULL
+  AND newer.user_id IS NULL
+  AND newer.session_id IS NOT NULL
+  AND w.session_id = newer.session_id
+  AND w.customised_product_id = newer.customised_product_id
+  AND (
+    newer.created_at > w.created_at
+    OR (newer.created_at = w.created_at AND newer.id > w.id)
+  );
+
+---------------------------------------------------
+-- 3. Unique indexes
+---------------------------------------------------
+
+CREATE UNIQUE INDEX IF NOT EXISTS wishlists_user_variant_uidx
+  ON wishlists (user_id, customised_product_id)
+  WHERE user_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS wishlists_session_variant_uidx
+  ON wishlists (session_id, customised_product_id)
+  WHERE user_id IS NULL AND session_id IS NOT NULL;
+
+
+-- ============================================================
+-- Source: 20260720180000_require_category_slug.sql
+-- ============================================================
+
+-- Backfill null/empty category slugs, then require slug going forward.
+-- Storefront filters by category slug (/products?category=...); null/empty breaks links.
+
+UPDATE categories
+SET slug = left(
+  trim(
+    both '-'
+    from regexp_replace(
+      lower(coalesce(nullif(btrim(name), ''), 'category')),
+      '[^a-z0-9]+',
+      '-',
+      'g'
+    )
+  )
+  || '-'
+  || left(replace(id::text, '-', ''), 8),
+  20
+)
+WHERE slug IS NULL OR btrim(slug) = '';
+
+ALTER TABLE categories
+  ALTER COLUMN slug SET NOT NULL;
+
+
+-- ============================================================
+-- Source: 20260720181000_customised_products_unique_attrs.sql
+-- ============================================================
+
+-- Unique variant attributes per product (color + size + material).
+-- Dedupes keep the newest row; dependent FKs are remapped before delete.
+
+---------------------------------------------------
+-- 1. Temp map: older duplicate â†’ newest keeper
+---------------------------------------------------
+
+CREATE TEMP TABLE _variant_dedupe_map ON COMMIT DROP AS
+WITH ranked AS (
+  SELECT
+    id,
+    product_id,
+    coalesce(color, '') AS color_key,
+    coalesce(size, '') AS size_key,
+    coalesce(material, '') AS material_key,
+    ROW_NUMBER() OVER (
+      PARTITION BY
+        product_id,
+        coalesce(color, ''),
+        coalesce(size, ''),
+        coalesce(material, '')
+      ORDER BY created_at DESC, id DESC
+    ) AS rn
+  FROM customised_products
+),
+keepers AS (
+  SELECT id, product_id, color_key, size_key, material_key
+  FROM ranked
+  WHERE rn = 1
+)
+SELECT
+  r.id AS loser_id,
+  k.id AS keeper_id
+FROM ranked r
+JOIN keepers k
+  ON k.product_id = r.product_id
+ AND k.color_key = r.color_key
+ AND k.size_key = r.size_key
+ AND k.material_key = r.material_key
+WHERE r.rn > 1;
+
+---------------------------------------------------
+-- 2. Drop wishlist/cart rows that would uniquely collide after remap
+---------------------------------------------------
+
+DELETE FROM wishlists w
+USING _variant_dedupe_map m
+WHERE w.customised_product_id = m.loser_id
+  AND EXISTS (
+    SELECT 1
+    FROM wishlists k
+    WHERE k.customised_product_id = m.keeper_id
+      AND (
+        (w.user_id IS NOT NULL AND k.user_id = w.user_id)
+        OR (
+          w.user_id IS NULL
+          AND w.session_id IS NOT NULL
+          AND k.user_id IS NULL
+          AND k.session_id = w.session_id
+        )
+      )
+  );
+
+DELETE FROM cart_items ci
+USING _variant_dedupe_map m
+WHERE ci.customised_product_id = m.loser_id
+  AND EXISTS (
+    SELECT 1
+    FROM cart_items k
+    WHERE k.customised_product_id = m.keeper_id
+      AND k.cart_id = ci.cart_id
+  );
+
+---------------------------------------------------
+-- 3. Remap remaining FKs, then delete losers
+---------------------------------------------------
+
+UPDATE wishlists w
+SET customised_product_id = m.keeper_id
+FROM _variant_dedupe_map m
+WHERE w.customised_product_id = m.loser_id;
+
+UPDATE cart_items ci
+SET customised_product_id = m.keeper_id
+FROM _variant_dedupe_map m
+WHERE ci.customised_product_id = m.loser_id;
+
+UPDATE order_items oi
+SET customised_product_id = m.keeper_id
+FROM _variant_dedupe_map m
+WHERE oi.customised_product_id = m.loser_id;
+
+DELETE FROM customised_products cp
+USING _variant_dedupe_map m
+WHERE cp.id = m.loser_id;
+
+---------------------------------------------------
+-- 4. Unique index (COALESCE so null attrs still collide)
+---------------------------------------------------
+
+CREATE UNIQUE INDEX IF NOT EXISTS customised_products_product_attrs_uidx
+  ON customised_products (
+    product_id,
+    coalesce(color, ''),
+    coalesce(size, ''),
+    coalesce(material, '')
+  );
+
+
+-- ============================================================
+-- Source: 20260720182000_restock_only_on_cancel.sql
+-- ============================================================
+
+-- Restock inventory only when an order is cancelled.
+-- Payment failed/refunded alone must not restore stock while fulfillment continues.
+
+CREATE OR REPLACE FUNCTION public.restock_order_inventory()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Already restored (idempotent)
+  IF OLD.stock_restored THEN
+    NEW.stock_restored := true;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled' THEN
+    UPDATE public.customised_products cp
+    SET quantity_stock = cp.quantity_stock + oi.quantity
+    FROM public.order_items oi
+    WHERE oi.order_id = NEW.id
+      AND oi.customised_product_id IS NOT NULL
+      AND cp.id = oi.customised_product_id;
+
+    NEW.stock_restored := true;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_restock_order_inventory ON public.orders;
+
+CREATE TRIGGER trg_restock_order_inventory
+  BEFORE UPDATE OF status ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.restock_order_inventory();
+
+COMMENT ON FUNCTION public.restock_order_inventory() IS
+  'Restores order line quantities to customised_products when status becomes cancelled. Idempotent via orders.stock_restored.';
+
+
+-- ============================================================
+-- Source: 20260720183000_orders_cascade_payments_shipments.sql
+-- ============================================================
+
+-- Allow hard-deleting orders that have payments and/or shipments.
+-- order_items already CASCADE; payments and shipments previously blocked delete (NO ACTION).
+
+ALTER TABLE public.payments
+  DROP CONSTRAINT IF EXISTS payments_order_id_fkey;
+
+ALTER TABLE public.payments
+  ADD CONSTRAINT payments_order_id_fkey
+  FOREIGN KEY (order_id)
+  REFERENCES public.orders(id)
+  ON DELETE CASCADE;
+
+ALTER TABLE public.shipments
+  DROP CONSTRAINT IF EXISTS shipments_order_id_fkey;
+
+ALTER TABLE public.shipments
+  ADD CONSTRAINT shipments_order_id_fkey
+  FOREIGN KEY (order_id)
+  REFERENCES public.orders(id)
+  ON DELETE CASCADE;
+
+
+-- ============================================================
+-- Source: 20260720190000_get_admin_profiles_page.sql
+-- ============================================================
+
+-- Paginated admin profiles (avoids PostgREST max_rows silent truncation).
+
+CREATE OR REPLACE FUNCTION public.get_admin_profiles_page(
+  p_limit integer,
+  p_offset integer,
+  p_query text DEFAULT NULL,
+  p_role text DEFAULT NULL,
+  p_is_active boolean DEFAULT NULL
+)
+RETURNS TABLE (
+  id uuid,
+  user_id uuid,
+  full_name text,
+  role profile_role,
+  created_at timestamptz,
+  is_active boolean,
+  email text,
+  total_count bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_limit integer := GREATEST(1, LEAST(COALESCE(p_limit, 20), 100));
+  v_offset integer := GREATEST(0, COALESCE(p_offset, 0));
+  v_query text := NULLIF(TRIM(COALESCE(p_query, '')), '');
+  v_role profile_role;
+BEGIN
+  IF public.get_user_role() != 'admin'::profile_role THEN
+    RETURN;
+  END IF;
+
+  IF p_role IS NOT NULL AND TRIM(p_role) <> '' THEN
+    BEGIN
+      v_role := TRIM(p_role)::profile_role;
+    EXCEPTION WHEN others THEN
+      v_role := NULL;
+    END;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.user_id,
+    p.full_name,
+    p.role,
+    p.created_at,
+    p.is_active,
+    u.email::text,
+    COUNT(*) OVER()::bigint AS total_count
+  FROM public.profiles p
+  JOIN auth.users u ON u.id = p.user_id
+  WHERE
+    (v_role IS NULL OR p.role = v_role)
+    AND (p_is_active IS NULL OR p.is_active = p_is_active)
+    AND (
+      v_query IS NULL
+      OR p.full_name ILIKE '%' || v_query || '%'
+      OR u.email::text ILIKE '%' || v_query || '%'
+    )
+  ORDER BY p.created_at DESC
+  LIMIT v_limit
+  OFFSET v_offset;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_profiles_page(
+  integer,
+  integer,
+  text,
+  text,
+  boolean
+) TO authenticated;
+
+
+-- ============================================================
+-- Source: 20260720193000_product_qa_public_rls.sql
+-- ============================================================
+
+-- Product Q&A public RLS (storefront ask + read approved)
+-- Mirrors reviews policies: approved (or own) SELECT; auth INSERT pending; admin ALL.
+
+--------------------------------------------------
+-- product_questions
+--------------------------------------------------
+
+drop policy if exists "Users can read product questions" on product_questions;
+create policy "Users can read product questions"
+on product_questions
+for select
+using (
+  is_approved = true
+  or auth.uid() = user_id
+);
+
+drop policy if exists "Users can insert own product questions" on product_questions;
+create policy "Users can insert own product questions"
+on product_questions
+for insert
+with check (
+  auth.uid() = user_id
+  and is_approved = false
+);
+
+drop policy if exists "Admins can manage product questions" on product_questions;
+create policy "Admins can manage product questions"
+on product_questions
+for all
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+--------------------------------------------------
+-- product_answers
+--------------------------------------------------
+
+drop policy if exists "Users can read product answers" on product_answers;
+create policy "Users can read product answers"
+on product_answers
+for select
+using (
+  exists (
+    select 1
+    from product_questions pq
+    where pq.id = product_answers.product_question_id
+      and (
+        pq.is_approved = true
+        or auth.uid() = pq.user_id
+      )
+  )
+);
+
+drop policy if exists "Admins can manage product answers" on product_answers;
+create policy "Admins can manage product answers"
+on product_answers
+for all
+using (public.get_user_role() = 'admin'::profile_role)
+with check (public.get_user_role() = 'admin'::profile_role);
+
+
+-- ============================================================
+-- Source: 20260720195000_admin_top_products_by_product_id.sql
+-- ============================================================
+
+-- Aggregate top products by real product UUID (via customised_products), not name snapshot.
+-- Return type changes â†’ DROP first.
+
+DROP FUNCTION IF EXISTS public.admin_top_products_by_revenue(integer, timestamptz, timestamptz);
+
+CREATE OR REPLACE FUNCTION public.admin_top_products_by_revenue(
+  p_limit integer DEFAULT 10,
+  p_from timestamptz DEFAULT NULL,
+  p_to_exclusive timestamptz DEFAULT NULL
+)
+RETURNS TABLE (
+  product_id text,
+  product_name text,
+  revenue numeric,
+  order_count bigint
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    keyed.product_id,
+    MAX(keyed.product_name) AS product_name,
+    ROUND(
+      SUM(COALESCE(keyed.price_snapshot, 0) * COALESCE(keyed.quantity, 0))::numeric,
+      2
+    ) AS revenue,
+    COUNT(DISTINCT keyed.order_id)::bigint AS order_count
+  FROM (
+    SELECT
+      oi.order_id,
+      oi.price_snapshot,
+      oi.quantity,
+      COALESCE(
+        cp.product_id::text,
+        'orphan:' || COALESCE(NULLIF(TRIM(oi.product_name_snapshot), ''), 'unknown')
+      ) AS product_id,
+      COALESCE(
+        NULLIF(TRIM(p.name), ''),
+        NULLIF(TRIM(oi.product_name_snapshot), ''),
+        'Unknown Product'
+      ) AS product_name
+    FROM public.order_items oi
+    INNER JOIN public.orders o ON o.id = oi.order_id
+    LEFT JOIN public.customised_products cp ON cp.id = oi.customised_product_id
+    LEFT JOIN public.products p ON p.id = cp.product_id
+    WHERE o.status <> 'cancelled'
+      AND (p_from IS NULL OR o.created_at >= p_from)
+      AND (p_to_exclusive IS NULL OR o.created_at < p_to_exclusive)
+  ) keyed
+  GROUP BY keyed.product_id
+  ORDER BY revenue DESC
+  LIMIT GREATEST(COALESCE(p_limit, 10), 1);
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_top_products_by_revenue(integer, timestamptz, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_top_products_by_revenue(integer, timestamptz, timestamptz) TO service_role;
+
+
+-- ============================================================
+-- Source: 20260720200000_admin_orders_revenue_sum.sql
+-- ============================================================
+
+-- Exact order revenue sum for Dashboard / Analytics.
+-- PostgREST `total.sum()` is disabled on this project ("Use of aggregate functions is not allowed").
+-- Excludes cancelled orders; optional created_at range (same rules as admin_top_products_by_revenue).
+
+create or replace function public.admin_orders_revenue_sum(
+  p_from timestamptz default null,
+  p_to_exclusive timestamptz default null
+)
+returns numeric
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    round(sum(o.total)::numeric, 2),
+    0
+  )
+  from orders o
+  where o.status <> 'cancelled'
+    and (p_from is null or o.created_at >= p_from)
+    and (p_to_exclusive is null or o.created_at < p_to_exclusive);
+$$;
+
+revoke all on function public.admin_orders_revenue_sum(timestamptz, timestamptz) from public;
+grant execute on function public.admin_orders_revenue_sum(timestamptz, timestamptz) to service_role;
+
+
+-- ============================================================
+-- Source: 20260724120000_profiles_restrict_owner_updates.sql
+-- ============================================================
+
+-- Restrict owner self-updates on profiles to full_name only.
+-- Extends prevent_role_change so owners cannot change role, is_active,
+-- user_id, id, or created_at. Admins updating other users are unaffected.
+
+CREATE OR REPLACE FUNCTION public.prevent_role_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF OLD.user_id = auth.uid() THEN
+    IF OLD.role IS DISTINCT FROM NEW.role
+       OR OLD.is_active IS DISTINCT FROM NEW.is_active
+       OR OLD.user_id IS DISTINCT FROM NEW.user_id
+       OR OLD.id IS DISTINCT FROM NEW.id
+       OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+      RAISE EXCEPTION
+        'Users can only update full_name on their own profile.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+-- ============================================================
+-- Source: 20260724190000_set_default_user_address.sql
+-- ============================================================
+
+-- Atomic set-default for user_addresses.
+-- Verifies ownership via auth.uid(), sets target default, then clears others.
+-- Prevents clear-then-set leaving zero defaults when id is missing/foreign.
+
+CREATE OR REPLACE FUNCTION public.set_default_user_address(p_address_id uuid)
+RETURNS public.user_addresses
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.user_addresses%ROWTYPE;
+BEGIN
+  IF p_address_id IS NULL THEN
+    RAISE EXCEPTION 'Address id is required';
+  END IF;
+
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  UPDATE public.user_addresses
+  SET is_default = true
+  WHERE id = p_address_id
+    AND user_id = auth.uid()
+  RETURNING * INTO v_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Address not found';
+  END IF;
+
+  UPDATE public.user_addresses
+  SET is_default = false
+  WHERE user_id = auth.uid()
+    AND id <> p_address_id
+    AND is_default = true;
+
+  RETURN v_row;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_default_user_address(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.set_default_user_address(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.set_default_user_address(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_default_user_address(uuid) TO service_role;
+
+NOTIFY pgrst, 'reload schema';
 

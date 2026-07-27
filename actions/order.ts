@@ -38,8 +38,6 @@ export async function updateOrderAction(
     shipping_fee?: number | null;
     discount?: number | null;
     total?: number | null;
-    phone?: string | null;
-    email?: string | null;
   },
 ): Promise<{ success: boolean; error?: string; data?: any }> {
   try {
@@ -48,6 +46,7 @@ export async function updateOrderAction(
     return { success: false, error: "Forbidden" };
   }
 
+  // Phone and email are immutable after checkout — never accept them here.
   const result = await updateOrderService(orderId, input);
 
   if (result.success) {

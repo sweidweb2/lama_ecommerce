@@ -68,8 +68,6 @@ function filterViews(
   productName: string,
   userName: string,
   viewerType: string,
-  fromDate: string,
-  toDate: string,
 ): AdminProductViewRow[] {
   return views.filter((view) => {
     const pn = (productName || "").trim().toLowerCase();
@@ -87,21 +85,6 @@ function filterViews(
     // Viewer type filter
     if (viewerType === "user" && !view.user_id) return false;
     if (viewerType === "guest" && view.user_id) return false;
-    
-    // Date filters
-    if (fromDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      const viewed = new Date(view.viewed_at);
-      if (viewed < from) return false;
-    }
-    
-    if (toDate) {
-      const to = new Date(toDate);
-      to.setHours(23, 59, 59, 999);
-      const viewed = new Date(view.viewed_at);
-      if (viewed > to) return false;
-    }
     
     return true;
   });
@@ -313,8 +296,6 @@ export function ProductViewsTable({
   const [productNameFilter, setProductNameFilter] = useState("");
   const [userNameFilter, setUserNameFilter] = useState("");
   const [viewerTypeFilter, setViewerTypeFilter] = useState("all");
-  const [fromDateFilter, setFromDateFilter] = useState("");
-  const [toDateFilter, setToDateFilter] = useState("");
   const [marketingFilter, setMarketingFilter] = useState("all");
 
   // First apply marketing filter, then apply other filters
@@ -331,10 +312,8 @@ export function ProductViewsTable({
         productNameFilter,
         userNameFilter,
         viewerTypeFilter,
-        fromDateFilter,
-        toDateFilter
       ),
-    [marketingFilteredViews, productNameFilter, userNameFilter, viewerTypeFilter, fromDateFilter, toDateFilter]
+    [marketingFilteredViews, productNameFilter, userNameFilter, viewerTypeFilter]
   );
 
   // Calculate product view counts for display when marketing filter is active
@@ -352,16 +331,12 @@ export function ProductViewsTable({
     productNameFilter ||
     userNameFilter ||
     viewerTypeFilter !== "all" ||
-    fromDateFilter ||
-    toDateFilter ||
     marketingFilter !== "all";
 
   const clearFilters = () => {
     setProductNameFilter("");
     setUserNameFilter("");
     setViewerTypeFilter("all");
-    setFromDateFilter("");
-    setToDateFilter("");
     setMarketingFilter("all");
   };
 
@@ -404,7 +379,7 @@ export function ProductViewsTable({
         </div>
 
         {/* Other Filters */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 items-end">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
           <div className="space-y-1">
             <Label htmlFor="filter-product-name">Product Name</Label>
             <Input
@@ -435,24 +410,6 @@ export function ProductViewsTable({
                 <SelectItem value="guest">Guest</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="filter-from-date">From Date</Label>
-            <Input
-              id="filter-from-date"
-              type="date"
-              value={fromDateFilter}
-              onChange={(e) => setFromDateFilter(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="filter-to-date">To Date</Label>
-            <Input
-              id="filter-to-date"
-              type="date"
-              value={toDateFilter}
-              onChange={(e) => setToDateFilter(e.target.value)}
-            />
           </div>
         </div>
       </div>

@@ -242,8 +242,6 @@ export async function updateOrderService(
     shipping_fee?: number | null;
     discount?: number | null;
     total?: number | null;
-    phone?: string | null;
-    email?: string | null;
     carrier_name?: string;
     tracking_number?: string;
   },
@@ -254,16 +252,7 @@ export async function updateOrderService(
       return { success: false, error: "Forbidden" };
     }
 
-    // Basic validation
-    if (input.email !== undefined && input.email !== null && input.email.trim() !== "") {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(input.email)) {
-        return {
-          success: false,
-          error: "Invalid email format",
-        };
-      }
-    }
+    // Phone and email are set at checkout and must not change via admin update.
 
     if (input.subtotal !== undefined && input.subtotal !== null && input.subtotal < 0) {
       return {
@@ -346,8 +335,6 @@ export async function updateOrderService(
         shipping_fee: input.shipping_fee,
         discount: input.discount,
         total: input.total,
-        phone: input.phone,
-        email: input.email,
       });
 
       if (!statusResult.success) {
@@ -372,7 +359,7 @@ export async function updateOrderService(
       return statusResult;
     }
 
-    // Call repository to update the order
+    // Call repository to update the order (phone/email intentionally omitted)
     return await updateOrder(orderId, {
       user_id: input.user_id,
       status: input.status,
@@ -381,8 +368,6 @@ export async function updateOrderService(
       shipping_fee: input.shipping_fee,
       discount: input.discount,
       total: input.total,
-      phone: input.phone,
-      email: input.email,
     });
   } catch (error) {
     console.error("Error in updateOrderService:", error);

@@ -1,3 +1,10 @@
+-- Jobs / cron migration (kept separate from schema).
+-- Requires pg_cron; apply after the consolidated schema migration.
+
+-- ============================================================
+-- Source: 20260714180000_expire_promo_codes_cron.sql
+-- ============================================================
+
 -- Hourly job: deactivate promo codes whose expires_at has passed.
 -- Checkout already rejects expired codes; this keeps is_active in sync for admin UI/filters.
 
@@ -47,3 +54,4 @@ SELECT cron.schedule(
   '0 * * * *',
   $$SELECT public.expire_promo_codes()$$
 );
+

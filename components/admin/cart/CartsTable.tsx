@@ -253,6 +253,7 @@ export function CartsTable({ carts }: CartsTableProps) {
                       onKeyDown={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-2">
+                        <SubmitCartButton cartId={cart.id} />
                         <Link href={href}>
                           <Button
                             variant="ghost"
@@ -262,7 +263,6 @@ export function CartsTable({ carts }: CartsTableProps) {
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <SubmitCartButton cartId={cart.id} />
                         <DeleteCartDialog cart={cart} />
                       </div>
                     </TableCell>

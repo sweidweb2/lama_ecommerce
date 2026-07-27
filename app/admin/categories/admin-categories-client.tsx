@@ -17,8 +17,7 @@ interface AdminCategoriesClientProps {
   ) => Promise<{ success: true } | { success: false; error: string }>;
 }
 
-const ROWS_PER_PAGE_OPTIONS = [10, 25, 50];
-const MAX_ROWS_PER_PAGE = 50;
+const ROWS_PER_PAGE = 10;
 
 export default function AdminCategoriesClient({
   categories,
@@ -29,7 +28,6 @@ export default function AdminCategoriesClient({
 }: AdminCategoriesClientProps) {
   const [nameFilter, setNameFilter] = useState("");
   const [parentFilter, setParentFilter] = useState<string | "all">("all");
-  const [rowsPerPage, setRowsPerPage] = useState<number>(ROWS_PER_PAGE_OPTIONS[0]);
   const [page, setPage] = useState(1);
 
   const parentOptions = useMemo(
@@ -63,21 +61,13 @@ export default function AdminCategoriesClient({
     });
   }, [categories, nameFilter, parentFilter]);
 
-  const safeRowsPerPage = Math.min(rowsPerPage, MAX_ROWS_PER_PAGE);
-  const pageCount = Math.max(1, Math.ceil(filteredCategories.length / safeRowsPerPage));
+  const pageCount = Math.max(1, Math.ceil(filteredCategories.length / ROWS_PER_PAGE));
   const currentPage = Math.min(page, pageCount);
 
   const paginatedCategories = useMemo(() => {
-    const start = (currentPage - 1) * safeRowsPerPage;
-    return filteredCategories.slice(start, start + safeRowsPerPage);
-  }, [filteredCategories, currentPage, safeRowsPerPage]);
-
-  const handleChangeRowsPerPage = (value: string) => {
-    const next = Number(value) || ROWS_PER_PAGE_OPTIONS[0];
-    const clamped = Math.min(next, MAX_ROWS_PER_PAGE);
-    setRowsPerPage(clamped);
-    setPage(1);
-  };
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    return filteredCategories.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredCategories, currentPage]);
 
   const handleChangePage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount) return;
@@ -85,8 +75,8 @@ export default function AdminCategoriesClient({
   };
 
   const pageFrom =
-    filteredCategories.length === 0 ? 0 : (currentPage - 1) * safeRowsPerPage + 1;
-  const pageTo = Math.min(currentPage * safeRowsPerPage, filteredCategories.length);
+    filteredCategories.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
+  const pageTo = Math.min(currentPage * ROWS_PER_PAGE, filteredCategories.length);
 
   return (
     <div className="space-y-6">
@@ -98,8 +88,6 @@ export default function AdminCategoriesClient({
       <CategoriesFilters
         nameFilter={nameFilter}
         parentFilter={parentFilter}
-        rowsPerPage={safeRowsPerPage}
-        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
         parentOptions={parentOptions}
         onNameFilterChange={(value) => {
           setNameFilter(value);
@@ -109,7 +97,6 @@ export default function AdminCategoriesClient({
           setParentFilter(value);
           setPage(1);
         }}
-        onRowsPerPageChange={(value) => handleChangeRowsPerPage(String(value))}
       />
 
       <CategoriesTable

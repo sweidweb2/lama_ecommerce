@@ -45,8 +45,6 @@ export function EditOrderDialog({
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(order.payment_status)
   const [shippingFee, setShippingFee] = useState<string>(order.shipping_fee?.toString() || "")
   const [discount, setDiscount] = useState<string>(order.discount?.toString() || "")
-  const [phone, setPhone] = useState<string>(order.phone || "")
-  const [email, setEmail] = useState<string>(order.email || "")
 
   // Create a stable dependency key from order data to avoid array size changes
   const orderKey = useMemo(() => {
@@ -56,8 +54,6 @@ export function EditOrderDialog({
       payment_status: order.payment_status,
       shipping_fee: order.shipping_fee ?? null,
       discount: order.discount ?? null,
-      phone: order.phone ?? null,
-      email: order.email ?? null,
       updated_at: order.updated_at,
     })
   }, [
@@ -66,8 +62,6 @@ export function EditOrderDialog({
     order.payment_status,
     order.shipping_fee,
     order.discount,
-    order.phone,
-    order.email,
     order.updated_at,
   ])
 
@@ -78,8 +72,6 @@ export function EditOrderDialog({
     setPaymentStatus(order.payment_status)
     setShippingFee(order.shipping_fee?.toString() || "")
     setDiscount(order.discount?.toString() || "")
-    setPhone(order.phone || "")
-    setEmail(order.email || "")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderKey])
 
@@ -93,8 +85,6 @@ export function EditOrderDialog({
         setPaymentStatus(order.payment_status)
         setShippingFee(order.shipping_fee?.toString() || "")
         setDiscount(order.discount?.toString() || "")
-        setPhone(order.phone || "")
-        setEmail(order.email || "")
       }
     }
   }
@@ -125,12 +115,10 @@ export function EditOrderDialog({
       const result = await updateOrderAction(order.id, {
         status,
         payment_status: paymentStatus,
-        // shipping_fee and discount are not editable - use original values
+        // shipping_fee, discount, phone, and email are not editable
         shipping_fee: order.shipping_fee ?? null,
         discount: order.discount ?? null,
         total: order.total ?? null,
-        phone: phone.trim() || null,
-        email: email.trim() || null,
       })
 
       if (!result.success) {
@@ -169,8 +157,6 @@ export function EditOrderDialog({
     setPaymentStatus(order.payment_status)
     setShippingFee(order.shipping_fee?.toString() || "")
     setDiscount(order.discount?.toString() || "")
-    setPhone(order.phone || "")
-    setEmail(order.email || "")
     setOpen(false)
   }
 
@@ -313,10 +299,10 @@ export function EditOrderDialog({
                 <Input
                   id={`phone-${order.id}`}
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  value={order.phone || ""}
                   placeholder="+1234567890"
-                  disabled={isSubmitting}
+                  disabled={true}
+                  className="bg-muted cursor-not-allowed"
                 />
               </div>
               <div className="space-y-2">
@@ -324,10 +310,10 @@ export function EditOrderDialog({
                 <Input
                   id={`email-${order.id}`}
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={order.email || ""}
                   placeholder="customer@example.com"
-                  disabled={isSubmitting}
+                  disabled={true}
+                  className="bg-muted cursor-not-allowed"
                 />
               </div>
             </div>
