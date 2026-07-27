@@ -6,8 +6,6 @@ import {
   Clock, 
   CheckCircle, 
   DollarSign, 
-  Package,
-  CreditCard
 } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
 
@@ -23,9 +21,7 @@ export default async function OrdersPage() {
   // Calculate statistics
   const totalOrders = orders.length
   const pendingOrders = orders.filter(order => order.status === 'pending').length
-  const processingOrders = orders.filter(order => order.status === 'processing' || order.status === 'packed').length
   const deliveredOrders = orders.filter(order => order.status === 'delivered').length
-  const paidOrders = orders.filter(order => order.payment_status === 'paid').length
   const totalRevenue = orders
     .filter(order => order.payment_status === 'paid' && order.total)
     .reduce((sum, order) => sum + (order.total || 0), 0)
@@ -50,15 +46,6 @@ export default async function OrdersPage() {
       iconColor: "text-yellow-500",
     },
     {
-      title: "Processing",
-      value: processingOrders.toLocaleString(),
-      description: "In progress",
-      icon: Package,
-      borderColor: "border-l-orange-500",
-      iconBg: "bg-orange-500/10",
-      iconColor: "text-orange-500",
-    },
-    {
       title: "Delivered",
       value: deliveredOrders.toLocaleString(),
       description: "Completed orders",
@@ -66,15 +53,6 @@ export default async function OrdersPage() {
       borderColor: "border-l-green-500",
       iconBg: "bg-green-500/10",
       iconColor: "text-green-500",
-    },
-    {
-      title: "Paid Orders",
-      value: paidOrders.toLocaleString(),
-      description: "Payment received",
-      icon: CreditCard,
-      borderColor: "border-l-purple-500",
-      iconBg: "bg-purple-500/10",
-      iconColor: "text-purple-500",
     },
     {
       title: "Total Revenue",
@@ -97,7 +75,7 @@ export default async function OrdersPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
