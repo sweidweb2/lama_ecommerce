@@ -14,24 +14,28 @@ export function ProductStats({ stats }: ProductStatsProps) {
         value={stats.total}
         description="All products in catalog"
         icon={Package}
+        href="/admin/products"
       />
       <StatCard
         title="Active Products"
         value={stats.active}
         description="Currently visible"
         icon={CheckCircle}
+        href="/admin/products?active=true"
       />
       <StatCard
         title="Featured Products"
         value={stats.featured}
         description="Featured items"
         icon={Star}
+        href="/admin/products?featured=true"
       />
       <StatCard
         title="Trending Products"
         value={stats.trending}
         description="Hot items"
         icon={TrendingUp}
+        href="/admin/products?trending=true"
       />
     </div>
   )

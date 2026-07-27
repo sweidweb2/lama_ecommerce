@@ -30,11 +30,7 @@ import Link from "@/components/ui/link"
 import { Badge } from "@/components/ui/badge"
 import { encryptOrderId } from "@/lib/utils/encryption"
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs"
-import { AdminDateRangeControls } from "@/components/admin/AdminDateRangeControls"
-import {
-  adminDateRangeHref,
-  parseAdminDateRange,
-} from "@/lib/admin/date-range"
+import { parseAdminDateRange } from "@/lib/admin/date-range"
 import { METRIC_LABELS } from "@/lib/admin/metric-definitions"
 import { computeMomTrend } from "@/lib/admin/mom"
 
@@ -99,19 +95,12 @@ function unwrapOrEmpty<T>(result: DashboardResult<T>, empty: T): T {
   return result.ok ? result.data : empty
 }
 
-interface AdminDashboardProps {
-  searchParams: Promise<{
-    from?: string
-    to?: string
-    preset?: string
-  }>
-}
-
-export default async function AdminDashboard({ searchParams }: AdminDashboardProps) {
-  const params = await searchParams
-  const range = parseAdminDateRange(params, { defaultPreset: "this_month" })
-  const chartsHref = adminDateRangeHref("/admin/analytics", range)
+export default async function AdminDashboard() {
+  // Fixed reporting window (filters removed from dashboard UI).
+  const range = parseAdminDateRange({}, { defaultPreset: "this_month" })
   const rangeLabel = range.label
+  const chartsHref = "/admin/analytics"
+  const reloadHref = "/admin"
 
   const [
     statsResult,
@@ -185,8 +174,6 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
       ? computeMomTrend(stats.revenueThisMonth, stats.revenueLastMonth)
       : undefined
 
-  const reloadHref = adminDateRangeHref("/admin", range)
-
   return (
     <div className="space-y-6">
       <AdminBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Dashboard" }]} />
@@ -199,15 +186,14 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
             ? ` · ${formatNumber(attentionTotal)} items need attention`
             : ""}
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Period metrics · {rangeLabel}
+          {" · "}
+          <Link href={chartsHref} className="text-primary hover:underline">
+            Full charts
+          </Link>
+        </p>
       </div>
-
-      <AdminDateRangeControls
-        fromDate={range.fromDate}
-        toDate={range.toDate}
-        preset={range.preset}
-        chartsHref={chartsHref}
-        showAllTime={false}
-      />
 
       {hasFetchError && (
         <div

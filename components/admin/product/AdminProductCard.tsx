@@ -23,19 +23,22 @@ interface AdminProductCardProps {
 }
 
 function toAdminProduct(product: ProductWithRelations): AdminProduct {
+  const primaryImage =
+    product.images?.find((img) => img.is_primary) ?? product.images?.[0] ?? null
+
   return {
     id: product.id,
     name: product.name,
     description: product.description,
     slug: product.slug,
-    brand_id: product.brand_id,
-    category_id: product.category_id,
-    sku: product.sku,
+    brand_id: product.brand_id ?? undefined,
+    category_id: product.category_id ?? undefined,
+    sku: product.sku ?? undefined,
     price: product.price,
     is_featured: product.is_featured,
     is_trending: product.is_trending,
     is_active: product.is_active,
-    image: product.images?.[0]?.url_image,
+    image: primaryImage?.url_image,
   }
 }
 

@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 interface AdminPaginationProps {
   totalPages: number
   basePath?: string
+  onNavigate?: (href: string) => void
 }
 
 function visiblePages(current: number, total: number): number[] {
@@ -21,7 +22,11 @@ function visiblePages(current: number, total: number): number[] {
   return [...pages].sort((a, b) => a - b)
 }
 
-export function AdminPagination({ totalPages, basePath = '/admin/products' }: AdminPaginationProps) {
+export function AdminPagination({
+  totalPages,
+  basePath = '/admin/products',
+  onNavigate,
+}: AdminPaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPage = Number(searchParams.get('page')) || 1
@@ -36,7 +41,9 @@ export function AdminPagination({ totalPages, basePath = '/admin/products' }: Ad
     // Display mode is client-only; never keep it in the URL.
     params.delete('view')
     const query = params.toString()
-    router.push(query ? `${basePath}?${query}` : basePath)
+    const href = query ? `${basePath}?${query}` : basePath
+    if (onNavigate) onNavigate(href)
+    else router.push(href)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 

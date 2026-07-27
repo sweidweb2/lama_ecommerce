@@ -49,6 +49,8 @@ interface ProductsTableProps {
   totalCount: number
   pageSize: number
   page: number
+  isRefreshing?: boolean
+  onNavigate?: (href: string) => void
 }
 
 function variantLabel(variant: ProductVariant): string {
@@ -73,6 +75,8 @@ export function ProductsTable({
   totalCount,
   pageSize,
   page,
+  isRefreshing = false,
+  onNavigate,
 }: ProductsTableProps) {
   const router = useRouter()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
@@ -126,9 +130,13 @@ export function ProductsTable({
         {" products"}
       </p>
 
-      <AdminPagination totalPages={totalPages} basePath="/admin/products" />
+      <AdminPagination
+        totalPages={totalPages}
+        basePath="/admin/products"
+        onNavigate={onNavigate}
+      />
 
-      <TableWrapper>
+      <TableWrapper isRefreshing={isRefreshing}>
         <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
@@ -337,7 +345,11 @@ export function ProductsTable({
         </Table>
       </TableWrapper>
 
-      <AdminPagination totalPages={totalPages} basePath="/admin/products" />
+      <AdminPagination
+        totalPages={totalPages}
+        basePath="/admin/products"
+        onNavigate={onNavigate}
+      />
     </div>
   )
 }

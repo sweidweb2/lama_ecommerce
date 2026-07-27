@@ -15,16 +15,43 @@ import type { Brand, Category } from "@/types/product";
 interface ProductsFiltersProps {
   brands: Brand[];
   categories: Category[];
+  /** Soft-nav wrapper so the catalog can show an in-table loader while results load. */
+  onNavigate?: (href: string) => void;
 }
 
-export function ProductsFilters({ brands, categories }: ProductsFiltersProps) {
+function selectValueOrAll(current: string, validIds: Set<string>): string {
+  if (current === "all") return "all";
+  return validIds.has(current) ? current : "all";
+}
+
+export function ProductsFilters({
+  brands,
+  categories,
+  onNavigate,
+}: ProductsFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const categoryFilter = searchParams.get("category") || "all";
-  const brandFilter = searchParams.get("brand") || "all";
+  const categoryIds = new Set(categories.map((c) => c.id));
+  const brandIds = new Set(brands.map((b) => b.id));
+
+  const categoryFilter = selectValueOrAll(
+    searchParams.get("category") || "all",
+    categoryIds,
+  );
+  const brandFilter = selectValueOrAll(
+    searchParams.get("brand") || "all",
+    brandIds,
+  );
   const activeFilter = searchParams.get("active") || "all";
   const stockFilter = searchParams.get("stock") || "all";
+  const featuredParam = searchParams.get("featured");
+  const trendingParam = searchParams.get("trending");
+
+  const navigate = (href: string) => {
+    if (onNavigate) onNavigate(href);
+    else router.push(href);
+  };
 
   const setFilter = (name: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -34,22 +61,27 @@ export function ProductsFilters({ brands, categories }: ProductsFiltersProps) {
       params.set(name, value);
     }
     params.delete("page");
-    // Drop legacy filters / display-only params.
+    // No dropdown for these; drop leftover URL params from stat-card deep links.
     params.delete("featured");
     params.delete("trending");
+    // Display mode is client-only; never keep it in the URL.
     params.delete("view");
     const query = params.toString();
-    router.push(query ? `/admin/products?${query}` : "/admin/products");
+    navigate(query ? `/admin/products?${query}` : "/admin/products");
   };
 
   const hasActiveFilters =
     categoryFilter !== "all" ||
     brandFilter !== "all" ||
     activeFilter !== "all" ||
-    stockFilter !== "all";
+    stockFilter !== "all" ||
+    featuredParam === "true" ||
+    featuredParam === "false" ||
+    trendingParam === "true" ||
+    trendingParam === "false";
 
   const clearFilters = () => {
-    router.push("/admin/products");
+    navigate("/admin/products");
   };
 
   return (
@@ -106,7 +138,11 @@ export function ProductsFilters({ brands, categories }: ProductsFiltersProps) {
             Status:
           </span>
           <Select
-            value={activeFilter}
+            value={
+              activeFilter === "true" || activeFilter === "false"
+                ? activeFilter
+                : "all"
+            }
             onValueChange={(value) => setFilter("active", value)}
           >
             <SelectTrigger className="w-[150px]">
@@ -125,7 +161,11 @@ export function ProductsFilters({ brands, categories }: ProductsFiltersProps) {
             Stock:
           </span>
           <Select
-            value={stockFilter}
+            value={
+              stockFilter === "low" || stockFilter === "out"
+                ? stockFilter
+                : "all"
+            }
             onValueChange={(value) => setFilter("stock", value)}
           >
             <SelectTrigger className="w-[150px]">
