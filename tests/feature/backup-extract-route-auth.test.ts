@@ -18,6 +18,19 @@ vi.mock("@/services/backup.service", () => ({
   extractDatabaseService: (...args: unknown[]) => extractDatabaseService(...args),
 }));
 
+async function readNdjson(res: Response) {
+  const text = await res.text();
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function request(url = "http://localhost/api/admin/backups/extract?format=sql") {
+  return new Request(url);
+}
+
 describe("GET /api/admin/backups/extract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -27,7 +40,7 @@ describe("GET /api/admin/backups/extract", () => {
   it("returns 401 when not authenticated", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue(null);
     const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
+    const res = await GET(request());
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toEqual({ error: "Unauthorized" });
     expect(extractDatabaseService).not.toHaveBeenCalled();
@@ -37,7 +50,7 @@ describe("GET /api/admin/backups/extract", () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-user" });
     getProfileByUserId.mockResolvedValue(userProfile);
     const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
+    const res = await GET(request());
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "Forbidden" });
     expect(extractDatabaseService).not.toHaveBeenCalled();
@@ -47,31 +60,58 @@ describe("GET /api/admin/backups/extract", () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-user" });
     getProfileByUserId.mockResolvedValue(null);
     const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
+    const res = await GET(request());
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "Forbidden" });
     expect(extractDatabaseService).not.toHaveBeenCalled();
   });
 
-  it("returns SQL download for admin on success", async () => {
+  it("streams complete event for admin on success", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
     getProfileByUserId.mockResolvedValue(adminProfile);
-    extractDatabaseService.mockResolvedValue({
-      success: true,
-      sql: "SELECT 1;",
-    });
-    const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
-    expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toContain("application/sql");
-    expect(res.headers.get("Content-Disposition")).toMatch(
-      /attachment; filename="database-export-.*\.sql"/,
+    extractDatabaseService.mockImplementation(
+      async ({
+        onProgress,
+      }: {
+        onProgress?: (event: {
+          step: string;
+          status: string;
+          message: string;
+        }) => void;
+      }) => {
+        onProgress?.({
+          step: "connect",
+          status: "done",
+          message: "Connected",
+        });
+        return {
+          success: true,
+          content: "SELECT 1;",
+          filename: "database-export-test.sql",
+          mimeType: "application/sql",
+        };
+      },
     );
-    await expect(res.text()).resolves.toBe("SELECT 1;");
+    const { GET } = await import("@/app/api/admin/backups/extract/route");
+    const res = await GET(request());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("application/x-ndjson");
+    const events = await readNdjson(res);
+    expect(events[0]).toMatchObject({
+      type: "progress",
+      step: "connect",
+      status: "done",
+    });
+    expect(events.at(-1)).toEqual({
+      type: "complete",
+      filename: "database-export-test.sql",
+      mimeType: "application/sql",
+      content: "SELECT 1;",
+    });
     expect(extractDatabaseService).toHaveBeenCalledOnce();
   });
 
-  it("returns 403 when service reports Forbidden", async () => {
+  it("streams error event when service reports Forbidden", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
     getProfileByUserId.mockResolvedValue(adminProfile);
     extractDatabaseService.mockResolvedValue({
@@ -79,12 +119,16 @@ describe("GET /api/admin/backups/extract", () => {
       error: "Forbidden",
     });
     const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
-    expect(res.status).toBe(403);
-    await expect(res.json()).resolves.toEqual({ error: "Forbidden" });
+    const res = await GET(request());
+    expect(res.status).toBe(200);
+    const events = await readNdjson(res);
+    expect(events.at(-1)).toEqual({
+      type: "error",
+      error: "Forbidden",
+    });
   });
 
-  it("returns 500 when service fails with other error", async () => {
+  it("streams error event when service fails with other error", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
     getProfileByUserId.mockResolvedValue(adminProfile);
     extractDatabaseService.mockResolvedValue({
@@ -92,8 +136,23 @@ describe("GET /api/admin/backups/extract", () => {
       error: "boom",
     });
     const { GET } = await import("@/app/api/admin/backups/extract/route");
-    const res = await GET();
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toEqual({ error: "boom" });
+    const res = await GET(request());
+    expect(res.status).toBe(200);
+    const events = await readNdjson(res);
+    expect(events.at(-1)).toEqual({ type: "error", error: "boom" });
+  });
+
+  it("returns 400 for invalid format", async () => {
+    getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
+    getProfileByUserId.mockResolvedValue(adminProfile);
+    const { GET } = await import("@/app/api/admin/backups/extract/route");
+    const res = await GET(
+      request("http://localhost/api/admin/backups/extract?format=xml"),
+    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "Invalid format. Use sql, json, or csv.",
+    });
+    expect(extractDatabaseService).not.toHaveBeenCalled();
   });
 });

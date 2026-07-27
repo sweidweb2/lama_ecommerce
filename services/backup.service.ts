@@ -3,9 +3,14 @@ import {
   getAdminBackups,
   createBackup,
   deleteBackup,
-  extractDatabaseAsSQL,
+  extractDatabase,
 } from "@/repositories/backup.repository";
 import { createBackupSchema } from "@/lib/validators/backup/create";
+import {
+  extractFormatSchema,
+  type ExtractFormat,
+  type ExtractProgressEvent,
+} from "@/lib/validators/backup/extract";
 import { getCurrentUserProfile } from "@/services/profile.service";
 import { canAccessAdmin } from "@/lib/auth/permissions";
 
@@ -60,16 +65,30 @@ export async function deleteBackupAdmin(id: string): Promise<boolean> {
 }
 
 /**
- * Extract database as SQL dump.
+ * Extract database dump in the requested format.
  */
-export async function extractDatabaseService(): Promise<{
+export async function extractDatabaseService(options: {
+  format: ExtractFormat;
+  onProgress?: (event: Omit<ExtractProgressEvent, "type">) => void;
+}): Promise<{
   success: boolean;
   error?: string;
-  sql?: string;
+  content?: string;
+  filename?: string;
+  mimeType?: string;
 }> {
   const profile = await getCurrentUserProfile();
   if (!profile || !canAccessAdmin(profile.role)) {
     return { success: false, error: "Forbidden" };
   }
-  return extractDatabaseAsSQL();
+
+  const parsed = extractFormatSchema.safeParse(options.format);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid extract format" };
+  }
+
+  return extractDatabase({
+    format: parsed.data,
+    onProgress: options.onProgress,
+  });
 }

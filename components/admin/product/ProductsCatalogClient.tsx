@@ -91,14 +91,11 @@ export function ProductsCatalogClient({
   );
 
   const currentSearchKey = searchParams.toString();
-  const isRefreshing = isPending || pendingSearchKey !== null;
-
-  useEffect(() => {
-    if (pendingSearchKey === null) return;
-    if (pendingSearchKey === currentSearchKey) {
-      setPendingSearchKey(null);
-    }
-  }, [currentSearchKey, pendingSearchKey]);
+  // Keep loader until the URL catches up to the navigation we started —
+  // derive this (don't clear pending key in an effect).
+  const isWaitingForUrl =
+    pendingSearchKey !== null && pendingSearchKey !== currentSearchKey;
+  const isRefreshing = isPending || isWaitingForUrl;
 
   useEffect(() => {
     if (pendingSearchKey === null) return;

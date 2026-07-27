@@ -1,9 +1,9 @@
 # Admin Flow — Backups
 
-**Scope:** Admin Backups from `flow.md`: `/admin/backups` ad-hoc SQL extract download (+ cleanup of leftover metadata rows).  
+**Scope:** Admin Backups from `flow.md`: `/admin/backups` ad-hoc extract download (+ cleanup of leftover metadata rows).  
 **Out of scope:** In-app restore; uploading extracts to storage; external cron / Supabase dashboard backups; streaming multi-GB dumps without buffering.
 
-**Verdict:** Page is an **Extract Database → local SQL download** tool. Requires `DATABASE_URL` / `SUPABASE_DB_URL`. Prefers **`pg_dump`** when installed; otherwise paginated **`pg`** export of public tables. No Create Backup UI / restore.
+**Verdict:** Page is an **Extract Database → local download** tool (SQL / JSON / CSV). Prefers `DATABASE_URL` / `SUPABASE_DB_URL` + **`pg_dump`** (SQL) or paginated **`pg`**. Falls back to Supabase service-role REST data export when no DB URL is set. Progress streams as NDJSON; UI checklist is locked until finish then auto-closes. No Create Backup UI / restore.
 
 ---
 
@@ -11,20 +11,21 @@
 
 1. Admin opens `/admin/backups` (middleware: auth + `role === admin`).
 2. Page loads `getAllBackupsAdmin()` → leftover metadata rows (if any).
-3. **Extract Database** → `GET /api/admin/backups/extract` → admin-gated → `extractDatabaseAsSQL`:
-   - Requires `DATABASE_URL` or `SUPABASE_DB_URL` (fail closed if missing).
-   - Tries `pg_dump --schema=public` when binary is on PATH.
-   - Else paginated `pg` client dump (all public tables; page size 1000).
-   - Browser downloads `database-export-….sql` (not stored in app storage).
+3. **Extract Database** → format menu (SQL / JSON / CSV) → locked progress dialog → `GET /api/admin/backups/extract?format=…` → admin-gated → `extractDatabase`:
+   - Prefers `DATABASE_URL` or `SUPABASE_DB_URL`.
+   - SQL + URL: tries `pg_dump --schema=public` when binary is on PATH; else paginated `pg`.
+   - JSON/CSV + URL: paginated `pg` over all public tables.
+   - No URL: Supabase OpenAPI table discovery + service-role paginated data export (data-only).
+   - Streams NDJSON progress (`connect` → `discover` → `export` → `package` → `done`) then a `complete` event; browser downloads the file. Dialog auto-closes.
 4. **Delete** on a listed row → `deleteBackupAction` → deletes metadata row only.
 
 ```text
 /admin/backups
   → getAllBackupsAdmin → backups SELECT (cleanup list)
-  → Extract: /api/admin/backups/extract
-       → require DATABASE_URL
-       → pg_dump if available, else paginated pg
-       → SQL → local download
+  → Extract: format menu → progress dialog
+       → /api/admin/backups/extract?format=sql|json|csv
+       → DATABASE_URL ? (pg_dump|pg) : supabase REST
+       → NDJSON progress → local download → auto-close
   → Delete: DELETE metadata row only
   → No create UI; no restore; no row file Download
 ```
@@ -95,9 +96,9 @@
 |-----------|--------|
 | Non-admin `/admin/backups` | Middleware → `/` |
 | Non-admin extract/delete | Forbidden / 403 |
-| Extract with `DATABASE_URL` + `pg_dump` | Fullest public-schema dump |
-| Extract with `DATABASE_URL`, no `pg_dump` | Paginated `pg` enums + tables + data |
-| Extract without `DATABASE_URL` | **Fails** with clear error |
+| Extract with `DATABASE_URL` + `pg_dump` (SQL) | Fullest public-schema dump |
+| Extract with `DATABASE_URL`, no `pg_dump` / JSON / CSV | Paginated `pg` tables + data (+ schema bits for SQL) |
+| Extract without `DATABASE_URL` | Supabase REST data-only fallback (all public tables) |
 | Empty metadata list | Empty copy points at Extract |
 | Delete leftover row | Row gone |
 | Delete failure | Silent (P1) |
