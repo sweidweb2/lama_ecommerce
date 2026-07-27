@@ -25,7 +25,7 @@ export default async function AdminAccountPage() {
   if (!profile) redirect("/auth/login?redirect=/admin/account");
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-4xl">
       <AdminBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },
@@ -43,27 +43,29 @@ export default async function AdminAccountPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Display name</CardTitle>
-          <CardDescription>Change the name shown in the admin panel.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EditProfileForm fullName={profile.full_name} />
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Display name</CardTitle>
+            <CardDescription>Change the name shown in the admin panel.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EditProfileForm fullName={profile.full_name} />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Password</CardTitle>
-          <CardDescription>
-            Enter your current password to set a new one.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordForm />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>
+              Enter your current password to set a new one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChangePasswordForm />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
