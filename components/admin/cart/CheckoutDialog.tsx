@@ -196,7 +196,7 @@ export function CheckoutDialog({
             Loading cart data...
           </div>
         ) : (
-          <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4 space-y-3">
+          <div className="rounded-2xl border border-border bg-secondary dark:bg-card p-4 space-y-3">
             <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
 
             {/* Subtotal */}
@@ -208,7 +208,7 @@ export function CheckoutDialog({
             </div>
 
             {/* Shipping Zone Selection */}
-            <div className="space-y-2 pt-1.5 border-t border-black/5">
+            <div className="space-y-2 pt-1.5 border-t border-border">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
                   Shipping Zone <span className="text-destructive">*</span>
@@ -255,7 +255,7 @@ export function CheckoutDialog({
             </div>
 
             {/* Promo code */}
-            <div className="space-y-2 pt-1.5 border-t border-black/5">
+            <div className="space-y-2 pt-1.5 border-t border-border">
               <Label className="text-sm font-medium" htmlFor="admin-promo-code">
                 Promo code
               </Label>
@@ -270,7 +270,7 @@ export function CheckoutDialog({
             </div>
 
             {/* Address Fields */}
-            <div className="space-y-2 pt-1.5 border-t border-black/5">
+            <div className="space-y-2 pt-1.5 border-t border-border">
               <p className="text-sm font-medium">Shipping Address</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -319,7 +319,7 @@ export function CheckoutDialog({
             </div>
 
             {/* Contact Fields */}
-            <div className="space-y-2 pt-1.5 border-t border-black/5">
+            <div className="space-y-2 pt-1.5 border-t border-border">
               <p className="text-sm font-medium">Contact Information</p>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -358,7 +358,7 @@ export function CheckoutDialog({
             </div>
 
             {/* Estimated total (promo applied at checkout) */}
-            <div className="border-t border-black/5 pt-2 space-y-1">
+            <div className="border-t border-border pt-2 space-y-1">
               <div className="flex justify-between items-center text-sm font-bold">
                 <span>Estimated total</span>
                 <span className="text-lg">{formatPrice(total)}</span>

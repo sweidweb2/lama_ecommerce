@@ -20,7 +20,7 @@ export default function AboutUsPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6">
-              About LAMA
+              About Aviora Wear
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
               Your trusted destination for quality products. We{"'"}re committed to providing exceptional shopping experiences with a wide selection of products and outstanding customer service.
@@ -42,7 +42,7 @@ export default function AboutUsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground leading-relaxed text-lg">
-                  At LAMA, we believe that shopping should be simple, enjoyable, and accessible to everyone. Our mission is to provide a seamless online marketplace where customers can discover quality products, enjoy competitive prices, and receive exceptional service. We{"'"}re dedicated to building trust, fostering community, and continuously improving our platform to meet your needs.
+                  At Aviora Wear, we believe that shopping should be simple, enjoyable, and accessible to everyone. Our mission is to provide a seamless online marketplace where customers can discover quality products, enjoy competitive prices, and receive exceptional service. We{"'"}re dedicated to building trust, fostering community, and continuously improving our platform to meet your needs.
                 </p>
               </CardContent>
             </Card>
@@ -180,7 +180,7 @@ export default function AboutUsPage() {
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Why Choose LAMA?
+                Why Choose Aviora Wear?
               </h2>
               <p className="text-muted-foreground text-lg">
                 Discover what makes us different

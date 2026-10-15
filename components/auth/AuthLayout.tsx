@@ -15,7 +15,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             href={ROUTES.HOME}
             className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
           >
-            E-Commerce
+            Aviora Wear
           </Link>
         </div>
 

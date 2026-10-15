@@ -1,7 +1,9 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { PriceFilter } from '@/components/(public)/products/PriceFilter'
@@ -49,6 +51,7 @@ export function ProductsPageClient({
 }: ProductsPageClientProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const [isFiltersOpen, setIsFiltersOpen] = useState(true)
 
     const pushParams = useCallback(
         (mutate: (params: URLSearchParams) => void) => {
@@ -113,41 +116,42 @@ export function ProductsPageClient({
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row gap-8">
-                {/* Sidebar - Hidden on mobile, visible on desktop */}
-                <aside className="hidden md:block w-full md:w-64 shrink-0">
-                    <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2 hide-scrollbar">
-                        <div className="space-y-6 pb-4">
-                            <CategoryFiltering
-                                categories={categories}
-                                selectedCategory={selectedCategory}
-                                onCategoryChange={handleCategoryChange}
-                            />
-                            <Sorting
-                                value={sort}
-                                onChange={handleSortChange}
-                            />
-                            <PriceFilter
-                                minPrice={priceBoundsMin}
-                                maxPrice={priceBoundsMax}
-                                value={priceRange}
-                                onChange={handlePriceChange}
-                            />
-                            <VariantFilters
-                                availableColors={availableColors}
-                                value={selectedColors}
-                                onChange={handleColorsChange}
-                            />
-                            <SizeFilter
-                                availableSizes={availableSizes}
-                                selectedSizes={selectedSizes}
-                                onSizesChange={handleSizesChange}
-                            />
+                {isFiltersOpen ? (
+                    <aside id="product-filters" className="hidden md:block w-72 shrink-0">
+                        <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pl-6 pr-2 hide-scrollbar">
+                            <div className="space-y-6 pb-4">
+                                <CategoryFiltering
+                                    categories={categories}
+                                    selectedCategory={selectedCategory}
+                                    onCategoryChange={handleCategoryChange}
+                                />
+                                <Sorting
+                                    value={sort}
+                                    onChange={handleSortChange}
+                                />
+                                <PriceFilter
+                                    minPrice={priceBoundsMin}
+                                    maxPrice={priceBoundsMax}
+                                    value={priceRange}
+                                    onChange={handlePriceChange}
+                                />
+                                <VariantFilters
+                                    availableColors={availableColors}
+                                    value={selectedColors}
+                                    onChange={handleColorsChange}
+                                />
+                                <SizeFilter
+                                    availableSizes={availableSizes}
+                                    selectedSizes={selectedSizes}
+                                    onSizesChange={handleSizesChange}
+                                />
+                            </div>
                         </div>
-                    </div>
-                </aside>
+                    </aside>
+                ) : null}
 
                 {/* Main Content */}
-                <main className="flex-1">
+                <main className="min-w-0 flex-1">
                     <div className="mb-8">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
                             <div>
@@ -159,6 +163,22 @@ export function ProductsPageClient({
                                     {search ? ` matching “${search}”` : ''}
                                 </p>
                             </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="hidden md:inline-flex"
+                                aria-expanded={isFiltersOpen}
+                                aria-controls="product-filters"
+                                onClick={() => setIsFiltersOpen((open) => !open)}
+                            >
+                                {isFiltersOpen ? (
+                                    <PanelLeftClose className="h-4 w-4" />
+                                ) : (
+                                    <PanelLeftOpen className="h-4 w-4" />
+                                )}
+                                {isFiltersOpen ? "Hide filters" : "Show filters"}
+                            </Button>
                         </div>
 
                         <Separator className="opacity-50" />

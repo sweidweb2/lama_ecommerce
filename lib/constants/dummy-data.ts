@@ -54,8 +54,8 @@ export const DUMMY_CATEGORIES: Category[] = [
 export const DUMMY_BRANDS: Brand[] = [
     {
         id: 'brand-1',
-        name: 'Lama Tech',
-        slug: 'lama-tech',
+        name: 'Northline',
+        slug: 'northline',
         logo_image_url: null,
         created_at: new Date().toISOString(),
     },

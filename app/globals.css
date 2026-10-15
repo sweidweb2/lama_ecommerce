@@ -48,26 +48,26 @@
 
 @layer base {
   :root {
-    /* Theme: #E6DDD4 (cream) background, #594C39 (brown) text */
-    --background: 30 27% 87%;
+    /* 60-30-10: white page, cream #E6DDD4 support, brown #594C39 accent */
+    --background: 0 0% 100%;
     --foreground: 36 22% 29%;
 
-    --card: 30 27% 90%;
+    --card: 0 0% 100%;
     --card-foreground: 36 22% 29%;
 
-    --popover: 30 27% 87%;
+    --popover: 0 0% 100%;
     --popover-foreground: 36 22% 29%;
 
     --primary: 36 22% 29%;
-    --primary-foreground: 30 27% 97%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 20% 82%;
+    --secondary: 30 27% 87%;
     --secondary-foreground: 36 22% 29%;
 
-    --muted: 30 20% 82%;
-    --muted-foreground: 36 15% 45%;
+    --muted: 30 27% 93%;
+    --muted-foreground: 36 15% 42%;
 
-    --accent: 30 20% 82%;
+    --accent: 30 27% 90%;
     --accent-foreground: 36 22% 29%;
 
     --destructive: 0 84.2% 60.2%;
@@ -78,8 +78,8 @@
     --success-muted: 150 28% 90%;
     --success-border: 152 28% 55%;
 
-    --border: 30 18% 78%;
-    --input: 30 18% 78%;
+    --border: 30 16% 88%;
+    --input: 30 16% 88%;
     --ring: 36 22% 29%;
 
     --radius: 0.5rem;
@@ -90,13 +90,13 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    --sidebar: 30 25% 90%;
+    --sidebar: 30 27% 87%;
     --sidebar-foreground: 36 22% 29%;
     --sidebar-primary: 36 22% 29%;
-    --sidebar-primary-foreground: 30 27% 97%;
-    --sidebar-accent: 30 20% 82%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 27% 82%;
     --sidebar-accent-foreground: 36 22% 29%;
-    --sidebar-border: 30 18% 78%;
+    --sidebar-border: 30 16% 80%;
     --sidebar-ring: 36 22% 29%;
   }
 

@@ -106,7 +106,7 @@ export function AdminProductCard({ product, brands, categories }: AdminProductCa
         )}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {product.is_featured && (
-            <Badge className="bg-primary/90 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 border-none" variant="secondary">
+            <Badge className="bg-primary/90 backdrop-blur-sm text-primary-foreground text-[10px] px-1.5 py-0.5 border-none" variant="secondary">
               Featured
             </Badge>
           )}

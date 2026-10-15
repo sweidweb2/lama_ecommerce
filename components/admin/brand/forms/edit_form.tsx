@@ -111,7 +111,7 @@ export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
-                placeholder="e.g., Lama Tech"
+                placeholder="e.g., Northline"
                 required
               />
               {errors.name && (
@@ -134,7 +134,7 @@ export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
                   )
                 }
                 maxLength={50}
-                placeholder="e.g., lama-tech"
+                placeholder="e.g., northline"
               />
               <p className="text-xs text-muted-foreground">
                 URL-friendly identifier. Leave empty to generate later.

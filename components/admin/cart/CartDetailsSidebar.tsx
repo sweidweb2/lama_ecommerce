@@ -66,7 +66,7 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0 }: CartDetailsSideb
   };
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4 space-y-3">
+    <div className="rounded-2xl border border-border bg-secondary dark:bg-card p-4 space-y-3">
       <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
 
       <div className="space-y-1.5 text-sm">
@@ -77,7 +77,7 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0 }: CartDetailsSideb
       </div>
 
       {/* Shipping Zone Selection */}
-      <div className="space-y-2 pt-1.5 border-t border-black/5">
+      <div className="space-y-2 pt-1.5 border-t border-border">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
             Shipping Zone <span className="text-destructive">*</span>
@@ -136,7 +136,7 @@ export function CartDetailsSidebar({ subtotal, itemCount = 0 }: CartDetailsSideb
         </div>
       </div>
 
-      <div className="border-t border-black/5 pt-2 flex justify-between items-center text-sm font-bold">
+      <div className="border-t border-border pt-2 flex justify-between items-center text-sm font-bold">
         <span>Total</span>
         <span className="text-lg">{formatPrice(total)}</span>
       </div>

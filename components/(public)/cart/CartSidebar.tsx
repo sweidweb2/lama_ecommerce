@@ -375,7 +375,7 @@ export function CartSidebar({
 
   return (
     <>
-      <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-4 space-y-3">
+      <div className="rounded-2xl border border-border bg-secondary dark:bg-card p-4 space-y-3">
         <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
 
         {/* Subtotal */}
@@ -387,7 +387,7 @@ export function CartSidebar({
         </div>
 
         {/* Shipping Zone Selection */}
-        <div className="space-y-2 pt-1.5 border-t border-black/5" data-testid="shipping-zone-section">
+        <div className="space-y-2 pt-1.5 border-t border-border" data-testid="shipping-zone-section">
           <div className="space-y-2">
             <Label className="text-sm font-medium" htmlFor="shipping-zone-select" id="shipping-zone-label">
               Shipping Zone <span className="text-destructive">*</span>
@@ -402,7 +402,7 @@ export function CartSidebar({
               }}
             >
               <SelectTrigger
-                className={`w-full bg-[#f9f9f9] dark:bg-card ${errors.shippingZone ? "border-destructive" : ""}`}
+                className={`w-full bg-background dark:bg-card ${errors.shippingZone ? "border-destructive" : ""}`}
                 id="shipping-zone-select"
                 aria-labelledby="shipping-zone-label"
                 data-testid="shipping-zone-select"
@@ -452,7 +452,7 @@ export function CartSidebar({
         </div>
 
         {/* Promo code */}
-        <div className="space-y-2 pt-1.5 border-t border-black/5">
+        <div className="space-y-2 pt-1.5 border-t border-border">
           <Label className="text-sm font-medium" htmlFor="promo-code">
             Promo code
           </Label>
@@ -461,14 +461,14 @@ export function CartSidebar({
             value={promoCode}
             onChange={(e) => setPromoCode(e.target.value)}
             placeholder="Optional"
-            className="bg-[#f9f9f9] dark:bg-card"
+            className="bg-background dark:bg-card"
             autoComplete="off"
             data-testid="promo-code-input"
           />
         </div>
 
         {/* Address Fields */}
-        <div className="space-y-2 pt-1.5 border-t border-black/5">
+        <div className="space-y-2 pt-1.5 border-t border-border">
           <p className="text-sm font-medium">Shipping Address</p>
 
           {hasSavedAddresses && savedAddresses && (
@@ -481,7 +481,7 @@ export function CartSidebar({
                 onValueChange={applySavedAddress}
               >
                 <SelectTrigger
-                  className="w-full bg-[#f9f9f9] dark:bg-card"
+                  className="w-full bg-background dark:bg-card"
                   id="saved-address-select"
                   data-testid="saved-address-select"
                   aria-label="Select saved address"
@@ -517,7 +517,7 @@ export function CartSidebar({
                     setErrors((prev) => ({ ...prev, country: undefined }));
                   }
                 }}
-                className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.country ? "border-destructive" : ""}`}
+                className={`h-8 text-sm bg-background dark:bg-card ${errors.country ? "border-destructive" : ""}`}
                 aria-invalid={!!errors.country}
                 id="country"
               />
@@ -538,7 +538,7 @@ export function CartSidebar({
                     setErrors((prev) => ({ ...prev, city: undefined }));
                   }
                 }}
-                className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.city ? "border-destructive" : ""}`}
+                className={`h-8 text-sm bg-background dark:bg-card ${errors.city ? "border-destructive" : ""}`}
                 aria-invalid={!!errors.city}
                 id="city"
               />
@@ -560,7 +560,7 @@ export function CartSidebar({
                   setErrors((prev) => ({ ...prev, address: undefined }));
                 }
               }}
-              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.address ? "border-destructive" : ""}`}
+              className={`h-8 text-sm bg-background dark:bg-card ${errors.address ? "border-destructive" : ""}`}
               aria-invalid={!!errors.address}
               id="address"
             />
@@ -574,7 +574,7 @@ export function CartSidebar({
               placeholder="Postal code (optional)"
               value={postalCode}
               onChange={(e) => setPostalCode(e.target.value)}
-              className="h-8 text-sm bg-[#f9f9f9] dark:bg-card"
+              className="h-8 text-sm bg-background dark:bg-card"
               id="postalCode"
             />
           </div>
@@ -632,7 +632,7 @@ export function CartSidebar({
         </div>
 
         {/* Contact Fields */}
-        <div className="space-y-2 pt-1.5 border-t border-black/5">
+        <div className="space-y-2 pt-1.5 border-t border-border">
           <p className="text-sm font-medium">Contact Information</p>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">
@@ -647,7 +647,7 @@ export function CartSidebar({
                   setErrors((prev) => ({ ...prev, phone: undefined }));
                 }
               }}
-              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.phone ? "border-destructive" : ""}`}
+              className={`h-8 text-sm bg-background dark:bg-card ${errors.phone ? "border-destructive" : ""}`}
               type="tel"
               aria-invalid={!!errors.phone}
               id="phone"
@@ -669,7 +669,7 @@ export function CartSidebar({
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }
               }}
-              className={`h-8 text-sm bg-[#f9f9f9] dark:bg-card ${errors.email ? "border-destructive" : ""}`}
+              className={`h-8 text-sm bg-background dark:bg-card ${errors.email ? "border-destructive" : ""}`}
               type="email"
               aria-invalid={!!errors.email}
               id="email"
@@ -691,7 +691,7 @@ export function CartSidebar({
         </div>
 
         {/* Estimated total (promo applied at place-order) */}
-        <div className="border-t border-black/5 pt-2 space-y-1">
+        <div className="border-t border-border pt-2 space-y-1">
           <div className="flex justify-between items-center text-sm font-bold">
             <span>Estimated total</span>
             <span className="text-lg">{formatPrice(total)}</span>

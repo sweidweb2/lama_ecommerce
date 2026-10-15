@@ -87,8 +87,8 @@ export default function ShippingTermsPage() {
               </h1>
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><strong>Effective Date:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p><strong>Company:</strong> LAMA E-Commerce</p>
-                <p><strong>Email:</strong> info@lama.com</p>
+                <p><strong>Company:</strong> Aviora Wear</p>
+                <p><strong>Email:</strong> info@aviorawear.com</p>
                 <p><strong>Phone:</strong> +1 (234) 567-890</p>
               </div>
             </div>
@@ -101,7 +101,7 @@ export default function ShippingTermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">1. Overview</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  These Shipping Terms describe how LAMA E-Commerce delivers orders to you. By placing an order, you agree to these terms. Delivery times, fees, and options may vary by location and product availability.
+                  These Shipping Terms describe how Aviora Wear delivers orders to you. By placing an order, you agree to these terms. Delivery times, fees, and options may vary by location and product availability.
                 </p>
               </Card>
 
@@ -208,7 +208,7 @@ export default function ShippingTermsPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📧</span>
-                    <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a>
+                    <a href="mailto:info@aviorawear.com" className="text-primary hover:underline">info@aviorawear.com</a>
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📍</span>

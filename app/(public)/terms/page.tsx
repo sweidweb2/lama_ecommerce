@@ -92,9 +92,9 @@ export default function TermsPage() {
               </h1>
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><strong>Effective Date:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p><strong>Company:</strong> LAMA E-Commerce</p>
+                <p><strong>Company:</strong> Aviora Wear</p>
                 <p><strong>Location:</strong> Global</p>
-                <p><strong>Email:</strong> info@lama.com</p>
+                <p><strong>Email:</strong> info@aviorawear.com</p>
                 <p><strong>Phone:</strong> +1 (234) 567-890</p>
               </div>
             </div>
@@ -107,7 +107,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  By accessing or using the LAMA E-Commerce website, platform, or any associated digital services ({'"'}Platform{'"'}), you agree to be bound by these Terms of Service ({'"'}Terms{'"'}). If you do not agree, you must not use the Platform.
+                  By accessing or using the Aviora Wear website, platform, or any associated digital services ({'"'}Platform{'"'}), you agree to be bound by these Terms of Service ({'"'}Terms{'"'}). If you do not agree, you must not use the Platform.
                 </p>
               </Card>
 
@@ -117,10 +117,10 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">2. Description of Services</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  LAMA E-Commerce provides an online marketplace platform for purchasing products, including but not limited to electronics, clothing, accessories, and other consumer goods.
+                  Aviora Wear provides an online marketplace platform for purchasing products, including but not limited to electronics, clothing, accessories, and other consumer goods.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
-                  Services are delivered online through our web platform. LAMA facilitates transactions between customers and sellers, processes payments securely, and manages order fulfillment.
+                  Services are delivered online through our web platform. Aviora Wear facilitates transactions between customers and sellers, processes payments securely, and manages order fulfillment.
                 </p>
               </Card>
 
@@ -143,7 +143,7 @@ export default function TermsPage() {
                   Users may be required to create an account to make purchases. You are responsible for maintaining confidentiality of login credentials and for all activities under your account.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
-                  You must notify LAMA immediately of any unauthorized use or security breach of your account.
+                  You must notify Aviora Wear immediately of any unauthorized use or security breach of your account.
                 </p>
               </Card>
 
@@ -156,7 +156,7 @@ export default function TermsPage() {
                   All prices are listed in U.S. Dollars unless otherwise indicated. Payments are processed through secure third-party payment gateways.
                 </p>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  Refunds are processed according to our return policy. Eligible items may be returned within 30 days of purchase, subject to our return policy terms. Contact us at <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a> for refund requests.
+                  Refunds are processed according to our return policy. Eligible items may be returned within 30 days of purchase, subject to our return policy terms. Contact us at <a href="mailto:info@aviorawear.com" className="text-primary hover:underline">info@aviorawear.com</a> for refund requests.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   All sales are final for digital products, personalized items, and items marked as non-refundable.
@@ -174,12 +174,12 @@ export default function TermsPage() {
                 <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
                   <li>Provide accurate information when creating an account and placing orders</li>
                   <li>Use the Platform in accordance with applicable laws and regulations</li>
-                  <li>Respect intellectual property rights of LAMA and third parties</li>
+                  <li>Respect intellectual property rights of Aviora Wear and third parties</li>
                   <li>Not engage in any fraudulent, abusive, or illegal activities</li>
                   <li>Not attempt to circumvent security measures or payment systems</li>
                 </ul>
                 <p className="text-muted-foreground leading-relaxed mt-4">
-                  LAMA reserves the right to suspend or terminate accounts that violate these terms or legal obligations.
+                  Aviora Wear reserves the right to suspend or terminate accounts that violate these terms or legal obligations.
                 </p>
               </Card>
 
@@ -189,13 +189,13 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">7. Intellectual Property</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  The LAMA platform, including its design, code, logos, and proprietary features, is owned by LAMA or its licensors and protected under copyright and trademark law.
+                  The Aviora Wear platform, including its design, code, logos, and proprietary features, is owned by Aviora Wear or its licensors and protected under copyright and trademark law.
                 </p>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  Product images, descriptions, and other content provided by sellers remain the property of their respective owners. By listing products on our platform, sellers grant LAMA a license to display and promote their content.
+                  Product images, descriptions, and other content provided by sellers remain the property of their respective owners. By listing products on our platform, sellers grant Aviora Wear a license to display and promote their content.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
-                  You may not reproduce, distribute, or create derivative works of the Platform without written permission from LAMA.
+                  You may not reproduce, distribute, or create derivative works of the Platform without written permission from Aviora Wear.
                 </p>
               </Card>
 
@@ -205,7 +205,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">8. Confidentiality and Data Protection</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  LAMA collects and processes personal data in accordance with applicable data protection laws and regulations.
+                  Aviora Wear collects and processes personal data in accordance with applicable data protection laws and regulations.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   We implement technical and organizational safeguards to protect your information. Details are outlined in our <a href="/privacy-policy" className="text-primary hover:underline">Privacy Policy</a>.
@@ -218,7 +218,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">9. Service Modifications and Availability</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  We may modify or discontinue any part of the Platform at our discretion without prior notice. LAMA will make reasonable efforts to inform active users of material changes that affect ongoing services or orders.
+                  We may modify or discontinue any part of the Platform at our discretion without prior notice. Aviora Wear will make reasonable efforts to inform active users of material changes that affect ongoing services or orders.
                 </p>
               </Card>
 
@@ -228,10 +228,10 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">10. Limitation of Liability</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  To the fullest extent permitted by law, LAMA and its employees and directors shall not be liable for any indirect, incidental, or consequential damages arising from use of our Platform or services.
+                  To the fullest extent permitted by law, Aviora Wear and its employees and directors shall not be liable for any indirect, incidental, or consequential damages arising from use of our Platform or services.
                 </p>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  LAMA is not responsible for product quality, accuracy of product descriptions, or any transactions between customers and sellers beyond our role as a platform facilitator.
+                  Aviora Wear is not responsible for product quality, accuracy of product descriptions, or any transactions between customers and sellers beyond our role as a platform facilitator.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   Our total liability for any claim shall not exceed the total amount paid by the user for the product or service in question.
@@ -244,7 +244,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">11. Indemnification</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  You agree to indemnify and hold harmless LAMA from any claims, losses, or damages resulting from your misuse of the Platform, violation of these Terms, or infringement of third-party rights.
+                  You agree to indemnify and hold harmless Aviora Wear from any claims, losses, or damages resulting from your misuse of the Platform, violation of these Terms, or infringement of third-party rights.
                 </p>
               </Card>
 
@@ -254,7 +254,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">12. Governing Law and Jurisdiction</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  These Terms are governed by applicable laws and regulations in the jurisdiction where LAMA operates.
+                  These Terms are governed by applicable laws and regulations in the jurisdiction where Aviora Wear operates.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   Any dispute shall be resolved through binding arbitration or in the courts of competent jurisdiction, as determined by applicable law.
@@ -267,7 +267,7 @@ export default function TermsPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">13. Changes to Terms</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  LAMA reserves the right to amend these Terms at any time. Updated versions will be posted on the Platform with the effective date. Continued use of the Platform constitutes acceptance of revised Terms.
+                  Aviora Wear reserves the right to amend these Terms at any time. Updated versions will be posted on the Platform with the effective date. Continued use of the Platform constitutes acceptance of revised Terms.
                 </p>
               </Card>
 
@@ -286,7 +286,7 @@ export default function TermsPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📧</span>
-                    <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a>
+                    <a href="mailto:info@aviorawear.com" className="text-primary hover:underline">info@aviorawear.com</a>
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📍</span>

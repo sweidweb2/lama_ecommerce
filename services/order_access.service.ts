@@ -46,7 +46,7 @@ export async function requestOrderAccessLinkService(
 <head><meta charset="utf-8" /><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f5f2ec;font-family:Georgia,'Times New Roman',serif;">
   <div style="max-width:560px;margin:32px auto;padding:32px 28px;background:#fff;border:1px solid #e8e4de;">
-    <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8a8278;">Lama</p>
+    <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8a8278;">Aviora Wear</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:normal;color:#1a1a1a;">Order access link</h1>
     <p style="margin:0 0 24px;font-size:15px;line-height:1.5;color:#4a453f;">
       Use this link to view order <strong>#${escapeHtml(shortId)}</strong>. It works without the browser cookie from checkout and expires in 14 days.

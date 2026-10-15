@@ -160,7 +160,7 @@ export function CartItem({
 
   return (
     <>
-      <div className="flex gap-2 sm:gap-4 rounded-2xl border border-black/5 bg-[#f9f9f9] dark:bg-card p-3 sm:p-4" data-testid="cart-item" role="article" aria-label={`Cart item: ${product.name}`}>
+      <div className="flex gap-2 sm:gap-4 rounded-2xl border border-border bg-secondary dark:bg-card p-3 sm:p-4" data-testid="cart-item" role="article" aria-label={`Cart item: ${product.name}`}>
         <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden bg-muted border border-border/40 shrink-0">
           <Image
             src={imageUrl}
@@ -241,7 +241,7 @@ export function CartItem({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-full border border-black/5 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors text-xs shrink-0"
+          className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors text-xs shrink-0"
           aria-label={`Remove ${product.name} from cart`}
           data-testid="remove-cart-item-button"
           title="Remove item from cart"

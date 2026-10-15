@@ -260,7 +260,7 @@ export function AppSidebar(
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Admin Panel</span>
                   <span className="truncate text-xs text-sidebar-foreground/70">
-                    Lama Ecommerce
+                    Aviora Wear
                   </span>
                 </div>
               </NavLink>

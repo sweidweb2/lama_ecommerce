@@ -44,8 +44,8 @@ export function WishlistStats({ items }: WishlistStatsProps) {
 
             <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-500/10">
-                        <DollarSign className="h-5 w-5 text-green-500" />
+                    <div className="p-2 rounded-lg bg-secondary">
+                        <DollarSign className="h-5 w-5 text-secondary-foreground" />
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Value</p>
@@ -56,8 +56,8 @@ export function WishlistStats({ items }: WishlistStatsProps) {
 
             <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500/10">
-                        <Package className="h-5 w-5 text-blue-500" />
+                    <div className="p-2 rounded-lg bg-accent">
+                        <Package className="h-5 w-5 text-accent-foreground" />
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Categories</p>
@@ -68,8 +68,8 @@ export function WishlistStats({ items }: WishlistStatsProps) {
 
             <Card className="p-5 border-border/40 min-h-[100px]">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-orange-500/10">
-                        <TrendingUp className="h-5 w-5 text-orange-500" />
+                    <div className="p-2 rounded-lg bg-primary/10">
+                        <TrendingUp className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Featured</p>

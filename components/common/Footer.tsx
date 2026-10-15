@@ -52,14 +52,14 @@ export function Footer() {
   }
 
   return (
-    <footer className="border-t bg-background">
+    <footer className="border-t bg-secondary text-secondary-foreground">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer Content */}
         <div className="py-12 md:py-16">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
             {/* About Section */}
             <div className="lg:col-span-1">
-              <Link href={ROUTES.HOME} className="inline-block mb-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded">
+              <Link href={ROUTES.HOME} className="inline-block mb-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-secondary rounded">
                 <Image
                   src={logoSrc}
                   alt="Aviora Wear"

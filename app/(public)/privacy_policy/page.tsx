@@ -91,9 +91,9 @@ export default function PolicyPage() {
               </h1>
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><strong>Effective Date:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p><strong>Company:</strong> LAMA E-Commerce</p>
+                <p><strong>Company:</strong> Aviora Wear</p>
                 <p><strong>Location:</strong> Global</p>
-                <p><strong>Email:</strong> info@lama.com</p>
+                <p><strong>Email:</strong> info@aviorawear.com</p>
                 <p><strong>Phone:</strong> +1 (234) 567-890</p>
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function PolicyPage() {
               >
                 <h2 className="text-2xl font-semibold text-foreground mb-4">1. Introduction</h2>
                 <p className="text-muted-foreground leading-relaxed mb-3">
-                  Your privacy is important to us. This Privacy Policy explains how LAMA ({'"'}we,{'"'} {'"'}us,{'"'} {'"'}our{'"'}) collects, uses, and protects your personal information when you use our Platform and services.
+                  Your privacy is important to us. This Privacy Policy explains how Aviora Wear ({'"'}we,{'"'} {'"'}us,{'"'} {'"'}our{'"'}) collects, uses, and protects your personal information when you use our Platform and services.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   We are committed to protecting your privacy and ensuring the security of your personal data in accordance with applicable data protection laws and regulations.
@@ -250,7 +250,7 @@ export default function PolicyPage() {
                 </ul>
                 <p className="text-muted-foreground leading-relaxed mt-4">
                   You may withdraw marketing consent by using the unsubscribe link we include when we send list emails, or by contacting us.
-                  To exercise these rights, please contact us at <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a>.
+                  To exercise these rights, please contact us at <a href="mailto:info@aviorawear.com" className="text-primary hover:underline">info@aviorawear.com</a>.
                 </p>
               </Card>
 
@@ -299,7 +299,7 @@ export default function PolicyPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📧</span>
-                    <a href="mailto:info@lama.com" className="text-primary hover:underline">info@lama.com</a>
+                    <a href="mailto:info@aviorawear.com" className="text-primary hover:underline">info@aviorawear.com</a>
                   </li>
                   <li className="flex items-center gap-2">
                     <span>📍</span>
