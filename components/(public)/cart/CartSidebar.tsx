@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { formatPrice } from "@/lib/utils";
 import { checkoutAction } from "@/actions/checkout";
 import { encryptOrderIdAction } from "@/actions/order";
@@ -136,6 +142,9 @@ export function CartSidebar({
   );
   const [modalError, setModalError] = useState("");
 
+  // Foldable summary card (open by default for checkout)
+  const [isSummaryOpen, setIsSummaryOpen] = useState(true);
+
   // Derived values
   const selectedZone = shippingZones.find((z) => z.id === selectedZoneId);
   const shippingFee = selectedZone?.fee ?? 0;
@@ -250,7 +259,8 @@ export function CartSidebar({
     // Validate form first
     const validation = validateForm();
     if (!validation.isValid) {
-      // Scroll to first error after state update
+      setIsSummaryOpen(true);
+      // Scroll to first error after state update / expand
       setTimeout(() => {
         const errorKeys = Object.keys(validation.errors);
         if (errorKeys.length > 0) {
@@ -269,7 +279,7 @@ export function CartSidebar({
             }
           }
         }
-      }, 100);
+      }, 320);
       return;
     }
 
@@ -375,9 +385,37 @@ export function CartSidebar({
 
   return (
     <>
-      <div className="rounded-2xl border border-border bg-secondary dark:bg-card p-4 space-y-3">
-        <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
+      <Collapsible
+        open={isSummaryOpen}
+        onOpenChange={setIsSummaryOpen}
+        className="rounded-2xl border border-border bg-secondary dark:bg-card"
+      >
+        <CollapsibleTrigger
+          className="flex w-full items-center justify-between gap-3 p-4 text-left outline-none transition-colors hover:bg-background/40 dark:hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl data-[state=open]:rounded-b-none"
+          aria-label={isSummaryOpen ? "Collapse order summary" : "Expand order summary"}
+          data-testid="order-summary-toggle"
+        >
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black tracking-tight">Order Summary</h2>
+            {!isSummaryOpen && (
+              <p className="mt-0.5 text-sm text-muted-foreground truncate">
+                Estimated total{" "}
+                <span className="font-semibold text-foreground">
+                  {formatPrice(total)}
+                </span>
+              </p>
+            )}
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-out ${
+              isSummaryOpen ? "rotate-180" : "rotate-0"
+            }`}
+            aria-hidden
+          />
+        </CollapsibleTrigger>
 
+        <CollapsibleContent>
+          <div className="space-y-3 px-4 pb-4">
         {/* Subtotal */}
         <div className="space-y-1.5 text-sm" data-testid="subtotal-section">
           <div className="flex justify-between">
@@ -714,7 +752,9 @@ export function CartSidebar({
         >
           Place order
         </Button>
-      </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Placing-order modal (payment stays pending until gateway/admin) */}
       <CheckoutModal

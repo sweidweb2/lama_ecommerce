@@ -44,6 +44,10 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
   --radius-lg: var(--radius);
+  --animate-collapsible-down: collapsible-down 300ms ease-out;
+  --animate-collapsible-up: collapsible-up 300ms ease-out;
+  --animate-accordion-down: accordion-down 300ms ease-out;
+  --animate-accordion-up: accordion-up 300ms ease-out;
 }
 
 @layer base {
@@ -220,12 +224,39 @@
   }
 }
 
-@keyframes heroZoom {
+@keyframes collapsible-down {
   from {
-    transform: scale(1);
+    height: 0;
   }
   to {
-    transform: scale(1.12);
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 
@@ -236,10 +267,6 @@
   100% {
     transform: translateX(400%);
   }
-}
-
-.hero-zoom-animate {
-  animation: heroZoom 12s ease-in-out forwards;
 }
 
 .table-top-loader-bar {

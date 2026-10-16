@@ -1,6 +1,5 @@
 "use client"
 
-import { ModeToggle } from "@/components/theme/mode-toggle"
 import { Search, LogOut, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -175,8 +174,6 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-1 md:gap-2">
-        <ModeToggle />
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

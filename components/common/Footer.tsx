@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import Link from "@/components/ui/link"
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import { ROUTES } from '@/lib/constants/routes'
 import { 
   Mail, 
@@ -20,31 +19,12 @@ import { toast } from 'sonner'
 
 // Light logo used only in navbar/footer; site favicon stays /aviora-logo.png
 const LOGO_LIGHT = '/aviora-logo-nav-footer-light.png'
-const LOGO_DARK = '/aviora-logo-white.png'
-
-function subscribeToNothing(_onStoreChange: () => void) {
-  return () => {}
-}
-
-function getClientMountedSnapshot() {
-  return true
-}
-
-function getServerMountedSnapshot() {
-  return false
-}
 
 export function Footer() {
   const pathname = usePathname()
-  const { resolvedTheme } = useTheme()
-  const mounted = useSyncExternalStore(
-    subscribeToNothing,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot,
-  )
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const logoSrc = mounted && resolvedTheme === 'dark' ? LOGO_DARK : LOGO_LIGHT
+  const logoSrc = LOGO_LIGHT
 
   // Hide footer on admin routes and product detail pages
   if (pathname?.startsWith('/admin') || pathname?.match(/^\/products\/[^/]+$/)) {
@@ -52,7 +32,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="border-t bg-secondary text-secondary-foreground">
+    <footer className="border-t bg-background text-foreground">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer Content */}
         <div className="py-12 md:py-16">

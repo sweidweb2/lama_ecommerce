@@ -33,8 +33,6 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 import React from "react";
-import { ModeToggle } from "../theme/mode-toggle";
-import { useTheme } from "next-themes";
 import { useAuth } from "@/providers/AuthProvider";
 import { logoutService } from "@/services/auth.service";
 import { toast } from "sonner";
@@ -55,17 +53,14 @@ function formatWishlistBadge(count: number): string {
 
 // Light logo used only in navbar/footer; site favicon stays /aviora-logo.png
 const LOGO_LIGHT = "/aviora-logo-nav-footer-light.png";
-const LOGO_DARK = "/aviora-logo-white.png";
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, resolvedTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const isDark = mounted && ((resolvedTheme ?? theme) === "dark");
-  const logoSrc = isDark ? LOGO_DARK : LOGO_LIGHT;
+  const logoSrc = LOGO_LIGHT;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -258,10 +253,6 @@ export function Navbar() {
               </Link>
             )}
 
-            <div className="hidden md:flex items-center gap-2">
-              <ModeToggle />
-            </div>
-
             {!isAdmin && (
               <Link href={ROUTES.CART} className="hidden md:block">
                 <Button variant="ghost" size="icon" className="relative">
@@ -443,12 +434,6 @@ export function Navbar() {
                       )}
                     </Link>
                   )}
-                  
-                  {/* Theme Toggle - matching desktop */}
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-lg font-medium text-muted-foreground">Theme</span>
-                    <ModeToggle />
-                  </div>
                   
                   {/* Cart - customers and guests only */}
                   {!isAdmin && (

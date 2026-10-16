@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/(public)/Home/Hero";
+import { BestSelling } from "@/components/(public)/Home/BestSelling";
 import { FeaturedProducts } from "@/components/(public)/Home/FeaturedProducts";
-import { CategoryShowcase } from "@/components/(public)/Home/CategoryShowcase";
-import { PromotionalBanners } from "@/components/(public)/Home/PromotionalBanners";
-import { getHomeCategoriesService } from "@/services/categories.service";
+import { CollectionSpotlight } from "@/components/(public)/Home/CollectionSpotlight";
+import { BrandPromise } from "@/components/(public)/Home/BrandPromise";
+import { ClubMembership } from "@/components/(public)/Home/ClubMembership";
+import { FinalCta } from "@/components/(public)/Home/FinalCta";
 
 export const metadata: Metadata = {
   title: { absolute: "Aviora Wear" },
@@ -15,14 +17,15 @@ export const metadata: Metadata = {
  * Root page - home page for the storefront.
  */
 export default async function HomePage() {
-  const categories = await getHomeCategoriesService();
-
   return (
     <div className="flex flex-col gap-0">
       <Hero />
-      <PromotionalBanners />
-      <CategoryShowcase categories={categories} />
+      <BestSelling />
       <FeaturedProducts />
+      <CollectionSpotlight />
+      <ClubMembership />
+      <BrandPromise />
+      <FinalCta />
     </div>
   );
 }

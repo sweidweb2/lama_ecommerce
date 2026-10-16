@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useTheme } from "next-themes";
 
 const SAFETY_TIMEOUT_MS = 10_000;
 const COMPLETE_FADE_MS = 200;
+const BAR_COLOR = "#594C39";
 
 function isModifiedClick(event: MouseEvent) {
   return (
@@ -43,8 +43,6 @@ function getInternalHref(anchor: HTMLAnchorElement): string | null {
 export function TopNavigationLoader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(0);
   const [fading, setFading] = useState(false);
@@ -55,13 +53,6 @@ export function TopNavigationLoader() {
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const routeKey = `${pathname}?${searchParams?.toString() ?? ""}`;
   const previousRouteKey = useRef(routeKey);
-
-  const isDark = mounted && (resolvedTheme === "dark" || theme === "dark");
-  const barColor = isDark ? "#E6DDD4" : "#594C39";
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   function clearTimers() {
     if (safetyTimerRef.current) {
@@ -164,7 +155,7 @@ export function TopNavigationLoader() {
         style={{
           width: `${progress}%`,
           opacity: fading ? 0 : 1,
-          backgroundColor: barColor,
+          backgroundColor: BAR_COLOR,
         }}
       />
     </div>

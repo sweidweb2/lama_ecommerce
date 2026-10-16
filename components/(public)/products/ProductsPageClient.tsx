@@ -1,16 +1,13 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { CategoryFiltering } from '@/components/(public)/products/CategoryFiltering'
 import { Sorting } from '@/components/(public)/products/Sorting'
 import { PriceFilter } from '@/components/(public)/products/PriceFilter'
 import { VariantFilters } from '@/components/(public)/products/VariantFilters'
 import { SizeFilter } from '@/components/(public)/products/SizeFilter'
 import { ClientProductFilter } from '@/components/(public)/products/ClientProductFilter'
-import { Separator } from '@/components/ui/separator'
 import { normalizeColorValue } from '@/lib/constants/color-palette'
 import type { ProductWithRelations, Category } from '@/types/product'
 
@@ -34,7 +31,6 @@ interface ProductsPageClientProps {
 
 export function ProductsPageClient({
     products,
-    totalCount,
     totalPages,
     currentPage,
     categories,
@@ -43,7 +39,6 @@ export function ProductsPageClient({
     priceBoundsMin,
     priceBoundsMax,
     priceRange,
-    search,
     availableColors,
     availableSizes,
     selectedColors,
@@ -52,15 +47,33 @@ export function ProductsPageClient({
     const router = useRouter()
     const searchParams = useSearchParams()
     const [isFiltersOpen, setIsFiltersOpen] = useState(true)
+    const [isPending, startTransition] = useTransition()
+    const [pendingSearchKey, setPendingSearchKey] = useState<string | null>(null)
+
+    const currentSearchKey = searchParams.toString()
+    const isWaitingForUrl =
+        pendingSearchKey !== null && pendingSearchKey !== currentSearchKey
+    const isPageLoading = isPending || isWaitingForUrl
+
+    useEffect(() => {
+        if (pendingSearchKey === null) return
+        const timer = setTimeout(() => setPendingSearchKey(null), 8000)
+        return () => clearTimeout(timer)
+    }, [pendingSearchKey])
 
     const pushParams = useCallback(
         (mutate: (params: URLSearchParams) => void) => {
             const params = new URLSearchParams(searchParams.toString())
             mutate(params)
             const qs = params.toString()
-            router.push(qs ? `/products?${qs}` : '/products')
+            const href = qs ? `/products?${qs}` : '/products'
+            if (qs === currentSearchKey) return
+            setPendingSearchKey(qs)
+            startTransition(() => {
+                router.push(href)
+            })
         },
-        [router, searchParams],
+        [router, searchParams, currentSearchKey],
     )
 
     const handleCategoryChange = (category: string | null) => {
@@ -109,10 +122,6 @@ export function ProductsPageClient({
         })
     }
 
-    const currentCategoryName = selectedCategory
-        ? categories.find(c => c.slug === selectedCategory)?.name
-        : 'All Products'
-
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex flex-col md:flex-row gap-8">
@@ -150,46 +159,16 @@ export function ProductsPageClient({
                     </aside>
                 ) : null}
 
-                {/* Main Content */}
                 <main className="min-w-0 flex-1">
-                    <div className="mb-8">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                            <div>
-                                <h1 className="text-4xl font-bold tracking-tight text-foreground">
-                                    {currentCategoryName}
-                                </h1>
-                                <p className="text-muted-foreground mt-2">
-                                    {totalCount} product{totalCount === 1 ? '' : 's'}
-                                    {search ? ` matching “${search}”` : ''}
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="hidden md:inline-flex"
-                                aria-expanded={isFiltersOpen}
-                                aria-controls="product-filters"
-                                onClick={() => setIsFiltersOpen((open) => !open)}
-                            >
-                                {isFiltersOpen ? (
-                                    <PanelLeftClose className="h-4 w-4" />
-                                ) : (
-                                    <PanelLeftOpen className="h-4 w-4" />
-                                )}
-                                {isFiltersOpen ? "Hide filters" : "Show filters"}
-                            </Button>
-                        </div>
-
-                        <Separator className="opacity-50" />
-                    </div>
-
                     <ClientProductFilter
                         products={products}
                         categories={categories}
                         totalPages={totalPages}
                         currentPage={currentPage}
                         onPageChange={handlePageChange}
+                        isPageLoading={isPageLoading}
+                        isFiltersOpen={isFiltersOpen}
+                        onToggleFilters={() => setIsFiltersOpen((open) => !open)}
                         priceBoundsMin={priceBoundsMin}
                         priceBoundsMax={priceBoundsMax}
                         selectedCategory={selectedCategory}

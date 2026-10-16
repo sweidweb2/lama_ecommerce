@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts"
+    "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
+    "seed:products": "tsx --env-file=.env.local scripts/seed-tshirt-products.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

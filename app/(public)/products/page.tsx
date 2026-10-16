@@ -27,7 +27,7 @@ interface ProductsPageProps {
     }>
 }
 
-const PAGE_SIZE = 12
+const PAGE_SIZE = 32
 
 function parseListParam(raw: string | undefined): string[] {
     if (!raw) return []

@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { getProducts } from '@/services/product.service'
 import { ProductGrid } from '@/components/(public)/products/ProductGrid'
 import { SearchBar } from '@/components/(public)/products/SearchBar'
-import { Pagination } from '@/components/(public)/products/Pagination'
+import { SearchPagination } from '@/components/(public)/products/SearchPagination'
 import {
   Sorting,
   ALLOWED_SORT_VALUES,
@@ -94,13 +94,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <ProductGrid products={productsResult.data} />
           {productsResult.count > 0 && (
             <Suspense fallback={null}>
-              <Pagination totalPages={totalPages} basePath={ROUTES.SEARCH} />
+              <SearchPagination
+                totalPages={totalPages}
+                currentPage={currentPage}
+              />
             </Suspense>
-          )}
-          {productsResult.count > 0 && (
-            <p className="sr-only">
-              Page {currentPage} of {totalPages}
-            </p>
           )}
         </>
       )}

@@ -1,89 +1,126 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "@/components/ui/link";
-import { Eye, ImageIcon } from "lucide-react";
-import { getProducts } from "@/services/product.service";
-import { formatListingPrice } from "@/lib/utils";
+import { ShoppingCart, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { HOME_FEATURED_PRODUCTS } from "@/lib/constants/home-marketing";
+import { formatPrice } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
-async function getFeaturedProducts() {
-    try {
-        const { data } = await getProducts({
-            page: 1,
-            pageSize: 12,
-            isFeatured: true,
-            sort: "created_at-desc",
-        });
-        return data;
-    } catch (error) {
-        console.error("Error fetching featured products:", error);
-        return [];
-    }
+function RatingStars({ rating }: { rating: number }) {
+    return (
+        <div className="flex items-center gap-0.5" aria-hidden>
+            {Array.from({ length: 5 }, (_, index) => {
+                const filled = rating >= index + 1;
+                const half = !filled && rating >= index + 0.5;
+                return (
+                    <Star
+                        key={index}
+                        className={cn(
+                            "h-3.5 w-3.5",
+                            filled || half
+                                ? "fill-amber-400 text-amber-400"
+                                : "fill-transparent text-muted-foreground/40",
+                        )}
+                    />
+                );
+            })}
+        </div>
+    );
 }
 
-export async function FeaturedProducts() {
-    const featuredProducts = await getFeaturedProducts();
+export function FeaturedProducts() {
+    const products = HOME_FEATURED_PRODUCTS;
 
-    if (featuredProducts.length === 0) {
+    if (products.length === 0) {
         return null;
     }
 
     return (
-        <section className="py-16 container mx-auto px-4">
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h2 className="text-3xl font-bold italic tracking-tight uppercase">Featured Products</h2>
-                    <p className="text-muted-foreground mt-2">Our handpicked selection of top products.</p>
+        <section className="bg-background py-12 md:py-16">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="mb-8 flex items-end justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight uppercase text-foreground">
+                            Featured Products
+                        </h2>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Handpicked tees from the Aviora Wear catalog.
+                        </p>
+                    </div>
+                    <Button variant="link" asChild className="text-primary font-medium px-0">
+                        <Link href="/products">View all</Link>
+                    </Button>
                 </div>
-                <Button variant="link" asChild className="text-primary font-medium">
-                    <Link href="/products">View All</Link>
-                </Button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                {featuredProducts.map((product) => {
-                    const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0];
-                    const hasImage = primaryImage?.url_image;
 
-                    return (
-                        <Link key={product.id} href={`/products/${product.slug}`} className="block">
-                            <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 pt-0 gap-0 py-0">
-                                <div className="relative aspect-square w-full bg-muted overflow-hidden">
-                                    {hasImage ? (
-                                        <Image
-                                            src={primaryImage.url_image}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                                            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                <ImageIcon className="h-12 w-12 opacity-50" />
-                                                <span className="text-xs opacity-75">No Image</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {product.is_out_of_stock && (
-                                        <Badge className="absolute top-2 left-2 bg-muted-foreground/90 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 border-none">
-                                            Out of Stock
-                                        </Badge>
-                                    )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+                    {products.map((product) => (
+                        <article
+                            key={product.id}
+                            className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card"
+                        >
+                            <Link
+                                href={product.href}
+                                className="relative block aspect-[4/5] bg-muted"
+                                aria-label={product.name}
+                            >
+                                <Image
+                                    src={product.image}
+                                    alt={product.name}
+                                    fill
+                                    className="object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
+                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                                />
+                                {product.badge ? (
+                                    <span className="absolute left-2.5 top-2.5 rounded-full bg-emerald-800 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                        {product.badge}
+                                    </span>
+                                ) : null}
+                            </Link>
+
+                            <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
+                                <Link href={product.href} className="block">
+                                    <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
+                                        {product.name}
+                                    </h3>
+                                </Link>
+
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-sm font-bold text-foreground">
+                                        {formatPrice(product.price)}
+                                    </span>
+                                    {product.compareAtPrice != null ? (
+                                        <span className="text-xs text-muted-foreground line-through">
+                                            {formatPrice(product.compareAtPrice)}
+                                        </span>
+                                    ) : null}
                                 </div>
-                                <CardHeader className="px-3 py-2 pb-1.5 -mt-2">
-                                    <CardTitle className="line-clamp-1 text-sm font-semibold leading-tight">{product.name}</CardTitle>
-                                    <CardDescription className="text-xs leading-tight mt-1">{product.category?.name || "Uncategorized"}</CardDescription>
-                                </CardHeader>
-                                <CardFooter className="px-3 py-2 pt-1.5 flex justify-between items-center">
-                                    <span className="font-bold text-base leading-tight">{formatListingPrice(product)}</span>
-                                    <Button size="icon" className="h-8 w-8 rounded-full hover:scale-110 transition-transform">
-                                        <Eye className="h-4 w-4" />
+
+                                <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <RatingStars rating={product.rating} />
+                                        <span className="text-xs text-muted-foreground truncate">
+                                            ({product.reviewCount})
+                                        </span>
+                                    </div>
+                                    <Button
+                                        asChild
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0 rounded-md"
+                                    >
+                                        <Link
+                                            href={product.href}
+                                            aria-label={`View ${product.name}`}
+                                        >
+                                            <ShoppingCart className="h-4 w-4" />
+                                        </Link>
                                     </Button>
-                                </CardFooter>
-                            </Card>
-                        </Link>
-                    );
-                })}
+                                </div>
+                            </div>
+                        </article>
+                    ))}
+                </div>
             </div>
         </section>
     );
