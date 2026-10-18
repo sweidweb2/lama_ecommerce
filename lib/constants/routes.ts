@@ -12,6 +12,7 @@ export const ROUTES = {
   ORDERS_FIND: "/orders/find",
   UNSUBSCRIBE: "/unsubscribe",
   ADMIN: "/admin",
+  ADMIN_HOME: "/admin/analytics",
 } as const;
 
 // Type export for TypeScript

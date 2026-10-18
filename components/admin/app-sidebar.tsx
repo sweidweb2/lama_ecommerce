@@ -66,10 +66,10 @@ type MenuItem = {
 
 const menuItems: MenuItem[] = [
   {
-    id: "dashboard",
-    href: "/admin",
-    label: "Dashboard",
-    icon: LayoutDashboard,
+    id: "insights",
+    href: ROUTES.ADMIN_HOME,
+    label: "Analytics",
+    icon: BarChart3,
   },
   {
     id: "catalog",
@@ -127,12 +127,6 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    id: "insights",
-    href: "/admin/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-  },
-  {
     id: "system",
     href: "/admin/backups",
     label: "Backups",
@@ -155,7 +149,6 @@ function isChildActive(
   child: MenuChild,
   allChildHrefs: string[],
 ): boolean {
-  if (child.href === "/admin") return pathname === child.href
   if (pathname === child.href) return true
   if (
     !pathname.startsWith(`${child.href}/`) &&
@@ -253,7 +246,7 @@ export function AppSidebar(
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild tooltip="Admin Panel">
-              <NavLink href="/admin" onNavigate={closeMobile}>
+              <NavLink href={ROUTES.ADMIN_HOME} onNavigate={closeMobile}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <LayoutDashboard className="size-4" />
                 </div>
@@ -279,10 +272,7 @@ export function AppSidebar(
                 const isGroup = Boolean(item.children?.length)
 
                 if (!isGroup && item.href) {
-                  const isActive =
-                    item.href === "/admin"
-                      ? pathname === item.href
-                      : pathMatchesPrefix(pathname, item.href)
+                  const isActive = pathMatchesPrefix(pathname, item.href)
 
                   return (
                     <SidebarMenuItem key={item.id}>

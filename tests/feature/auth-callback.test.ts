@@ -87,7 +87,7 @@ describe("GET /auth/callback", () => {
     mergeGuestCartOnLoginAction.mockResolvedValue({ success: true });
   });
 
-  it("redirects admins to /admin and preserves session cookies", async () => {
+  it("redirects admins to the admin home and preserves session cookies", async () => {
     getProfileByUserIdAdmin.mockResolvedValue({
       user_id: "user-1",
       role: ROLES.ADMIN,
@@ -100,7 +100,7 @@ describe("GET /auth/callback", () => {
     expect(getProfileByUserIdAdmin).toHaveBeenCalledWith("user-1");
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      `http://localhost${ROUTES.ADMIN}`,
+      `http://localhost${ROUTES.ADMIN_HOME}`,
     );
     expect(response.cookies.get("sb-access-token")?.value).toBe("access-token");
     expect(response.cookies.get("sb-refresh-token")?.value).toBe(

@@ -27,7 +27,7 @@ import Link from "@/components/ui/link"
 
 /** Flat list of admin pages for search (href + label). */
 const ADMIN_PAGES = [
-  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/categories", label: "Categories" },
@@ -35,7 +35,6 @@ const ADMIN_PAGES = [
   { href: "/admin/products/create", label: "Create Product" },
   { href: "/admin/carts", label: "Carts" },
   { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/product-views", label: "Product Views" },
   { href: "/admin/qa", label: "Q&A" },
   { href: "/admin/reviews", label: "Reviews" },

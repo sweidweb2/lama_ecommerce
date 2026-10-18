@@ -165,7 +165,7 @@ export async function middleware(request: NextRequest) {
     const { profile, user, response } = await getProfileFromSession(request);
     if (user && profile?.is_active) {
       const destination =
-        profile.role === ROLES.ADMIN ? ROUTES.ADMIN : ROUTES.HOME;
+        profile.role === ROLES.ADMIN ? ROUTES.ADMIN_HOME : ROUTES.HOME;
       const redirectResponse = NextResponse.redirect(
         new URL(destination, request.url),
       );
@@ -193,7 +193,7 @@ export async function middleware(request: NextRequest) {
     const { profile, user, response } = await getProfileFromSession(request);
     if (user && profile?.is_active && profile.role === ROLES.ADMIN) {
       const redirectResponse = NextResponse.redirect(
-        new URL(ROUTES.ADMIN, request.url),
+        new URL(ROUTES.ADMIN_HOME, request.url),
       );
       copyCookies(response, redirectResponse);
       return redirectResponse;
@@ -206,7 +206,7 @@ export async function middleware(request: NextRequest) {
     const { profile, user, response } = await getProfileFromSession(request);
     if (user && profile?.is_active && profile.role === ROLES.ADMIN) {
       const redirectResponse = NextResponse.redirect(
-        new URL(ROUTES.ADMIN, request.url),
+        new URL(ROUTES.ADMIN_HOME, request.url),
       );
       copyCookies(response, redirectResponse);
       return redirectResponse;

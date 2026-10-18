@@ -155,7 +155,7 @@ export function ProductComments({
             Admins cannot leave user pages reviews. Moderate reviews from the admin panel.
           </p>
           <Button asChild size="lg" className="w-full" variant="outline">
-            <Link href={ROUTES.ADMIN}>Go to Admin Panel</Link>
+            <Link href={ROUTES.ADMIN_HOME}>Go to Admin Panel</Link>
           </Button>
         </div>
       )

@@ -592,7 +592,7 @@ export function ProductCustomization({
         <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
           <p>Admins cannot shop on the user pages.</p>
           <Link
-            href={ROUTES.ADMIN}
+            href={ROUTES.ADMIN_HOME}
             className="mt-2 inline-block font-medium text-primary hover:underline"
           >
             Go to Admin Panel

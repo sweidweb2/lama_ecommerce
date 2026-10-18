@@ -69,7 +69,7 @@ export function LoginForm() {
       const destination = redirectQuery
         ? safeRedirectPath(redirectQuery, ROUTES.HOME)
         : result.role === ROLES.ADMIN
-          ? ROUTES.ADMIN
+          ? ROUTES.ADMIN_HOME
           : ROUTES.HOME;
 
       // Leave login immediately; panel/account loading UI covers the handoff.

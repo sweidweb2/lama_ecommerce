@@ -301,7 +301,7 @@ export function Navbar() {
                   {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link
-                        href={ROUTES.ADMIN}
+                        href={ROUTES.ADMIN_HOME}
                         className="flex items-center cursor-pointer"
                       >
                         <LayoutDashboard className="mr-2 h-4 w-4" />
@@ -473,7 +473,7 @@ export function Navbar() {
                       )}
                       {isAdmin && (
                         <Link
-                          href={ROUTES.ADMIN}
+                          href={ROUTES.ADMIN_HOME}
                           onClick={() => setIsOpen(false)}
                         >
                           <Button

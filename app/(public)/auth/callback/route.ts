@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
         try {
           const profile = await getProfileByUserIdAdmin(exchangedUserId);
           if (profile?.role === ROLES.ADMIN) {
-            destination = ROUTES.ADMIN;
+            destination = ROUTES.ADMIN_HOME;
           }
         } catch (profileError) {
           console.error("Failed to check user role in callback:", profileError);
