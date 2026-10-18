@@ -17,7 +17,7 @@ export const HOME_HERO_SLIDES: readonly HomeHeroSlide[] = [
     title: "Shop the catalog",
     description:
       "Browse active products across fashion, electronics, home, and more — filtered and sorted to help you find what you need.",
-    image: "/hero-section/hero-1.png",
+    image: "/home/hero-section/hero-1.png",
     cta: "Shop all products",
     href: "/products",
   },
