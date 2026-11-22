@@ -289,14 +289,20 @@ export async function deleteOrderById(orderId: string): Promise<void> {
   await e2eDb().from("orders").delete().eq("id", orderId);
 }
 
+/** shipping_zones exists in DB but is missing from generated Database types. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function shippingZonesTable(): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (e2eDb() as any).from("shipping_zones");
+}
+
 /** Ensure at least one shipping zone exists; returns a zone name for UI select. */
 export async function ensureShippingZone(): Promise<{
   id: string;
   name: string;
 }> {
   const supabase = e2eDb();
-  const { data: existing } = await supabase
-    .from("shipping_zones")
+  const { data: existing } = await shippingZonesTable()
     .select("id, name")
     .limit(1)
     .maybeSingle();
@@ -338,24 +344,37 @@ export async function findCartBySessionId(
 }
 
 export async function getInStockProductName(): Promise<string | null> {
+  const product = await getFirstActiveInStockProduct();
+  return product?.name ?? null;
+}
+
+export async function getFirstActiveInStockProduct(): Promise<{
+  id: string;
+  name: string;
+  slug: string;
+} | null> {
   const supabase = e2eDb();
+  // Prefer a join so we never return an inactive product name that the
+  // admin cart product picker will not list.
   const { data: variant } = await supabase
     .from("customised_products")
-    .select("product_id")
+    .select("product_id, products!inner(id, name, slug, is_active)")
     .gt("quantity_stock", 0)
+    .eq("products.is_active", true)
     .limit(1)
     .maybeSingle();
 
   if (!variant?.product_id) return null;
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("name")
-    .eq("id", variant.product_id)
-    .eq("is_active", true)
-    .maybeSingle();
+  const product = variant.products as unknown as {
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+  } | null;
 
-  return product?.name ?? null;
+  if (!product) return null;
+  return { id: product.id, name: product.name, slug: product.slug };
 }
 
 export async function getProfileIdByEmail(
@@ -375,9 +394,20 @@ export async function deleteAuthUserByEmail(email: string): Promise<void> {
   const userId = await getAuthUserIdByEmail(email);
   if (!userId) return;
   const { error } = await e2eDb().auth.admin.deleteUser(userId);
-  if (error) {
-    throw new Error(`Failed to delete auth user: ${error.message}`);
-  }
+  if (!error) return;
+
+  const message =
+    typeof error.message === "string" && error.message.trim()
+      ? error.message
+      : JSON.stringify(error);
+  // Soft-fail cleanup: missing/already-deleted users and Auth rate limits
+  // should not fail an otherwise-passing E2E assertion.
+  const soft =
+    /not found|already|does not exist|user not found|404/i.test(message) ||
+    message === "{}" ||
+    message === "null";
+  if (soft) return;
+  throw new Error(`Failed to delete auth user: ${message}`);
 }
 
 export async function deleteOrdersByEmailFragment(
@@ -392,3 +422,162 @@ export async function deleteOrdersByEmailFragment(
   if (ids.length === 0) return;
   await e2eDb().from("orders").delete().in("id", ids);
 }
+
+/** Unique ephemeral customer for mutating parallel-safe tests. */
+export async function createUniqueE2eCustomer(prefix = "e2e"): Promise<{
+  email: string;
+  password: string;
+  userId: string;
+}> {
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return ensureE2eCustomer({
+    email: `${prefix}-${stamp}@example.com`,
+    password: "Password1!",
+  });
+}
+
+export async function seedInactivePromo(code?: string): Promise<{
+  id: string;
+  code: string;
+}> {
+  const promoCode = (code ?? `E2EBAD${Date.now()}`).toUpperCase();
+  const { data, error } = await e2eDb()
+    .from("promo_codes")
+    .insert({
+      code: promoCode,
+      discount_type: "percentage",
+      discount_value: 10,
+      is_active: false,
+    })
+    .select("id, code")
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to seed promo: ${error?.message ?? "unknown"}`);
+  }
+  return data;
+}
+
+export async function deletePromoById(id: string): Promise<void> {
+  await e2eDb().from("promo_codes").delete().eq("id", id);
+}
+
+export async function attachOrderToUser(
+  orderId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await e2eDb()
+    .from("orders")
+    .update({ user_id: userId })
+    .eq("id", orderId);
+  if (error) {
+    throw new Error(`Failed to attach order: ${error.message}`);
+  }
+}
+
+export async function seedPendingReview(input: {
+  productId: string;
+  userId: string;
+  comment: string;
+}): Promise<{ id: string }> {
+  const { data, error } = await e2eDb()
+    .from("reviews")
+    .insert({
+      product_id: input.productId,
+      user_id: input.userId,
+      rating: 5,
+      comment: input.comment,
+      review_status: "pending",
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to seed review: ${error?.message ?? "unknown"}`);
+  }
+  return data;
+}
+
+export async function deleteReviewById(id: string): Promise<void> {
+  await e2eDb().from("reviews").delete().eq("id", id);
+}
+
+export async function seedPendingQuestion(input: {
+  productId: string;
+  question: string;
+  userId?: string;
+}): Promise<{ id: string }> {
+  const { data, error } = await e2eDb()
+    .from("product_questions")
+    .insert({
+      product_id: input.productId,
+      question: input.question,
+      is_approved: false,
+      user_id: input.userId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to seed question: ${error?.message ?? "unknown"}`);
+  }
+  return data;
+}
+
+export async function deleteBrandById(id: string): Promise<void> {
+  await e2eDb().from("brands").delete().eq("id", id);
+}
+
+export async function deleteCategoryById(id: string): Promise<void> {
+  await e2eDb().from("categories").delete().eq("id", id);
+}
+
+export async function deleteShippingZoneById(id: string): Promise<void> {
+  await shippingZonesTable().delete().eq("id", id);
+}
+
+export async function findBrandIdByName(name: string): Promise<string | null> {
+  const { data } = await e2eDb()
+    .from("brands")
+    .select("id")
+    .eq("name", name)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function findCategoryIdBySlug(
+  slug: string,
+): Promise<string | null> {
+  const { data } = await e2eDb()
+    .from("categories")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function findPromoIdByCode(code: string): Promise<string | null> {
+  const { data } = await e2eDb()
+    .from("promo_codes")
+    .select("id")
+    .eq("code", code.toUpperCase())
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function findShippingZoneIdByName(
+  name: string,
+): Promise<string | null> {
+  const { data } = await shippingZonesTable()
+    .select("id")
+    .eq("name", name)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function findLeadIdByEmail(email: string): Promise<string | null> {
+  const { data } = await e2eDb()
+    .from("leads")
+    .select("id")
+    .eq("email", email.trim().toLowerCase())
+    .maybeSingle();
+  return data?.id ?? null;
+}
+

@@ -29,12 +29,15 @@ export async function selectOption(
   optionName: string | RegExp,
 ): Promise<void> {
   await trigger.click();
-  await page.getByRole("option", { name: optionName }).click();
+  const option = page.getByRole("option", { name: optionName });
+  await option.waitFor({ state: "visible", timeout: 10_000 });
+  await option.click();
 }
 
 export async function expectToast(
   page: Page,
   text: string | RegExp,
 ): Promise<void> {
-  await expect(page.getByText(text).first()).toBeVisible({ timeout: 20_000 });
+  const toast = page.locator("[data-sonner-toast]").filter({ hasText: text });
+  await expect(toast.first()).toBeVisible({ timeout: 20_000 });
 }

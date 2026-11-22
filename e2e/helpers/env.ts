@@ -2,6 +2,9 @@
 
 export const e2eEnabled = process.env.E2E_RUN === "1";
 
+/** When true, missing catalog/shipping/creds fail instead of skip. */
+export const e2eStrict = process.env.E2E_STRICT === "1";
+
 export function cred(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value ? value : undefined;

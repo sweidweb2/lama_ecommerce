@@ -1,11 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { e2eAdmin, e2eEnabled } from "./helpers/env";
-import {
-  adminOrderPath,
-  expectToast,
-  loginAsAdmin,
-  selectOption,
-} from "./helpers/admin";
+import { adminOrderPath, expectToast } from "./helpers/admin";
 import {
   deleteOrderById,
   e2eDbReady,
@@ -13,29 +8,28 @@ import {
   seedShipment,
   setOrderStatus,
 } from "./helpers/db";
+import { adminAuthFile } from "./helpers/paths";
+import { requireOrSkip } from "./helpers/skip";
 
 /**
  * Block 16 — Admin orders & shipments
  */
 test.describe("Block 16 — admin orders & shipments", () => {
   test.skip(!e2eEnabled, "Set E2E_RUN=1 to run Playwright E2E");
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ storageState: adminAuthFile });
 
   test("orders list filters by status", async ({ page }) => {
-    test.skip(!e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
-    test.skip(!e2eDbReady(), "Needs Supabase service role for order seed");
+    requireOrSkip(e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
+    requireOrSkip(e2eDbReady(), "Needs Supabase service role for order seed");
 
     const order = await seedPendingOrder();
     try {
-      await loginAsAdmin(page);
       await page.goto("/admin/orders");
       await expect(page.getByRole("heading", { name: /^orders$/i })).toBeVisible();
 
-      const statusTrigger = page
-        .locator("div")
-        .filter({ has: page.getByText("Status:", { exact: true }) })
-        .getByRole("combobox")
-        .first();
-      await selectOption(page, statusTrigger, /^Pending$/i);
+      await page.getByRole("combobox").first().click();
+      await page.getByRole("option", { name: "Pending", exact: true }).click();
       await expect(page).toHaveURL(/status=pending/);
 
       await expect(
@@ -52,12 +46,11 @@ test.describe("Block 16 — admin orders & shipments", () => {
   test("status stepper: pending → processing; skip/reverse disabled", async ({
     page,
   }) => {
-    test.skip(!e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
-    test.skip(!e2eDbReady(), "Needs Supabase service role for order seed");
+    requireOrSkip(e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
+    requireOrSkip(e2eDbReady(), "Needs Supabase service role for order seed");
 
     const order = await seedPendingOrder();
     try {
-      await loginAsAdmin(page);
       await page.goto(adminOrderPath(order.id));
       await expect(
         page.getByRole("heading", { name: /order details/i }),
@@ -98,13 +91,12 @@ test.describe("Block 16 — admin orders & shipments", () => {
   test("ship requires carrier + tracking; edit shipment works", async ({
     page,
   }) => {
-    test.skip(!e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
-    test.skip(!e2eDbReady(), "Needs Supabase service role for order seed");
+    requireOrSkip(e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
+    requireOrSkip(e2eDbReady(), "Needs Supabase service role for order seed");
 
     const order = await seedPendingOrder();
     try {
       await setOrderStatus(order.id, "packed");
-      await loginAsAdmin(page);
       await page.goto(adminOrderPath(order.id));
 
       await page
@@ -140,12 +132,11 @@ test.describe("Block 16 — admin orders & shipments", () => {
   });
 
   test("delete pending order succeeds (restock path)", async ({ page }) => {
-    test.skip(!e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
-    test.skip(!e2eDbReady(), "Needs Supabase service role for order seed");
+    requireOrSkip(e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
+    requireOrSkip(e2eDbReady(), "Needs Supabase service role for order seed");
 
     const order = await seedPendingOrder();
     try {
-      await loginAsAdmin(page);
       await page.goto(adminOrderPath(order.id));
 
       await page
@@ -163,10 +154,12 @@ test.describe("Block 16 — admin orders & shipments", () => {
     }
   });
 
-  test("refuse delete shipped/delivered order", async ({ page }) => {
-    test.skip(!e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
-    test.skip(!e2eDbReady(), "Needs Supabase service role for order seed");
+  test("refuse delete delivered order", async ({ page }) => {
+    requireOrSkip(e2eAdmin.ready(), "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
+    requireOrSkip(e2eDbReady(), "Needs Supabase service role for order seed");
 
+    // shipped → cancelled is allowed; only delivered (and returned) refuse delete
+    // because stock cannot be restored via cancel transition.
     const order = await seedPendingOrder();
     try {
       await seedShipment({
@@ -174,20 +167,20 @@ test.describe("Block 16 — admin orders & shipments", () => {
         carrierName: "DHL",
         trackingNumber: "NO-DELETE",
       });
-      await setOrderStatus(order.id, "shipped");
+      await setOrderStatus(order.id, "delivered");
 
-      await loginAsAdmin(page);
       await page.goto(adminOrderPath(order.id));
+      await expect(
+        page.getByRole("heading", { name: /order details/i }),
+      ).toBeVisible();
+      await expect(page.getByText(/^delivered$/i).first()).toBeVisible();
 
       await page
         .getByRole("button", { name: new RegExp(`Delete order ${order.id}`, "i") })
         .click();
       await page.getByRole("button", { name: /^delete order$/i }).click();
       await expectToast(page, /failed to delete order/i);
-      await expectToast(
-        page,
-        /cannot delete order in status "shipped"/i,
-      );
+      await expectToast(page, /cannot delete order in status "delivered"/i);
       await expect(page).toHaveURL(/\/admin\/orders\//);
       await expect(
         page.getByRole("heading", { name: /order details/i }),

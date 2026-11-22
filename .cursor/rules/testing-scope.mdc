@@ -1,0 +1,27 @@
+---
+description: Agents must not run e2e or full test suites unless asked; only feature-related tests
+alwaysApply: true
+---
+
+# Testing scope for agents
+
+Do **not** run end-to-end tests or the full unit/feature suite unless the user explicitly asks.
+
+## Disallowed by default
+
+- `npm run test:e2e` / Playwright / any e2e suite
+- `npm test` / `vitest run` with no filter (full suite)
+- `npm run lint` or `npm run build` as a stand-in for “verify everything” unless the user asked for CI/full verification
+
+## Allowed
+
+- Targeted tests for the feature or files you changed, e.g.:
+  - `npx vitest run tests/feature/cart-service.test.ts`
+  - `npx vitest run tests/unit/validators/product.create.test.ts`
+  - a narrow vitest path/name filter that matches only related specs
+
+## When in doubt
+
+- Prefer **no tests** over a full run.
+- Only expand to more files if those tests clearly cover the same change.
+- Full suite / e2e only when the user says so (e.g. “run all tests”, “run e2e”, “run CI”).

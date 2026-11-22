@@ -60,3 +60,29 @@ export async function addSelectedVariantToWishlist(page: Page): Promise<void> {
     timeout: 15_000,
   });
 }
+
+/**
+ * Select first available color/size/material in the admin Add Cart Item dialog.
+ * Admin modal uses "select size" aria-labels and a material combobox (unlike PDP).
+ */
+export async function selectFirstAvailableAdminCartVariant(
+  page: Page,
+): Promise<void> {
+  await clickFirstEnabled(page.getByRole("button", { name: /select color/i }));
+  await clickFirstEnabled(page.getByRole("button", { name: /select size/i }));
+
+  const materialTrigger = page
+    .locator("div")
+    .filter({ has: page.getByText(/^material/i) })
+    .getByRole("combobox")
+    .first();
+  if ((await materialTrigger.count()) > 0) {
+    await materialTrigger.click();
+    const enabled = page.locator('[role="option"]:not([data-disabled])');
+    if ((await enabled.count()) > 0) {
+      await enabled.first().click();
+    } else {
+      await page.getByRole("option").first().click();
+    }
+  }
+}

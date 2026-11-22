@@ -73,17 +73,23 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run lint` | ESLint |
 | `npm test` | Vitest (unit + feature) |
 | `npm run test:watch` | Vitest watch mode |
-| `npm run test:e2e` | Playwright smoke (see below) |
+| `npm run test:e2e` | Chromium E2E (auto `E2E_RUN=1`, skips smoke project) |
+| `npm run test:e2e:smoke` | Fast smoke only |
+| `npm run test:e2e:core` | Auth + cart + checkout + orders + merge |
+| `npm run test:e2e:all` | setup + smoke + chromium |
+| `npm run test:e2e:ui` | Playwright UI mode |
 
 ### E2E (local only)
 
-Playwright is **not** run in CI. With the app running:
+Playwright is **not** run in CI. Prefer `127.0.0.1:3005` (not `localhost`). `scripts/e2e-run.mjs` reuses Next only when healthy.
 
-```bash
+```powershell
 npx playwright install chromium
-# PowerShell
-$env:E2E_RUN="1"; $env:E2E_BASE_URL="http://127.0.0.1:3000"; npm run test:e2e
+npm run test:e2e:smoke
+npm run test:e2e:core
+npm run test:e2e
 ```
+
 
 ## App layout
 

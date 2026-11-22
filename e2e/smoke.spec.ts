@@ -5,7 +5,7 @@ import { e2eEnabled } from "./helpers/env";
  * Block 0 — Smoke & shell
  *
  *   $env:E2E_RUN="1"
- *   npm run test:e2e -- e2e/smoke.spec.ts
+ *   npm run test:e2e:smoke
  */
 test.describe("Block 0 — smoke & shell", () => {
   test.skip(!e2eEnabled, "Set E2E_RUN=1 to run Playwright E2E");
@@ -13,12 +13,6 @@ test.describe("Block 0 — smoke & shell", () => {
   test("home page loads", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/./);
-  });
-
-  test("contact page shows form", async ({ page }) => {
-    await page.goto("/contact-us");
-    await expect(page.getByRole("textbox", { name: /full name/i })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: /^email \*$/i })).toBeVisible();
   });
 
   test("non-admin is redirected away from /admin", async ({ page }) => {

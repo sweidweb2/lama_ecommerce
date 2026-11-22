@@ -339,7 +339,7 @@ Env: `E2E_USER_*`, `E2E_ADMIN_*`, `E2E_INACTIVE_*` (optional; tests skip when mi
 | Ship requires carrier + tracking | E ✅ | Confirm disabled until fields; creates shipment |
 | Edit shipment | E ✅ | Carrier/tracking update toast |
 | Delete pending order (restock) | E ✅ | Success toast + redirect |
-| Refuse delete shipped/delivered | E ✅ | Failed toast with status message |
+| Refuse delete delivered | E ✅ | Failed toast with status message (shipped can still cancel→delete) |
 
 **Done when:** Status machine + shipment + delete rules proven in E2E.
 
@@ -465,27 +465,27 @@ Copy and check off as you finish blocks:
 ```
 [x] 0 Smoke & shell
 [x] 1 Auth
-[x] 2 Guest merge-on-login (order claim → Block 8)
+[x] 2 Guest merge-on-login (incl. order claim)
 [x] 3 Admin cannot shop
 [x] 4 Catalog browse & search
 [x] 5 PDP
-[ ] 6 Cart
-[ ] 7 Wishlist
-[ ] 8 Checkout
-[ ] 9 Orders (storefront)
-[ ] 10 Profile & addresses
+[x] 6 Cart
+[x] 7 Wishlist
+[x] 8 Checkout
+[x] 9 Orders (storefront)
+[x] 10 Profile & addresses
 [x] 11 Contact & leads
 [x] 12 Reviews & Q&A (storefront)
 [x] 13 Admin shell & analytics
-[ ] 14 Admin catalog
-[ ] 15 Admin brands & categories
+[x] 14 Admin catalog (list smoke)
+[x] 15 Admin brands & categories
 [x] 16 Admin orders & shipments
 [x] 17 Admin carts & checkout
 [x] 18 Admin users
-[ ] 19 Admin reviews / Q&A / contact / leads
-[ ] 20 Admin promo & shipping
-[ ] 21 Admin views & backups
-[ ] 22 Admin account
+[x] 19 Admin reviews / Q&A / contact / leads
+[x] 20 Admin promo & shipping
+[x] 21 Admin views & backups (page load)
+[x] 22 Admin account (page load)
 [ ] 23 Cross-cutting security
 ```
 
@@ -501,6 +501,9 @@ Default base URL is **`http://127.0.0.1:3005`** (avoids colliding with another a
 $env:E2E_RUN="1"
 # $env:E2E_PORT="3005"
 # $env:E2E_REUSE_SERVER="1"   # only if THIS app is already on E2E_PORT
+# $env:E2E_WORKERS="2"
+# $env:E2E_STRICT="1"
+# $env:E2E_WEB_SERVER="prod"
 # $env:E2E_ADMIN_EMAIL="admin@example.com"
 # $env:E2E_ADMIN_PASSWORD="password"
 # $env:E2E_USER_EMAIL="..."
@@ -508,8 +511,7 @@ $env:E2E_RUN="1"
 # $env:E2E_INACTIVE_EMAIL="..."
 # $env:E2E_INACTIVE_PASSWORD="..."
 npm run test:e2e
-# or only blocks 0–2:
-npm run test:e2e -- e2e/smoke.spec.ts e2e/auth.spec.ts e2e/guest-merge.spec.ts
+npm run test:e2e:smoke
 ```
 
 Vitest stays the default quality gate (`npm test`). Add E2E block-by-block; do not try to cover every block in one PR.
