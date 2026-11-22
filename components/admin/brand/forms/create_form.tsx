@@ -16,6 +16,11 @@ import {
   createBrandSchema,
   type CreateBrandInput,
 } from "@/lib/validators/brand"
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads"
+import { toast } from "sonner"
 
 interface CreateBrandDialogProps {
   action: (formData: FormData) => void | Promise<void>
@@ -53,6 +58,16 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
     }
 
     setErrors({})
+
+    const logoInput = form.elements.namedItem("logo_file")
+    if (logoInput instanceof HTMLInputElement && logoInput.files?.[0]) {
+      if (logoInput.files[0].size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+        toast.error(
+          `Logo must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+        )
+        return
+      }
+    }
 
     formData.set("name", parsed.data.name)
     formData.set("slug", parsed.data.slug ?? "")
@@ -143,7 +158,8 @@ export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
                 accept="image/*"
               />
               <p className="text-xs text-muted-foreground">
-                Upload a logo image for this brand.
+                Upload a logo image for this brand. Max{" "}
+                {MAX_SERVER_ACTION_UPLOAD_LABEL}.
               </p>
             </div>
 

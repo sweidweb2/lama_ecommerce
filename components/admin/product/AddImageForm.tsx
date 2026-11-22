@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { addProductImageAction } from "@/actions/product"
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads"
 
 interface AddImageFormProps {
   productId: string
@@ -38,6 +42,11 @@ export function AddImageForm({ productId }: AddImageFormProps) {
     e.preventDefault()
     
     if (!selectedFile) {
+      return
+    }
+
+    if (selectedFile.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+      toast.error(`Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`)
       return
     }
 
@@ -102,7 +111,8 @@ export function AddImageForm({ productId }: AddImageFormProps) {
                 disabled={isUploading}
               />
               <p className="text-xs text-muted-foreground">
-                Accepted formats: JPG, PNG, WEBP
+                Accepted formats: JPG, PNG, WEBP. Max{" "}
+                {MAX_SERVER_ACTION_UPLOAD_LABEL}.
               </p>
             </div>
 

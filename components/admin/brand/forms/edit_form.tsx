@@ -17,6 +17,11 @@ import {
   updateBrandSchema,
   type UpdateBrandInput,
 } from "@/lib/validators/brand"
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads"
+import { toast } from "sonner"
 
 interface EditBrandDialogProps {
   brand: Brand
@@ -55,6 +60,16 @@ export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
     }
 
     setErrors({})
+
+    const logoInput = form.elements.namedItem("logo_file")
+    if (logoInput instanceof HTMLInputElement && logoInput.files?.[0]) {
+      if (logoInput.files[0].size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+        toast.error(
+          `Logo must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+        )
+        return
+      }
+    }
 
     formData.set("name", parsed.data.name)
     formData.set("slug", parsed.data.slug ?? "")
@@ -153,7 +168,8 @@ export function EditBrandDialog({ brand, action }: EditBrandDialogProps) {
                 accept="image/*"
               />
               <p className="text-xs text-muted-foreground">
-                Upload a new logo to replace the existing one (optional).
+                Upload a new logo to replace the existing one (optional). Max{" "}
+                {MAX_SERVER_ACTION_UPLOAD_LABEL}.
               </p>
             </div>
 

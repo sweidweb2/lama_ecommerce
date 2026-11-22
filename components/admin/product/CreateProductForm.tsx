@@ -27,6 +27,10 @@ import {
   type VariantDraftRow,
   type VariantFieldErrors,
 } from "@/components/admin/product/ProductVariantsRepeater";
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads";
 
 const NONE_VALUE = "__none__";
 
@@ -139,9 +143,20 @@ export function CreateProductForm({
     setVariantErrors({});
     setVariantsFormError(undefined);
 
+    const form = e.currentTarget;
+    const imageInput = form.elements.namedItem("images");
+    if (imageInput instanceof HTMLInputElement && imageInput.files?.[0]) {
+      const file = imageInput.files[0];
+      if (file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+        toast.error(
+          `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+        );
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
-      const form = e.currentTarget;
       const formData = new FormData(form);
 
       formData.set("name", parsed.data.name);
@@ -335,8 +350,8 @@ export function CreateProductForm({
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">
-              Optional. You can add more images later from the product details
-              page.
+              Optional. Max {MAX_SERVER_ACTION_UPLOAD_LABEL}. You can add more
+              images later from the product details page.
             </p>
           </div>
 
