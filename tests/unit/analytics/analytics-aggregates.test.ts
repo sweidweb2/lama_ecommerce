@@ -138,17 +138,15 @@ describe("analytics aggregates", () => {
     ]);
   });
 
-  it("getSalesAndOrdersByMonth returns one row per month key without dumping orders", async () => {
-    const select = vi.fn();
-    from.mockImplementation(() => {
-      const api = chainable({ count: 0, data: null, error: null });
-      api.select = (...args: unknown[]) => {
-        select(...args);
-        return api;
-      };
-      return api;
+  it("getSalesAndOrdersByMonth returns one row per month key via single RPC", async () => {
+    from.mockImplementation(() => chainable({ count: 0, data: null, error: null }));
+    rpc.mockResolvedValue({
+      data: [
+        { month: "2026-01", orders: 2, sales: 40 },
+        { month: "2026-02", orders: 0, sales: 0 },
+      ],
+      error: null,
     });
-    rpc.mockResolvedValue({ data: 0, error: null });
 
     const { getSalesAndOrdersByMonth } = await import(
       "@/repositories/analytics.repository"
@@ -164,15 +162,14 @@ describe("analytics aggregates", () => {
       compareToIsoExclusive: null,
     });
 
-    expect(rows.map((r) => r.month)).toEqual(["2026-01", "2026-02"]);
-    expect(rows.every((r) => r.orders === 0 && r.sales === 0)).toBe(true);
-    // Head count + RPC sum per month — never select full order rows or PostgREST aggregates
-    expect(select).toHaveBeenCalledWith("id", { count: "exact", head: true });
-    expect(select).not.toHaveBeenCalledWith("total.sum()");
-    expect(select).not.toHaveBeenCalledWith("total, created_at, status");
-    expect(rpc).toHaveBeenCalledWith("admin_orders_revenue_sum", {
+    expect(rows).toEqual([
+      { month: "2026-01", orders: 2, sales: 40 },
+      { month: "2026-02", orders: 0, sales: 0 },
+    ]);
+    expect(rpc).toHaveBeenCalledWith("admin_orders_by_month", {
       p_from: "2026-01-01T00:00:00.000Z",
-      p_to_exclusive: "2026-02-01T00:00:00.000Z",
+      p_to_exclusive: "2026-03-01T00:00:00.000Z",
     });
+    expect(from).not.toHaveBeenCalled();
   });
 });

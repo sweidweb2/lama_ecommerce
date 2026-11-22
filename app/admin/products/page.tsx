@@ -13,7 +13,7 @@ import {
 } from "@/services/product.service";
 import { getProductVariantsByProductIdsService } from "@/services/product_variant.service";
 import { getBrandsService } from "@/services/brand.service";
-import { getAdminCategoriesService } from "@/services/categories.service";
+import { getAdminCategoriesService } from "@/services/category.service";
 import { encryptOrderId } from "@/lib/utils/encryption";
 import { AdminBreadcrumbs } from "@/components/admin/AdminBreadcrumbs";
 import {

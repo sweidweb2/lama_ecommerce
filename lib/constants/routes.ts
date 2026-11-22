@@ -13,7 +13,14 @@ export const ROUTES = {
   UNSUBSCRIBE: "/unsubscribe",
   ADMIN: "/admin",
   ADMIN_HOME: "/admin/analytics",
+  ADMIN_ACCOUNT: "/admin/account",
+  ACCOUNT: "/account",
 } as const;
+
+/** Build a login URL that returns the user to `redirectPath` after auth. */
+export function loginRedirect(redirectPath: string): string {
+  return `${ROUTES.LOGIN}?redirect=${encodeURIComponent(redirectPath)}`;
+}
 
 // Type export for TypeScript
 export type Route = (typeof ROUTES)[keyof typeof ROUTES];

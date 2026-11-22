@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ContactPagination } from "./contact-pagination"
+import { AdminPagination } from "@/components/admin/shared/AdminPagination"
 import { ContactFilters } from "./contact-filters"
 import { format } from "date-fns"
 import {
@@ -333,7 +333,8 @@ export function ContactTableWithFilters({
       </TableWrapper>
 
       {totalCount > 0 && (
-        <ContactPagination
+        <AdminPagination
+          itemLabel="messages"
           currentPage={page}
           pageCount={pageCount}
           totalItems={totalCount}

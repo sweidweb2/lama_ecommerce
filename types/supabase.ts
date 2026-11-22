@@ -924,6 +924,70 @@ export type Database = {
         }
         Returns: number
       }
+
+      increment_product_stat: {
+        Args: {
+          p_product_id: string
+          p_column: string
+          p_delta?: number
+        }
+        Returns: undefined
+      }
+      get_category_product_counts: {
+        Args: {
+          p_category_ids?: string[] | null
+          p_active_only?: boolean
+        }
+        Returns: {
+          category_id: string
+          product_count: number
+        }[]
+      }
+      get_home_categories: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          slug: string
+          product_count: number
+          image_url: string | null
+        }[]
+      }
+      admin_order_status_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status: Database["public"]["Enums"]["order_status"]
+          count: number
+        }[]
+      }
+      admin_payment_status_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status: Database["public"]["Enums"]["payment_status"]
+          count: number
+        }[]
+      }
+      admin_orders_by_month: {
+        Args: {
+          p_from: string
+          p_to_exclusive: string
+        }
+        Returns: {
+          month: string
+          orders: number
+          sales: number
+        }[]
+      }
+      admin_users_by_month: {
+        Args: {
+          p_from: string
+          p_to_exclusive: string
+        }
+        Returns: {
+          month: string
+          users: number
+        }[]
+      }
       admin_top_products_by_revenue: {
         Args: {
           p_limit?: number

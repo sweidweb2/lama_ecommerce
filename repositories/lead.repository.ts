@@ -239,6 +239,7 @@ export async function listLeadsForExport(query?: string): Promise<Lead[]> {
     const supabase = createSupabaseAdminClient();
     const q = query?.trim() ?? "";
     const batchSize = 1000;
+    const MAX_EXPORT_ROWS = 50_000;
     const collected: Lead[] = [];
     let offset = 0;
 
@@ -266,6 +267,7 @@ export async function listLeadsForExport(query?: string): Promise<Lead[]> {
       collected.push(...rows);
       if (rows.length < batchSize) break;
       offset += batchSize;
+      if (collected.length >= MAX_EXPORT_ROWS) break;
     }
 
     return collected;

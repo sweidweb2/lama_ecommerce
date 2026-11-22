@@ -13,7 +13,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { ROLES } from '@/lib/constants/roles'
 import { ROUTES } from '@/lib/constants/routes'
 import Link from '@/components/ui/link'
-import type { ProductVariant } from '@/types/product_utf8'
+import type { ProductVariant } from '@/types/product'
 
 interface ProductCustomizationProps {
   productId: string

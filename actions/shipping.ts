@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUserProfile } from "@/services/profile.service";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
-import { ROLES } from "@/lib/constants/roles";
 import {
   getAllShippingZonesWithFee,
   createShippingZoneWithFee,
@@ -15,8 +14,12 @@ import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update"
 
 /** Soft admin check: callers get empty/null/false instead of a thrown error. */
 async function isAdminCaller(): Promise<boolean> {
-  const profile = await getCurrentUserProfile();
-  return !!profile && profile.role === ROLES.ADMIN;
+  try {
+    await requireAdmin();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { formatPrice } from '@/lib/utils'
 import { useProductVariant } from './ProductVariantProvider'
-import type { ProductVariant } from '@/types/product_utf8'
+import type { ProductVariant } from '@/types/product'
 
 interface ProductPricingProps {
   basePrice: number

@@ -29,6 +29,11 @@ import {
   Eye,
   Users,
 } from "lucide-react";
+import {
+  formatNumber,
+  formatViewedAtLong,
+} from "@/components/admin/product_view/product-views-shared";
+import { truncateText } from "@/lib/utils";
 
 interface ProductViewsTableProps {
   productId: string;
@@ -44,10 +49,6 @@ const EMPTY_STATS: ProductScopedViewsStats = {
   viewsThisWeek: 0,
   viewsThisMonth: 0,
 };
-
-function formatNumber(num: number): string {
-  return new Intl.NumberFormat("en-US").format(num);
-}
 
 export function ProductViewsTable({ productId }: ProductViewsTableProps) {
   const [views, setViews] = useState<AdminProductViewRow[]>([]);
@@ -144,27 +145,6 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
     userNameFilter !== "" ||
     sessionIdFilter !== "" ||
     viewerTypeFilter !== "all";
-
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  const truncateText = (text: string | null, maxLength: number = 30) => {
-    if (!text) return "—";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
 
   if (loading && views.length === 0) {
     return (
@@ -317,9 +297,9 @@ export function ProductViewsTable({ productId }: ProductViewsTableProps) {
                       <TableCell>
                         <span
                           className="truncate block max-w-[200px]"
-                          title={formatDate(view.viewed_at)}
+                          title={formatViewedAtLong(view.viewed_at)}
                         >
-                          {formatDate(view.viewed_at)}
+                          {formatViewedAtLong(view.viewed_at)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">

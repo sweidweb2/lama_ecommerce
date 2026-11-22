@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-interface AdminPaginationProps {
+interface AdminUrlPaginationProps {
   totalPages: number
   basePath?: string
   onNavigate?: (href: string) => void
@@ -22,11 +22,12 @@ function visiblePages(current: number, total: number): number[] {
   return [...pages].sort((a, b) => a - b)
 }
 
-export function AdminPagination({
+/** URL-driven admin pagination (`?page=`). Client-state lists use `components/admin/shared/AdminPagination`. */
+export function AdminUrlPagination({
   totalPages,
   basePath = '/admin/products',
   onNavigate,
-}: AdminPaginationProps) {
+}: AdminUrlPaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentPage = Number(searchParams.get('page')) || 1

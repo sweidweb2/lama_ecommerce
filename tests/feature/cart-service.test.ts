@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminProfile } from "../helpers/mocks";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 const requireAdmin = vi.fn();
 const getAdminShopBlockForUserId = vi.fn();
 const hasActiveCart = vi.fn();
+const hasActiveCartBySessionId = vi.fn();
 const createCart = vi.fn();
 const createCartItem = vi.fn();
+const createCartItemAsAdmin = vi.fn();
 const updateCartItem = vi.fn();
+const updateCartItemForGuest = vi.fn();
 const hardDeleteCartItem = vi.fn();
+const hardDeleteCartItemForGuest = vi.fn();
 const getAllCartsForAdmin = vi.fn();
 const getCartByIdForAdmin = vi.fn();
 const getCartItemsWithProductsByCartIdForAdmin = vi.fn();
@@ -27,7 +32,14 @@ vi.mock("@/repositories/cart.repository", () => ({
   createCart: (...args: unknown[]) => createCart(...args),
   createCartForAdmin: vi.fn(),
   hasActiveCart: (...args: unknown[]) => hasActiveCart(...args),
-  hasActiveCartBySessionId: vi.fn(),
+  hasActiveCartBySessionId: (...args: unknown[]) =>
+    hasActiveCartBySessionId(...args),
+  // Unified SessionContext helpers: route to the same spies as the legacy aliases.
+  hasActiveCartForSession: (session: SessionContext) =>
+    session.kind === "user"
+      ? hasActiveCart(session.userId)
+      : hasActiveCartBySessionId(session.sessionId),
+  getCartForSession: vi.fn(),
   getCartByUserId: vi.fn(),
   getCartBySessionId: vi.fn(),
   getAllCartsForAdmin: (...args: unknown[]) => getAllCartsForAdmin(...args),
@@ -41,17 +53,33 @@ vi.mock("@/repositories/cart.repository", () => ({
 
 vi.mock("@/repositories/cart_item.repository", () => ({
   createCartItem: (...args: unknown[]) => createCartItem(...args),
-  createCartItemAsAdmin: vi.fn(),
+  createCartItemAsAdmin: (...args: unknown[]) => createCartItemAsAdmin(...args),
+  createCartItemForSession: (session: SessionContext, input: unknown) =>
+    session.kind === "user" ? createCartItem(input) : createCartItemAsAdmin(input),
+  updateCartItemForSession: (
+    session: SessionContext,
+    itemId: string,
+    input: unknown,
+  ) =>
+    session.kind === "user"
+      ? updateCartItem(itemId, input)
+      : updateCartItemForGuest(session.sessionId, itemId, input),
+  hardDeleteCartItemForSession: (session: SessionContext, itemId: string) =>
+    session.kind === "user"
+      ? hardDeleteCartItem(itemId)
+      : hardDeleteCartItemForGuest(session.sessionId, itemId),
   getCartItemsWithProductsByCartId: vi.fn(),
   getCartItemsWithProductsByCartIdForAdmin: (...args: unknown[]) =>
     getCartItemsWithProductsByCartIdForAdmin(...args),
   hardDeleteCartItem: (...args: unknown[]) => hardDeleteCartItem(...args),
-  hardDeleteCartItemForGuest: vi.fn(),
+  hardDeleteCartItemForGuest: (...args: unknown[]) =>
+    hardDeleteCartItemForGuest(...args),
   hardDeleteCartItemForAdmin: vi.fn(),
   hardDeleteCartItemsByCartId: vi.fn(),
   updateCartItem: (...args: unknown[]) => updateCartItem(...args),
   updateCartItemForAdmin: vi.fn(),
-  updateCartItemForGuest: vi.fn(),
+  updateCartItemForGuest: (...args: unknown[]) =>
+    updateCartItemForGuest(...args),
   moveCartItemsToCart: vi.fn(),
 }));
 

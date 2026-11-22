@@ -27,7 +27,7 @@ import Link from "@/components/ui/link"
 
 /** Flat list of admin pages for search (href + label). */
 const ADMIN_PAGES = [
-  { href: "/admin/analytics", label: "Analytics" },
+  { href: ROUTES.ADMIN_HOME, label: "Analytics" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/categories", label: "Categories" },
@@ -43,7 +43,7 @@ const ADMIN_PAGES = [
   { href: "/admin/backups", label: "Backups" },
   { href: "/admin/shippings", label: "Shippings" },
   { href: "/admin/promocodes", label: "Promo Codes" },
-  { href: "/admin/account", label: "Account" },
+  { href: ROUTES.ADMIN_ACCOUNT, label: "Account" },
 ]
 
 export function AdminHeader() {

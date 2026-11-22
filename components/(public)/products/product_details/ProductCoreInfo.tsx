@@ -1,7 +1,7 @@
 import Link from "@/components/ui/link"
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import type { Category, Brand } from '@/types/product_utf8'
+import type { Category, Brand } from '@/types/product'
 
 interface ProductCoreInfoProps {
   name: string

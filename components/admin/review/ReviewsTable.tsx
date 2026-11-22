@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { TableWrapper } from '@/components/admin/table-wrapper'
 import { EditReviewDialog } from '@/components/admin/review/edit_form'
 import { DeleteReviewDialog } from '@/components/admin/review/delete_dialog'
-import { AdminPagination } from '@/components/admin/product/AdminPagination'
+import { AdminUrlPagination } from '@/components/admin/product/AdminUrlPagination'
 import type { AdminReview } from '@/components/admin/review/create_form'
 import { Star, X } from 'lucide-react'
 
@@ -224,7 +224,7 @@ export function ReviewsTable({
       </div>
 
       {totalPages > 1 && (
-        <AdminPagination totalPages={totalPages} basePath="/admin/reviews" />
+        <AdminUrlPagination totalPages={totalPages} basePath="/admin/reviews" />
       )}
 
       <TableWrapper>
@@ -297,7 +297,7 @@ export function ReviewsTable({
       </TableWrapper>
 
       {totalPages > 1 && (
-        <AdminPagination totalPages={totalPages} basePath="/admin/reviews" />
+        <AdminUrlPagination totalPages={totalPages} basePath="/admin/reviews" />
       )}
     </div>
   )

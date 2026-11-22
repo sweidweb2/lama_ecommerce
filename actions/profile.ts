@@ -18,6 +18,7 @@ import { profileAdminUpdateSchema } from "@/lib/validators/user_profile/base";
 import { updateProfileSchema } from "@/lib/validators/user_profile/update";
 import { createUserSchema } from "@/lib/validators/user_profile/create";
 import { adminResetPasswordSchema } from "@/lib/validators/user_profile/reset_password";
+import { ROUTES } from "@/lib/constants/routes";
 
 type Result = { success: true; data?: unknown } | { success: false; error: string };
 
@@ -76,8 +77,8 @@ export async function updateOwnProfileAction(payload: {
     return { success: false, error: "Update failed" };
   }
 
-  revalidatePath("/account");
-  revalidatePath("/admin/account");
+  revalidatePath(ROUTES.ACCOUNT);
+  revalidatePath(ROUTES.ADMIN_ACCOUNT);
   return { success: true, data: updated };
 }
 

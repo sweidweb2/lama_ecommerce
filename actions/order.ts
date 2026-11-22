@@ -7,6 +7,7 @@ import {
   deleteOrderService,
   updateOrderService,
 } from "@/services/order.service";
+import { ORDER_STATUSES } from "@/lib/constants/order-status";
 import type { OrderStatus, PaymentStatus } from "@/types/order";
 
 /**
@@ -72,17 +73,7 @@ export async function updateOrderStatusAction(
     return { success: false, error: "Forbidden" };
   }
 
-  const validStatuses: OrderStatus[] = [
-    "pending",
-    "processing",
-    "packed",
-    "shipped",
-    "delivered",
-    "returned",
-    "cancelled",
-  ];
-
-  if (!validStatuses.includes(status)) {
+  if (!(ORDER_STATUSES as readonly string[]).includes(status)) {
     return { success: false, error: "Invalid order status" };
   }
 

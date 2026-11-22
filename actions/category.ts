@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getCurrentUserProfile } from "@/services/profile.service";
-import { ROLES } from "@/lib/constants/roles";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  formBool,
+  formString,
+  formStringIfPresent,
+} from "@/lib/actions/form-helpers";
 import {
   createCategoryService,
   updateCategoryService,
@@ -19,28 +23,13 @@ const idSchema = z.string().uuid();
 
 export async function createCategoryAction(formData: FormData): Promise<void> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
-
-    const raw = {
-      name: formData.get("name"),
-      slug: formData.get("slug"),
-      parent_id: formData.get("parent_id"),
-      is_active: formData.get("is_active"),
-    };
+    await requireAdmin();
 
     const parsed = createCategorySchema.parse({
-      name: raw.name?.toString().trim(),
-      slug: raw.slug?.toString().trim() ?? "",
-      parent_id: raw.parent_id
-        ? raw.parent_id.toString().trim() || null
-        : null,
-      is_active:
-        raw.is_active !== null && raw.is_active !== undefined
-          ? raw.is_active === "on" || raw.is_active === "true"
-          : true,
+      name: formString(formData, "name") ?? undefined,
+      slug: formString(formData, "slug") ?? "",
+      parent_id: formString(formData, "parent_id"),
+      is_active: formBool(formData, "is_active", true),
     });
 
     const created = await createCategoryService(parsed);
@@ -57,39 +46,15 @@ export async function createCategoryAction(formData: FormData): Promise<void> {
 
 export async function updateCategoryAction(formData: FormData): Promise<void> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
-    const idRaw = formData.get("id")?.toString();
-    const id = idSchema.parse(idRaw);
-
-    const raw = {
-      name: formData.get("name"),
-      slug: formData.get("slug"),
-      parent_id: formData.get("parent_id"),
-      is_active: formData.get("is_active"),
-    };
-
-    const parentIdRaw = raw.parent_id?.toString().trim();
+    const id = idSchema.parse(formData.get("id")?.toString());
 
     const parsed = updateCategorySchema.parse({
-      name: raw.name ? raw.name.toString().trim() : undefined,
-      slug:
-        raw.slug === null || raw.slug === undefined
-          ? undefined
-          : raw.slug.toString().trim(),
-      parent_id:
-        parentIdRaw === undefined
-          ? undefined
-          : parentIdRaw === ""
-          ? null
-          : parentIdRaw,
-      is_active:
-        raw.is_active !== null && raw.is_active !== undefined
-          ? raw.is_active === "on" || raw.is_active === "true"
-          : undefined,
+      name: formStringIfPresent(formData, "name") ?? undefined,
+      slug: formStringIfPresent(formData, "slug") ?? undefined,
+      parent_id: formStringIfPresent(formData, "parent_id"),
+      is_active: formBool(formData, "is_active"),
     });
 
     const updated = await updateCategoryService(id, parsed);
@@ -108,13 +73,9 @@ export async function deleteCategoryAction(
   formData: FormData,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
-    const idRaw = formData.get("id")?.toString();
-    const id = idSchema.parse(idRaw);
+    const id = idSchema.parse(formData.get("id")?.toString());
 
     const success = await deleteCategoryService(id);
     if (!success) {
@@ -132,4 +93,3 @@ export async function deleteCategoryAction(
     };
   }
 }
-

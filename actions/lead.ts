@@ -90,11 +90,10 @@ export async function exportLeadsAction(query?: string) {
   return await exportLeadsService(query);
 }
 
-/** @deprecated Prefer getLeadsPageAction — kept for compatibility. */
+/** @deprecated Prefer getLeadsPageAction / exportLeadsAction — kept for compatibility. */
 export async function getLeadsAction() {
   await requireAdmin();
-  const result = await listLeadsService({ page: 1, pageSize: 10000 });
-  return result.items;
+  return await exportLeadsService();
 }
 
 /** Create a lead as admin. Revalidates /admin/leads on success. */

@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUserProfile } from "@/services/profile.service";
-import { ROLES } from "@/lib/constants/roles";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getAllPromoCodes,
   createPromoCode,
@@ -14,8 +13,12 @@ import { updatePromoCodeFullSchema } from "@/lib/validators/promo/update";
 
 /** Soft admin check: callers get empty/null/false instead of a thrown error. */
 async function isAdminCaller(): Promise<boolean> {
-  const profile = await getCurrentUserProfile();
-  return !!profile && profile.role === ROLES.ADMIN;
+  try {
+    await requireAdmin();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

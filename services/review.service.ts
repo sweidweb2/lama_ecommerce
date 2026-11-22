@@ -17,7 +17,7 @@ import { adminCreateReviewSchema } from "@/lib/validators/product_review/admin_c
 import { adminUpdateReviewSchema } from "@/lib/validators/product_review/admin_update";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
-import type { Review } from "@/types/product_utf8";
+import type { Review } from "@/types/product";
 
 export type {
   AdminReviewRow,

@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, X, TrendingUp } from "lucide-react";
 import type { AdminProductViewRow } from "@/repositories/product_view.repository";
+import {
+  formatViewedAtShort,
+  matchesViewerType,
+} from "@/components/admin/product_view/product-views-shared";
+import { truncateText } from "@/lib/utils";
 
 interface ProductViewsTableProps {
   views: AdminProductViewRow[];
@@ -46,23 +51,6 @@ const MAX_CHARS = {
   session_id: 20,
 };
 
-function truncateText(text: string | null, maxLength: number): string {
-  if (!text) return "—";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
-
-function formatDate(dateString: string): string {
-  try {
-    return new Date(dateString).toLocaleString(undefined, {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  } catch {
-    return dateString;
-  }
-}
-
 function filterViews(
   views: AdminProductViewRow[],
   productName: string,
@@ -82,11 +70,7 @@ function filterViews(
       if (!viewUserName.includes(un) && !"guest".includes(un)) return false;
     }
     
-    // Viewer type filter
-    if (viewerType === "user" && !view.user_id) return false;
-    if (viewerType === "guest" && view.user_id) return false;
-    
-    return true;
+    return matchesViewerType(view, viewerType);
   });
 }
 
@@ -490,7 +474,7 @@ export function ProductViewsTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {formatDate(view.viewed_at)}
+                    {formatViewedAtShort(view.viewed_at)}
                   </TableCell>
                 </TableRow>
               ))

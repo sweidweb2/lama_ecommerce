@@ -4,7 +4,7 @@ import {
     getProductPriceBoundsService,
     getProductVariantFacetsService,
 } from '@/services/product.service'
-import { getCategoriesService } from '@/services/categories.service'
+import { getCategoriesService } from '@/services/category.service'
 import { ProductsPageClient } from '@/components/(public)/products/ProductsPageClient'
 import { normalizeColorValue } from '@/lib/constants/color-palette'
 

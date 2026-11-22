@@ -134,38 +134,40 @@ export async function getSalesAndOrdersByMonth(
 ): Promise<Array<{ month: string; sales: number; orders: number }>> {
   const supabase = createSupabaseAdminClient();
   const monthKeys = listUtcMonthKeysForRange(range);
+  if (monthKeys.length === 0) return [];
 
-  return Promise.all(
-    monthKeys.map(async (month) => {
-      const { year, monthIndex } = parseMonthKey(month);
-      const fromIso = monthStartUtc(year, monthIndex).toISOString();
-      const toIsoExclusive = monthStartUtc(year, monthIndex + 1).toISOString();
+  const first = parseMonthKey(monthKeys[0]);
+  const last = parseMonthKey(monthKeys[monthKeys.length - 1]);
+  const fromIso = monthStartUtc(first.year, first.monthIndex).toISOString();
+  const toIsoExclusive = monthStartUtc(
+    last.year,
+    last.monthIndex + 1,
+  ).toISOString();
 
-      const countQuery = applyRevenueStatusFilter(
-        applyCreatedAtRange(
-          supabase.from("orders").select("id", { count: "exact", head: true }),
-          fromIso,
-          toIsoExclusive,
-        ),
-      );
-      const sumQuery = supabase.rpc("admin_orders_revenue_sum", {
-        p_from: fromIso,
-        p_to_exclusive: toIsoExclusive,
-      });
+  const { data, error } = await supabase.rpc("admin_orders_by_month", {
+    p_from: fromIso,
+    p_to_exclusive: toIsoExclusive,
+  });
+  assertNoQueryErrors([{ label: "ordersByMonth", result: { error } }]);
 
-      const [countRes, sumRes] = await Promise.all([countQuery, sumQuery]);
-      assertNoQueryErrors([
-        { label: `ordersCount:${month}`, result: countRes },
-        { label: `ordersSum:${month}`, result: sumRes },
-      ]);
+  const byMonth = new Map<string, { sales: number; orders: number }>();
+  for (const row of data ?? []) {
+    const r = row as {
+      month: string;
+      orders: number | string;
+      sales: number | string;
+    };
+    byMonth.set(r.month, {
+      orders: Number(r.orders || 0),
+      sales: roundMoney(r.sales),
+    });
+  }
 
-      return {
-        month,
-        orders: countRes.count || 0,
-        sales: roundMoney(sumRes.data),
-      };
-    }),
-  );
+  return monthKeys.map((month) => ({
+    month,
+    orders: byMonth.get(month)?.orders ?? 0,
+    sales: byMonth.get(month)?.sales ?? 0,
+  }));
 }
 
 /**
@@ -177,26 +179,32 @@ export async function getUserGrowthByMonth(
 ): Promise<Array<{ month: string; users: number }>> {
   const supabase = createSupabaseAdminClient();
   const monthKeys = listUtcMonthKeysForRange(range);
+  if (monthKeys.length === 0) return [];
 
-  return Promise.all(
-    monthKeys.map(async (month) => {
-      const { year, monthIndex } = parseMonthKey(month);
-      const fromIso = monthStartUtc(year, monthIndex).toISOString();
-      const toIsoExclusive = monthStartUtc(year, monthIndex + 1).toISOString();
+  const first = parseMonthKey(monthKeys[0]);
+  const last = parseMonthKey(monthKeys[monthKeys.length - 1]);
+  const fromIso = monthStartUtc(first.year, first.monthIndex).toISOString();
+  const toIsoExclusive = monthStartUtc(
+    last.year,
+    last.monthIndex + 1,
+  ).toISOString();
 
-      const result = await applyCreatedAtRange(
-        supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("is_active", true),
-        fromIso,
-        toIsoExclusive,
-      );
+  const { data, error } = await supabase.rpc("admin_users_by_month", {
+    p_from: fromIso,
+    p_to_exclusive: toIsoExclusive,
+  });
+  assertNoQueryErrors([{ label: "usersByMonth", result: { error } }]);
 
-      assertNoQueryErrors([{ label: `users:${month}`, result }]);
-      return { month, users: result.count || 0 };
-    }),
-  );
+  const byMonth = new Map<string, number>();
+  for (const row of data ?? []) {
+    const r = row as { month: string; users: number | string };
+    byMonth.set(r.month, Number(r.users || 0));
+  }
+
+  return monthKeys.map((month) => ({
+    month,
+    users: byMonth.get(month) ?? 0,
+  }));
 }
 
 /**
@@ -206,19 +214,19 @@ export async function getOrderStatusBreakdown(): Promise<
   Array<{ status: string; count: number }>
 > {
   const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.rpc("admin_order_status_counts");
+  assertNoQueryErrors([{ label: "orderStatus", result: { error } }]);
 
-  const results = await Promise.all(
-    ORDER_STATUSES.map(async (status) => {
-      const result = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("status", status);
-      assertNoQueryErrors([{ label: `orderStatus:${status}`, result }]);
-      return { status: titleCaseStatus(status), count: result.count || 0 };
-    }),
-  );
+  const byStatus = new Map<string, number>();
+  for (const row of data ?? []) {
+    const r = row as { status: string; count: number | string };
+    byStatus.set(r.status, Number(r.count || 0));
+  }
 
-  return results.filter((row) => row.count > 0);
+  return ORDER_STATUSES.map((status) => ({
+    status: titleCaseStatus(status),
+    count: byStatus.get(status) ?? 0,
+  })).filter((row) => row.count > 0);
 }
 
 /**
@@ -228,19 +236,19 @@ export async function getPaymentStatusBreakdown(): Promise<
   Array<{ status: string; count: number }>
 > {
   const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.rpc("admin_payment_status_counts");
+  assertNoQueryErrors([{ label: "paymentStatus", result: { error } }]);
 
-  const results = await Promise.all(
-    PAYMENT_STATUSES.map(async (status) => {
-      const result = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("payment_status", status);
-      assertNoQueryErrors([{ label: `paymentStatus:${status}`, result }]);
-      return { status: titleCaseStatus(status), count: result.count || 0 };
-    }),
-  );
+  const byStatus = new Map<string, number>();
+  for (const row of data ?? []) {
+    const r = row as { status: string; count: number | string };
+    byStatus.set(r.status, Number(r.count || 0));
+  }
 
-  return results.filter((row) => row.count > 0);
+  return PAYMENT_STATUSES.map((status) => ({
+    status: titleCaseStatus(status),
+    count: byStatus.get(status) ?? 0,
+  })).filter((row) => row.count > 0);
 }
 
 /**

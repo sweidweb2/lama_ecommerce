@@ -16,6 +16,7 @@ import {
   getTopProductsByRevenueService,
   type AnalyticsResult,
 } from "@/services/analytics.service"
+import { ROUTES } from "@/lib/constants/routes"
 
 interface AnalyticsPageProps {
   searchParams: Promise<{
@@ -33,7 +34,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const params = await searchParams
   const range = parseAdminDateRange(params, { defaultPreset: "all" })
   const boundedRange = range.preset === "all" ? undefined : range
-  const reloadHref = adminDateRangeHref("/admin/analytics", range)
+  const reloadHref = adminDateRangeHref(ROUTES.ADMIN_HOME, range)
 
   const [
     salesResult,

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { adminProfile, userProfile } from "../helpers/mocks";
+import { adminProfile } from "../helpers/mocks";
 
 const getCurrentAuthUserFromAction = vi.fn();
-const getProfileByUserId = vi.fn();
+const requireAdmin = vi.fn();
 const extractDatabaseService = vi.fn();
 
 vi.mock("@/repositories/auth.repository", () => ({
@@ -10,8 +10,8 @@ vi.mock("@/repositories/auth.repository", () => ({
     getCurrentAuthUserFromAction(...args),
 }));
 
-vi.mock("@/repositories/profile.repository", () => ({
-  getProfileByUserId: (...args: unknown[]) => getProfileByUserId(...args),
+vi.mock("@/lib/auth/require-admin", () => ({
+  requireAdmin: (...args: unknown[]) => requireAdmin(...args),
 }));
 
 vi.mock("@/services/backup.service", () => ({
@@ -48,7 +48,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("returns 403 for non-admin profile", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-user" });
-    getProfileByUserId.mockResolvedValue(userProfile);
+    requireAdmin.mockRejectedValue(new Error("Unauthorized"));
     const { GET } = await import("@/app/api/admin/backups/extract/route");
     const res = await GET(request());
     expect(res.status).toBe(403);
@@ -58,7 +58,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("returns 403 when profile is missing", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-user" });
-    getProfileByUserId.mockResolvedValue(null);
+    requireAdmin.mockRejectedValue(new Error("Unauthorized"));
     const { GET } = await import("@/app/api/admin/backups/extract/route");
     const res = await GET(request());
     expect(res.status).toBe(403);
@@ -68,7 +68,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("streams complete event for admin on success", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
-    getProfileByUserId.mockResolvedValue(adminProfile);
+    requireAdmin.mockResolvedValue(adminProfile);
     extractDatabaseService.mockImplementation(
       async ({
         onProgress,
@@ -113,7 +113,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("streams error event when service reports Forbidden", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
-    getProfileByUserId.mockResolvedValue(adminProfile);
+    requireAdmin.mockResolvedValue(adminProfile);
     extractDatabaseService.mockResolvedValue({
       success: false,
       error: "Forbidden",
@@ -130,7 +130,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("streams error event when service fails with other error", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
-    getProfileByUserId.mockResolvedValue(adminProfile);
+    requireAdmin.mockResolvedValue(adminProfile);
     extractDatabaseService.mockResolvedValue({
       success: false,
       error: "boom",
@@ -144,7 +144,7 @@ describe("GET /api/admin/backups/extract", () => {
 
   it("returns 400 for invalid format", async () => {
     getCurrentAuthUserFromAction.mockResolvedValue({ id: "user-admin" });
-    getProfileByUserId.mockResolvedValue(adminProfile);
+    requireAdmin.mockResolvedValue(adminProfile);
     const { GET } = await import("@/app/api/admin/backups/extract/route");
     const res = await GET(
       request("http://localhost/api/admin/backups/extract?format=xml"),

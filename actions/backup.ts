@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { deleteBackupAdmin } from "@/services/backup.service";
-import { getCurrentUserProfile } from "@/services/profile.service";
-import { canAccessAdmin } from "@/lib/auth/permissions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export async function deleteBackupAction(id: string) {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) {
+  try {
+    await requireAdmin();
+  } catch {
     return { success: false as const, error: "Forbidden" };
   }
 

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
-import { AdminPagination } from "@/components/admin/product/AdminPagination"
+import { AdminUrlPagination } from "@/components/admin/product/AdminUrlPagination"
 import { EditUserDialog, type AdminUser } from "@/components/admin/user/edit_form"
 import { X } from "lucide-react"
 import { truncateText } from "@/lib/utils"
@@ -249,7 +249,7 @@ export function UsersTable({
         </Table>
       </TableWrapper>
 
-      <AdminPagination totalPages={totalPages} basePath="/admin/users" />
+      <AdminUrlPagination totalPages={totalPages} basePath="/admin/users" />
     </div>
   )
 }

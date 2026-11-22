@@ -134,7 +134,7 @@ const menuItems: MenuItem[] = [
   },
   {
     id: "account",
-    href: "/admin/account",
+    href: ROUTES.ADMIN_ACCOUNT,
     label: "Account",
     icon: UserCircle,
   },

@@ -19,7 +19,7 @@ import {
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
-import { AdminPagination } from "./AdminPagination"
+import { AdminUrlPagination } from "./AdminUrlPagination"
 import { ChevronRight, Eye } from "lucide-react"
 import Link from "@/components/ui/link"
 import { cn, formatPrice } from "@/lib/utils"
@@ -130,7 +130,7 @@ export function ProductsTable({
         {" products"}
       </p>
 
-      <AdminPagination
+      <AdminUrlPagination
         totalPages={totalPages}
         basePath="/admin/products"
         onNavigate={onNavigate}
@@ -345,7 +345,7 @@ export function ProductsTable({
         </Table>
       </TableWrapper>
 
-      <AdminPagination
+      <AdminUrlPagination
         totalPages={totalPages}
         basePath="/admin/products"
         onNavigate={onNavigate}

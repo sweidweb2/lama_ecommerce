@@ -18,7 +18,11 @@ type AdminFormDialogProps<TValues> = {
   title: string;
   /** Built-in Plus/Edit trigger; ignored when `trigger` is provided. */
   triggerLabel?: string;
-  trigger?: ReactNode;
+  /**
+   * Custom trigger. Pass a render function to receive `open()` so the custom
+   * element can open the dialog (a plain ReactNode cannot).
+   */
+  trigger?: ReactNode | ((ctx: { open: () => void }) => ReactNode);
   contentClassName?: string;
   initialValues: TValues;
   submitLabel?: string;
@@ -110,7 +114,9 @@ export function AdminFormDialog<TValues>({
 
   return (
     <>
-      {trigger ?? defaultTrigger}
+      {typeof trigger === "function"
+        ? trigger({ open: openDialog })
+        : (trigger ?? defaultTrigger)}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className={contentClassName}>

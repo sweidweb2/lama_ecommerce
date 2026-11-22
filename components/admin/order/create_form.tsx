@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+} from "@/lib/constants/order-status"
 import type { OrderStatus, PaymentStatus } from "@/types/order"
 
 // Dummy users for selection
@@ -23,9 +27,6 @@ const DUMMY_USERS = [
   { id: "4", name: "Alice Williams", email: "alice.williams@example.com" },
   { id: "5", name: "Charlie Brown", email: "charlie.brown@example.com" },
 ]
-
-const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled']
-const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
 
 const NONE_VALUE = "__none__"
 

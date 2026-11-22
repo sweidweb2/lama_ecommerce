@@ -7,6 +7,7 @@ import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
 import type { Database } from "@/types/supabase";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 /**
  * Create a new cart.
@@ -169,107 +170,51 @@ export async function getCartByIdForAdmin(
 }
 
 /**
- * Check if a user has an active cart.
- * Returns true if the user has at least one cart, false otherwise.
+ * Supabase client for storefront cart reads:
+ * - user: Server Component client (RLS)
+ * - guest: service-role client (guest rows are not readable via anon RLS)
  */
-export async function hasActiveCart(
-  userId: string,
-): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
-  try {
-    const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await supabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error checking active cart:", error);
-      return {
-        success: false,
-        hasActiveCart: false,
-        error: error.message || "Failed to check active cart",
-      };
-    }
-
-    const hasActive = !!data;
-    return {
-      success: true,
-      hasActiveCart: hasActive,
-      data: data as Cart | undefined,
-    };
-  } catch (error) {
-    console.error("Unexpected error in hasActiveCart:", error);
-    return {
-      success: false,
-      hasActiveCart: false,
-      error:
-        error instanceof Error ? error.message : "Unexpected error occurred",
-    };
-  }
+async function getCartReadClient(session: SessionContext) {
+  return session.kind === "guest"
+    ? createSupabaseAdminClient()
+    : await createSupabaseServerComponentClient();
 }
 
 /**
- * Get a cart for an authenticated user.
- * Returns the most recent cart for the user.
+ * Select the most recent cart for the session owner:
+ * users by `user_id`, guests by `session_id` with `user_id IS NULL`.
  */
-export async function getCartByUserId(
-  userId: string,
-): Promise<{ success: boolean; error?: string; data?: Cart }> {
-  try {
-    const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await supabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching user cart:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to fetch cart",
-      };
-    }
-
-    return {
-      success: true,
-      data: data as Cart | undefined,
-    };
-  } catch (error) {
-    console.error("Unexpected error in getCartByUserId:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Unexpected error occurred",
-    };
-  }
+async function selectLatestCartForSession(session: SessionContext) {
+  const supabase = await getCartReadClient(session);
+  const base = supabase.from("carts").select("*");
+  const scoped =
+    session.kind === "user"
+      ? base.eq("user_id", session.userId)
+      : base.eq("session_id", session.sessionId).is("user_id", null);
+  return scoped
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 }
 
 /**
- * Check if a guest session has an active cart.
- * Uses service-role client; always filters by session_id + user_id IS NULL.
+ * Check if the session (user or guest) has an active cart.
+ * Returns true if at least one cart exists, false otherwise.
+ * Guests use the service-role client, always filtering by session_id + user_id IS NULL.
  */
-export async function hasActiveCartBySessionId(
-  sessionId: string,
+export async function hasActiveCartForSession(
+  session: SessionContext,
 ): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
   try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("carts")
-      .select("*")
-      .eq("session_id", sessionId)
-      .is("user_id", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await selectLatestCartForSession(session);
 
     if (error) {
-      console.error("Error checking active cart by session:", error);
+      console.error(
+        session.kind === "user"
+          ? "Error checking active cart:"
+          : "Error checking active cart by session:",
+        error,
+      );
       return {
         success: false,
         hasActiveCart: false,
@@ -283,7 +228,7 @@ export async function hasActiveCartBySessionId(
       data: data as Cart | undefined,
     };
   } catch (error) {
-    console.error("Unexpected error in hasActiveCartBySessionId:", error);
+    console.error("Unexpected error in hasActiveCartForSession:", error);
     return {
       success: false,
       hasActiveCart: false,
@@ -294,25 +239,22 @@ export async function hasActiveCartBySessionId(
 }
 
 /**
- * Get a cart for a guest by session_id.
- * Uses service-role client; returns the most recent guest cart for the session.
+ * Get the most recent cart for the session (user or guest).
+ * Guests use the service-role client, always filtering by session_id + user_id IS NULL.
  */
-export async function getCartBySessionId(
-  sessionId: string,
+export async function getCartForSession(
+  session: SessionContext,
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("carts")
-      .select("*")
-      .eq("session_id", sessionId)
-      .is("user_id", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await selectLatestCartForSession(session);
 
     if (error) {
-      console.error("Error fetching session cart:", error);
+      console.error(
+        session.kind === "user"
+          ? "Error fetching user cart:"
+          : "Error fetching session cart:",
+        error,
+      );
       return {
         success: false,
         error: error.message || "Failed to fetch cart",
@@ -324,13 +266,53 @@ export async function getCartBySessionId(
       data: data as Cart | undefined,
     };
   } catch (error) {
-    console.error("Unexpected error in getCartBySessionId:", error);
+    console.error("Unexpected error in getCartForSession:", error);
     return {
       success: false,
       error:
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
+}
+
+/**
+ * Check if a user has an active cart.
+ * Returns true if the user has at least one cart, false otherwise.
+ */
+export async function hasActiveCart(
+  userId: string,
+): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
+  return hasActiveCartForSession({ kind: "user", userId });
+}
+
+/**
+ * Get a cart for an authenticated user.
+ * Returns the most recent cart for the user.
+ */
+export async function getCartByUserId(
+  userId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  return getCartForSession({ kind: "user", userId });
+}
+
+/**
+ * Check if a guest session has an active cart.
+ * Uses service-role client; always filters by session_id + user_id IS NULL.
+ */
+export async function hasActiveCartBySessionId(
+  sessionId: string,
+): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
+  return hasActiveCartForSession({ kind: "guest", sessionId });
+}
+
+/**
+ * Get a cart for a guest by session_id.
+ * Uses service-role client; returns the most recent guest cart for the session.
+ */
+export async function getCartBySessionId(
+  sessionId: string,
+): Promise<{ success: boolean; error?: string; data?: Cart }> {
+  return getCartForSession({ kind: "guest", sessionId });
 }
 
 /**

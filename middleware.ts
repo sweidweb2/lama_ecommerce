@@ -240,7 +240,7 @@ export async function middleware(request: NextRequest) {
 
     if (profile.role === ROLES.ADMIN) {
       const redirectResponse = NextResponse.redirect(
-        new URL("/admin/account", request.url),
+        new URL(ROUTES.ADMIN_ACCOUNT, request.url),
       );
       copyCookies(response, redirectResponse);
       return redirectResponse;

@@ -2,7 +2,7 @@ import AdminCategoriesClient from "./admin-categories-client";
 import {
   getAdminCategoriesService,
   getCategoryProductCountsService,
-} from "@/services/categories.service";
+} from "@/services/category.service";
 import {
   createCategoryAction,
   updateCategoryAction,

@@ -1,7 +1,6 @@
 import { extractDatabaseService } from "@/services/backup.service";
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
-import { getProfileByUserId } from "@/repositories/profile.repository";
-import { canAccessAdmin } from "@/lib/auth/permissions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   extractFormatSchema,
   type ExtractStreamEvent,
@@ -18,8 +17,9 @@ export async function GET(request: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const profile = await getProfileByUserId(user.id);
-    if (!profile || !canAccessAdmin(profile.role)) {
+    try {
+      await requireAdmin();
+    } catch {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 

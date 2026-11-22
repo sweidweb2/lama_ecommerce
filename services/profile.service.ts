@@ -15,7 +15,7 @@ import {
 } from "@/repositories/profile.repository";
 import { getUserIdsWithActiveCarts } from "@/repositories/cart.repository";
 import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
-import { ROLES } from "@/lib/constants/roles";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   ADMIN_CANNOT_SHOP_MESSAGE,
   canAccessAdmin,
@@ -72,8 +72,11 @@ export async function getAdminShopBlockForUserId(
  * Prefer listProfilesForAdminService for paged UI lists.
  */
 export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) return [];
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return getAllProfilesForAdmin();
 }
 
@@ -83,8 +86,9 @@ export async function getProfilesForAdmin(): Promise<AdminProfileRow[]> {
 export async function listProfilesForAdminService(
   params: ListProfilesForAdminParams,
 ): Promise<ListProfilesForAdminResult> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) {
+  try {
+    await requireAdmin();
+  } catch {
     return { items: [], total: 0 };
   }
   return listProfilesForAdmin(params);
@@ -95,8 +99,11 @@ export async function listProfilesForAdminService(
  * Returns empty if caller is not admin.
  */
 export async function getUsersWithoutActiveCarts(): Promise<AdminProfileRow[]> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) return [];
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
 
   const userIdsWithActiveCarts = await getUserIdsWithActiveCarts();
   return listActiveProfilesExcludingUserIds(userIdsWithActiveCarts);
@@ -125,8 +132,11 @@ export async function updateProfileAdmin(
     is_active?: boolean;
   },
 ): Promise<Profile | null> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) return null;
+  try {
+    await requireAdmin();
+  } catch {
+    return null;
+  }
   return updateProfileById(profileId, updates);
 }
 
@@ -144,8 +154,9 @@ export async function createUserAdmin(params: {
   role: ProfileRole;
   status: "active" | "inactive";
 }): Promise<CreateUserAdminResult> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) {
+  try {
+    await requireAdmin();
+  } catch {
     return { ok: false, error: "Forbidden" };
   }
 
@@ -186,8 +197,9 @@ export async function resetUserPasswordAdmin(
   profileId: string,
   password: string,
 ): Promise<ResetUserPasswordAdminResult> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== ROLES.ADMIN) {
+  try {
+    await requireAdmin();
+  } catch {
     return { ok: false, error: "Forbidden" };
   }
 

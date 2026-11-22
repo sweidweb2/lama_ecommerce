@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "@/components/ui/link";
-import type { HomeCategory } from "@/services/categories.service";
+import type { HomeCategory } from "@/services/category.service";
 
 interface CategoryShowcaseProps {
     categories: HomeCategory[];

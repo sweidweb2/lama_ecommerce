@@ -1,15 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -19,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { AdminFormDialog } from "@/components/admin/shared/admin-form-dialog";
 import { createQuestionAction } from "@/actions/product_question";
 
 export type AdminQuestion = {
@@ -50,168 +41,153 @@ interface CreateQuestionDialogProps {
   profiles: ProfileOption[];
 }
 
+type CreateValues = {
+  productId: string;
+  userId: string;
+  question: string;
+  answer: string;
+  isApproved: string;
+};
+
+const INITIAL: CreateValues = {
+  productId: "",
+  userId: NONE_VALUE,
+  question: "",
+  answer: "",
+  isApproved: "false",
+};
+
 export function CreateQuestionDialog({ products, profiles }: CreateQuestionDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [productId, setProductId] = useState<string>("");
-  const [userId, setUserId] = useState<string>(NONE_VALUE);
-  const [question, setQuestion] = useState<string>("");
-  const [answer, setAnswer] = useState<string>("");
-  const [isApproved, setIsApproved] = useState<string>("false");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!productId || !question.trim()) return;
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const result = await createQuestionAction({
-        product_id: productId,
-        user_id: userId !== NONE_VALUE ? userId : null,
-        question: question.trim(),
-        answer: answer.trim() || null,
-        is_approved: isApproved === "true",
-      });
-      if (!result.success) {
-        setError(result.error ?? "Failed to create question");
-        return;
-      }
-      setProductId("");
-      setUserId(NONE_VALUE);
-      setQuestion("");
-      setAnswer("");
-      setIsApproved("false");
-      setOpen(false);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create question");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setProductId("");
-    setUserId(NONE_VALUE);
-    setQuestion("");
-    setAnswer("");
-    setIsApproved("false");
-    setError(null);
-    setOpen(false);
-  };
 
   return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />
-        Create Question
-      </Button>
+    <AdminFormDialog<CreateValues>
+      mode="create"
+      title="Create Question"
+      triggerLabel="Create Question"
+      contentClassName="max-w-xl max-h-[90vh] overflow-y-auto"
+      initialValues={INITIAL}
+      submitLabel="Create Question"
+      toastMessages={{ errorTitle: "Failed to create question" }}
+      onSuccess={() => router.refresh()}
+      onSubmit={async (values) => {
+        if (!values.productId) {
+          return { success: false, error: "Please select a product" };
+        }
+        if (!values.question.trim()) {
+          return { success: false, error: "Question is required" };
+        }
+        const result = await createQuestionAction({
+          product_id: values.productId,
+          user_id: values.userId !== NONE_VALUE ? values.userId : null,
+          question: values.question.trim(),
+          answer: values.answer.trim() || null,
+          is_approved: values.isApproved === "true",
+        });
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error ?? "Failed to create question",
+          };
+        }
+        return { success: true };
+      }}
+    >
+      {({ values, setValues }) => (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="qa-product">
+              Product <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={values.productId}
+              onValueChange={(value) =>
+                setValues((prev) => ({ ...prev, productId: value }))
+              }
+            >
+              <SelectTrigger id="qa-product">
+                <SelectValue placeholder="Select a product" />
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Question</DialogTitle>
-          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="qa-user">User (optional)</Label>
+            <Select
+              value={values.userId}
+              onValueChange={(value) =>
+                setValues((prev) => ({ ...prev, userId: value }))
+              }
+            >
+              <SelectTrigger id="qa-user">
+                <SelectValue placeholder="Select a user or leave as guest" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_VALUE}>Guest / Anonymous</SelectItem>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="qa-product">
-                Product <span className="text-destructive">*</span>
-              </Label>
-              <Select value={productId} onValueChange={setProductId}>
-                <SelectTrigger id="qa-product">
-                  <SelectValue placeholder="Select a product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="qa-question">
+              Question <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="qa-question"
+              value={values.question}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, question: e.target.value }))
+              }
+              placeholder="Write the customer question here..."
+              rows={3}
+              required
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="qa-user">User (optional)</Label>
-              <Select value={userId} onValueChange={setUserId}>
-                <SelectTrigger id="qa-user">
-                  <SelectValue placeholder="Select a user or leave as guest" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Guest / Anonymous</SelectItem>
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="qa-answer">Answer (optional)</Label>
+            <Textarea
+              id="qa-answer"
+              value={values.answer}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, answer: e.target.value }))
+              }
+              placeholder="Write the admin answer here..."
+              rows={3}
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="qa-question">
-                Question <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="qa-question"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Write the customer question here..."
-                rows={3}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qa-answer">Answer (optional)</Label>
-              <Textarea
-                id="qa-answer"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Write the admin answer here..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qa-approved">Approved</Label>
-              <Select value={isApproved} onValueChange={setIsApproved}>
-                <SelectTrigger id="qa-approved">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">Pending</SelectItem>
-                  <SelectItem value="true">Approved</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter className="mt-4 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                loading={isSubmitting}
-                disabled={!productId || !question.trim()}
-              >
-                Create Question
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+          <div className="space-y-2">
+            <Label htmlFor="qa-approved">Approved</Label>
+            <Select
+              value={values.isApproved}
+              onValueChange={(value) =>
+                setValues((prev) => ({ ...prev, isApproved: value }))
+              }
+            >
+              <SelectTrigger id="qa-approved">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="false">Pending</SelectItem>
+                <SelectItem value="true">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+    </AdminFormDialog>
   );
 }

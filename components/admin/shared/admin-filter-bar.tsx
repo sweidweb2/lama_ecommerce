@@ -81,16 +81,26 @@ export function AdminFilterBar({
   const pushUrl = useEffectEvent((next: Record<string, string>) => {
     if (sync !== "url") return;
     const params = new URLSearchParams();
-    for (const key of preserveParams) {
-      // preserveParams are expected to already be in the current URL via values or caller
-      if (next[key]) params.set(key, next[key]);
+    // Keep non-filter query keys (e.g. contact detail `id`) from the live URL
+    if (typeof window !== "undefined" && preserveParams.length > 0) {
+      const current = new URLSearchParams(window.location.search);
+      for (const key of preserveParams) {
+        const existing = next[key] || current.get(key);
+        if (existing) params.set(key, existing);
+      }
+    } else {
+      for (const key of preserveParams) {
+        if (next[key]) params.set(key, next[key]);
+      }
     }
     for (const field of fields) {
       const value = next[field.key]?.trim();
       if (value) params.set(field.key, value);
     }
+    // Filter changes reset pagination
+    params.delete("page");
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   });
 
   const handleChange = (key: string, value: string) => {

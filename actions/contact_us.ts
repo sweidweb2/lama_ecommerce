@@ -10,7 +10,6 @@ import {
 import type { ContactStatus } from "@/types/user";
 import {
   createContactUs,
-  getAllContactUs,
   listContactUs,
   exportContactUs,
   getContactUsById,
@@ -112,11 +111,6 @@ export async function deleteContactUsAction(id: string) {
   const result = await deleteContactUs(id);
   revalidatePath("/admin/contact");
   return result;
-}
-
-export async function getAllContactUsAction() {
-  await requireAdmin();
-  return await getAllContactUs();
 }
 
 export async function getContactsPageAction(params: ListContactMessagesParams) {

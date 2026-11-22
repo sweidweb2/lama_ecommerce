@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 const getAdminShopBlockForUserId = vi.fn();
 const getVariantWithParentActive = vi.fn();
@@ -6,6 +7,8 @@ const addWishlistItem = vi.fn();
 const addWishlistItemForGuest = vi.fn();
 const isInWishlist = vi.fn();
 const removeWishlistItemByVariant = vi.fn();
+const removeWishlistItemByVariantForGuest = vi.fn();
+const isInWishlistForGuest = vi.fn();
 const claimWishlistBySessionId = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
@@ -30,11 +33,31 @@ vi.mock("@/repositories/wishlist.repository", () => ({
   removeWishlistItemByIdForGuest: vi.fn(),
   removeWishlistItemByVariant: (...args: unknown[]) =>
     removeWishlistItemByVariant(...args),
-  removeWishlistItemByVariantForGuest: vi.fn(),
+  removeWishlistItemByVariantForGuest: (...args: unknown[]) =>
+    removeWishlistItemByVariantForGuest(...args),
   isInWishlist: (...args: unknown[]) => isInWishlist(...args),
-  isInWishlistForGuest: vi.fn(),
+  isInWishlistForGuest: (...args: unknown[]) => isInWishlistForGuest(...args),
   claimWishlistBySessionId: (...args: unknown[]) =>
     claimWishlistBySessionId(...args),
+  // Unified SessionContext helpers: route to the same spies as the legacy aliases.
+  getWishlistItemsForSession: vi.fn(),
+  countWishlistItemsForSession: vi.fn(),
+  addWishlistItemForSession: (session: SessionContext, variantId: string) =>
+    session.kind === "user"
+      ? addWishlistItem(session.userId, variantId)
+      : addWishlistItemForGuest(session.sessionId, variantId),
+  removeWishlistItemByIdForSession: vi.fn(),
+  removeWishlistItemByVariantForSession: (
+    session: SessionContext,
+    variantId: string,
+  ) =>
+    session.kind === "user"
+      ? removeWishlistItemByVariant(session.userId, variantId)
+      : removeWishlistItemByVariantForGuest(session.sessionId, variantId),
+  isInWishlistForSession: (session: SessionContext, variantId: string) =>
+    session.kind === "user"
+      ? isInWishlist(session.userId, variantId)
+      : isInWishlistForGuest(session.sessionId, variantId),
 }));
 
 const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";

@@ -22,8 +22,8 @@ import { createShipment } from "@/repositories/shipment.repository";
 import { getPromoCodeByIdAdmin } from "@/repositories/promo_code.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
-import { getCurrentUserProfile, getAdminShopBlockForUserId } from "@/services/profile.service";
-import { canAccessAdmin } from "@/lib/auth/permissions";
+import { getAdminShopBlockForUserId } from "@/services/profile.service";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { verifyOrderAccessToken } from "@/lib/auth/order-access-token";
 import { createShipmentSchema } from "@/lib/validators/shipment/create";
 import { canTransitionOrderStatus } from "@/lib/admin/order-status-transitions";
@@ -135,8 +135,11 @@ export async function getUserOrderCount(userId: string): Promise<number> {
  * Get all orders for the admin panel (newest first) with user names.
  */
 export async function getAdminOrders(): Promise<AdminOrderRow[]> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) return [];
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return getAllOrdersForAdmin();
 }
 
@@ -210,8 +213,11 @@ export async function getOrderDetails(
 export async function getAdminOrderDetails(
   orderId: string,
 ): Promise<OrderDetails | null> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) return null;
+  try {
+    await requireAdmin();
+  } catch {
+    return null;
+  }
 
   const order = await getOrderByIdForAdmin(orderId);
   if (!order) return null;
@@ -247,8 +253,9 @@ export async function updateOrderService(
   },
 ): Promise<{ success: boolean; error?: string; data?: Order }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || !canAccessAdmin(profile.role)) {
+    try {
+      await requireAdmin();
+    } catch {
       return { success: false, error: "Forbidden" };
     }
 
@@ -386,8 +393,9 @@ export async function upsertOrderPaymentAdmin(
   input: UpsertPaymentForOrderInput,
 ): Promise<{ success: boolean; error?: string; data?: Payment }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || !canAccessAdmin(profile.role)) {
+    try {
+      await requireAdmin();
+    } catch {
       return { success: false, error: "Forbidden" };
     }
     return await upsertPaymentForOrder(input);
@@ -410,8 +418,9 @@ export async function deleteOrderService(
   orderId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || !canAccessAdmin(profile.role)) {
+    try {
+      await requireAdmin();
+    } catch {
       return { success: false, error: "Forbidden" };
     }
 

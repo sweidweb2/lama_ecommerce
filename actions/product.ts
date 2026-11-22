@@ -3,8 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getCurrentUserProfile } from "@/services/profile.service";
-import { ROLES } from "@/lib/constants/roles";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  firstZodMessage,
+  formBool,
+  formString,
+  formStringIfPresent,
+} from "@/lib/actions/form-helpers";
 import {
   createProductService,
   updateProductService,
@@ -51,7 +56,7 @@ export type ProductMutationResult =
 
 function actionErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof z.ZodError) {
-    return error.issues[0]?.message ?? fallback;
+    return firstZodMessage(error) || fallback;
   }
   if (error instanceof Error && error.message) {
     return error.message;
@@ -63,10 +68,7 @@ export async function createProductAction(
   formData: FormData,
 ): Promise<CreateProductActionResult> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const profile = await requireAdmin();
 
     let variantsRaw: unknown = [];
     const variantsJson = formData.get("variants")?.toString();
@@ -78,45 +80,18 @@ export async function createProductAction(
       }
     }
 
-    const raw = {
-      name: formData.get("name"),
-      description: formData.get("description"),
-      slug: formData.get("slug"),
-      brand_id: formData.get("brand_id"),
-      category_id: formData.get("category_id"),
-      sku: formData.get("sku"),
-      price: formData.get("price"),
-      is_featured: formData.get("is_featured"),
-      is_trending: formData.get("is_trending"),
-      is_active: formData.get("is_active"),
-    };
-
+    const priceRaw = formData.get("price");
     const parsed = createProductWithVariantsSchema.parse({
-      name: raw.name?.toString().trim(),
-      description: raw.description
-        ? raw.description.toString().trim() || null
-        : null,
-      slug: raw.slug?.toString().trim() ?? "",
-      brand_id: raw.brand_id
-        ? raw.brand_id.toString().trim() || null
-        : null,
-      category_id: raw.category_id
-        ? raw.category_id.toString().trim() || null
-        : null,
-      sku: raw.sku ? raw.sku.toString().trim() || null : null,
-      price: raw.price ? Number(raw.price.toString()) : NaN,
-      is_featured:
-        raw.is_featured !== null && raw.is_featured !== undefined
-          ? raw.is_featured === "on" || raw.is_featured === "true"
-          : undefined,
-      is_trending:
-        raw.is_trending !== null && raw.is_trending !== undefined
-          ? raw.is_trending === "on" || raw.is_trending === "true"
-          : undefined,
-      is_active:
-        raw.is_active !== null && raw.is_active !== undefined
-          ? raw.is_active === "on" || raw.is_active === "true"
-          : undefined,
+      name: formString(formData, "name") ?? undefined,
+      description: formString(formData, "description"),
+      slug: formString(formData, "slug") ?? "",
+      brand_id: formString(formData, "brand_id"),
+      category_id: formString(formData, "category_id"),
+      sku: formString(formData, "sku"),
+      price: priceRaw ? Number(priceRaw.toString()) : NaN,
+      is_featured: formBool(formData, "is_featured"),
+      is_trending: formBool(formData, "is_trending"),
+      is_active: formBool(formData, "is_active"),
       variants: variantsRaw,
     });
 
@@ -208,65 +183,26 @@ export async function updateProductAction(
   formData: FormData,
 ): Promise<ProductMutationResult> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
     const idRaw = formData.get("id")?.toString();
     const id = idSchema.parse(idRaw);
 
-    const raw = {
-      name: formData.get("name"),
-      description: formData.get("description"),
-      slug: formData.get("slug"),
-      brand_id: formData.get("brand_id"),
-      category_id: formData.get("category_id"),
-      sku: formData.get("sku"),
-      price: formData.get("price"),
-      is_featured: formData.get("is_featured"),
-      is_trending: formData.get("is_trending"),
-      is_active: formData.get("is_active"),
-    };
-
+    const priceRaw = formData.has("price") ? formData.get("price") : null;
     const parsed = updateProductSchema.parse({
-      name: raw.name ? raw.name.toString().trim() : undefined,
-      description:
-        raw.description === null || raw.description === undefined
-          ? undefined
-          : raw.description.toString().trim() || null,
-      slug:
-        raw.slug === null || raw.slug === undefined
-          ? undefined
-          : raw.slug.toString().trim(),
-      brand_id:
-        raw.brand_id === null || raw.brand_id === undefined
-          ? undefined
-          : raw.brand_id.toString().trim() || null,
-      category_id:
-        raw.category_id === null || raw.category_id === undefined
-          ? undefined
-          : raw.category_id.toString().trim() || null,
-      sku:
-        raw.sku === null || raw.sku === undefined
-          ? undefined
-          : raw.sku.toString().trim() || null,
+      name: formStringIfPresent(formData, "name") ?? undefined,
+      description: formStringIfPresent(formData, "description"),
+      slug: formStringIfPresent(formData, "slug") ?? undefined,
+      brand_id: formStringIfPresent(formData, "brand_id"),
+      category_id: formStringIfPresent(formData, "category_id"),
+      sku: formStringIfPresent(formData, "sku"),
       price:
-        raw.price === null || raw.price === undefined
+        priceRaw === null || priceRaw === undefined
           ? undefined
-          : Number(raw.price.toString()),
-      is_featured:
-        raw.is_featured !== null && raw.is_featured !== undefined
-          ? raw.is_featured === "on" || raw.is_featured === "true"
-          : undefined,
-      is_trending:
-        raw.is_trending !== null && raw.is_trending !== undefined
-          ? raw.is_trending === "on" || raw.is_trending === "true"
-          : undefined,
-      is_active:
-        raw.is_active !== null && raw.is_active !== undefined
-          ? raw.is_active === "on" || raw.is_active === "true"
-          : undefined,
+          : Number(priceRaw.toString()),
+      is_featured: formBool(formData, "is_featured"),
+      is_trending: formBool(formData, "is_trending"),
+      is_active: formBool(formData, "is_active"),
     });
 
     const updated = await updateProductService(id, parsed);
@@ -290,10 +226,7 @@ export async function deleteProductAction(
   formData: FormData,
 ): Promise<ProductMutationResult> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
     const idRaw = formData.get("id")?.toString();
     const id = idSchema.parse(idRaw);
@@ -316,10 +249,7 @@ export async function deleteProductAction(
 
 export async function addProductImageAction(formData: FormData): Promise<void> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
     const productIdRaw = formData.get("product_id")?.toString();
     const imageFile = formData.get("image");
@@ -358,10 +288,7 @@ export async function changePrimaryProductImageAction(
   formData: FormData,
 ): Promise<void> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
     const productIdRaw = formData.get("product_id")?.toString();
     const imageIdRaw = formData.get("image_id")?.toString();
@@ -392,10 +319,7 @@ export async function deleteProductImageAction(
   formData: FormData,
 ): Promise<void> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
     const productIdRaw = formData.get("product_id")?.toString();
     const imageIdRaw = formData.get("image_id")?.toString();
@@ -425,10 +349,7 @@ export async function createProductVariantAction(
   formData: FormData,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
     const raw = {
       product_id: formData.get("product_id")?.toString(),
@@ -481,10 +402,7 @@ export async function updateProductVariantAction(
   formData: FormData,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
     const variantIdRaw = formData.get("variant_id")?.toString();
     if (!variantIdRaw) {
@@ -562,10 +480,7 @@ export async function deleteProductVariantAction(
   formData: FormData,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAdmin();
 
     const variantIdRaw = formData.get("variant_id")?.toString();
     if (!variantIdRaw) {
@@ -601,10 +516,7 @@ export async function deleteProductVariantAction(
  */
 export async function getAdminProductsAction(): Promise<ProductWithRelations[]> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
     return await getAdminProductsService();
   } catch (error) {
@@ -620,10 +532,7 @@ export async function getProductVariantsAction(
   productId: string,
 ): Promise<ProductVariant[]> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile || profile.role !== ROLES.ADMIN) {
-      throw new Error("Unauthorized");
-    }
+    await requireAdmin();
 
     return await getProductVariantsByProductIdService(productId);
   } catch (error) {

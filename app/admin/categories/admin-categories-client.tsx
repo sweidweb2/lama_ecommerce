@@ -5,7 +5,7 @@ import type { Category } from "@/types/product";
 import { CategoriesHeader } from "@/components/admin/category/categories-header";
 import { CategoriesFilters } from "@/components/admin/category/categories-filters";
 import { CategoriesTable } from "@/components/admin/category/categories-table";
-import { CategoriesPagination } from "@/components/admin/category/categories-pagination";
+import { AdminPagination } from "@/components/admin/shared/AdminPagination";
 
 interface AdminCategoriesClientProps {
   categories: Category[];
@@ -107,7 +107,9 @@ export default function AdminCategoriesClient({
         deleteCategoryAction={deleteCategoryAction}
       />
 
-      <CategoriesPagination
+      <AdminPagination
+        variant="prev-next"
+        itemLabel="categories"
         currentPage={currentPage}
         pageCount={pageCount}
         totalItems={filteredCategories.length}

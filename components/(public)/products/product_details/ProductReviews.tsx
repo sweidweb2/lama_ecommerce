@@ -4,7 +4,7 @@ import { Star, Eye, ShoppingCart, ShoppingBag, TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useMemo } from 'react'
-import type { Review } from '@/types/product_utf8'
+import type { Review } from '@/types/product'
 
 interface ProductReviewsProps {
   productId: string

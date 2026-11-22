@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 const hasActiveCartBySessionId = vi.fn();
 const createCart = vi.fn();
+const createCartItem = vi.fn();
 const createCartItemAsAdmin = vi.fn();
 const incrementProductAddToCartService = vi.fn();
 
@@ -11,6 +13,12 @@ vi.mock("@/repositories/cart.repository", () => ({
   hasActiveCart: vi.fn(),
   hasActiveCartBySessionId: (...args: unknown[]) =>
     hasActiveCartBySessionId(...args),
+  // Unified SessionContext helper: routes to the same spy as the legacy alias.
+  hasActiveCartForSession: (session: SessionContext) =>
+    session.kind === "user"
+      ? vi.fn()(session.userId)
+      : hasActiveCartBySessionId(session.sessionId),
+  getCartForSession: vi.fn(),
   getCartByUserId: vi.fn(),
   getCartBySessionId: vi.fn(),
   getAllCartsForAdmin: vi.fn(),
@@ -22,8 +30,12 @@ vi.mock("@/repositories/cart.repository", () => ({
 }));
 
 vi.mock("@/repositories/cart_item.repository", () => ({
-  createCartItem: vi.fn(),
+  createCartItem: (...args: unknown[]) => createCartItem(...args),
   createCartItemAsAdmin: (...args: unknown[]) => createCartItemAsAdmin(...args),
+  createCartItemForSession: (session: SessionContext, input: unknown) =>
+    session.kind === "user" ? createCartItem(input) : createCartItemAsAdmin(input),
+  updateCartItemForSession: vi.fn(),
+  hardDeleteCartItemForSession: vi.fn(),
   getCartItemsWithProductsByCartId: vi.fn(),
   getCartItemsWithProductsByCartIdForAdmin: vi.fn(),
   hardDeleteCartItem: vi.fn(),

@@ -25,7 +25,7 @@ vi.mock("@/repositories/categories.repository", () => ({
   getHomeCategories: (...args: unknown[]) => getHomeCategories(...args),
 }));
 
-describe("category.service + categories.service", () => {
+describe("category.service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -74,7 +74,7 @@ describe("category.service + categories.service", () => {
     const {
       getCategoriesService,
       getHomeCategoriesService,
-    } = await import("@/services/categories.service");
+    } = await import("@/services/category.service");
     await expect(getCategoriesService()).resolves.toEqual([{ id: "c1" }]);
     await expect(getHomeCategoriesService()).resolves.toEqual([
       { id: "c1", productCount: 2 },
@@ -85,7 +85,7 @@ describe("category.service + categories.service", () => {
   it("getCategoryProductCountsService returns {} for non-admin", async () => {
     requireAdmin.mockRejectedValue(new Error("Unauthorized"));
     const { getCategoryProductCountsService } = await import(
-      "@/services/categories.service"
+      "@/services/category.service"
     );
     await expect(getCategoryProductCountsService(["c1"])).resolves.toEqual({});
     expect(getCategoryProductCounts).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe("category.service + categories.service", () => {
     requireAdmin.mockResolvedValue(adminProfile);
     getCategoryProductCounts.mockResolvedValue({ c1: 3 });
     const { getCategoryProductCountsService } = await import(
-      "@/services/categories.service"
+      "@/services/category.service"
     );
     await expect(getCategoryProductCountsService(["c1"])).resolves.toEqual({
       c1: 3,

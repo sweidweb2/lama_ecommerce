@@ -5,6 +5,38 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Order, OrderItem, Payment, Shipment, AddressSnapshot } from "@/types/order";
 import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type OrderClient = SupabaseClient<Database>;
+
+/**
+ * Where a shared order read gets its Supabase client from.
+ * The client is resolved lazily inside each shared function's try/catch so
+ * client-creation failures keep the same error handling as before.
+ * `scope` only selects log labels ("(admin)" / "ForAdmin"); it does not change queries.
+ */
+interface OrderClientSource {
+  scope: "user" | "admin";
+  getClient: () => OrderClient | Promise<OrderClient>;
+}
+
+const orderUserSource: OrderClientSource = {
+  scope: "user",
+  getClient: createSupabaseServerComponentClient,
+};
+
+const orderAdminSource: OrderClientSource = {
+  scope: "admin",
+  getClient: createSupabaseAdminClient,
+};
+
+function orderLogSuffix(source: OrderClientSource): string {
+  return source.scope === "admin" ? " (admin)" : "";
+}
+
+function orderFnName(source: OrderClientSource, name: string): string {
+  return source.scope === "admin" ? `${name}ForAdmin` : name;
+}
 
 /**
  * Admin-facing order row with denormalised user name.
@@ -70,15 +102,12 @@ export async function getOrderCountByUserId(userId: string): Promise<number> {
   }
 }
 
-/**
- * Get a single order by ID.
- * Uses RLS — caller must own the order (user_id = auth.uid() or user_id IS NULL for guests).
- */
-export async function getOrderById(
+async function getOrderByIdWithClient(
+  source: OrderClientSource,
   orderId: string,
 ): Promise<Order | null> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = await source.getClient();
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -86,20 +115,34 @@ export async function getOrderById(
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching order by id:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
+      if (source.scope === "admin") {
+        console.error("Error fetching order by id (admin):", error);
+      } else {
+        console.error("Error fetching order by id:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+      }
       return null;
     }
 
     return (data as Order) ?? null;
   } catch (error) {
-    console.error("Unexpected error in getOrderById:", error);
+    console.error(`Unexpected error in ${orderFnName(source, "getOrderById")}:`, error);
     return null;
   }
+}
+
+/**
+ * Get a single order by ID.
+ * Uses RLS — caller must own the order (user_id = auth.uid() or user_id IS NULL for guests).
+ */
+export async function getOrderById(
+  orderId: string,
+): Promise<Order | null> {
+  return getOrderByIdWithClient(orderUserSource, orderId);
 }
 
 /**
@@ -109,24 +152,7 @@ export async function getOrderById(
 export async function getOrderByIdForAdmin(
   orderId: string,
 ): Promise<Order | null> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("id", orderId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching order by id (admin):", error);
-      return null;
-    }
-
-    return (data as Order) ?? null;
-  } catch (error) {
-    console.error("Unexpected error in getOrderByIdForAdmin:", error);
-    return null;
-  }
+  return getOrderByIdWithClient(orderAdminSource, orderId);
 }
 
 /**
@@ -165,15 +191,12 @@ export async function findOrderByEmailAndShortId(
   }
 }
 
-/**
- * Get order items for a given order.
- * Uses RLS — only items belonging to the caller's orders are returned.
- */
-export async function getOrderItemsByOrderId(
+async function getOrderItemsByOrderIdWithClient(
+  source: OrderClientSource,
   orderId: string,
 ): Promise<OrderItem[]> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
+    const supabase = await source.getClient();
     const { data, error } = await supabase
       .from("order_items")
       .select("*")
@@ -181,15 +204,28 @@ export async function getOrderItemsByOrderId(
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error fetching order items:", error);
+      console.error(`Error fetching order items${orderLogSuffix(source)}:`, error);
       return [];
     }
 
     return (data ?? []) as OrderItem[];
   } catch (error) {
-    console.error("Unexpected error in getOrderItemsByOrderId:", error);
+    console.error(
+      `Unexpected error in ${orderFnName(source, "getOrderItemsByOrderId")}:`,
+      error,
+    );
     return [];
   }
+}
+
+/**
+ * Get order items for a given order.
+ * Uses RLS — only items belonging to the caller's orders are returned.
+ */
+export async function getOrderItemsByOrderId(
+  orderId: string,
+): Promise<OrderItem[]> {
+  return getOrderItemsByOrderIdWithClient(orderUserSource, orderId);
 }
 
 /**
@@ -199,23 +235,35 @@ export async function getOrderItemsByOrderId(
 export async function getOrderItemsByOrderIdForAdmin(
   orderId: string,
 ): Promise<OrderItem[]> {
+  return getOrderItemsByOrderIdWithClient(orderAdminSource, orderId);
+}
+
+async function getPaymentByOrderIdWithClient(
+  source: OrderClientSource,
+  orderId: string,
+): Promise<Payment | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await source.getClient();
     const { data, error } = await supabase
-      .from("order_items")
+      .from("payments")
       .select("*")
       .eq("order_id", orderId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) {
-      console.error("Error fetching order items (admin):", error);
-      return [];
+      console.error(`Error fetching payment${orderLogSuffix(source)}:`, error);
+      return null;
     }
 
-    return (data ?? []) as OrderItem[];
+    return (data as Payment) ?? null;
   } catch (error) {
-    console.error("Unexpected error in getOrderItemsByOrderIdForAdmin:", error);
-    return [];
+    console.error(
+      `Unexpected error in ${orderFnName(source, "getPaymentByOrderId")}:`,
+      error,
+    );
+    return null;
   }
 }
 
@@ -227,26 +275,7 @@ export async function getOrderItemsByOrderIdForAdmin(
 export async function getPaymentByOrderId(
   orderId: string,
 ): Promise<Payment | null> {
-  try {
-    const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching payment:", error);
-      return null;
-    }
-
-    return (data as Payment) ?? null;
-  } catch (error) {
-    console.error("Unexpected error in getPaymentByOrderId:", error);
-    return null;
-  }
+  return getPaymentByOrderIdWithClient(orderUserSource, orderId);
 }
 
 /**
@@ -256,10 +285,17 @@ export async function getPaymentByOrderId(
 export async function getPaymentByOrderIdForAdmin(
   orderId: string,
 ): Promise<Payment | null> {
+  return getPaymentByOrderIdWithClient(orderAdminSource, orderId);
+}
+
+async function getShipmentByOrderIdWithClient(
+  source: OrderClientSource,
+  orderId: string,
+): Promise<Shipment | null> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = await source.getClient();
     const { data, error } = await supabase
-      .from("payments")
+      .from("shipments")
       .select("*")
       .eq("order_id", orderId)
       .order("created_at", { ascending: false })
@@ -267,13 +303,16 @@ export async function getPaymentByOrderIdForAdmin(
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching payment (admin):", error);
+      console.error(`Error fetching shipment${orderLogSuffix(source)}:`, error);
       return null;
     }
 
-    return (data as Payment) ?? null;
+    return (data as Shipment) ?? null;
   } catch (error) {
-    console.error("Unexpected error in getPaymentByOrderIdForAdmin:", error);
+    console.error(
+      `Unexpected error in ${orderFnName(source, "getShipmentByOrderId")}:`,
+      error,
+    );
     return null;
   }
 }
@@ -286,26 +325,7 @@ export async function getPaymentByOrderIdForAdmin(
 export async function getShipmentByOrderId(
   orderId: string,
 ): Promise<Shipment | null> {
-  try {
-    const supabase = await createSupabaseServerComponentClient();
-    const { data, error } = await supabase
-      .from("shipments")
-      .select("*")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching shipment:", error);
-      return null;
-    }
-
-    return (data as Shipment) ?? null;
-  } catch (error) {
-    console.error("Unexpected error in getShipmentByOrderId:", error);
-    return null;
-  }
+  return getShipmentByOrderIdWithClient(orderUserSource, orderId);
 }
 
 /**
@@ -315,26 +335,7 @@ export async function getShipmentByOrderId(
 export async function getShipmentByOrderIdForAdmin(
   orderId: string,
 ): Promise<Shipment | null> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("shipments")
-      .select("*")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching shipment (admin):", error);
-      return null;
-    }
-
-    return (data as Shipment) ?? null;
-  } catch (error) {
-    console.error("Unexpected error in getShipmentByOrderIdForAdmin:", error);
-    return null;
-  }
+  return getShipmentByOrderIdWithClient(orderAdminSource, orderId);
 }
 
 /**

@@ -3,8 +3,9 @@ import {
   createCartForAdmin,
   hasActiveCart,
   hasActiveCartBySessionId,
+  hasActiveCartForSession,
   getCartByUserId,
-  getCartBySessionId,
+  getCartForSession,
   getAllCartsForAdmin,
   getCartByIdForAdmin,
   deleteCart,
@@ -14,17 +15,17 @@ import {
   type AdminCartRow,
 } from "@/repositories/cart.repository";
 import {
-  createCartItem,
   createCartItemAsAdmin,
+  createCartItemForSession,
   getCartItemsWithProductsByCartId,
   getCartItemsWithProductsByCartIdForAdmin,
   hardDeleteCartItem,
-  hardDeleteCartItemForGuest,
+  hardDeleteCartItemForSession,
   hardDeleteCartItemForAdmin,
   hardDeleteCartItemsByCartId,
   updateCartItem,
   updateCartItemForAdmin,
-  updateCartItemForGuest,
+  updateCartItemForSession,
   moveCartItemsToCart,
   type CartItemWithProduct,
 } from "@/repositories/cart_item.repository";
@@ -72,10 +73,7 @@ export async function addItemForSession(
     });
 
     // Check if the session has an active cart
-    const cartCheck =
-      session.kind === "user"
-        ? await hasActiveCart(session.userId)
-        : await hasActiveCartBySessionId(session.sessionId);
+    const cartCheck = await hasActiveCartForSession(session);
 
     if (!cartCheck.success) {
       return {
@@ -114,7 +112,7 @@ export async function addItemForSession(
         cart = cartResult.data;
       } else if (cartResult.code === "23505") {
         // Concurrent ATC race: another request won the unique index — reuse it
-        const retry = await hasActiveCartBySessionId(session.sessionId);
+        const retry = await hasActiveCartForSession(session);
         if (!retry.success || !retry.hasActiveCart || !retry.data) {
           return {
             success: false,
@@ -133,16 +131,13 @@ export async function addItemForSession(
     }
 
     // Add item to cart (UPSERT with stock validation handled atomically in database function).
-    // Guest carts are not anon-accessible, so they go through the service-role variant.
-    const cartItemPayload = {
+    // The repo picks the session client for users and service-role for guests
+    // (guest carts are not anon-accessible).
+    const cartItemResult = await createCartItemForSession(session, {
       cart_id: cart.id,
       customised_product_id: validated.customised_product_id,
       quantity: validated.quantity,
-    };
-    const cartItemResult =
-      session.kind === "user"
-        ? await createCartItem(cartItemPayload)
-        : await createCartItemAsAdmin(cartItemPayload);
+    });
 
     if (!cartItemResult.success || !cartItemResult.data) {
       return {
@@ -235,10 +230,7 @@ export async function getCartWithItemsForSession(
   session: SessionContext,
 ): Promise<CartWithItemsServiceResult> {
   try {
-    const cartResult =
-      session.kind === "user"
-        ? await getCartByUserId(session.userId)
-        : await getCartBySessionId(session.sessionId);
+    const cartResult = await getCartForSession(session);
 
     if (!cartResult.success || !cartResult.data) {
       return {
@@ -308,9 +300,7 @@ export async function deleteCartItemForSession(
   session: SessionContext,
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  return session.kind === "user"
-    ? await hardDeleteCartItem(cartItemId)
-    : await hardDeleteCartItemForGuest(session.sessionId, cartItemId);
+  return await hardDeleteCartItemForSession(session, cartItemId);
 }
 
 /**
@@ -322,9 +312,7 @@ export async function updateCartItemQuantityForSession(
   cartItemId: string,
   quantity: number,
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
-  return session.kind === "user"
-    ? await updateCartItem(cartItemId, { quantity })
-    : await updateCartItemForGuest(session.sessionId, cartItemId, { quantity });
+  return await updateCartItemForSession(session, cartItemId, { quantity });
 }
 
 /**

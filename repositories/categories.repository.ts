@@ -78,21 +78,24 @@ export async function getCategoryProductCounts(
 
   try {
     const supabase = await createSupabaseServerComponentClient();
+    const { data, error } = await supabase.rpc("get_category_product_counts", {
+      p_category_ids: categoryIds,
+      p_active_only: false,
+    });
 
-    await Promise.all(
-      categoryIds.map(async (id) => {
-        const { count, error } = await supabase
-          .from("products")
-          .select("*", { count: "exact", head: true })
-          .eq("category_id", id);
+    if (error) {
+      console.error("Error fetching category product counts:", error);
+      return result;
+    }
 
-        if (error) {
-          console.error(`Error counting products for category ${id}:`, error);
-          return;
-        }
-        result[id] = count ?? 0;
-      }),
-    );
+    for (const row of data ?? []) {
+      const id = (row as { category_id: string }).category_id;
+      if (id in result) {
+        result[id] = Number(
+          (row as { product_count: number | string }).product_count ?? 0,
+        );
+      }
+    }
 
     return result;
   } catch (error) {
@@ -107,77 +110,29 @@ export async function getCategoryProductCounts(
 export async function getHomeCategories(): Promise<HomeCategory[]> {
   try {
     const supabase = await createSupabaseServerComponentClient();
-    const categories = await getCategories();
-    const withSlug = categories.filter(
-      (c): c is Category & { slug: string } =>
-        typeof c.slug === "string" && c.slug.trim().length > 0,
+    const { data, error } = await supabase.rpc("get_home_categories");
+
+    if (error) {
+      console.error("Error fetching home categories:", error);
+      return [];
+    }
+
+    return (data ?? []).map(
+      (row: {
+        id: string;
+        name: string;
+        slug: string;
+        product_count: number | string;
+        image_url: string | null;
+      }) =>
+        ({
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          productCount: Number(row.product_count ?? 0),
+          imageUrl: row.image_url ?? null,
+        }) satisfies HomeCategory,
     );
-
-    if (withSlug.length === 0) return [];
-
-    const rows = await Promise.all(
-      withSlug.map(async (cat) => {
-        const [{ count, error: countError }, { data: productRows, error: coverError }] =
-          await Promise.all([
-            supabase
-              .from("products")
-              .select("*", { count: "exact", head: true })
-              .eq("category_id", cat.id)
-              .eq("is_active", true),
-            supabase
-              .from("products")
-              .select(
-                "id, images:product_images(url_image, is_primary)",
-              )
-              .eq("category_id", cat.id)
-              .eq("is_active", true)
-              .limit(8),
-          ]);
-
-        if (countError) {
-          console.error(
-            `Error counting products for category ${cat.id}:`,
-            countError,
-          );
-        }
-        if (coverError) {
-          console.error(
-            `Error fetching cover for category ${cat.id}:`,
-            coverError,
-          );
-        }
-
-        let imageUrl: string | null = null;
-        for (const row of productRows ?? []) {
-          const images =
-            (
-              row as {
-                images?: Array<{
-                  url_image: string;
-                  is_primary: boolean;
-                }> | null;
-              }
-            ).images ?? [];
-          const primary = images.find((img) => img.is_primary);
-          const fallback = images[0];
-          const chosen = primary ?? fallback;
-          if (chosen?.url_image) {
-            imageUrl = chosen.url_image;
-            break;
-          }
-        }
-
-        return {
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug,
-          productCount: count ?? 0,
-          imageUrl,
-        } satisfies HomeCategory;
-      }),
-    );
-
-    return rows;
   } catch (error) {
     console.error("Unexpected error in getHomeCategories:", error);
     return [];

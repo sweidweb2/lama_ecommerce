@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ROUTES, loginRedirect } from "@/lib/constants/routes";
 
 export const metadata = {
   title: "Account | Admin",
@@ -19,10 +20,10 @@ export const metadata = {
 
 export default async function AdminAccountPage() {
   const user = await getCurrentAuthUserFromComponent();
-  if (!user) redirect("/auth/login?redirect=/admin/account");
+  if (!user) redirect(loginRedirect(ROUTES.ADMIN_ACCOUNT));
 
   const profile = await getCurrentUserProfile();
-  if (!profile) redirect("/auth/login?redirect=/admin/account");
+  if (!profile) redirect(loginRedirect(ROUTES.ADMIN_ACCOUNT));
 
   return (
     <div className="space-y-6 max-w-4xl">

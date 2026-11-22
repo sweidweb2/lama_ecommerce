@@ -2,7 +2,7 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
-import type { Review } from "@/types/product_utf8";
+import type { Review } from "@/types/product";
 
 /**
  * Admin review row with product and user information.

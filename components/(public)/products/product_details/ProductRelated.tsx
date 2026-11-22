@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatListingPrice } from '@/lib/utils'
 import { ImageIcon } from 'lucide-react'
-import type { ProductWithRelations } from '@/types/product_utf8'
+import type { ProductWithRelations } from '@/types/product'
 
 interface ProductRelatedProps {
   products: ProductWithRelations[]

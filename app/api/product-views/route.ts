@@ -6,6 +6,11 @@ import {
   getGuestSessionId,
   getOrCreateGuestSessionId,
 } from "@/lib/auth/guest-session";
+import {
+  checkFormRateLimit,
+  getClientIpFromRequest,
+  PRODUCT_VIEW_RATE_LIMIT,
+} from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   productId: z.string().uuid(),
@@ -19,6 +24,19 @@ const bodySchema = z.object({
  */
 export async function POST(request: Request) {
   try {
+    const ip = getClientIpFromRequest(request);
+    const allowed = await checkFormRateLimit({
+      key: `product-view:${ip}`,
+      limit: PRODUCT_VIEW_RATE_LIMIT.limit,
+      windowSeconds: PRODUCT_VIEW_RATE_LIMIT.windowSeconds,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests" },
+        { status: 429 },
+      );
+    }
+
     const json = await request.json().catch(() => null);
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) {

@@ -8,6 +8,7 @@ import { ChangePasswordDialog } from "@/components/account/ChangePasswordDialog"
 import { EditProfileDialog } from "@/components/account/EditProfileDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import { ROUTES, loginRedirect } from "@/lib/constants/routes";
 
 export const metadata = {
   title: "My Account",
@@ -16,14 +17,14 @@ export const metadata = {
 
 export default async function AccountProfilePage() {
   const user = await getCurrentAuthUserFromComponent();
-  if (!user) redirect("/auth/login?redirect=/account");
+  if (!user) redirect(loginRedirect(ROUTES.ACCOUNT));
 
   const [profile, addresses] = await Promise.all([
     getCurrentUserProfile(),
     getAddressesByUserId(user.id),
   ]);
 
-  if (!profile) redirect("/auth/login?redirect=/account");
+  if (!profile) redirect(loginRedirect(ROUTES.ACCOUNT));
 
   return (
     <div className="container mx-auto px-4 py-12">

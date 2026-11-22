@@ -24,7 +24,11 @@ import Link from "@/components/ui/link"
 import { EditOrderDialog, type AdminOrder } from "./edit_form"
 import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { formatPrice, formatDate, truncateText } from "@/lib/utils"
-import type { OrderStatus, PaymentStatus } from "@/types/order"
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+} from "@/lib/constants/order-status"
+import type { OrderStatus } from "@/types/order"
 
 const MAX_CHARS = {
   id: 10,
@@ -42,8 +46,6 @@ interface OrdersTableProps {
 const ORDERS_PER_PAGE = 20
 const MAX_PAGES = 100
 
-const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'packed', 'shipped', 'delivered', 'returned', 'cancelled']
-const PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
 const FULFILLMENT_STATUSES: OrderStatus[] = ['processing', 'packed', 'shipped']
 const VALID_STATUS_FILTERS = new Set<string>(['all', 'fulfillment', ...ORDER_STATUSES])
 

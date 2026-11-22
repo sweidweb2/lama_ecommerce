@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ProductImage as ProductImageType } from '@/types/product_utf8'
+import type { ProductImage as ProductImageType } from '@/types/product'
 
 interface ProductMediaGalleryProps {
   productName: string

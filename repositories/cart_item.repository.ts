@@ -9,6 +9,7 @@ import type { UpdateCartItemInput } from "@/lib/validators/cart-item/update";
 import type { ProductWithRelations } from "@/types/product";
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 /**
  * Create or update a cart item (UPSERT) - Double-click safe.
@@ -164,6 +165,42 @@ export async function getCartItemsByCartId(
   }
 }
 
+type CartItemClient = SupabaseClient<Database>;
+
+/**
+ * Where a shared cart-item query gets its Supabase client from.
+ * The client is resolved lazily inside each shared function's try/catch so
+ * client-creation failures keep the same error handling as before.
+ * `scope` only selects log labels ("(admin)" / "ForAdmin"); it does not change queries.
+ */
+interface CartItemClientSource {
+  scope: "user" | "admin";
+  getClient: () => CartItemClient | Promise<CartItemClient>;
+}
+
+const cartItemUserReadSource: CartItemClientSource = {
+  scope: "user",
+  getClient: createSupabaseServerComponentClient,
+};
+
+const cartItemUserWriteSource: CartItemClientSource = {
+  scope: "user",
+  getClient: createSupabaseServerActionClient,
+};
+
+const cartItemAdminSource: CartItemClientSource = {
+  scope: "admin",
+  getClient: createSupabaseAdminClient,
+};
+
+function cartItemLogSuffix(source: CartItemClientSource): string {
+  return source.scope === "admin" ? " (admin)" : "";
+}
+
+function cartItemFnName(source: CartItemClientSource, name: string): string {
+  return source.scope === "admin" ? `${name}ForAdmin` : name;
+}
+
 /**
  * Get cart items with full product details for a specific cart.
  * Returns cart items with product, images, category, and brand information.
@@ -293,63 +330,70 @@ function transformCartItemProductJoin(
   };
 }
 
-export async function getCartItemsWithProductsByCartId(
+/** Nested select for cart items with product, images, category, and brand. */
+const CART_ITEM_WITH_PRODUCT_SELECT = `
+  id,
+  cart_id,
+  customised_product_id,
+  quantity,
+  created_at,
+  customised_products (
+    id,
+    product_id,
+    color,
+    size,
+    material,
+    quantity_stock,
+    price_override,
+    products (
+      id,
+      name,
+      description,
+      slug,
+      price,
+      is_featured,
+      is_trending,
+      is_active,
+      brand_id,
+      category_id,
+      brands (
+        id,
+        name,
+        slug
+      ),
+      categories (
+        id,
+        name,
+        slug
+      ),
+      product_images (
+        id,
+        url_image,
+        is_primary
+      )
+    )
+  )
+`;
+
+async function getCartItemsWithProductsByCartIdWithClient(
+  source: CartItemClientSource,
   cartId: string,
 ): Promise<CartItemWithProduct[]> {
   try {
-    const supabase = await createSupabaseServerComponentClient();
-    
+    const supabase = await source.getClient();
+
     // Fetch cart items with nested product data
     const { data: cartItems, error: cartItemsError } = await supabase
       .from("cart_items")
-      .select(`
-        id,
-        cart_id,
-        customised_product_id,
-        quantity,
-        created_at,
-        customised_products (
-          id,
-          product_id,
-          color,
-          size,
-          material,
-          quantity_stock,
-          price_override,
-          products (
-            id,
-            name,
-            description,
-            slug,
-            price,
-            is_featured,
-            is_trending,
-            is_active,
-            brand_id,
-            category_id,
-            brands (
-              id,
-              name,
-              slug
-            ),
-            categories (
-              id,
-              name,
-              slug
-            ),
-            product_images (
-              id,
-              url_image,
-              is_primary
-            )
-          )
-        )
-      `)
+      .select(CART_ITEM_WITH_PRODUCT_SELECT)
       .eq("cart_id", cartId)
       .order("created_at", { ascending: true });
 
     if (cartItemsError) {
-      console.error("Error fetching cart items with products:", cartItemsError);
+      console.error(
+        `Error fetching cart items with products${cartItemLogSuffix(source)}:`,
+        cartItemsError,
+      );
       return [];
     }
 
@@ -359,15 +403,25 @@ export async function getCartItemsWithProductsByCartId(
 
     // Transform the data to match CartItemWithProduct interface
     const rows = cartItems as unknown as CartItemProductJoinRow[];
-    const transformedItems: CartItemWithProduct[] = rows
+    return rows
       .map(transformCartItemProductJoin)
       .filter((item): item is CartItemWithProduct => item !== null);
-
-    return transformedItems;
   } catch (error) {
-    console.error("Unexpected error in getCartItemsWithProductsByCartId:", error);
+    console.error(
+      `Unexpected error in ${cartItemFnName(source, "getCartItemsWithProductsByCartId")}:`,
+      error,
+    );
     return [];
   }
+}
+
+export async function getCartItemsWithProductsByCartId(
+  cartId: string,
+): Promise<CartItemWithProduct[]> {
+  return getCartItemsWithProductsByCartIdWithClient(
+    cartItemUserReadSource,
+    cartId,
+  );
 }
 
 /**
@@ -377,78 +431,7 @@ export async function getCartItemsWithProductsByCartId(
 export async function getCartItemsWithProductsByCartIdForAdmin(
   cartId: string,
 ): Promise<CartItemWithProduct[]> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    
-    // Fetch cart items with nested product data
-    const { data: cartItems, error: cartItemsError } = await supabase
-      .from("cart_items")
-      .select(`
-        id,
-        cart_id,
-        customised_product_id,
-        quantity,
-        created_at,
-        customised_products (
-          id,
-          product_id,
-          color,
-          size,
-          material,
-          quantity_stock,
-          price_override,
-          products (
-            id,
-            name,
-            description,
-            slug,
-            price,
-            is_featured,
-            is_trending,
-            is_active,
-            brand_id,
-            category_id,
-            brands (
-              id,
-              name,
-              slug
-            ),
-            categories (
-              id,
-              name,
-              slug
-            ),
-            product_images (
-              id,
-              url_image,
-              is_primary
-            )
-          )
-        )
-      `)
-      .eq("cart_id", cartId)
-      .order("created_at", { ascending: true });
-
-    if (cartItemsError) {
-      console.error("Error fetching cart items with products (admin):", cartItemsError);
-      return [];
-    }
-
-    if (!cartItems || cartItems.length === 0) {
-      return [];
-    }
-
-    // Transform the data to match CartItemWithProduct interface
-    const rows = cartItems as unknown as CartItemProductJoinRow[];
-    const transformedItems: CartItemWithProduct[] = rows
-      .map(transformCartItemProductJoin)
-      .filter((item): item is CartItemWithProduct => item !== null);
-
-    return transformedItems;
-  } catch (error) {
-    console.error("Unexpected error in getCartItemsWithProductsByCartIdForAdmin:", error);
-    return [];
-  }
+  return getCartItemsWithProductsByCartIdWithClient(cartItemAdminSource, cartId);
 }
 
 /**
@@ -515,17 +498,13 @@ async function assertCartItemQuantityWithinStock(
   return { success: true };
 }
 
-/**
- * Update a cart item (typically quantity).
- * Re-validates stock when quantity changes (same rules as upsert_cart_item).
- * RLS policy ensures users can only update items from their own carts.
- */
-export async function updateCartItem(
+async function updateCartItemWithClient(
+  source: CartItemClientSource,
   cartItemId: string,
   input: UpdateCartItemInput,
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = await source.getClient();
 
     // Build update payload with only provided fields
     const updatePayload: Database["public"]["Tables"]["cart_items"]["Update"] =
@@ -562,7 +541,7 @@ export async function updateCartItem(
       .single();
 
     if (error) {
-      console.error("Error updating cart item:", error);
+      console.error(`Error updating cart item${cartItemLogSuffix(source)}:`, error);
       return {
         success: false,
         error: error.message || "Failed to update cart item",
@@ -574,13 +553,28 @@ export async function updateCartItem(
       data: data as CartItem,
     };
   } catch (error) {
-    console.error("Unexpected error in updateCartItem:", error);
+    console.error(
+      `Unexpected error in ${cartItemFnName(source, "updateCartItem")}:`,
+      error,
+    );
     return {
       success: false,
       error:
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
+}
+
+/**
+ * Update a cart item (typically quantity).
+ * Re-validates stock when quantity changes (same rules as upsert_cart_item).
+ * RLS policy ensures users can only update items from their own carts.
+ */
+export async function updateCartItem(
+  cartItemId: string,
+  input: UpdateCartItemInput,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return updateCartItemWithClient(cartItemUserWriteSource, cartItemId, input);
 }
 
 /**
@@ -592,63 +586,7 @@ export async function updateCartItemForAdmin(
   cartItemId: string,
   input: UpdateCartItemInput,
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
-  try {
-    const supabase = createSupabaseAdminClient();
-
-    // Build update payload with only provided fields
-    const updatePayload: Database["public"]["Tables"]["cart_items"]["Update"] =
-      {};
-    if (input.quantity !== undefined) {
-      const stockCheck = await assertCartItemQuantityWithinStock(
-        supabase,
-        cartItemId,
-        input.quantity,
-        input.customised_product_id,
-      );
-      if (!stockCheck.success) {
-        return { success: false, error: stockCheck.error };
-      }
-      updatePayload.quantity = input.quantity;
-    }
-    if (input.customised_product_id !== undefined) {
-      updatePayload.customised_product_id = input.customised_product_id;
-    }
-
-    // If no fields to update, return early
-    if (Object.keys(updatePayload).length === 0) {
-      return {
-        success: false,
-        error: "No fields to update",
-      };
-    }
-
-    const { data, error } = await supabase
-      .from("cart_items")
-      .update(updatePayload)
-      .eq("id", cartItemId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating cart item (admin):", error);
-      return {
-        success: false,
-        error: error.message || "Failed to update cart item",
-      };
-    }
-
-    return {
-      success: true,
-      data: data as CartItem,
-    };
-  } catch (error) {
-    console.error("Unexpected error in updateCartItemForAdmin:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Unexpected error occurred",
-    };
-  }
+  return updateCartItemWithClient(cartItemAdminSource, cartItemId, input);
 }
 
 /**
@@ -687,15 +625,12 @@ export async function deleteCartItem(
   }
 }
 
-/**
- * Hard-delete a cart item (permanently remove from database).
- * RLS policy ensures users can only delete items from their own carts.
- */
-export async function hardDeleteCartItem(
+async function hardDeleteCartItemWithClient(
+  source: CartItemClientSource,
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = await source.getClient();
 
     const { error } = await supabase
       .from("cart_items")
@@ -703,18 +638,22 @@ export async function hardDeleteCartItem(
       .eq("id", cartItemId);
 
     if (error) {
-      console.error("Error hard deleting cart item:", error);
+      console.error(
+        `Error hard deleting cart item${cartItemLogSuffix(source)}:`,
+        error,
+      );
       return {
         success: false,
         error: error.message || "Failed to delete cart item",
       };
     }
 
-    return {
-      success: true,
-    };
+    return { success: true };
   } catch (error) {
-    console.error("Unexpected error in hardDeleteCartItem:", error);
+    console.error(
+      `Unexpected error in ${cartItemFnName(source, "hardDeleteCartItem")}:`,
+      error,
+    );
     return {
       success: false,
       error:
@@ -724,36 +663,22 @@ export async function hardDeleteCartItem(
 }
 
 /**
+ * Hard-delete a cart item (permanently remove from database).
+ * RLS policy ensures users can only delete items from their own carts.
+ */
+export async function hardDeleteCartItem(
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  return hardDeleteCartItemWithClient(cartItemUserWriteSource, cartItemId);
+}
+
+/**
  * Hard-delete a cart item (admin). Uses service role to bypass RLS.
  */
 export async function hardDeleteCartItemForAdmin(
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = createSupabaseAdminClient();
-
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("id", cartItemId);
-
-    if (error) {
-      console.error("Error hard deleting cart item (admin):", error);
-      return {
-        success: false,
-        error: error.message || "Failed to delete cart item",
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Unexpected error in hardDeleteCartItemForAdmin:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Unexpected error occurred",
-    };
-  }
+  return hardDeleteCartItemWithClient(cartItemAdminSource, cartItemId);
 }
 
 /**
@@ -854,6 +779,47 @@ export async function hardDeleteCartItemForGuest(
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
+}
+
+/**
+ * Storefront create/upsert for the session's cart item.
+ * Users: session client (RLS). Guests: service-role client (guest carts are not anon-accessible).
+ * Admin panel callers must keep using `createCartItemAsAdmin` directly.
+ */
+export async function createCartItemForSession(
+  session: SessionContext,
+  input: CreateCartItemInput & { cart_id: string },
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return session.kind === "user"
+    ? createCartItem(input)
+    : createCartItemAsAdmin(input);
+}
+
+/**
+ * Update a session's cart item (typically quantity).
+ * Users: RLS-scoped update. Guests: service-role update scoped by session_id ownership check.
+ */
+export async function updateCartItemForSession(
+  session: SessionContext,
+  cartItemId: string,
+  input: UpdateCartItemInput,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return session.kind === "user"
+    ? updateCartItem(cartItemId, input)
+    : updateCartItemForGuest(session.sessionId, cartItemId, input);
+}
+
+/**
+ * Hard-delete a session's cart item.
+ * Users: RLS-scoped delete. Guests: service-role delete scoped by session_id ownership check.
+ */
+export async function hardDeleteCartItemForSession(
+  session: SessionContext,
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  return session.kind === "user"
+    ? hardDeleteCartItem(cartItemId)
+    : hardDeleteCartItemForGuest(session.sessionId, cartItemId);
 }
 
 /**

@@ -1,16 +1,10 @@
 import {
-  getWishlistItemsByUserId,
-  getWishlistItemsBySessionId,
-  countWishlistItemsByUserId,
-  countWishlistItemsBySessionId,
-  addWishlistItem,
-  addWishlistItemForGuest,
-  removeWishlistItemById,
-  removeWishlistItemByIdForGuest,
-  removeWishlistItemByVariant,
-  removeWishlistItemByVariantForGuest,
-  isInWishlist,
-  isInWishlistForGuest,
+  getWishlistItemsForSession as getWishlistItemsForSessionRepo,
+  countWishlistItemsForSession,
+  addWishlistItemForSession,
+  removeWishlistItemByIdForSession,
+  removeWishlistItemByVariantForSession,
+  isInWishlistForSession,
   claimWishlistBySessionId,
 } from "@/repositories/wishlist.repository";
 import { getVariantWithParentActive } from "@/repositories/product_variant.repository";
@@ -57,6 +51,13 @@ async function gateSession(
   return requireUuid(session.sessionId, "session id");
 }
 
+/** Normalize identity whitespace before it reaches the repository. */
+function trimSession(session: SessionContext): SessionContext {
+  return session.kind === "user"
+    ? { kind: "user", userId: session.userId.trim() }
+    : { kind: "guest", sessionId: session.sessionId.trim() };
+}
+
 /**
  * Ensure the variant exists and its parent product is active (stock not required).
  */
@@ -77,9 +78,7 @@ async function assertWishlistVariantActive(
  * Get wishlist items for the session (call from Server Components).
  */
 export async function getWishlistItemsForSession(session: SessionContext) {
-  return session.kind === "user"
-    ? getWishlistItemsByUserId(session.userId)
-    : getWishlistItemsBySessionId(session.sessionId);
+  return getWishlistItemsForSessionRepo(session);
 }
 
 /**
@@ -88,9 +87,7 @@ export async function getWishlistItemsForSession(session: SessionContext) {
 export async function getWishlistCountForSession(
   session: SessionContext,
 ): Promise<number> {
-  return session.kind === "user"
-    ? countWishlistItemsByUserId(session.userId)
-    : countWishlistItemsBySessionId(session.sessionId);
+  return countWishlistItemsForSession(session);
 }
 
 /**
@@ -131,10 +128,10 @@ export async function addToWishlistForSession(
   const gate = await assertWishlistVariantActive(customisedProductId);
   if (!gate.success) return gate;
 
-  const variantId = customisedProductId.trim();
-  return session.kind === "user"
-    ? addWishlistItem(session.userId.trim(), variantId)
-    : addWishlistItemForGuest(session.sessionId.trim(), variantId);
+  return addWishlistItemForSession(
+    trimSession(session),
+    customisedProductId.trim(),
+  );
 }
 
 /**
@@ -149,10 +146,10 @@ export async function removeFromWishlistForSession(
   const idGate = requireUuid(wishlistId, "wishlist item");
   if (!idGate.success) return idGate;
 
-  const id = wishlistId.trim();
-  return session.kind === "user"
-    ? removeWishlistItemById(session.userId.trim(), id)
-    : removeWishlistItemByIdForGuest(session.sessionId.trim(), id);
+  return removeWishlistItemByIdForSession(
+    trimSession(session),
+    wishlistId.trim(),
+  );
 }
 
 /**
@@ -167,10 +164,10 @@ export async function removeFromWishlistByVariantForSession(
   const variantGate = requireUuid(customisedProductId, "product variant id");
   if (!variantGate.success) return variantGate;
 
-  const variantId = customisedProductId.trim();
-  return session.kind === "user"
-    ? removeWishlistItemByVariant(session.userId.trim(), variantId)
-    : removeWishlistItemByVariantForGuest(session.sessionId.trim(), variantId);
+  return removeWishlistItemByVariantForSession(
+    trimSession(session),
+    customisedProductId.trim(),
+  );
 }
 
 /**
@@ -191,10 +188,10 @@ export async function checkIfInWishlistForSession(
     return false;
   }
 
-  const variantId = customisedProductId.trim();
-  return session.kind === "user"
-    ? isInWishlist(session.userId.trim(), variantId)
-    : isInWishlistForGuest(session.sessionId.trim(), variantId);
+  return isInWishlistForSession(
+    trimSession(session),
+    customisedProductId.trim(),
+  );
 }
 
 /**

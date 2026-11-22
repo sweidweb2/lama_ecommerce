@@ -5,7 +5,7 @@ import type { Brand } from "@/types/product"
 import { BrandsHeader } from "@/components/admin/brand/brands-header"
 import { BrandsFilters } from "@/components/admin/brand/brands-filters"
 import { BrandsTable } from "@/components/admin/brand/brands-table"
-import { BrandsPagination } from "@/components/admin/brand/brands-pagination"
+import { AdminPagination } from "@/components/admin/shared/AdminPagination"
 
 interface AdminBrandsClientProps {
   brands: Brand[]
@@ -75,7 +75,9 @@ export default function AdminBrandsClient({
         deleteBrandAction={deleteBrandAction}
       />
 
-      <BrandsPagination
+      <AdminPagination
+        variant="prev-next"
+        itemLabel="brands"
         currentPage={currentPage}
         pageCount={pageCount}
         totalItems={filteredBrands.length}

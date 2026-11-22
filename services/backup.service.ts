@@ -11,15 +11,17 @@ import {
   type ExtractFormat,
   type ExtractProgressEvent,
 } from "@/lib/validators/backup/extract";
-import { getCurrentUserProfile } from "@/services/profile.service";
-import { canAccessAdmin } from "@/lib/auth/permissions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 /**
  * Get all backup records for admin.
  */
 export async function getAllBackupsAdmin(): Promise<BackupRow[]> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) return [];
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
   return getAdminBackups();
 }
 
@@ -31,8 +33,9 @@ export async function createBackupAdmin(
 ): Promise<
   { success: true; data: BackupRow } | { success: false; error: string }
 > {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) {
+  try {
+    await requireAdmin();
+  } catch {
     return { success: false, error: "Forbidden" };
   }
 
@@ -59,8 +62,11 @@ export async function createBackupAdmin(
  * Delete a backup record by id.
  */
 export async function deleteBackupAdmin(id: string): Promise<boolean> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) return false;
+  try {
+    await requireAdmin();
+  } catch {
+    return false;
+  }
   return deleteBackup(id);
 }
 
@@ -77,8 +83,9 @@ export async function extractDatabaseService(options: {
   filename?: string;
   mimeType?: string;
 }> {
-  const profile = await getCurrentUserProfile();
-  if (!profile || !canAccessAdmin(profile.role)) {
+  try {
+    await requireAdmin();
+  } catch {
     return { success: false, error: "Forbidden" };
   }
 

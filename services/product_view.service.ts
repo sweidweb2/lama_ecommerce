@@ -12,7 +12,7 @@ import {
   type ProductViewsStats,
   type ProductScopedViewsStats,
 } from "@/repositories/product_view.repository";
-import type { ProductStats } from "@/types/product_utf8";
+import type { ProductStats } from "@/types/product";
 import { getProductVariantById } from "@/repositories/product_variant.repository";
 import { getOrderItemsByOrderIdForAdmin } from "@/repositories/order.repository";
 import { requireAdmin } from "@/lib/auth/require-admin";
