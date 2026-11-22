@@ -94,7 +94,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 minPrice != null && !Number.isNaN(minPrice) ? minPrice : bounds.minPrice,
                 maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : bounds.maxPrice,
             ]}
-            search={params.search || ''}
+            search={search || ''}
             availableColors={facets.colors}
             availableSizes={facets.sizes}
             selectedColors={colors}

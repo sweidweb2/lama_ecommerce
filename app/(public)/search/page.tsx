@@ -25,7 +25,7 @@ export async function generateMetadata({
   searchParams,
 }: SearchPageProps): Promise<Metadata> {
   const params = await searchParams
-  const q = (params.q || '').trim()
+  const q = (firstParam(params.q) || '').trim()
 
   return {
     title: q ? `Search “${q}”` : 'Search',
