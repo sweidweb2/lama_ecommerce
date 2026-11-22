@@ -98,10 +98,8 @@ tests/
 | CI | `.github/workflows/ci.yml` → lint + test + build | ✅ |
 
 ```powershell
-# Optional E2E (app must be running)
+# Optional E2E (webServer starts `npm run dev`; Chromium installed once)
 $env:E2E_RUN="1"
-$env:E2E_BASE_URL="http://127.0.0.1:3000"
-npx playwright install chromium
 npm run test:e2e
 ```
 
