@@ -13,9 +13,9 @@ import { ROUTES } from '@/lib/constants/routes'
 
 interface SearchPageProps {
   searchParams: Promise<{
-    q?: string
-    page?: string
-    sort?: string
+    q?: string | string[]
+    page?: string | string[]
+    sort?: string | string[]
   }>
 }
 
@@ -35,14 +35,18 @@ export async function generateMetadata({
   }
 }
 
+function firstParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value.find((v) => typeof v === 'string' && v.length > 0)
+  return typeof value === 'string' ? value : undefined
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams
-  const q = (params.q || '').trim()
-  const page = Math.max(1, parseInt(params.page || '1', 10) || 1)
+  const q = (firstParam(params.q) || '').trim()
+  const page = Math.max(1, parseInt(firstParam(params.page) || '1', 10) || 1)
+  const rawSort = firstParam(params.sort)
   const sort =
-    params.sort && ALLOWED_SORT_VALUES.has(params.sort)
-      ? params.sort
-      : DEFAULT_SORT
+    rawSort && ALLOWED_SORT_VALUES.has(rawSort) ? rawSort : DEFAULT_SORT
 
   const productsResult = q
     ? await getProducts({

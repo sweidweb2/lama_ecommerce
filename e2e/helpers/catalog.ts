@@ -30,20 +30,30 @@ export async function openFirstProduct(page: Page): Promise<boolean> {
 
 /** Click the first enabled color / size / material control on the PDP. */
 export async function selectFirstAvailableVariant(page: Page): Promise<void> {
-  await clickFirstEnabled(page.getByRole("button", { name: /select color/i }));
+  const colorClicked = await clickFirstEnabled(
+    page.getByRole("button", { name: /select color/i }),
+  );
 
   const sizeSection = page
     .locator("div.space-y-3")
     .filter({ has: page.getByText("Size", { exact: true }) });
-  await clickFirstEnabled(sizeSection.getByRole("button"));
+  const sizeClicked = await clickFirstEnabled(sizeSection.getByRole("button"));
 
   const materialSection = page
     .locator("div.space-y-3")
     .filter({ has: page.getByText("Material", { exact: true }) });
   await clickFirstEnabled(materialSection.getByRole("button"));
 
+  // Some products only expose color or size; require at least one selection.
+  if (!colorClicked && !sizeClicked) {
+    throw new Error("PDP had no enabled color/size controls to select");
+  }
+
+  await expect(
+    page.getByText(/in stock|out of stock/i).first(),
+  ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/in stock/i).first()).toBeVisible({
-    timeout: 10_000,
+    timeout: 5_000,
   });
 }
 

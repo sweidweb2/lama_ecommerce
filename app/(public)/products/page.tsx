@@ -15,19 +15,26 @@ export const metadata: Metadata = {
 
 interface ProductsPageProps {
     searchParams: Promise<{
-        category?: string
-        brand?: string
-        sort?: string
-        page?: string
-        search?: string
-        colors?: string
-        sizes?: string
-        minPrice?: string
-        maxPrice?: string
+        category?: string | string[]
+        brand?: string | string[]
+        sort?: string | string[]
+        page?: string | string[]
+        search?: string | string[]
+        colors?: string | string[]
+        sizes?: string | string[]
+        minPrice?: string | string[]
+        maxPrice?: string | string[]
     }>
 }
 
 const PAGE_SIZE = 32
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+    if (Array.isArray(value)) {
+        return value.find((v) => typeof v === 'string' && v.length > 0)
+    }
+    return typeof value === 'string' ? value : undefined
+}
 
 function parseListParam(raw: string | undefined): string[] {
     if (!raw) return []
@@ -39,24 +46,30 @@ function parseListParam(raw: string | undefined): string[] {
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
     const params = await searchParams
+    const category = firstParam(params.category)
+    const brand = firstParam(params.brand)
+    const sort = firstParam(params.sort) || 'created_at-desc'
+    const search = firstParam(params.search)
 
-    const page = Math.max(1, parseInt(params.page || '1', 10) || 1)
-    const minPrice = params.minPrice != null ? parseFloat(params.minPrice) : undefined
-    const maxPrice = params.maxPrice != null ? parseFloat(params.maxPrice) : undefined
-    const colors = parseListParam(params.colors).map(normalizeColorValue).filter(Boolean)
-    const sizes = parseListParam(params.sizes)
+    const page = Math.max(1, parseInt(firstParam(params.page) || '1', 10) || 1)
+    const minRaw = firstParam(params.minPrice)
+    const maxRaw = firstParam(params.maxPrice)
+    const minPrice = minRaw != null ? parseFloat(minRaw) : undefined
+    const maxPrice = maxRaw != null ? parseFloat(maxRaw) : undefined
+    const colors = parseListParam(firstParam(params.colors)).map(normalizeColorValue).filter(Boolean)
+    const sizes = parseListParam(firstParam(params.sizes))
 
     const [categories, bounds, facets, productsResult] = await Promise.all([
         getCategoriesService(),
         getProductPriceBoundsService(),
         getProductVariantFacetsService(),
         getProducts({
-            categorySlug: params.category || undefined,
-            brandSlug: params.brand || undefined,
-            sort: params.sort || 'created_at-desc',
+            categorySlug: category || undefined,
+            brandSlug: brand || undefined,
+            sort,
             page,
             pageSize: PAGE_SIZE,
-            search: params.search || undefined,
+            search: search || undefined,
             minPrice: minPrice != null && !Number.isNaN(minPrice) ? minPrice : undefined,
             maxPrice: maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : undefined,
             colors: colors.length > 0 ? colors : undefined,
@@ -73,8 +86,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             totalPages={totalPages}
             currentPage={Math.min(page, totalPages)}
             categories={categories}
-            selectedCategory={params.category || null}
-            sort={params.sort || 'created_at-desc'}
+            selectedCategory={category || null}
+            sort={sort}
             priceBoundsMin={bounds.minPrice}
             priceBoundsMax={bounds.maxPrice}
             priceRange={[

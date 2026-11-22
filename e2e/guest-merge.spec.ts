@@ -115,14 +115,16 @@ test.describe("Block 2 — guest merge-on-login", () => {
     await loginViaUi(page, e2eAdmin.email()!, e2eAdmin.password()!);
     await expectLoggedInAsAdmin(page);
 
-    const cookiesAfter = await page.context().cookies();
-    const guestAfter = cookiesAfter.find(
-      (c) => c.name === GUEST_SESSION_COOKIE,
-    );
-    expect(
-      guestAfter,
-      "guest cookie should be cleared on admin login",
-    ).toBeUndefined();
+    // AuthProvider handoff clears the cookie asynchronously after login.
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies();
+          return cookies.find((c) => c.name === GUEST_SESSION_COOKIE);
+        },
+        { timeout: 25_000 },
+      )
+      .toBeUndefined();
   });
 
   test("guest order then login claims when email matches", async ({

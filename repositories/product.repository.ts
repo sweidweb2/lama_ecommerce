@@ -11,7 +11,8 @@ import type { Product, ProductWithRelations } from "@/types/product";
 
 export interface GetProductsRepoParams {
   categoryId?: string | null;
-  sort?: string;
+  /** Prefer `field-order` strings; arrays are coerced (duplicate query keys). */
+  sort?: string | string[];
   page?: number;
   pageSize?: number;
   search?: string;
@@ -437,8 +438,15 @@ export async function getProducts(
       query = query.lte("min_effective_price", maxPrice);
     }
 
-    if (sort) {
-      const [field, order] = sort.split("-");
+    // Next can surface duplicate ?sort= as string[]; coerce before split.
+    const sortValue = Array.isArray(sort)
+      ? sort.find((v): v is string => typeof v === "string")
+      : typeof sort === "string"
+        ? sort
+        : undefined;
+
+    if (sortValue) {
+      const [field, order] = sortValue.split("-");
       // Only allow known sortable columns; price → min_effective_price
       const column =
         field === "price"
