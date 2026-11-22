@@ -1,21 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  getShippingZonesForAdmin,
-  createShippingZoneAdmin,
-  updateShippingZoneAdmin,
-  deleteShippingZoneAdmin,
-} from "@/services/shipping_zone.service";
+import { getCurrentUserProfile } from "@/services/profile.service";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
+import { ROLES } from "@/lib/constants/roles";
+import {
+  getAllShippingZonesWithFee,
+  createShippingZoneWithFee,
+  updateShippingZoneWithFee,
+  deleteShippingZoneById,
+} from "@/repositories/shipping_zone.repository";
 import { createShippingZoneSchema } from "@/lib/validators/shipping_zone/create";
 import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update";
+
+/** Soft admin check: callers get empty/null/false instead of a thrown error. */
+async function isAdminCaller(): Promise<boolean> {
+  const profile = await getCurrentUserProfile();
+  return !!profile && profile.role === ROLES.ADMIN;
+}
 
 /**
  * Get all shipping zones for admin. Returns empty array if not admin.
  */
 export async function getShippingZonesAction() {
-  return await getShippingZonesForAdmin();
+  if (!(await isAdminCaller())) return [];
+  return await getAllShippingZonesWithFee();
 }
 
 /**
@@ -51,11 +60,13 @@ export async function createShippingZoneAction(payload: CreateShippingZonePayloa
     return { success: false as const, error: msg };
   }
 
-  const created = await createShippingZoneAdmin({
-    name: parsed.data.name,
-    estimated_time: parsed.data.estimated_time ?? null,
-    fee: parsed.data.fee ?? null,
-  });
+  const created = (await isAdminCaller())
+    ? await createShippingZoneWithFee({
+        name: parsed.data.name,
+        estimated_time: parsed.data.estimated_time ?? null,
+        fee: parsed.data.fee ?? null,
+      })
+    : null;
 
   if (!created) {
     return { success: false as const, error: "Forbidden or create failed" };
@@ -85,12 +96,14 @@ export async function updateShippingZoneAction(payload: UpdateShippingZonePayloa
     return { success: false as const, error: msg };
   }
 
-  const updated = await updateShippingZoneAdmin({
-    id: parsed.data.id,
-    name: parsed.data.name,
-    estimated_time: parsed.data.estimated_time ?? null,
-    fee: parsed.data.fee ?? null,
-  });
+  const updated = (await isAdminCaller())
+    ? await updateShippingZoneWithFee({
+        id: parsed.data.id,
+        name: parsed.data.name,
+        estimated_time: parsed.data.estimated_time ?? null,
+        fee: parsed.data.fee ?? null,
+      })
+    : null;
 
   if (!updated) {
     return { success: false as const, error: "Forbidden or update failed" };
@@ -104,7 +117,7 @@ export async function updateShippingZoneAction(payload: UpdateShippingZonePayloa
  * Delete a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function deleteShippingZoneAction(zoneId: string) {
-  const ok = await deleteShippingZoneAdmin(zoneId);
+  const ok = (await isAdminCaller()) ? await deleteShippingZoneById(zoneId) : false;
   if (!ok) {
     return { success: false as const, error: "Forbidden or delete failed" };
   }

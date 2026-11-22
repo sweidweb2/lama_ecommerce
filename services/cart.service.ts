@@ -33,22 +33,36 @@ import type { Cart, CartItem } from "@/types/order";
 import { createCartItemSchema } from "@/lib/validators/cart-item/create";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
+import type { SessionContext } from "@/lib/auth/session-context";
+
+type AddItemInput = {
+  customised_product_id: string;
+  quantity: number;
+};
+
+type AddItemResult = {
+  success: boolean;
+  error?: string;
+  data?: { cart: Cart; cartItem: CartItem };
+};
 
 /**
- * Add item to cart service.
- * Checks if user has an active cart, creates one if not, then adds the item.
+ * Add item to the session's cart (user or guest).
+ * Checks for an active cart, creates one if missing, then adds the item.
+ * Guests are identified by session_id; concurrent first-ATC races (23505) reuse the winner's cart.
  */
-export async function addItemToCartService(
-  userId: string,
-  input: {
-    customised_product_id: string;
-    quantity: number;
-  },
-): Promise<{ success: boolean; error?: string; data?: { cart: Cart; cartItem: CartItem } }> {
+export async function addItemForSession(
+  session: SessionContext,
+  input: AddItemInput,
+): Promise<AddItemResult> {
+  const isUser = session.kind === "user";
+
   try {
-    const shopBlock = await getAdminShopBlockForUserId(userId);
-    if (shopBlock) {
-      return { success: false, error: shopBlock };
+    if (session.kind === "user") {
+      const shopBlock = await getAdminShopBlockForUserId(session.userId);
+      if (shopBlock) {
+        return { success: false, error: shopBlock };
+      }
     }
 
     // Validate input using Zod schema
@@ -57,24 +71,30 @@ export async function addItemToCartService(
       quantity: input.quantity,
     });
 
-    // Check if user has an active cart
-    const cartCheck = await hasActiveCart(userId);
-    
+    // Check if the session has an active cart
+    const cartCheck =
+      session.kind === "user"
+        ? await hasActiveCart(session.userId)
+        : await hasActiveCartBySessionId(session.sessionId);
+
     if (!cartCheck.success) {
       return {
         success: false,
-        error: cartCheck.error || "Failed to check for active cart",
+        error:
+          cartCheck.error ||
+          (isUser
+            ? "Failed to check for active cart"
+            : "Failed to check for active guest cart"),
       };
     }
 
     let cart: Cart;
 
-    // If user has an active cart, use it
     if (cartCheck.hasActiveCart && cartCheck.data) {
       cart = cartCheck.data;
-    } else {
+    } else if (session.kind === "user") {
       // Create a new cart for the user
-      const cartResult = await createCart(userId, {});
+      const cartResult = await createCart(session.userId, {});
 
       if (!cartResult.success || !cartResult.data) {
         return {
@@ -84,97 +104,17 @@ export async function addItemToCartService(
       }
 
       cart = cartResult.data;
-    }
-
-    // Add item to cart (UPSERT with stock validation handled atomically in database function)
-    const cartItemResult = await createCartItem({
-      cart_id: cart.id,
-      customised_product_id: validated.customised_product_id,
-      quantity: validated.quantity,
-    });
-
-    if (!cartItemResult.success || !cartItemResult.data) {
-      return {
-        success: false,
-        error: cartItemResult.error || "Failed to add item to cart",
-      };
-    }
-
-    // Increment add_to_cart_count in product_stats (fire and forget)
-    incrementProductAddToCartService(validated.customised_product_id).catch((error) => {
-      console.error("Failed to increment add_to_cart_count:", error);
-    });
-
-    return {
-      success: true,
-      data: {
-        cart,
-        cartItem: cartItemResult.data,
-      },
-    };
-  } catch (error) {
-    // Handle Zod validation errors
-    if (error instanceof Error && error.name === "ZodError") {
-      const zodError = error as any;
-      const firstError = zodError.errors?.[0];
-      return {
-        success: false,
-        error: firstError?.message || "Invalid cart item data",
-      };
-    }
-
-    console.error("Error in addItemToCartService:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to add item to cart",
-    };
-  }
-}
-
-/**
- * Add item to guest cart service.
- * Checks if session has an active cart, creates one if not, then adds the item.
- * Used for unauthenticated (guest) users identified by session_id.
- */
-export async function addItemToGuestCartService(
-  sessionId: string,
-  input: {
-    customised_product_id: string;
-    quantity: number;
-  },
-): Promise<{ success: boolean; error?: string; data?: { cart: Cart; cartItem: CartItem } }> {
-  try {
-    // Validate input using Zod schema
-    const validated = createCartItemSchema.parse({
-      customised_product_id: input.customised_product_id,
-      quantity: input.quantity,
-    });
-
-    // Check if guest session has an active cart
-    const cartCheck = await hasActiveCartBySessionId(sessionId);
-
-    if (!cartCheck.success) {
-      return {
-        success: false,
-        error: cartCheck.error || "Failed to check for active guest cart",
-      };
-    }
-
-    let cart: Cart;
-
-    // If session has an active cart, use it
-    if (cartCheck.hasActiveCart && cartCheck.data) {
-      cart = cartCheck.data;
     } else {
       // Create a new cart for the guest session
-      const cartResult = await createCart(null, { session_id: sessionId });
+      const cartResult = await createCart(null, {
+        session_id: session.sessionId,
+      });
 
       if (cartResult.success && cartResult.data) {
         cart = cartResult.data;
       } else if (cartResult.code === "23505") {
         // Concurrent ATC race: another request won the unique index — reuse it
-        const retry = await hasActiveCartBySessionId(sessionId);
+        const retry = await hasActiveCartBySessionId(session.sessionId);
         if (!retry.success || !retry.hasActiveCart || !retry.data) {
           return {
             success: false,
@@ -192,12 +132,17 @@ export async function addItemToGuestCartService(
       }
     }
 
-    // Add item to cart (UPSERT via service role — guest carts are not anon-accessible)
-    const cartItemResult = await createCartItemAsAdmin({
+    // Add item to cart (UPSERT with stock validation handled atomically in database function).
+    // Guest carts are not anon-accessible, so they go through the service-role variant.
+    const cartItemPayload = {
       cart_id: cart.id,
       customised_product_id: validated.customised_product_id,
       quantity: validated.quantity,
-    });
+    };
+    const cartItemResult =
+      session.kind === "user"
+        ? await createCartItem(cartItemPayload)
+        : await createCartItemAsAdmin(cartItemPayload);
 
     if (!cartItemResult.success || !cartItemResult.data) {
       return {
@@ -229,13 +174,42 @@ export async function addItemToGuestCartService(
       };
     }
 
-    console.error("Error in addItemToGuestCartService:", error);
+    console.error(
+      isUser
+        ? "Error in addItemToCartService:"
+        : "Error in addItemToGuestCartService:",
+      error,
+    );
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : "Failed to add item to guest cart",
+        error instanceof Error
+          ? error.message
+          : isUser
+            ? "Failed to add item to cart"
+            : "Failed to add item to guest cart",
     };
   }
+}
+
+/**
+ * Add item to cart service (authenticated user).
+ */
+export async function addItemToCartService(
+  userId: string,
+  input: AddItemInput,
+): Promise<AddItemResult> {
+  return addItemForSession({ kind: "user", userId }, input);
+}
+
+/**
+ * Add item to guest cart service (session_id based).
+ */
+export async function addItemToGuestCartService(
+  sessionId: string,
+  input: AddItemInput,
+): Promise<AddItemResult> {
+  return addItemForSession({ kind: "guest", sessionId }, input);
 }
 
 /**
@@ -247,63 +221,24 @@ export async function getUserCartService(
   return await getCartByUserId(userId);
 }
 
-/**
- * Get user's active cart with items and product details.
- */
-export async function getUserCartWithItemsService(
-  userId: string,
-): Promise<{
+type CartWithItemsServiceResult = {
   success: boolean;
   error?: string;
   data?: { cart: Cart; items: CartItemWithProduct[] };
-}> {
-  try {
-    // Get user's active cart
-    const cartResult = await getCartByUserId(userId);
-
-    if (!cartResult.success || !cartResult.data) {
-      return {
-        success: false,
-        error: cartResult.error || "No active cart found",
-      };
-    }
-
-    const cart = cartResult.data;
-
-    // Get cart items with product details
-    const items = await getCartItemsWithProductsByCartId(cart.id);
-
-    return {
-      success: true,
-      data: {
-        cart,
-        items,
-      },
-    };
-  } catch (error) {
-    console.error("Error in getUserCartWithItemsService:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to fetch cart with items",
-    };
-  }
-}
+};
 
 /**
- * Get guest's active cart with items and product details.
- * Uses session_id to identify the guest's cart.
+ * Get the session's active cart with items and product details.
+ * Users read via RLS-scoped client; guests via session_id + service-role item read.
  */
-export async function getGuestCartWithItemsService(
-  sessionId: string,
-): Promise<{
-  success: boolean;
-  error?: string;
-  data?: { cart: Cart; items: CartItemWithProduct[] };
-}> {
+export async function getCartWithItemsForSession(
+  session: SessionContext,
+): Promise<CartWithItemsServiceResult> {
   try {
-    // Get guest's active cart by session_id
-    const cartResult = await getCartBySessionId(sessionId);
+    const cartResult =
+      session.kind === "user"
+        ? await getCartByUserId(session.userId)
+        : await getCartBySessionId(session.sessionId);
 
     if (!cartResult.success || !cartResult.data) {
       return {
@@ -315,7 +250,10 @@ export async function getGuestCartWithItemsService(
     const cart = cartResult.data;
 
     // Guest cart items require service-role read (RLS denies anon guest rows)
-    const items = await getCartItemsWithProductsByCartIdForAdmin(cart.id);
+    const items =
+      session.kind === "user"
+        ? await getCartItemsWithProductsByCartId(cart.id)
+        : await getCartItemsWithProductsByCartIdForAdmin(cart.id);
 
     return {
       success: true,
@@ -325,17 +263,72 @@ export async function getGuestCartWithItemsService(
       },
     };
   } catch (error) {
-    console.error("Error in getGuestCartWithItemsService:", error);
+    console.error(
+      session.kind === "user"
+        ? "Error in getUserCartWithItemsService:"
+        : "Error in getGuestCartWithItemsService:",
+      error,
+    );
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : "Failed to fetch guest cart with items",
+        error instanceof Error
+          ? error.message
+          : session.kind === "user"
+            ? "Failed to fetch cart with items"
+            : "Failed to fetch guest cart with items",
     };
   }
 }
 
 /**
- * Hard delete a cart item.
+ * Get user's active cart with items and product details.
+ */
+export async function getUserCartWithItemsService(
+  userId: string,
+): Promise<CartWithItemsServiceResult> {
+  return getCartWithItemsForSession({ kind: "user", userId });
+}
+
+/**
+ * Get guest's active cart with items and product details.
+ * Uses session_id to identify the guest's cart.
+ */
+export async function getGuestCartWithItemsService(
+  sessionId: string,
+): Promise<CartWithItemsServiceResult> {
+  return getCartWithItemsForSession({ kind: "guest", sessionId });
+}
+
+/**
+ * Hard delete a cart item for the session.
+ * Users: RLS-scoped delete. Guests: service-role delete scoped by session id.
+ */
+export async function deleteCartItemForSession(
+  session: SessionContext,
+  cartItemId: string,
+): Promise<{ success: boolean; error?: string }> {
+  return session.kind === "user"
+    ? await hardDeleteCartItem(cartItemId)
+    : await hardDeleteCartItemForGuest(session.sessionId, cartItemId);
+}
+
+/**
+ * Update quantity for a session's cart item.
+ * Users: RLS-scoped update. Guests: service-role update scoped by session id.
+ */
+export async function updateCartItemQuantityForSession(
+  session: SessionContext,
+  cartItemId: string,
+  quantity: number,
+): Promise<{ success: boolean; error?: string; data?: CartItem }> {
+  return session.kind === "user"
+    ? await updateCartItem(cartItemId, { quantity })
+    : await updateCartItemForGuest(session.sessionId, cartItemId, { quantity });
+}
+
+/**
+ * Hard delete a cart item (authenticated user, RLS-scoped).
  * Permanently removes the item from the cart.
  */
 export async function deleteCartItemService(
@@ -351,7 +344,7 @@ export async function deleteCartItemForGuestService(
   sessionId: string,
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  return await hardDeleteCartItemForGuest(sessionId, cartItemId);
+  return deleteCartItemForSession({ kind: "guest", sessionId }, cartItemId);
 }
 
 /**
@@ -372,7 +365,11 @@ export async function updateCartItemQuantityForGuestService(
   cartItemId: string,
   quantity: number,
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
-  return await updateCartItemForGuest(sessionId, cartItemId, { quantity });
+  return updateCartItemQuantityForSession(
+    { kind: "guest", sessionId },
+    cartItemId,
+    quantity,
+  );
 }
 
 /**

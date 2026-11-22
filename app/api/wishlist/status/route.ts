@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { createWishlistItemSchema } from "@/lib/validators/wishlist/create";
-import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
-import {
-  checkIfInWishlist,
-  checkIfInWishlistForGuest,
-} from "@/services/wishlist.service";
-import { getGuestSessionId } from "@/lib/auth/guest-session";
+import { checkIfInWishlistForSession } from "@/services/wishlist.service";
+import { resolveStorefrontSession } from "@/lib/auth/session-context";
 
 /**
  * GET /api/wishlist/status?customised_product_id=
@@ -26,22 +22,13 @@ export async function GET(request: Request) {
       );
     }
 
-    const user = await getCurrentAuthUserFromAction();
-    if (user) {
-      const inWishlist = await checkIfInWishlist(
-        user.id,
-        validation.data.customised_product_id,
-      );
-      return NextResponse.json({ success: true, inWishlist });
-    }
-
-    const sessionId = await getGuestSessionId();
-    if (!sessionId) {
+    const session = await resolveStorefrontSession();
+    if (!session) {
       return NextResponse.json({ success: true, inWishlist: false });
     }
 
-    const inWishlist = await checkIfInWishlistForGuest(
-      sessionId,
+    const inWishlist = await checkIfInWishlistForSession(
+      session,
       validation.data.customised_product_id,
     );
     return NextResponse.json({ success: true, inWishlist });

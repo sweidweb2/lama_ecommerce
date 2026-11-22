@@ -1,16 +1,6 @@
 'use client'
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
-import { toast } from "sonner"
+import { AdminDeleteDialog } from "@/components/admin/shared/admin-delete-dialog"
 import type { Brand } from "@/types/product"
 
 type DeleteBrandActionResult =
@@ -28,87 +18,35 @@ export function DeleteBrandDialog({
   action,
   showText = false,
 }: DeleteBrandDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const handleDelete = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    const formData = new FormData(form)
-
-    setIsDeleting(true)
-    try {
-      const result = await action(formData)
-      if (!result.success) {
-        toast.error("Cannot delete brand", {
-          description: result.error,
-        })
-        return
-      }
-      toast.success("Brand deleted")
-      setOpen(false)
-    } catch (error) {
-      console.error("Error deleting brand:", error)
-      toast.error("Failed to delete brand")
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   return (
-    <>
-      <Button
-        variant={showText ? "destructive" : "ghost"}
-        size={showText ? "default" : "icon"}
-        onClick={() => setOpen(true)}
-        aria-label={`Delete brand ${brand.name}`}
-      >
-        <Trash2 className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
-        {showText && "Delete"}
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Brand</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleDelete}>
-            <input type="hidden" name="id" value={brand.id} />
-            <input
-              type="hidden"
-              name="logo_url"
-              value={brand.logo_image_url ?? ""}
-            />
-            <div className="space-y-2 text-sm text-muted-foreground mt-2">
-              <p>
-                Are you sure you want to delete the brand{" "}
-                <span className="font-semibold text-foreground">{brand.name}</span>?
-              </p>
-              <p>
-                Brands with products assigned cannot be deleted. Reassign or
-                remove those products first. This action cannot be undone.
-              </p>
-            </div>
-            <DialogFooter className="mt-4 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="destructive"
-                loading={isDeleting}
-              >
-                Delete Brand
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    <AdminDeleteDialog
+      title="Delete Brand"
+      entityLabel="brand"
+      ariaLabel={`Delete brand ${brand.name}`}
+      confirmLabel="Delete Brand"
+      showText={showText}
+      toastMessages={{
+        success: "Brand deleted",
+        errorTitle: "Cannot delete brand",
+      }}
+      description={
+        <>
+          <p>
+            Are you sure you want to delete the brand{" "}
+            <span className="font-semibold text-foreground">{brand.name}</span>?
+          </p>
+          <p>
+            Brands with products assigned cannot be deleted. Reassign or
+            remove those products first. This action cannot be undone.
+          </p>
+        </>
+      }
+      onConfirm={() => {
+        const formData = new FormData()
+        formData.set("id", brand.id)
+        formData.set("logo_url", brand.logo_image_url ?? "")
+        return action(formData)
+      }}
+    />
   )
 }

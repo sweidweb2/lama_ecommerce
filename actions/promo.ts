@@ -1,20 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getCurrentUserProfile } from "@/services/profile.service";
+import { ROLES } from "@/lib/constants/roles";
 import {
-  getPromoCodesForAdmin,
-  createPromoCodeAdmin,
-  updatePromoCodeAdmin,
-  deletePromoCodeAdmin,
-} from "@/services/promo_code.service";
+  getAllPromoCodes,
+  createPromoCode,
+  updatePromoCode,
+  deletePromoCodeById,
+} from "@/repositories/promo_code.repository";
 import { createPromoCodeSchema } from "@/lib/validators/promo/create";
 import { updatePromoCodeFullSchema } from "@/lib/validators/promo/update";
+
+/** Soft admin check: callers get empty/null/false instead of a thrown error. */
+async function isAdminCaller(): Promise<boolean> {
+  const profile = await getCurrentUserProfile();
+  return !!profile && profile.role === ROLES.ADMIN;
+}
 
 /**
  * Get all promo codes for admin. Returns empty array if not admin.
  */
 export async function getPromoCodesAction() {
-  return await getPromoCodesForAdmin();
+  if (!(await isAdminCaller())) return [];
+  return await getAllPromoCodes();
 }
 
 export type CreatePromoCodePayload = {
@@ -44,14 +53,16 @@ export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const created = await createPromoCodeAdmin({
-    code: parsed.data.code,
-    discount_type: parsed.data.discount_type,
-    discount_value: parsed.data.discount_value,
-    expires_at: parsed.data.expires_at ?? null,
-    max_uses: parsed.data.max_uses ?? null,
-    is_active: parsed.data.is_active ?? true,
-  });
+  const created = (await isAdminCaller())
+    ? await createPromoCode({
+        code: parsed.data.code,
+        discount_type: parsed.data.discount_type,
+        discount_value: parsed.data.discount_value,
+        expires_at: parsed.data.expires_at ?? null,
+        max_uses: parsed.data.max_uses ?? null,
+        is_active: parsed.data.is_active ?? true,
+      })
+    : null;
 
   if (!created) {
     return { success: false as const, error: "Forbidden or create failed" };
@@ -90,15 +101,17 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const updated = await updatePromoCodeAdmin({
-    id: parsed.data.id,
-    code: parsed.data.code,
-    discount_type: parsed.data.discount_type,
-    discount_value: parsed.data.discount_value,
-    expires_at: parsed.data.expires_at ?? null,
-    max_uses: parsed.data.max_uses ?? null,
-    is_active: parsed.data.is_active ?? true,
-  });
+  const updated = (await isAdminCaller())
+    ? await updatePromoCode({
+        id: parsed.data.id,
+        code: parsed.data.code,
+        discount_type: parsed.data.discount_type,
+        discount_value: parsed.data.discount_value,
+        expires_at: parsed.data.expires_at ?? null,
+        max_uses: parsed.data.max_uses ?? null,
+        is_active: parsed.data.is_active ?? true,
+      })
+    : null;
 
   if (!updated) {
     return { success: false as const, error: "Forbidden or update failed" };
@@ -112,7 +125,7 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
  * Delete a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function deletePromoCodeAction(id: string) {
-  const ok = await deletePromoCodeAdmin(id);
+  const ok = (await isAdminCaller()) ? await deletePromoCodeById(id) : false;
   if (!ok) {
     return { success: false as const, error: "Forbidden or delete failed" };
   }

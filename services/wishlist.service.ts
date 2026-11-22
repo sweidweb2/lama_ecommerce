@@ -15,6 +15,7 @@ import {
 } from "@/repositories/wishlist.repository";
 import { getVariantWithParentActive } from "@/repositories/product_variant.repository";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
+import type { SessionContext } from "@/lib/auth/session-context";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,6 +44,20 @@ async function rejectAdminShopper(
 }
 
 /**
+ * Validate the session identity. Users additionally pass the admin-shopper gate.
+ */
+async function gateSession(
+  session: SessionContext,
+): Promise<ServiceOk | ServiceFail> {
+  if (session.kind === "user") {
+    const userGate = requireUuid(session.userId, "user id");
+    if (!userGate.success) return userGate;
+    return rejectAdminShopper(session.userId);
+  }
+  return requireUuid(session.sessionId, "session id");
+}
+
+/**
  * Ensure the variant exists and its parent product is active (stock not required).
  */
 async function assertWishlistVariantActive(
@@ -59,33 +74,23 @@ async function assertWishlistVariantActive(
 }
 
 /**
- * Get wishlist items for a user (call from Server Components with userId).
+ * Get wishlist items for the session (call from Server Components).
  */
-export async function getWishlistItems(userId: string) {
-  return getWishlistItemsByUserId(userId);
+export async function getWishlistItemsForSession(session: SessionContext) {
+  return session.kind === "user"
+    ? getWishlistItemsByUserId(session.userId)
+    : getWishlistItemsBySessionId(session.sessionId);
 }
 
 /**
- * Get wishlist items for a guest (call from Server Components with sessionId).
+ * Count wishlist items for the session.
  */
-export async function getWishlistItemsForGuest(sessionId: string) {
-  return getWishlistItemsBySessionId(sessionId);
-}
-
-/**
- * Count wishlist items for a user.
- */
-export async function getWishlistCount(userId: string): Promise<number> {
-  return countWishlistItemsByUserId(userId);
-}
-
-/**
- * Count wishlist items for a guest session.
- */
-export async function getWishlistCountForGuest(
-  sessionId: string,
+export async function getWishlistCountForSession(
+  session: SessionContext,
 ): Promise<number> {
-  return countWishlistItemsBySessionId(sessionId);
+  return session.kind === "user"
+    ? countWishlistItemsByUserId(session.userId)
+    : countWishlistItemsBySessionId(session.sessionId);
 }
 
 /**
@@ -112,22 +117,146 @@ export async function claimGuestWishlistService(
 }
 
 /**
+ * Add a product variant to the session's wishlist.
+ */
+export async function addToWishlistForSession(
+  session: SessionContext,
+  customisedProductId: string,
+) {
+  const sessionGate = await gateSession(session);
+  if (!sessionGate.success) return sessionGate;
+  const variantGate = requireUuid(customisedProductId, "product variant id");
+  if (!variantGate.success) return variantGate;
+
+  const gate = await assertWishlistVariantActive(customisedProductId);
+  if (!gate.success) return gate;
+
+  const variantId = customisedProductId.trim();
+  return session.kind === "user"
+    ? addWishlistItem(session.userId.trim(), variantId)
+    : addWishlistItemForGuest(session.sessionId.trim(), variantId);
+}
+
+/**
+ * Remove a wishlist entry by id for the session.
+ */
+export async function removeFromWishlistForSession(
+  session: SessionContext,
+  wishlistId: string,
+) {
+  const sessionGate = await gateSession(session);
+  if (!sessionGate.success) return sessionGate;
+  const idGate = requireUuid(wishlistId, "wishlist item");
+  if (!idGate.success) return idGate;
+
+  const id = wishlistId.trim();
+  return session.kind === "user"
+    ? removeWishlistItemById(session.userId.trim(), id)
+    : removeWishlistItemByIdForGuest(session.sessionId.trim(), id);
+}
+
+/**
+ * Remove a wishlist entry by product variant id for the session.
+ */
+export async function removeFromWishlistByVariantForSession(
+  session: SessionContext,
+  customisedProductId: string,
+) {
+  const sessionGate = await gateSession(session);
+  if (!sessionGate.success) return sessionGate;
+  const variantGate = requireUuid(customisedProductId, "product variant id");
+  if (!variantGate.success) return variantGate;
+
+  const variantId = customisedProductId.trim();
+  return session.kind === "user"
+    ? removeWishlistItemByVariant(session.userId.trim(), variantId)
+    : removeWishlistItemByVariantForGuest(session.sessionId.trim(), variantId);
+}
+
+/**
+ * Check if a product variant is in the session's wishlist.
+ */
+export async function checkIfInWishlistForSession(
+  session: SessionContext,
+  customisedProductId: string,
+): Promise<boolean> {
+  const identityGate =
+    session.kind === "user"
+      ? requireUuid(session.userId, "user id")
+      : requireUuid(session.sessionId, "session id");
+  if (
+    !identityGate.success ||
+    !requireUuid(customisedProductId, "product variant id").success
+  ) {
+    return false;
+  }
+
+  const variantId = customisedProductId.trim();
+  return session.kind === "user"
+    ? isInWishlist(session.userId.trim(), variantId)
+    : isInWishlistForGuest(session.sessionId.trim(), variantId);
+}
+
+/**
+ * Toggle a variant on the session's wishlist.
+ */
+export async function toggleWishlistForSession(
+  session: SessionContext,
+  customisedProductId: string,
+) {
+  const sessionGate = await gateSession(session);
+  if (!sessionGate.success) return sessionGate;
+  const variantGate = requireUuid(customisedProductId, "product variant id");
+  if (!variantGate.success) return variantGate;
+
+  const variantId = customisedProductId.trim();
+  const inWishlist = await checkIfInWishlistForSession(session, variantId);
+  if (inWishlist) {
+    return removeFromWishlistByVariantForSession(session, variantId);
+  }
+  return addToWishlistForSession(session, variantId);
+}
+
+// ── Thin aliases (legacy names) ──────────────────────────────────────────────
+
+/**
+ * Get wishlist items for a user.
+ */
+export async function getWishlistItems(userId: string) {
+  return getWishlistItemsForSession({ kind: "user", userId });
+}
+
+/**
+ * Get wishlist items for a guest.
+ */
+export async function getWishlistItemsForGuest(sessionId: string) {
+  return getWishlistItemsForSession({ kind: "guest", sessionId });
+}
+
+/**
+ * Count wishlist items for a user.
+ */
+export async function getWishlistCount(userId: string): Promise<number> {
+  return getWishlistCountForSession({ kind: "user", userId });
+}
+
+/**
+ * Count wishlist items for a guest session.
+ */
+export async function getWishlistCountForGuest(
+  sessionId: string,
+): Promise<number> {
+  return getWishlistCountForSession({ kind: "guest", sessionId });
+}
+
+/**
  * Add a product variant to the user's wishlist.
  */
 export async function addToWishlist(
   userId: string,
   customisedProductId: string,
 ) {
-  const userGate = requireUuid(userId, "user id");
-  if (!userGate.success) return userGate;
-  const adminGate = await rejectAdminShopper(userId);
-  if (!adminGate.success) return adminGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-
-  const gate = await assertWishlistVariantActive(customisedProductId);
-  if (!gate.success) return gate;
-  return addWishlistItem(userId.trim(), customisedProductId.trim());
+  return addToWishlistForSession({ kind: "user", userId }, customisedProductId);
 }
 
 /**
@@ -137,30 +266,17 @@ export async function addToWishlistForGuest(
   sessionId: string,
   customisedProductId: string,
 ) {
-  const sessionGate = requireUuid(sessionId, "session id");
-  if (!sessionGate.success) return sessionGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-
-  const gate = await assertWishlistVariantActive(customisedProductId);
-  if (!gate.success) return gate;
-  return addWishlistItemForGuest(sessionId.trim(), customisedProductId.trim());
+  return addToWishlistForSession(
+    { kind: "guest", sessionId },
+    customisedProductId,
+  );
 }
 
 /**
  * Remove a wishlist entry by id.
  */
-export async function removeFromWishlist(
-  userId: string,
-  wishlistId: string,
-) {
-  const userGate = requireUuid(userId, "user id");
-  if (!userGate.success) return userGate;
-  const adminGate = await rejectAdminShopper(userId);
-  if (!adminGate.success) return adminGate;
-  const idGate = requireUuid(wishlistId, "wishlist item");
-  if (!idGate.success) return idGate;
-  return removeWishlistItemById(userId.trim(), wishlistId.trim());
+export async function removeFromWishlist(userId: string, wishlistId: string) {
+  return removeFromWishlistForSession({ kind: "user", userId }, wishlistId);
 }
 
 /**
@@ -170,11 +286,7 @@ export async function removeFromWishlistForGuest(
   sessionId: string,
   wishlistId: string,
 ) {
-  const sessionGate = requireUuid(sessionId, "session id");
-  if (!sessionGate.success) return sessionGate;
-  const idGate = requireUuid(wishlistId, "wishlist item");
-  if (!idGate.success) return idGate;
-  return removeWishlistItemByIdForGuest(sessionId.trim(), wishlistId.trim());
+  return removeFromWishlistForSession({ kind: "guest", sessionId }, wishlistId);
 }
 
 /**
@@ -184,15 +296,9 @@ export async function removeFromWishlistByVariant(
   userId: string,
   customisedProductId: string,
 ) {
-  const userGate = requireUuid(userId, "user id");
-  if (!userGate.success) return userGate;
-  const adminGate = await rejectAdminShopper(userId);
-  if (!adminGate.success) return adminGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-  return removeWishlistItemByVariant(
-    userId.trim(),
-    customisedProductId.trim(),
+  return removeFromWishlistByVariantForSession(
+    { kind: "user", userId },
+    customisedProductId,
   );
 }
 
@@ -203,13 +309,9 @@ export async function removeFromWishlistByVariantForGuest(
   sessionId: string,
   customisedProductId: string,
 ) {
-  const sessionGate = requireUuid(sessionId, "session id");
-  if (!sessionGate.success) return sessionGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-  return removeWishlistItemByVariantForGuest(
-    sessionId.trim(),
-    customisedProductId.trim(),
+  return removeFromWishlistByVariantForSession(
+    { kind: "guest", sessionId },
+    customisedProductId,
   );
 }
 
@@ -220,24 +322,10 @@ export async function toggleWishlistForUser(
   userId: string,
   customisedProductId: string,
 ) {
-  const userGate = requireUuid(userId, "user id");
-  if (!userGate.success) return userGate;
-  const adminGate = await rejectAdminShopper(userId);
-  if (!adminGate.success) return adminGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-
-  const inWishlist = await isInWishlist(
-    userId.trim(),
-    customisedProductId.trim(),
+  return toggleWishlistForSession(
+    { kind: "user", userId },
+    customisedProductId,
   );
-  if (inWishlist) {
-    return removeFromWishlistByVariant(
-      userId.trim(),
-      customisedProductId.trim(),
-    );
-  }
-  return addToWishlist(userId.trim(), customisedProductId.trim());
 }
 
 /**
@@ -247,22 +335,10 @@ export async function toggleWishlistForGuest(
   sessionId: string,
   customisedProductId: string,
 ) {
-  const sessionGate = requireUuid(sessionId, "session id");
-  if (!sessionGate.success) return sessionGate;
-  const variantGate = requireUuid(customisedProductId, "product variant id");
-  if (!variantGate.success) return variantGate;
-
-  const inWishlist = await isInWishlistForGuest(
-    sessionId.trim(),
-    customisedProductId.trim(),
+  return toggleWishlistForSession(
+    { kind: "guest", sessionId },
+    customisedProductId,
   );
-  if (inWishlist) {
-    return removeFromWishlistByVariantForGuest(
-      sessionId.trim(),
-      customisedProductId.trim(),
-    );
-  }
-  return addToWishlistForGuest(sessionId.trim(), customisedProductId.trim());
 }
 
 /**
@@ -272,13 +348,10 @@ export async function checkIfInWishlist(
   userId: string,
   customisedProductId: string,
 ): Promise<boolean> {
-  if (
-    !requireUuid(userId, "user id").success ||
-    !requireUuid(customisedProductId, "product variant id").success
-  ) {
-    return false;
-  }
-  return isInWishlist(userId.trim(), customisedProductId.trim());
+  return checkIfInWishlistForSession(
+    { kind: "user", userId },
+    customisedProductId,
+  );
 }
 
 /**
@@ -288,12 +361,8 @@ export async function checkIfInWishlistForGuest(
   sessionId: string,
   customisedProductId: string,
 ): Promise<boolean> {
-  if (
-    !requireUuid(sessionId, "session id").success ||
-    !requireUuid(customisedProductId, "product variant id").success
-  ) {
-    return false;
-  }
-  return isInWishlistForGuest(sessionId.trim(), customisedProductId.trim());
+  return checkIfInWishlistForSession(
+    { kind: "guest", sessionId },
+    customisedProductId,
+  );
 }
-

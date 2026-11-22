@@ -1,23 +1,15 @@
 'use server'
 
 import { z } from 'zod'
-import { getCurrentAuthUserFromAction } from '@/repositories/auth.repository'
 import {
-  removeFromWishlist,
-  removeFromWishlistForGuest,
-  checkIfInWishlist,
-  checkIfInWishlistForGuest,
-  getWishlistCount,
-  getWishlistCountForGuest,
-  toggleWishlistForUser,
-  toggleWishlistForGuest,
+  removeFromWishlistForSession,
+  checkIfInWishlistForSession,
+  getWishlistCountForSession,
+  toggleWishlistForSession,
 } from '@/services/wishlist.service'
 import { revalidatePath } from 'next/cache'
 import { createWishlistItemSchema } from '@/lib/validators/wishlist/create'
-import {
-  getGuestSessionId,
-  getOrCreateGuestSessionId,
-} from '@/lib/auth/guest-session'
+import { resolveStorefrontSession } from '@/lib/auth/session-context'
 import { getAdminShopBlockForCurrentUser } from '@/lib/auth/require-customer-shop'
 
 const wishlistIdSchema = z.string().uuid()
@@ -43,14 +35,15 @@ export async function toggleWishlistAction(customisedProductId: string) {
     }
   }
 
-  const user = await getCurrentAuthUserFromAction()
+  const session = await resolveStorefrontSession({ createGuestIfMissing: true })
+  if (!session) {
+    return { success: false, error: 'No active session found' }
+  }
 
-  const result = user
-    ? await toggleWishlistForUser(user.id, validation.data.customised_product_id)
-    : await toggleWishlistForGuest(
-        await getOrCreateGuestSessionId(),
-        validation.data.customised_product_id,
-      )
+  const result = await toggleWishlistForSession(
+    session,
+    validation.data.customised_product_id,
+  )
 
   if (result.success) {
     revalidatePath('/wishlist')
@@ -75,23 +68,12 @@ export async function removeWishlistItemAction(wishlistId: string) {
     return { success: false as const, error: 'Invalid wishlist item' }
   }
 
-  const user = await getCurrentAuthUserFromAction()
-
-  if (user) {
-    const result = await removeFromWishlist(user.id, parsed.data)
-    if (result.success) {
-      revalidatePath('/wishlist')
-      revalidatePath('/account/wishlist')
-    }
-    return result
-  }
-
-  const sessionId = await getGuestSessionId()
-  if (!sessionId) {
+  const session = await resolveStorefrontSession()
+  if (!session) {
     return { success: false as const, error: 'No active guest session' }
   }
 
-  const result = await removeFromWishlistForGuest(sessionId, parsed.data)
+  const result = await removeFromWishlistForSession(session, parsed.data)
   if (result.success) {
     revalidatePath('/wishlist')
     revalidatePath('/account/wishlist')
@@ -119,23 +101,13 @@ export async function checkWishlistStatusAction(customisedProductId: string): Pr
     }
   }
 
-  const user = await getCurrentAuthUserFromAction()
-
-  if (user) {
-    const inWishlist = await checkIfInWishlist(
-      user.id,
-      validation.data.customised_product_id,
-    )
-    return { success: true, inWishlist }
-  }
-
-  const sessionId = await getGuestSessionId()
-  if (!sessionId) {
+  const session = await resolveStorefrontSession()
+  if (!session) {
     return { success: true, inWishlist: false }
   }
 
-  const inWishlist = await checkIfInWishlistForGuest(
-    sessionId,
+  const inWishlist = await checkIfInWishlistForSession(
+    session,
     validation.data.customised_product_id,
   )
   return { success: true, inWishlist }
@@ -145,13 +117,8 @@ export async function checkWishlistStatusAction(customisedProductId: string): Pr
  * Wishlist item count for Navbar badge (auth user or guest cookie).
  */
 export async function getWishlistCountAction(): Promise<number> {
-  const user = await getCurrentAuthUserFromAction()
-  if (user) {
-    return getWishlistCount(user.id)
-  }
+  const session = await resolveStorefrontSession()
+  if (!session) return 0
 
-  const sessionId = await getGuestSessionId()
-  if (!sessionId) return 0
-
-  return getWishlistCountForGuest(sessionId)
+  return getWishlistCountForSession(session)
 }

@@ -1,5 +1,4 @@
-import { getCurrentAuthUserFromComponent } from '@/repositories/auth.repository'
-import { getWishlistItems, getWishlistItemsForGuest } from '@/services/wishlist.service'
+import { getWishlistItemsForSession } from '@/services/wishlist.service'
 import { UnavailableWishlistCard } from '@/components/(public)/wishlist/UnavailableWishlistCard'
 import { WishlistItemCard } from '@/components/(public)/wishlist/WishlistItemCard'
 import { Heart, ArrowRight, AlertCircle } from 'lucide-react'
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { WishlistStats } from '@/components/(public)/wishlist/WishlistStats'
 import { WishlistFilters } from '@/components/(public)/wishlist/WishlistFilters'
 import { WishlistPagination } from '@/components/(public)/wishlist/WishlistPagination'
-import { getGuestSessionId } from '@/lib/auth/guest-session'
+import { resolveStorefrontSessionForComponent } from '@/lib/auth/session-context'
 import { filterWishlistItems } from '@/lib/wishlist/filter-wishlist-items'
 import type { ProductWithRelations } from '@/types/product'
 
@@ -61,28 +60,17 @@ function categoriesFromWishlistItems(items: WishlistPageItem[]) {
 
 export default async function WishlistPage({ searchParams }: WishlistPageProps) {
     const params = await searchParams
-    const user = await getCurrentAuthUserFromComponent()
+    const session = await resolveStorefrontSessionForComponent()
 
     let wishlistItems: WishlistPageItem[] = []
     let loadError: string | null = null
 
-    if (user) {
-        const result = await getWishlistItems(user.id)
+    if (session) {
+        const result = await getWishlistItemsForSession(session)
         if (!result.success) {
             loadError = result.error
         } else {
             wishlistItems = result.data as WishlistPageItem[]
-        }
-    } else {
-        const sessionId = await getGuestSessionId()
-
-        if (sessionId) {
-            const result = await getWishlistItemsForGuest(sessionId)
-            if (!result.success) {
-                loadError = result.error
-            } else {
-                wishlistItems = result.data as WishlistPageItem[]
-            }
         }
     }
 

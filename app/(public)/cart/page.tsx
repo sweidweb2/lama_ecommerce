@@ -5,14 +5,13 @@ import { ROUTES } from "@/lib/constants/routes";
 import { CartSidebar } from "@/components/(public)/cart/CartSidebar";
 import { CartItem } from "@/components/(public)/cart/CartItem";
 import { PendingOrderResumeBanner } from "@/components/(public)/cart/PendingOrderResumeBanner";
-import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository";
-import {
-  getUserCartWithItemsService,
-  getGuestCartWithItemsService,
-} from "@/services/cart.service";
+import { getCartWithItemsForSession } from "@/services/cart.service";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
 import { getAddressesByUserId } from "@/services/address.service";
-import { getGuestSessionId } from "@/lib/auth/guest-session";
+import {
+  isUserSession,
+  resolveStorefrontSessionForComponent,
+} from "@/lib/auth/session-context";
 import type { UserAddress } from "@/types/user";
 
 export const metadata = {
@@ -21,26 +20,13 @@ export const metadata = {
 };
 
 export default async function CartPage() {
-  // Check if user is authenticated
-  const user = await getCurrentAuthUserFromComponent();
+  const session = await resolveStorefrontSessionForComponent();
 
-  // Determine cart result based on auth state
-  let cartResult: Awaited<ReturnType<typeof getUserCartWithItemsService>>;
-
-  if (user) {
-    // Authenticated user → fetch cart by user_id
-    cartResult = await getUserCartWithItemsService(user.id);
-  } else {
-    // Guest → read session cookie and fetch cart by session_id
-    const sessionId = await getGuestSessionId();
-
-    if (sessionId) {
-      cartResult = await getGuestCartWithItemsService(sessionId);
-    } else {
-      // No session at all → show empty cart
-      cartResult = { success: false, error: "No active cart found" };
-    }
-  }
+  // No session at all → show empty cart
+  const cartResult: Awaited<ReturnType<typeof getCartWithItemsForSession>> =
+    session
+      ? await getCartWithItemsForSession(session)
+      : { success: false, error: "No active cart found" };
 
   // If no cart or error, show empty state
   if (!cartResult.success || !cartResult.data) {
@@ -80,9 +66,10 @@ export default async function CartPage() {
   const shippingZones = (await getPublicShippingZones()) ?? [];
 
   // Logged-in users: load address book for checkout prefill (null = guest)
-  const savedAddresses: UserAddress[] | null = user
-    ? await getAddressesByUserId(user.id)
-    : null;
+  const savedAddresses: UserAddress[] | null =
+    session && isUserSession(session)
+      ? await getAddressesByUserId(session.userId)
+      : null;
 
   return (
     <div className="container mx-auto px-4 pt-6 lg:pt-8">

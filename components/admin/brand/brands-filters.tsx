@@ -1,27 +1,38 @@
 'use client'
 
-import { Input } from "@/components/ui/input"
+import { useMemo } from "react"
+import {
+  AdminFilterBar,
+  type AdminFilterField,
+} from "@/components/admin/shared/admin-filter-bar"
 
 interface BrandsFiltersProps {
   nameFilter: string
   onNameFilterChange: (value: string) => void
 }
 
+const FIELDS: AdminFilterField[] = [
+  {
+    type: "text",
+    key: "name",
+    label: "Search by name or slug",
+    placeholder: "Type to filter…",
+    className: "w-full sm:w-64",
+  },
+]
+
 export function BrandsFilters({
   nameFilter,
   onNameFilterChange,
 }: BrandsFiltersProps) {
+  const values = useMemo(() => ({ name: nameFilter }), [nameFilter])
+
   return (
-    <div className="space-y-1 w-full sm:w-64">
-      <label className="text-xs font-medium text-muted-foreground">
-        Search by name or slug
-      </label>
-      <Input
-        value={nameFilter}
-        onChange={(e) => onNameFilterChange(e.target.value)}
-        placeholder="Type to filter…"
-        className="h-9"
-      />
-    </div>
+    <AdminFilterBar
+      fields={FIELDS}
+      values={values}
+      onChange={(_key, value) => onNameFilterChange(value)}
+      className="flex items-end"
+    />
   )
 }

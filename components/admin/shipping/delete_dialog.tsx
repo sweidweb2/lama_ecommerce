@@ -1,9 +1,6 @@
 'use client'
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { AdminDeleteDialog } from "@/components/admin/shared/admin-delete-dialog"
 import type { AdminShippingZone } from "./create_form"
 
 interface DeleteShippingZoneDialogProps {
@@ -13,67 +10,26 @@ interface DeleteShippingZoneDialogProps {
 }
 
 export function DeleteShippingZoneDialog({ zone, onDelete, showText = false }: DeleteShippingZoneDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      if (onDelete) {
-        await onDelete(zone.id)
-      }
-      setOpen(false)
-    } catch (error) {
-      console.error("Error deleting shipping zone:", error)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   return (
-    <>
-      <Button
-        variant={showText ? "destructive" : "ghost"}
-        size={showText ? "default" : "icon"}
-        onClick={() => setOpen(true)}
-        aria-label={`Delete shipping zone ${zone.name}`}
-      >
-        <Trash2 className={`h-4 w-4 ${showText ? "mr-2" : ""}`} />
-        {showText && "Delete"}
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Shipping Zone</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground mt-2">
-            <p>
-              Are you sure you want to delete the shipping zone{" "}
-              <span className="font-semibold text-foreground">{zone.name}</span>?
-            </p>
-            <p>This will also delete the associated shipping fee. This action cannot be undone.</p>
-          </div>
-          <DialogFooter className="mt-4 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              loading={isDeleting}
-            >
-              Delete Zone
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <AdminDeleteDialog
+      title="Delete Shipping Zone"
+      entityLabel="shipping zone"
+      ariaLabel={`Delete shipping zone ${zone.name}`}
+      confirmLabel="Delete Zone"
+      showText={showText}
+      suppressErrorToast
+      description={
+        <>
+          <p>
+            Are you sure you want to delete the shipping zone{" "}
+            <span className="font-semibold text-foreground">{zone.name}</span>?
+          </p>
+          <p>This will also delete the associated shipping fee. This action cannot be undone.</p>
+        </>
+      }
+      onConfirm={async () => {
+        await onDelete?.(zone.id)
+      }}
+    />
   )
 }

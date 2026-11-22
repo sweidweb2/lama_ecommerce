@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
-import {
-  getWishlistCount,
-  getWishlistCountForGuest,
-} from "@/services/wishlist.service";
-import { getGuestSessionId } from "@/lib/auth/guest-session";
+import { getWishlistCountForSession } from "@/services/wishlist.service";
+import { resolveStorefrontSession } from "@/lib/auth/session-context";
 
 /**
  * GET /api/wishlist/count
@@ -12,18 +8,12 @@ import { getGuestSessionId } from "@/lib/auth/guest-session";
  */
 export async function GET() {
   try {
-    const user = await getCurrentAuthUserFromAction();
-    if (user) {
-      const count = await getWishlistCount(user.id);
-      return NextResponse.json({ count });
-    }
-
-    const sessionId = await getGuestSessionId();
-    if (!sessionId) {
+    const session = await resolveStorefrontSession();
+    if (!session) {
       return NextResponse.json({ count: 0 });
     }
 
-    const count = await getWishlistCountForGuest(sessionId);
+    const count = await getWishlistCountForSession(session);
     return NextResponse.json({ count });
   } catch (error) {
     console.error("Error in GET /api/wishlist/count:", error);

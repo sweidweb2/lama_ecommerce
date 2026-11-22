@@ -7,6 +7,10 @@ const createShippingZoneWithFee = vi.fn();
 const updateShippingZoneWithFee = vi.fn();
 const deleteShippingZoneById = vi.fn();
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("@/services/profile.service", () => ({
   getCurrentUserProfile: (...args: unknown[]) => getCurrentUserProfile(...args),
 }));
@@ -22,7 +26,7 @@ vi.mock("@/repositories/shipping_zone.repository", () => ({
     deleteShippingZoneById(...args),
 }));
 
-describe("shipping_zone.service", () => {
+describe("shipping zones", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -36,38 +40,45 @@ describe("shipping_zone.service", () => {
     expect(getCurrentUserProfile).not.toHaveBeenCalled();
   });
 
-  it("getShippingZonesForAdmin returns [] for non-admin", async () => {
+  it("getShippingZonesAction returns [] for non-admin", async () => {
     getCurrentUserProfile.mockResolvedValue(userProfile);
-    const { getShippingZonesForAdmin } = await import(
-      "@/services/shipping_zone.service"
-    );
-    await expect(getShippingZonesForAdmin()).resolves.toEqual([]);
+    const { getShippingZonesAction } = await import("@/actions/shipping");
+    await expect(getShippingZonesAction()).resolves.toEqual([]);
     expect(getAllShippingZonesWithFee).not.toHaveBeenCalled();
   });
 
-  it("mutations return null/false for non-admin", async () => {
+  it("mutations fail without hitting the repo for non-admin", async () => {
     getCurrentUserProfile.mockResolvedValue(userProfile);
     const {
-      createShippingZoneAdmin,
-      updateShippingZoneAdmin,
-      deleteShippingZoneAdmin,
-    } = await import("@/services/shipping_zone.service");
+      createShippingZoneAction,
+      updateShippingZoneAction,
+      deleteShippingZoneAction,
+    } = await import("@/actions/shipping");
 
     await expect(
-      createShippingZoneAdmin({ name: "Amman", fee: 5 } as never),
-    ).resolves.toBeNull();
+      createShippingZoneAction({ name: "Amman", estimated_time: null, fee: 5 }),
+    ).resolves.toMatchObject({ success: false });
     await expect(
-      updateShippingZoneAdmin({ id: "z1", name: "Amman" } as never),
-    ).resolves.toBeNull();
-    await expect(deleteShippingZoneAdmin("z1")).resolves.toBe(false);
+      updateShippingZoneAction({
+        id: "00000000-0000-4000-8000-000000000001",
+        name: "Amman",
+        estimated_time: null,
+        fee: 5,
+      }),
+    ).resolves.toMatchObject({ success: false });
+    await expect(deleteShippingZoneAction("z1")).resolves.toMatchObject({
+      success: false,
+    });
+
+    expect(createShippingZoneWithFee).not.toHaveBeenCalled();
+    expect(updateShippingZoneWithFee).not.toHaveBeenCalled();
+    expect(deleteShippingZoneById).not.toHaveBeenCalled();
   });
 
-  it("getShippingZonesForAdmin reaches repo for admin", async () => {
+  it("getShippingZonesAction reaches repo for admin", async () => {
     getCurrentUserProfile.mockResolvedValue(adminProfile);
     getAllShippingZonesWithFee.mockResolvedValue([{ id: "z1" }]);
-    const { getShippingZonesForAdmin } = await import(
-      "@/services/shipping_zone.service"
-    );
-    await expect(getShippingZonesForAdmin()).resolves.toEqual([{ id: "z1" }]);
+    const { getShippingZonesAction } = await import("@/actions/shipping");
+    await expect(getShippingZonesAction()).resolves.toEqual([{ id: "z1" }]);
   });
 });

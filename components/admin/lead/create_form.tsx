@@ -1,19 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus } from "lucide-react";
+import { AdminFormDialog } from "@/components/admin/shared/admin-form-dialog";
 import { createLeadAdminAction } from "@/actions/lead";
-import { toast } from "sonner";
 
 export type AdminLead = {
   id: string;
@@ -26,80 +16,58 @@ export type AdminLead = {
   created_at: string;
 };
 
+type CreateValues = {
+  email: string;
+};
+
 interface CreateLeadDialogProps {
   onCreated?: () => void;
 }
 
+const INITIAL: CreateValues = {
+  email: "",
+};
+
 export function CreateLeadDialog({ onCreated }: CreateLeadDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const result = await createLeadAdminAction({ email: email.trim() });
-      if (result.success) {
-        setEmail("");
-        setOpen(false);
-        onCreated?.();
-        toast.success("Lead created");
-      } else {
-        toast.error(result.error);
-      }
-    } catch (error) {
-      console.error("Error creating lead:", error);
-      toast.error("Failed to create lead");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setEmail("");
-    setOpen(false);
-  };
-
   return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />
-        Add Lead
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Lead</DialogTitle>
-          </DialogHeader>
-
-          <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="lead-email">
-                Email <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="lead-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="lead@example.com"
-                required
-              />
-            </div>
-
-            <DialogFooter className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={isSubmitting}>
-                Add Lead
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    <AdminFormDialog<CreateValues>
+      mode="create"
+      title="Add Lead"
+      triggerLabel="Add Lead"
+      initialValues={INITIAL}
+      submitLabel="Add Lead"
+      toastMessages={{
+        success: "Lead created",
+        errorTitle: "Failed to create lead",
+      }}
+      onSuccess={onCreated}
+      onSubmit={async (values) => {
+        const result = await createLeadAdminAction({
+          email: values.email.trim(),
+        });
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+        return { success: true };
+      }}
+    >
+      {({ values, setValues }) => (
+        <div className="space-y-2">
+          <Label htmlFor="lead-email">
+            Email <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="lead-email"
+            type="email"
+            value={values.email}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, email: e.target.value }))
+            }
+            placeholder="lead@example.com"
+            required
+          />
+        </div>
+      )}
+    </AdminFormDialog>
   );
 }

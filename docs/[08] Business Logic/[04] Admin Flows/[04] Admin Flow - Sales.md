@@ -206,7 +206,7 @@
 |-------|--------|
 | Pages | `app/admin/orders/**`, `carts/**`, `shippings/page.tsx`, `promocodes/page.tsx` |
 | Actions | `actions/order.ts`, `actions/cart.ts` (admin), `actions/shipping.ts`, `actions/promo.ts`, `actions/checkout.ts` |
-| Services | `services/order.service.ts`, `cart.service.ts`, `checkout.service.ts`, `shipping_zone.service.ts`, `promo_code.service.ts` |
+| Services | `services/order.service.ts`, `cart.service.ts`, `checkout.service.ts`, `shipping_zone.service.ts` (public read only) |
 | Repos | `order.repository.ts`, `shipment.repository.ts`, `cart*.repository.ts`, `shipping_zone.repository.ts`, `promo_code.repository.ts` |
 | SQL | `process_checkout`, `restock_order_inventory` (migrations) |
 | UI | `components/admin/order/*`, `cart/*`, `shipping/*`, `promo/*` |

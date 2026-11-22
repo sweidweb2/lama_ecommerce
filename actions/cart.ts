@@ -2,21 +2,17 @@
 
 import { getCurrentAuthUserFromAction } from "@/repositories/auth.repository";
 import {
-  addItemToCartService,
-  addItemToGuestCartService,
+  addItemForSession,
   addItemToCartByIdService,
   getUserCartService,
-  getUserCartWithItemsService,
-  getGuestCartWithItemsService,
+  getCartWithItemsForSession,
   mergeGuestCartToUserService,
-  deleteCartItemService,
-  deleteCartItemForGuestService,
+  deleteCartItemForSession,
   deleteCartService,
   hardDeleteCartService,
   updateCartItemService,
   deleteCartItemForAdminService,
-  updateUserCartItemQuantityService,
-  updateCartItemQuantityForGuestService,
+  updateCartItemQuantityForSession,
   createCartForAdminService,
   getCartWithItemsForAdminService,
 } from "@/services/cart.service";
@@ -26,8 +22,8 @@ import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import {
   clearGuestSessionCookie,
   getGuestSessionId,
-  getOrCreateGuestSessionId,
 } from "@/lib/auth/guest-session";
+import { resolveStorefrontSession } from "@/lib/auth/session-context";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminShopBlockForCurrentUser } from "@/lib/auth/require-customer-shop";
 import { revalidatePath } from "next/cache";
@@ -188,15 +184,9 @@ export async function mergeGuestCartOnLoginAction(): Promise<GuestHandoffResult>
  * This is the server action called from client components.
  *
  * Flow:
- * 1. Check if user is authenticated
- * 2a. Authenticated → use existing addItemToCartService (user_id based)
- * 2b. Guest →
- *     - Read guest_session_id cookie
- *     - If missing → generate new session ID (crypto.randomUUID())
- *     - Set / refresh the cookie (14 days, HttpOnly, Secure, SameSite=Lax)
- *     - Check if an active cart exists for that session_id
- *     - If not → create a new guest cart (user_id=null, session_id)
- *     - Add cart item under that cart
+ * 1. Resolve the storefront session (auth user, else guest_session_id cookie;
+ *    a new guest cookie is minted when missing).
+ * 2. Delegate to addItemForSession (finds/creates the active cart, adds the item).
  */
 export async function addItemToCartAction(input: {
   customised_product_id: string;
@@ -207,25 +197,12 @@ export async function addItemToCartAction(input: {
     return { success: false, error: shopBlock };
   }
 
-  // Check if user is authenticated
-  const user = await getCurrentAuthUserFromAction();
-
-  if (user) {
-    // ── Authenticated user flow ──
-    const result = await addItemToCartService(user.id, input);
-
-    if (result.success) {
-      revalidatePath("/cart");
-    }
-
-    return result;
+  const session = await resolveStorefrontSession({ createGuestIfMissing: true });
+  if (!session) {
+    return { success: false, error: "No active session found" };
   }
 
-  // ── Guest user flow ──
-  const sessionId = await getOrCreateGuestSessionId();
-
-  // Delegate to guest cart service (creates cart if needed, adds item)
-  const result = await addItemToGuestCartService(sessionId, input);
+  const result = await addItemForSession(session, input);
 
   if (result.success) {
     revalidatePath("/cart");
@@ -243,23 +220,20 @@ export async function getUserCartAction(): Promise<{
   error?: string;
   data?: Cart;
 }> {
-  const user = await getCurrentAuthUserFromAction();
-
-  if (user) {
-    return await getUserCartService(user.id);
-  }
-
-  // Guest flow – use session cookie
-  const sessionId = await getGuestSessionId();
-  if (!sessionId) {
+  const session = await resolveStorefrontSession();
+  if (!session) {
     return {
       success: false,
       error: "No active cart found",
     };
   }
 
-  // Re-use getGuestCartWithItemsService to find the cart
-  const result = await getGuestCartWithItemsService(sessionId);
+  if (session.kind === "user") {
+    return await getUserCartService(session.userId);
+  }
+
+  // Guest flow – re-use the unified cart lookup to find the cart
+  const result = await getCartWithItemsForSession(session);
   if (result.success && result.data) {
     return { success: true, data: result.data.cart };
   }
@@ -276,22 +250,15 @@ export async function getUserCartAction(): Promise<{
  * - No session / no cart → returns { success: false }
  */
 export async function getUserCartWithItemsAction(): Promise<CartWithItemsResult> {
-  const user = await getCurrentAuthUserFromAction();
-
-  if (user) {
-    return await getUserCartWithItemsService(user.id);
-  }
-
-  // Guest flow – use session cookie
-  const sessionId = await getGuestSessionId();
-  if (!sessionId) {
+  const session = await resolveStorefrontSession();
+  if (!session) {
     return {
       success: false,
       error: "No active cart found",
     };
   }
 
-  return await getGuestCartWithItemsService(sessionId);
+  return await getCartWithItemsForSession(session);
 }
 
 /**
@@ -307,19 +274,12 @@ export async function deleteCartItemAction(
     return { success: false, error: shopBlock };
   }
 
-  const user = await getCurrentAuthUserFromAction();
-
-  let result: { success: boolean; error?: string };
-
-  if (user) {
-    result = await deleteCartItemService(cartItemId);
-  } else {
-    const sessionId = await getGuestSessionId();
-    if (!sessionId) {
-      return { success: false, error: "No active session found" };
-    }
-    result = await deleteCartItemForGuestService(sessionId, cartItemId);
+  const session = await resolveStorefrontSession();
+  if (!session) {
+    return { success: false, error: "No active session found" };
   }
+
+  const result = await deleteCartItemForSession(session, cartItemId);
 
   if (result.success) {
     revalidatePath("/cart");
@@ -430,22 +390,16 @@ export async function updateCartItemQuantityAction(
       };
     }
 
-    const user = await getCurrentAuthUserFromAction();
-    let result: CartMutationResult;
-
-    if (user) {
-      result = await updateUserCartItemQuantityService(cartItemId, quantity);
-    } else {
-      const sessionId = await getGuestSessionId();
-      if (!sessionId) {
-        return { success: false, error: "No active session found" };
-      }
-      result = await updateCartItemQuantityForGuestService(
-        sessionId,
-        cartItemId,
-        quantity,
-      );
+    const session = await resolveStorefrontSession();
+    if (!session) {
+      return { success: false, error: "No active session found" };
     }
+
+    const result: CartMutationResult = await updateCartItemQuantityForSession(
+      session,
+      cartItemId,
+      quantity,
+    );
 
     if (result.success) {
       revalidatePath("/cart");
