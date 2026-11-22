@@ -17,6 +17,7 @@ import {
   createBrandSchema,
   updateBrandSchema,
 } from "@/lib/validators/brand";
+import { assertServerActionUploadSize } from "@/lib/constants/uploads";
 import type { Brand } from "@/types/product";
 
 export async function getBrandsService(): Promise<Brand[]> {
@@ -33,6 +34,8 @@ export async function getBrandsService(): Promise<Brand[]> {
 }
 
 async function uploadBrandLogo(logoFile: File): Promise<string> {
+  assertServerActionUploadSize(logoFile, "Logo");
+
   const ext = logoFile.type.split("/")[1] || "png";
   const filePath = `brands/${crypto.randomUUID()}.${ext}`;
 

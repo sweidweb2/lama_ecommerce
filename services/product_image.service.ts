@@ -14,6 +14,7 @@ import {
   removeFiles,
   uploadPublicFile,
 } from "@/repositories/storage.repository";
+import { assertServerActionUploadSize } from "@/lib/constants/uploads";
 
 /**
  * Add a product image for a given product.
@@ -55,6 +56,8 @@ export async function uploadAndAddProductImageService(
 ): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
   try {
+    assertServerActionUploadSize(imageFile, "Image");
+
     const name = imageFile.name || "";
     const nameExt = name.includes(".")
       ? name.split(".").pop()?.toLowerCase()

@@ -24,10 +24,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Product/brand image uploads go through Server Actions; default is 1MB and
-  // rejects typical product photos before createProductAction runs (HTTP 400 on Vercel).
-  serverActions: {
-    bodySizeLimit: "4mb",
+  // Product/brand image uploads go through Server Actions; default is 1MB.
+  // In Next.js 16 this option lives under experimental (top-level is ignored).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
   },
   images: {
     remotePatterns: [
