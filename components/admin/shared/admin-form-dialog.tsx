@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, Edit } from "lucide-react";
 import { toast } from "sonner";
-import type { AdminActionResult } from "@/components/admin/shared/admin-delete-dialog";
+import type { AdminActionResult } from "./admin-action-result";
 
 type AdminFormDialogProps<TValues> = {
   mode: "create" | "edit";
@@ -75,7 +75,7 @@ export function AdminFormDialog<TValues>({
     setIsSubmitting(true);
     try {
       const result = await onSubmit(values);
-      if (result && result.success === false) {
+      if (!result.success) {
         toast.error(toastMessages?.errorTitle ?? "Request failed", {
           description: result.error,
         });
@@ -89,7 +89,10 @@ export function AdminFormDialog<TValues>({
       reset();
     } catch (error) {
       console.error(`Error in ${mode} form:`, error);
-      toast.error(toastMessages?.errorTitle ?? "Request failed");
+      toast.error(toastMessages?.errorTitle ?? "Request failed", {
+        description:
+          error instanceof Error ? error.message : "Unexpected error",
+      });
     } finally {
       setIsSubmitting(false);
     }

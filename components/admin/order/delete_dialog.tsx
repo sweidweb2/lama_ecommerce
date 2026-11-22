@@ -49,22 +49,30 @@ export function DeleteOrderDialog({ order, onDelete, showText = false, redirectA
         </>
       }
       onConfirm={async () => {
-        if (onDelete) {
-          await onDelete(order.id)
-          return
-        }
+        try {
+          if (onDelete) {
+            await onDelete(order.id)
+            return { success: true as const }
+          }
 
-        const result = toAdminActionResult(
-          await deleteOrderAction(order.id),
-          "Failed to delete order",
-        )
-        if (result && !result.success) return result
+          const result = toAdminActionResult(
+            await deleteOrderAction(order.id),
+            "Failed to delete order",
+          )
+          if (!result.success) return result
+        } catch (e) {
+          return {
+            success: false as const,
+            error: e instanceof Error ? e.message : "Failed to delete order",
+          }
+        }
 
         if (redirectAfterDelete) {
           router.push("/admin/orders")
         } else {
           router.refresh()
         }
+        return { success: true as const }
       }}
     />
   )

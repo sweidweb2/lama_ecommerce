@@ -46,6 +46,7 @@ export function DeleteContactDialog({ contact, onDelete, showText = false }: Del
           }
         }
         router.refresh()
+        return { success: true as const }
       }}
     />
   )

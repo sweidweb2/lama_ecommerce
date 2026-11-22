@@ -1,49 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionContext } from "@/lib/auth/session-context";
 
-const hasActiveCartBySessionId = vi.fn();
+const hasActiveCartForSession = vi.fn();
 const createCart = vi.fn();
-const createCartItem = vi.fn();
-const createCartItemAsAdmin = vi.fn();
+const createCartItemForSession = vi.fn();
 const incrementProductAddToCartService = vi.fn();
 
 vi.mock("@/repositories/cart.repository", () => ({
   createCart: (...args: unknown[]) => createCart(...args),
   createCartForAdmin: vi.fn(),
-  hasActiveCart: vi.fn(),
-  hasActiveCartBySessionId: (...args: unknown[]) =>
-    hasActiveCartBySessionId(...args),
-  // Unified SessionContext helper: routes to the same spy as the legacy alias.
-  hasActiveCartForSession: (session: SessionContext) =>
-    session.kind === "user"
-      ? vi.fn()(session.userId)
-      : hasActiveCartBySessionId(session.sessionId),
+  hasActiveCartForSession: (...args: unknown[]) =>
+    hasActiveCartForSession(...args),
   getCartForSession: vi.fn(),
-  getCartByUserId: vi.fn(),
-  getCartBySessionId: vi.fn(),
   getAllCartsForAdmin: vi.fn(),
   getCartByIdForAdmin: vi.fn(),
   deleteCart: vi.fn(),
   hardDeleteCart: vi.fn(),
-  updateCartUserId: vi.fn(),
-  deleteCartAdmin: vi.fn(),
+  mergeGuestCartToUser: vi.fn(),
 }));
 
 vi.mock("@/repositories/cart_item.repository", () => ({
-  createCartItem: (...args: unknown[]) => createCartItem(...args),
-  createCartItemAsAdmin: (...args: unknown[]) => createCartItemAsAdmin(...args),
-  createCartItemForSession: (session: SessionContext, input: unknown) =>
-    session.kind === "user" ? createCartItem(input) : createCartItemAsAdmin(input),
+  createCartItemAsAdmin: vi.fn(),
+  createCartItemForSession: (...args: unknown[]) =>
+    createCartItemForSession(...args),
   updateCartItemForSession: vi.fn(),
   hardDeleteCartItemForSession: vi.fn(),
   getCartItemsWithProductsByCartId: vi.fn(),
   getCartItemsWithProductsByCartIdForAdmin: vi.fn(),
   hardDeleteCartItem: vi.fn(),
-  hardDeleteCartItemForGuest: vi.fn(),
+  hardDeleteCartItemForAdmin: vi.fn(),
   hardDeleteCartItemsByCartId: vi.fn(),
   updateCartItem: vi.fn(),
   updateCartItemForAdmin: vi.fn(),
-  updateCartItemForGuest: vi.fn(),
   moveCartItemsToCart: vi.fn(),
 }));
 
@@ -56,7 +43,7 @@ vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: vi.fn(),
 }));
 
-describe("addItemToGuestCartService concurrent create", () => {
+describe("addItemForSession (guest) concurrent create", () => {
   const sessionId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
   const variantId = "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
   const winnerCart = {
@@ -80,7 +67,7 @@ describe("addItemToGuestCartService concurrent create", () => {
   });
 
   it("retries lookup on 23505 and continues ATC on the winning cart", async () => {
-    hasActiveCartBySessionId
+    hasActiveCartForSession
       .mockResolvedValueOnce({
         success: true,
         hasActiveCart: false,
@@ -97,16 +84,16 @@ describe("addItemToGuestCartService concurrent create", () => {
       code: "23505",
     });
 
-    createCartItemAsAdmin.mockResolvedValue({
+    createCartItemForSession.mockResolvedValue({
       success: true,
       data: cartItem,
     });
 
-    const { addItemToGuestCartService } = await import(
+    const { addItemForSession } = await import(
       "@/services/cart.service"
     );
 
-    const result = await addItemToGuestCartService(sessionId, {
+    const result = await addItemForSession({ kind: "guest", sessionId }, {
       customised_product_id: variantId,
       quantity: 1,
     });
@@ -120,16 +107,19 @@ describe("addItemToGuestCartService concurrent create", () => {
         }),
       }),
     );
-    expect(hasActiveCartBySessionId).toHaveBeenCalledTimes(2);
-    expect(createCartItemAsAdmin).toHaveBeenCalledWith({
-      cart_id: winnerCart.id,
-      customised_product_id: variantId,
-      quantity: 1,
-    });
+    expect(hasActiveCartForSession).toHaveBeenCalledTimes(2);
+    expect(createCartItemForSession).toHaveBeenCalledWith(
+      { kind: "guest", sessionId },
+      {
+        cart_id: winnerCart.id,
+        customised_product_id: variantId,
+        quantity: 1,
+      },
+    );
   });
 
   it("returns error when 23505 retry still finds no cart", async () => {
-    hasActiveCartBySessionId
+    hasActiveCartForSession
       .mockResolvedValueOnce({
         success: true,
         hasActiveCart: false,
@@ -145,16 +135,16 @@ describe("addItemToGuestCartService concurrent create", () => {
       code: "23505",
     });
 
-    const { addItemToGuestCartService } = await import(
+    const { addItemForSession } = await import(
       "@/services/cart.service"
     );
 
-    const result = await addItemToGuestCartService(sessionId, {
+    const result = await addItemForSession({ kind: "guest", sessionId }, {
       customised_product_id: variantId,
       quantity: 1,
     });
 
     expect(result.success).toBe(false);
-    expect(createCartItemAsAdmin).not.toHaveBeenCalled();
+    expect(createCartItemForSession).not.toHaveBeenCalled();
   });
 });

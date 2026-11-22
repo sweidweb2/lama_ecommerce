@@ -1,17 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import {
   AdminFilterBar,
   type AdminFilterField,
 } from "@/components/admin/shared/admin-filter-bar";
+import { useUrlFilters } from "@/components/admin/shared/use-url-filters";
 
-interface ContactFiltersProps {
-  initialName: string;
-  initialEmail: string;
-  initialFrom: string;
-  initialTo: string;
-}
+const FILTER_KEYS = ["name", "email", "from", "to"] as const;
+const PRESERVE_PARAMS = ["id"] as const;
 
 const FIELDS: AdminFilterField[] = [
   {
@@ -42,58 +38,23 @@ const FIELDS: AdminFilterField[] = [
   },
 ];
 
-export function ContactFilters({
-  initialName,
-  initialEmail,
-  initialFrom,
-  initialTo,
-}: ContactFiltersProps) {
-  const [values, setValues] = useState({
-    name: initialName,
-    email: initialEmail,
-    from: initialFrom,
-    to: initialTo,
+export function ContactFilters() {
+  const { values, setValue, clear } = useUrlFilters({
+    keys: FILTER_KEYS,
+    preserveParams: PRESERVE_PARAMS,
   });
 
-  const [prevInitials, setPrevInitials] = useState({
-    initialName,
-    initialEmail,
-    initialFrom,
-    initialTo,
-  });
-
-  if (
-    initialName !== prevInitials.initialName ||
-    initialEmail !== prevInitials.initialEmail ||
-    initialFrom !== prevInitials.initialFrom ||
-    initialTo !== prevInitials.initialTo
-  ) {
-    setPrevInitials({ initialName, initialEmail, initialFrom, initialTo });
-    setValues({
-      name: initialName,
-      email: initialEmail,
-      from: initialFrom,
-      to: initialTo,
-    });
-  }
-
-  const hasActiveFilters =
-    values.name.trim() !== "" ||
-    values.email.trim() !== "" ||
-    values.from !== "" ||
-    values.to !== "";
+  const hasActiveFilters = FILTER_KEYS.some(
+    (key) => (values[key] ?? "").trim() !== "",
+  );
 
   return (
     <AdminFilterBar
       fields={FIELDS}
       values={values}
-      onChange={(key, value) =>
-        setValues((prev) => ({ ...prev, [key]: value }))
-      }
-      sync="url"
-      preserveParams={["id"]}
-      onClear={hasActiveFilters ? () => undefined : undefined}
-      clearLabel="Clear filters"
+      onChange={setValue}
+      onClear={clear}
+      showClear={hasActiveFilters}
       className="grid gap-4 md:grid-cols-4 items-end"
     />
   );

@@ -11,23 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import type { AdminActionResult } from "./admin-action-result";
 
-export type AdminActionResult =
-  | { success: true }
-  | { success: false; error: string }
-  | void;
-
-/**
- * Normalizes `{ success: boolean; error?: string }` action results into
- * the strict `AdminActionResult` union.
- */
-export function toAdminActionResult(
-  result: { success: boolean; error?: string },
-  fallbackError: string,
-): AdminActionResult {
-  if (result.success) return { success: true };
-  return { success: false, error: result.error || fallbackError };
-}
+export { toAdminActionResult, type AdminActionResult } from "./admin-action-result";
 
 type AdminDeleteDialogProps = {
   title: string;
@@ -46,11 +32,6 @@ type AdminDeleteDialogProps = {
   triggerTitle?: string;
   triggerClassName?: string;
   confirmClassName?: string;
-  /**
-   * Keep the dialog open on failure without toasting (caller already
-   * surfaced the error, e.g. page-level handlers).
-   */
-  suppressErrorToast?: boolean;
   onConfirm: () => Promise<AdminActionResult>;
 };
 
@@ -70,7 +51,6 @@ export function AdminDeleteDialog({
   triggerTitle,
   triggerClassName,
   confirmClassName,
-  suppressErrorToast = false,
   onConfirm,
 }: AdminDeleteDialogProps) {
   const [open, setOpen] = useState(false);
@@ -80,12 +60,10 @@ export function AdminDeleteDialog({
     setIsDeleting(true);
     try {
       const result = await onConfirm();
-      if (result && result.success === false) {
-        if (!suppressErrorToast) {
-          toast.error(toastMessages?.errorTitle ?? "Cannot delete", {
-            description: result.error,
-          });
-        }
+      if (!result.success) {
+        toast.error(toastMessages?.errorTitle ?? "Cannot delete", {
+          description: result.error,
+        });
         return;
       }
       if (toastMessages?.success) {
@@ -94,11 +72,13 @@ export function AdminDeleteDialog({
       setOpen(false);
     } catch (error) {
       console.error(`Error deleting ${entityLabel}:`, error);
-      if (!suppressErrorToast) {
-        toast.error(
-          toastMessages?.errorTitle ?? `Failed to delete ${entityLabel}`,
-        );
-      }
+      toast.error(
+        toastMessages?.errorTitle ?? `Failed to delete ${entityLabel}`,
+        {
+          description:
+            error instanceof Error ? error.message : "Unexpected error",
+        },
+      );
     } finally {
       setIsDeleting(false);
     }

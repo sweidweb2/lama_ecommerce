@@ -3,9 +3,9 @@ import { ADMIN_CANNOT_SHOP_MESSAGE } from "@/lib/auth/permissions";
 
 const getAdminShopBlockForCurrentUser = vi.fn();
 const getCurrentAuthUserFromAction = vi.fn();
-const addItemToCartService = vi.fn();
+const addItemForSession = vi.fn();
 const checkoutService = vi.fn();
-const toggleWishlistForUser = vi.fn();
+const toggleWishlistForSession = vi.fn();
 const createReviewService = vi.fn();
 
 vi.mock("@/lib/auth/require-customer-shop", () => ({
@@ -25,20 +25,17 @@ vi.mock("@/lib/auth/guest-session", () => ({
 }));
 
 vi.mock("@/services/cart.service", () => ({
-  addItemToCartService: (...args: unknown[]) => addItemToCartService(...args),
-  addItemToGuestCartService: vi.fn(),
+  addItemForSession: (...args: unknown[]) => addItemForSession(...args),
   addItemToCartByIdService: vi.fn(),
   getUserCartService: vi.fn(),
-  getUserCartWithItemsService: vi.fn(),
-  getGuestCartWithItemsService: vi.fn(),
+  getCartWithItemsForSession: vi.fn(),
   mergeGuestCartToUserService: vi.fn(),
-  deleteCartItemService: vi.fn(),
-  deleteCartItemForGuestService: vi.fn(),
+  deleteCartItemForSession: vi.fn(),
+  updateCartItemQuantityForSession: vi.fn(),
   deleteCartService: vi.fn(),
   hardDeleteCartService: vi.fn(),
   updateCartItemService: vi.fn(),
-  updateUserCartItemQuantityService: vi.fn(),
-  updateCartItemQuantityForGuestService: vi.fn(),
+  deleteCartItemForAdminService: vi.fn(),
   createCartForAdminService: vi.fn(),
   getCartWithItemsForAdminService: vi.fn(),
 }));
@@ -48,15 +45,11 @@ vi.mock("@/services/checkout.service", () => ({
 }));
 
 vi.mock("@/services/wishlist.service", () => ({
-  toggleWishlistForUser: (...args: unknown[]) =>
-    toggleWishlistForUser(...args),
-  toggleWishlistForGuest: vi.fn(),
-  removeFromWishlist: vi.fn(),
-  removeFromWishlistForGuest: vi.fn(),
-  checkIfInWishlist: vi.fn(),
-  checkIfInWishlistForGuest: vi.fn(),
-  getWishlistCount: vi.fn(),
-  getWishlistCountForGuest: vi.fn(),
+  toggleWishlistForSession: (...args: unknown[]) =>
+    toggleWishlistForSession(...args),
+  removeFromWishlistForSession: vi.fn(),
+  checkIfInWishlistForSession: vi.fn(),
+  getWishlistCountForSession: vi.fn(),
   claimGuestWishlistService: vi.fn(),
 }));
 
@@ -101,7 +94,7 @@ describe("admin storefront commerce rejection", () => {
       success: false,
       error: ADMIN_CANNOT_SHOP_MESSAGE,
     });
-    expect(addItemToCartService).not.toHaveBeenCalled();
+    expect(addItemForSession).not.toHaveBeenCalled();
   });
 
   it("rejects checkoutAction for admin", async () => {
@@ -137,7 +130,7 @@ describe("admin storefront commerce rejection", () => {
       success: false,
       error: ADMIN_CANNOT_SHOP_MESSAGE,
     });
-    expect(toggleWishlistForUser).not.toHaveBeenCalled();
+    expect(toggleWishlistForSession).not.toHaveBeenCalled();
   });
 
   it("rejects createReviewAction for admin", async () => {

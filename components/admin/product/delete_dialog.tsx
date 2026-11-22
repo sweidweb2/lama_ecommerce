@@ -67,6 +67,7 @@ export function DeleteProductDialog({ product, onDelete, showText = false }: Del
         } else {
           router.refresh()
         }
+        return { success: true as const }
       }}
     />
   )

@@ -47,7 +47,7 @@ export function DeleteReviewDialog({ review, onDelete, showText = false }: Delet
               await deleteReviewAction(review.id),
               "Failed to delete review",
             )
-            if (result && !result.success) return result
+            if (!result.success) return result
           }
         } catch (err) {
           return {
@@ -56,6 +56,7 @@ export function DeleteReviewDialog({ review, onDelete, showText = false }: Delet
           }
         }
         router.refresh()
+        return { success: true as const }
       }}
     />
   )

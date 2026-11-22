@@ -91,11 +91,14 @@ export async function uploadAndAddProductImageService(
 
     const publicUrl = await getPublicUrl("products", filePath);
     if (!publicUrl) {
+      await removeFiles("products", [filePath]);
       return { success: false, error: "Failed to resolve public image URL" };
     }
 
     const created = await addProductImageService(productId, publicUrl);
     if (!created) {
+      // Compensating cleanup: storage object has no FK to roll back with the DB row
+      await removeFiles("products", [filePath]);
       return {
         success: false,
         error:

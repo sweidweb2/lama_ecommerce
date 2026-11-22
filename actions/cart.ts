@@ -45,6 +45,8 @@ export type GuestHandoffResult = {
   cartMerged?: boolean;
   wishlistClaimed?: boolean;
   failedStep?: GuestHandoffFailedStep;
+  /** Per-line cart merge skips/clamps (stock). Merge still counts as success. */
+  errors?: string[];
 };
 
 type CartMutationResult = {

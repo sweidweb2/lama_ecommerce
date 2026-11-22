@@ -33,10 +33,16 @@ vi.mock("@/repositories/order.repository", () => ({
     getShipmentByOrderIdForAdmin(...args),
   getAllOrdersForAdmin: (...args: unknown[]) => getAllOrdersForAdmin(...args),
   updateOrder: (...args: unknown[]) => updateOrder(...args),
+  upsertPaymentForOrder: vi.fn(),
   deleteOrderAdmin: (...args: unknown[]) => deleteOrderAdmin(...args),
   countPaymentsByOrderId: (...args: unknown[]) => countPaymentsByOrderId(...args),
   countShipmentsByOrderId: (...args: unknown[]) =>
     countShipmentsByOrderId(...args),
+  claimOrdersBySessionId: vi.fn(),
+}));
+
+vi.mock("@/repositories/promo_code.repository", () => ({
+  getPromoCodeByIdAdmin: vi.fn(),
 }));
 
 describe("order.service admin authz", () => {
@@ -121,5 +127,21 @@ describe("order.service admin authz", () => {
     });
     expect(updateOrder).not.toHaveBeenCalled();
     expect(deleteOrderAdmin).toHaveBeenCalledWith("order-1");
+  });
+
+  it("deleteOrderService refuses fulfilled orders that cannot cancel", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    getOrderByIdForAdmin.mockResolvedValue({
+      id: "order-1",
+      stock_restored: false,
+      status: "delivered",
+    });
+    const { deleteOrderService } = await import("@/services/order.service");
+    await expect(deleteOrderService("order-1")).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("Cannot delete order"),
+    });
+    expect(updateOrder).not.toHaveBeenCalled();
+    expect(deleteOrderAdmin).not.toHaveBeenCalled();
   });
 });

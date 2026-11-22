@@ -7,7 +7,6 @@ import {
   getProductVariantsByProductId,
   getProductVariantsByProductIds,
   getVariantOrderedQuantity,
-  getVariantCartReservedQuantity,
   type CreateProductVariantInput,
   type UpdateProductVariantInput,
 } from "@/repositories/product_variant.repository";
@@ -42,10 +41,8 @@ export async function createProductVariantService(
 
 /**
  * Update an existing product variant (admin).
- *
- * Stock rules:
- * - Cannot reduce stock when the variant already has order history.
- * - Cannot set stock below units currently reserved in carts.
+ * Stock may be corrected freely (including reductions after sales).
+ * Cart "reserved" qty is not a hard block — abandoned carts are not inventory holds.
  */
 export async function updateProductVariantService(
   id: string,
@@ -60,25 +57,6 @@ export async function updateProductVariantService(
   const existing = await getProductVariantById(id);
   if (!existing) {
     throw new Error("Variant not found.");
-  }
-
-  if (input.quantity_stock !== undefined) {
-    const [orderedQty, cartReservedQty] = await Promise.all([
-      getVariantOrderedQuantity(id),
-      getVariantCartReservedQuantity(id),
-    ]);
-
-    if (orderedQty > 0 && input.quantity_stock < existing.quantity_stock) {
-      throw new Error(
-        `Cannot reduce stock: this variant has ${orderedQty} unit(s) in order history. You can only increase stock.`,
-      );
-    }
-
-    if (input.quantity_stock < cartReservedQty) {
-      throw new Error(
-        `Cannot set stock below ${cartReservedQty}: that many units are currently in customer carts.`,
-      );
-    }
   }
 
   const repoInput: UpdateProductVariantInput = {

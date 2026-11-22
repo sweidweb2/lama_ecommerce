@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState, useEffectEvent } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -40,93 +38,26 @@ type AdminFilterBarProps = {
   fields: AdminFilterField[];
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
-  /** controlled = parent state; url = debounce into query string */
-  sync?: "controlled" | "url";
-  debounceMs?: number;
-  preserveParams?: string[];
+  /** Renders the clear button when provided (and `showClear` is not false). */
   onClear?: () => void;
+  showClear?: boolean;
   clearLabel?: string;
   className?: string;
 };
 
 /**
  * Shared admin filter row for text / select / date fields.
+ * Purely controlled: state and URL syncing live with the caller (see `useUrlFilters`).
  */
 export function AdminFilterBar({
   fields,
   values,
   onChange,
-  sync = "controlled",
-  debounceMs = 300,
-  preserveParams = [],
   onClear,
+  showClear = true,
   clearLabel = "Clear filters",
   className,
 }: AdminFilterBarProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [draft, setDraft] = useState(values);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setDraft(values);
-  }, [values]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
-  const pushUrl = useEffectEvent((next: Record<string, string>) => {
-    if (sync !== "url") return;
-    const params = new URLSearchParams();
-    // Keep non-filter query keys (e.g. contact detail `id`) from the live URL
-    if (typeof window !== "undefined" && preserveParams.length > 0) {
-      const current = new URLSearchParams(window.location.search);
-      for (const key of preserveParams) {
-        const existing = next[key] || current.get(key);
-        if (existing) params.set(key, existing);
-      }
-    } else {
-      for (const key of preserveParams) {
-        if (next[key]) params.set(key, next[key]);
-      }
-    }
-    for (const field of fields) {
-      const value = next[field.key]?.trim();
-      if (value) params.set(field.key, value);
-    }
-    // Filter changes reset pagination
-    params.delete("page");
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  });
-
-  const handleChange = (key: string, value: string) => {
-    const next = { ...draft, [key]: value };
-    setDraft(next);
-    onChange(key, value);
-
-    if (sync !== "url") return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => pushUrl(next), debounceMs);
-  };
-
-  const handleClear = () => {
-    const cleared: Record<string, string> = {};
-    for (const field of fields) {
-      cleared[field.key] = "";
-      onChange(field.key, "");
-    }
-    setDraft(cleared);
-    onClear?.();
-    if (sync === "url") {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      pushUrl(cleared);
-    }
-  };
-
   return (
     <div
       className={
@@ -143,9 +74,9 @@ export function AdminFilterBar({
               </Label>
               <Input
                 id={`filter-${field.key}`}
-                value={draft[field.key] ?? ""}
+                value={values[field.key] ?? ""}
                 placeholder={field.placeholder}
-                onChange={(e) => handleChange(field.key, e.target.value)}
+                onChange={(e) => onChange(field.key, e.target.value)}
               />
             </div>
           );
@@ -160,22 +91,22 @@ export function AdminFilterBar({
               <Input
                 id={`filter-${field.key}`}
                 type="date"
-                value={draft[field.key] ?? ""}
-                onChange={(e) => handleChange(field.key, e.target.value)}
+                value={values[field.key] ?? ""}
+                onChange={(e) => onChange(field.key, e.target.value)}
               />
             </div>
           );
         }
 
         const allValue = field.allValue ?? "all";
-        const current = draft[field.key] || allValue;
+        const current = values[field.key] || allValue;
         return (
           <div key={field.key} className={field.className ?? "w-[180px]"}>
             <Label className="mb-1.5 block text-xs">{field.label}</Label>
             <Select
               value={current}
               onValueChange={(value) =>
-                handleChange(field.key, value === allValue ? "" : value)
+                onChange(field.key, value === allValue ? "" : value)
               }
             >
               <SelectTrigger>
@@ -194,8 +125,8 @@ export function AdminFilterBar({
         );
       })}
 
-      {onClear && (
-        <Button type="button" variant="outline" onClick={handleClear}>
+      {onClear && showClear && (
+        <Button type="button" variant="outline" onClick={onClear}>
           {clearLabel}
         </Button>
       )}

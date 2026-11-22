@@ -56,6 +56,7 @@ export function DeleteQuestionDialog({
           };
         }
         router.refresh();
+        return { success: true as const };
       }}
     />
   );

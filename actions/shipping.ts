@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { isAdminCaller } from "@/lib/auth/require-admin-soft";
 import { getPublicShippingZones } from "@/services/shipping_zone.service";
 import {
   getAllShippingZonesWithFee,
@@ -12,15 +12,7 @@ import {
 import { createShippingZoneSchema } from "@/lib/validators/shipping_zone/create";
 import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update";
 
-/** Soft admin check: callers get empty/null/false instead of a thrown error. */
-async function isAdminCaller(): Promise<boolean> {
-  try {
-    await requireAdmin();
-    return true;
-  } catch {
-    return false;
-  }
-}
+const UNAUTHORIZED = { success: false as const, error: "Unauthorized" };
 
 /**
  * Get all shipping zones for admin. Returns empty array if not admin.
@@ -54,25 +46,23 @@ export type CreateShippingZonePayload = {
  * Create a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function createShippingZoneAction(payload: CreateShippingZonePayload) {
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
   const parsed = createShippingZoneSchema.safeParse(payload);
   if (!parsed.success) {
-    const msg =
-      parsed.error.flatten().fieldErrors.name?.[0] ??
-      parsed.error.flatten().fieldErrors.fee?.[0] ??
-      "Invalid input";
+    const flat = parsed.error.flatten().fieldErrors;
+    const msg = flat.name?.[0] ?? flat.fee?.[0] ?? "Invalid input";
     return { success: false as const, error: msg };
   }
 
-  const created = (await isAdminCaller())
-    ? await createShippingZoneWithFee({
-        name: parsed.data.name,
-        estimated_time: parsed.data.estimated_time ?? null,
-        fee: parsed.data.fee ?? null,
-      })
-    : null;
+  const created = await createShippingZoneWithFee({
+    name: parsed.data.name,
+    estimated_time: parsed.data.estimated_time ?? null,
+    fee: parsed.data.fee ?? null,
+  });
 
   if (!created) {
-    return { success: false as const, error: "Forbidden or create failed" };
+    return { success: false as const, error: "Create failed" };
   }
 
   revalidatePath("/admin/shippings");
@@ -90,26 +80,24 @@ export type UpdateShippingZonePayload = {
  * Update a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function updateShippingZoneAction(payload: UpdateShippingZonePayload) {
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
   const parsed = updateShippingZoneSchema.safeParse(payload);
   if (!parsed.success) {
-    const msg =
-      parsed.error.flatten().fieldErrors.name?.[0] ??
-      parsed.error.flatten().fieldErrors.fee?.[0] ??
-      "Invalid input";
+    const flat = parsed.error.flatten().fieldErrors;
+    const msg = flat.name?.[0] ?? flat.fee?.[0] ?? "Invalid input";
     return { success: false as const, error: msg };
   }
 
-  const updated = (await isAdminCaller())
-    ? await updateShippingZoneWithFee({
-        id: parsed.data.id,
-        name: parsed.data.name,
-        estimated_time: parsed.data.estimated_time ?? null,
-        fee: parsed.data.fee ?? null,
-      })
-    : null;
+  const updated = await updateShippingZoneWithFee({
+    id: parsed.data.id,
+    name: parsed.data.name,
+    estimated_time: parsed.data.estimated_time ?? null,
+    fee: parsed.data.fee ?? null,
+  });
 
   if (!updated) {
-    return { success: false as const, error: "Forbidden or update failed" };
+    return { success: false as const, error: "Update failed" };
   }
 
   revalidatePath("/admin/shippings");
@@ -120,9 +108,11 @@ export async function updateShippingZoneAction(payload: UpdateShippingZonePayloa
  * Delete a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function deleteShippingZoneAction(zoneId: string) {
-  const ok = (await isAdminCaller()) ? await deleteShippingZoneById(zoneId) : false;
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
+  const ok = await deleteShippingZoneById(zoneId);
   if (!ok) {
-    return { success: false as const, error: "Forbidden or delete failed" };
+    return { success: false as const, error: "Delete failed" };
   }
   revalidatePath("/admin/shippings");
   return { success: true as const };

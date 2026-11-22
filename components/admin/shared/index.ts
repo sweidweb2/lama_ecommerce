@@ -1,8 +1,8 @@
 export {
-  AdminDeleteDialog,
   toAdminActionResult,
   type AdminActionResult,
-} from "@/components/admin/shared/admin-delete-dialog";
+} from "@/components/admin/shared/admin-action-result";
+export { AdminDeleteDialog } from "@/components/admin/shared/admin-delete-dialog";
 export {
   AdminPagination,
   type AdminClientPaginationProps,
@@ -12,3 +12,8 @@ export {
   AdminFilterBar,
   type AdminFilterField,
 } from "@/components/admin/shared/admin-filter-bar";
+export {
+  useUrlFilters,
+  type UseUrlFiltersOptions,
+  type UseUrlFiltersResult,
+} from "@/components/admin/shared/use-url-filters";

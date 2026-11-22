@@ -1001,6 +1001,79 @@ export type Database = {
           order_count: number
         }[]
       }
+      upsert_payment_for_order: {
+        Args: {
+          p_order_id: string
+          p_status: Database["public"]["Enums"]["payment_status"]
+          p_amount?: number | null
+          p_currency?: string | null
+          p_transaction_id?: string | null
+          p_paid_at?: string | null
+          p_gateway?: string | null
+          p_payment_method?: string | null
+          p_payment_url?: string | null
+        }
+        Returns: Database["public"]["Tables"]["payments"]["Row"]
+      }
+      admin_update_order: {
+        Args: {
+          p_order_id: string
+          p_patch?: JSON
+          p_carrier_name?: string | null
+          p_tracking_number?: string | null
+        }
+        Returns: Database["public"]["Tables"]["orders"]["Row"]
+      }
+      merge_guest_cart_to_user: {
+        Args: {
+          p_user_id: string
+          p_session_id: string
+        }
+        Returns: JSON
+      }
+      claim_wishlist_by_session: {
+        Args: {
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      set_primary_product_image: {
+        Args: {
+          p_product_id: string
+          p_image_id: string
+        }
+        Returns: undefined
+      }
+      create_shipping_zone_with_fee: {
+        Args: {
+          p_name: string
+          p_estimated_time?: string | null
+          p_fee?: number | null
+        }
+        Returns: {
+          id: string
+          name: string
+          estimated_time: string | null
+          created_at: string
+          fee: number | null
+        }[]
+      }
+      update_shipping_zone_with_fee: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_estimated_time?: string | null
+          p_fee?: number | null
+        }
+        Returns: {
+          id: string
+          name: string
+          estimated_time: string | null
+          created_at: string
+          fee: number | null
+        }[]
+      }
     }
     Enums: {
       profile_role: 'user' | 'admin'

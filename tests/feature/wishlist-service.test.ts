@@ -3,12 +3,9 @@ import type { SessionContext } from "@/lib/auth/session-context";
 
 const getAdminShopBlockForUserId = vi.fn();
 const getVariantWithParentActive = vi.fn();
-const addWishlistItem = vi.fn();
-const addWishlistItemForGuest = vi.fn();
-const isInWishlist = vi.fn();
-const removeWishlistItemByVariant = vi.fn();
-const removeWishlistItemByVariantForGuest = vi.fn();
-const isInWishlistForGuest = vi.fn();
+const addWishlistItemForSession = vi.fn();
+const removeWishlistItemByVariantForSession = vi.fn();
+const isInWishlistForSession = vi.fn();
 const claimWishlistBySessionId = vi.fn();
 
 vi.mock("@/services/profile.service", () => ({
@@ -22,47 +19,25 @@ vi.mock("@/repositories/product_variant.repository", () => ({
 }));
 
 vi.mock("@/repositories/wishlist.repository", () => ({
-  getWishlistItemsByUserId: vi.fn(),
-  getWishlistItemsBySessionId: vi.fn(),
-  countWishlistItemsByUserId: vi.fn(),
-  countWishlistItemsBySessionId: vi.fn(),
-  addWishlistItem: (...args: unknown[]) => addWishlistItem(...args),
-  addWishlistItemForGuest: (...args: unknown[]) =>
-    addWishlistItemForGuest(...args),
-  removeWishlistItemById: vi.fn(),
-  removeWishlistItemByIdForGuest: vi.fn(),
-  removeWishlistItemByVariant: (...args: unknown[]) =>
-    removeWishlistItemByVariant(...args),
-  removeWishlistItemByVariantForGuest: (...args: unknown[]) =>
-    removeWishlistItemByVariantForGuest(...args),
-  isInWishlist: (...args: unknown[]) => isInWishlist(...args),
-  isInWishlistForGuest: (...args: unknown[]) => isInWishlistForGuest(...args),
-  claimWishlistBySessionId: (...args: unknown[]) =>
-    claimWishlistBySessionId(...args),
-  // Unified SessionContext helpers: route to the same spies as the legacy aliases.
   getWishlistItemsForSession: vi.fn(),
   countWishlistItemsForSession: vi.fn(),
-  addWishlistItemForSession: (session: SessionContext, variantId: string) =>
-    session.kind === "user"
-      ? addWishlistItem(session.userId, variantId)
-      : addWishlistItemForGuest(session.sessionId, variantId),
+  addWishlistItemForSession: (...args: unknown[]) =>
+    addWishlistItemForSession(...args),
   removeWishlistItemByIdForSession: vi.fn(),
-  removeWishlistItemByVariantForSession: (
-    session: SessionContext,
-    variantId: string,
-  ) =>
-    session.kind === "user"
-      ? removeWishlistItemByVariant(session.userId, variantId)
-      : removeWishlistItemByVariantForGuest(session.sessionId, variantId),
-  isInWishlistForSession: (session: SessionContext, variantId: string) =>
-    session.kind === "user"
-      ? isInWishlist(session.userId, variantId)
-      : isInWishlistForGuest(session.sessionId, variantId),
+  removeWishlistItemByVariantForSession: (...args: unknown[]) =>
+    removeWishlistItemByVariantForSession(...args),
+  isInWishlistForSession: (...args: unknown[]) =>
+    isInWishlistForSession(...args),
+  claimWishlistBySessionId: (...args: unknown[]) =>
+    claimWishlistBySessionId(...args),
 }));
 
 const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 const sessionId = "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
 const variantId = "c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33";
+
+const userSession: SessionContext = { kind: "user", userId };
+const guestSession: SessionContext = { kind: "guest", sessionId };
 
 describe("wishlist.service", () => {
   beforeEach(() => {
@@ -74,69 +49,94 @@ describe("wishlist.service", () => {
     });
   });
 
-  it("addToWishlist rejects invalid uuid", async () => {
-    const { addToWishlist } = await import("@/services/wishlist.service");
-    await expect(addToWishlist("not-a-uuid", variantId)).resolves.toEqual({
+  it("addToWishlistForSession rejects invalid user id", async () => {
+    const { addToWishlistForSession } = await import(
+      "@/services/wishlist.service"
+    );
+    await expect(
+      addToWishlistForSession({ kind: "user", userId: "not-a-uuid" }, variantId),
+    ).resolves.toEqual({
       success: false,
       error: "Invalid user id",
     });
+    expect(addWishlistItemForSession).not.toHaveBeenCalled();
   });
 
-  it("addToWishlist rejects inactive parent product", async () => {
+  it("addToWishlistForSession rejects inactive parent product", async () => {
     getVariantWithParentActive.mockResolvedValue({
       id: variantId,
       productIsActive: false,
     });
-    const { addToWishlist } = await import("@/services/wishlist.service");
-    await expect(addToWishlist(userId, variantId)).resolves.toEqual({
+    const { addToWishlistForSession } = await import(
+      "@/services/wishlist.service"
+    );
+    await expect(
+      addToWishlistForSession(userSession, variantId),
+    ).resolves.toEqual({
       success: false,
       error: "This product is no longer available",
     });
-    expect(addWishlistItem).not.toHaveBeenCalled();
+    expect(addWishlistItemForSession).not.toHaveBeenCalled();
   });
 
-  it("addToWishlist happy path", async () => {
-    addWishlistItem.mockResolvedValue({ success: true });
-    const { addToWishlist } = await import("@/services/wishlist.service");
-    await expect(addToWishlist(userId, variantId)).resolves.toEqual({
-      success: true,
-    });
-    expect(addWishlistItem).toHaveBeenCalledWith(userId, variantId);
-  });
-
-  it("addToWishlistForGuest happy path", async () => {
-    addWishlistItemForGuest.mockResolvedValue({ success: true });
-    const { addToWishlistForGuest } = await import(
+  it("addToWishlistForSession user happy path", async () => {
+    addWishlistItemForSession.mockResolvedValue({ success: true });
+    const { addToWishlistForSession } = await import(
       "@/services/wishlist.service"
     );
-    await expect(addToWishlistForGuest(sessionId, variantId)).resolves.toEqual({
-      success: true,
-    });
+    await expect(
+      addToWishlistForSession(userSession, variantId),
+    ).resolves.toEqual({ success: true });
+    expect(addWishlistItemForSession).toHaveBeenCalledWith(
+      userSession,
+      variantId,
+    );
   });
 
-  it("toggleWishlistForUser removes when already present", async () => {
-    isInWishlist.mockResolvedValue(true);
-    removeWishlistItemByVariant.mockResolvedValue({ success: true });
-    const { toggleWishlistForUser } = await import(
+  it("addToWishlistForSession guest happy path", async () => {
+    addWishlistItemForSession.mockResolvedValue({ success: true });
+    const { addToWishlistForSession } = await import(
       "@/services/wishlist.service"
     );
-    await expect(toggleWishlistForUser(userId, variantId)).resolves.toEqual({
-      success: true,
-    });
-    expect(removeWishlistItemByVariant).toHaveBeenCalled();
-    expect(addWishlistItem).not.toHaveBeenCalled();
+    await expect(
+      addToWishlistForSession(guestSession, variantId),
+    ).resolves.toEqual({ success: true });
+    expect(addWishlistItemForSession).toHaveBeenCalledWith(
+      guestSession,
+      variantId,
+    );
   });
 
-  it("toggleWishlistForUser adds when missing", async () => {
-    isInWishlist.mockResolvedValue(false);
-    addWishlistItem.mockResolvedValue({ success: true });
-    const { toggleWishlistForUser } = await import(
+  it("toggleWishlistForSession removes when already present", async () => {
+    isInWishlistForSession.mockResolvedValue(true);
+    removeWishlistItemByVariantForSession.mockResolvedValue({ success: true });
+    const { toggleWishlistForSession } = await import(
       "@/services/wishlist.service"
     );
-    await expect(toggleWishlistForUser(userId, variantId)).resolves.toEqual({
-      success: true,
-    });
-    expect(addWishlistItem).toHaveBeenCalled();
+    await expect(
+      toggleWishlistForSession(userSession, variantId),
+    ).resolves.toEqual({ success: true });
+    expect(removeWishlistItemByVariantForSession).toHaveBeenCalledWith(
+      userSession,
+      variantId,
+    );
+    expect(addWishlistItemForSession).not.toHaveBeenCalled();
+  });
+
+  it("toggleWishlistForSession adds when missing", async () => {
+    isInWishlistForSession.mockResolvedValue(false);
+    addWishlistItemForSession.mockResolvedValue({ success: true });
+    const { toggleWishlistForSession } = await import(
+      "@/services/wishlist.service"
+    );
+    await expect(
+      toggleWishlistForSession(guestSession, variantId),
+    ).resolves.toEqual({ success: true });
+    expect(addWishlistItemForSession).toHaveBeenCalledWith(
+      guestSession,
+      variantId,
+    );
+    expect(removeWishlistItemByVariantForSession).not.toHaveBeenCalled();
   });
 
   it("claimGuestWishlistService validates ids and claims", async () => {

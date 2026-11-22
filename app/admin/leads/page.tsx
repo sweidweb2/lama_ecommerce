@@ -86,10 +86,8 @@ export default function LeadsPage() {
 
   const handleLeadDeleted = async (leadId: string) => {
     const result = await deleteLeadAction(leadId)
-    if (!result.success) {
-      toast.error(result.error)
-      throw new Error(result.error)
-    }
+    // Dialog toasts the error from the thrown message
+    if (!result.success) throw new Error(result.error)
     toast.success("Lead deleted")
     await fetchLeads()
   }

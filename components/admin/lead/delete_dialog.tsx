@@ -21,7 +21,6 @@ export function DeleteLeadDialog({
       ariaLabel={`Delete lead ${lead.email}`}
       confirmLabel="Delete Lead"
       showText={showText}
-      suppressErrorToast
       description={
         <>
           <p>
@@ -33,7 +32,15 @@ export function DeleteLeadDialog({
         </>
       }
       onConfirm={async () => {
-        await onDelete?.(lead.id);
+        try {
+          await onDelete?.(lead.id);
+          return { success: true as const };
+        } catch (e) {
+          return {
+            success: false as const,
+            error: e instanceof Error ? e.message : "Delete failed",
+          };
+        }
       }}
     />
   );

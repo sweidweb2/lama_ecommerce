@@ -57,7 +57,7 @@ describe("shipping zones", () => {
 
     await expect(
       createShippingZoneAction({ name: "Amman", estimated_time: null, fee: 5 }),
-    ).resolves.toMatchObject({ success: false });
+    ).resolves.toMatchObject({ success: false, error: "Unauthorized" });
     await expect(
       updateShippingZoneAction({
         id: "00000000-0000-4000-8000-000000000001",
@@ -65,14 +65,43 @@ describe("shipping zones", () => {
         estimated_time: null,
         fee: 5,
       }),
-    ).resolves.toMatchObject({ success: false });
+    ).resolves.toMatchObject({ success: false, error: "Unauthorized" });
     await expect(deleteShippingZoneAction("z1")).resolves.toMatchObject({
       success: false,
+      error: "Unauthorized",
     });
 
     expect(createShippingZoneWithFee).not.toHaveBeenCalled();
     expect(updateShippingZoneWithFee).not.toHaveBeenCalled();
     expect(deleteShippingZoneById).not.toHaveBeenCalled();
+  });
+
+  it("returns distinct errors when the repo fails for an admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    createShippingZoneWithFee.mockResolvedValue(null);
+    updateShippingZoneWithFee.mockResolvedValue(null);
+    deleteShippingZoneById.mockResolvedValue(false);
+    const {
+      createShippingZoneAction,
+      updateShippingZoneAction,
+      deleteShippingZoneAction,
+    } = await import("@/actions/shipping");
+
+    await expect(
+      createShippingZoneAction({ name: "Amman", estimated_time: null, fee: 5 }),
+    ).resolves.toEqual({ success: false, error: "Create failed" });
+    await expect(
+      updateShippingZoneAction({
+        id: "00000000-0000-4000-8000-000000000001",
+        name: "Amman",
+        estimated_time: null,
+        fee: 5,
+      }),
+    ).resolves.toEqual({ success: false, error: "Update failed" });
+    await expect(deleteShippingZoneAction("z1")).resolves.toEqual({
+      success: false,
+      error: "Delete failed",
+    });
   });
 
   it("getShippingZonesAction reaches repo for admin", async () => {

@@ -203,12 +203,7 @@ export function ContactTableWithFilters({
         </div>
       </div>
 
-      <ContactFilters
-        initialName={initialName}
-        initialEmail={initialEmail}
-        initialFrom={initialFrom}
-        initialTo={initialTo}
-      />
+      <ContactFilters />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">

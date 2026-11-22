@@ -48,15 +48,22 @@ export function DeleteCartDialog({ cart, onDelete, showText = false }: DeleteCar
         </>
       }
       onConfirm={async () => {
-        if (onDelete) {
-          await onDelete(cart.id)
-        } else {
-          // Hard delete deletes items first, then the cart
-          const result = toAdminActionResult(
-            await hardDeleteCartAction(cart.id),
-            "Failed to delete cart. Please try again.",
-          )
-          if (result && !result.success) return result
+        try {
+          if (onDelete) {
+            await onDelete(cart.id)
+          } else {
+            // Hard delete deletes items first, then the cart
+            const result = toAdminActionResult(
+              await hardDeleteCartAction(cart.id),
+              "Failed to delete cart. Please try again.",
+            )
+            if (!result.success) return result
+          }
+        } catch (e) {
+          return {
+            success: false as const,
+            error: e instanceof Error ? e.message : "Failed to delete cart",
+          }
         }
 
         // If we're on the cart details page, redirect to carts list
@@ -65,6 +72,7 @@ export function DeleteCartDialog({ cart, onDelete, showText = false }: DeleteCar
         } else {
           router.refresh()
         }
+        return { success: true as const }
       }}
     />
   )

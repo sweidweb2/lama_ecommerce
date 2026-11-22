@@ -62,10 +62,8 @@ export default function ShippingsPage() {
 
   const handleZoneDeleted = async (zoneId: string) => {
     const result = await deleteShippingZoneAction(zoneId)
-    if (!result.success) {
-      toast.error(result.error)
-      throw new Error(result.error)
-    }
+    // Dialog toasts the error from the thrown message
+    if (!result.success) throw new Error(result.error)
     setZones((prev) => prev.filter((z) => z.id !== zoneId))
     toast.success("Shipping zone deleted")
   }

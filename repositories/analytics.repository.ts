@@ -4,6 +4,7 @@ import {
   LOW_STOCK_MAX,
   LOW_STOCK_MIN,
   REVENUE_EXCLUDED_STATUSES,
+  REVENUE_PAYMENT_STATUSES,
 } from "@/lib/admin/metric-definitions";
 
 const ORDER_STATUSES = [
@@ -108,12 +109,17 @@ function applyCreatedAtRange<
 }
 
 function applyRevenueStatusFilter<
-  T extends { neq: (column: string, value: string) => T },
+  T extends {
+    neq: (column: string, value: string) => T;
+    eq: (column: string, value: string) => T;
+  },
 >(query: T): T {
   let next = query;
   for (const status of REVENUE_EXCLUDED_STATUSES) {
     next = next.neq("status", status);
   }
+  // Recognised revenue: paid only (matches admin_orders_revenue_sum RPC).
+  next = next.eq("payment_status", REVENUE_PAYMENT_STATUSES[0]);
   return next;
 }
 

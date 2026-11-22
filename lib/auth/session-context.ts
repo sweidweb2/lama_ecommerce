@@ -6,34 +6,16 @@ import {
   getGuestSessionId,
   getOrCreateGuestSessionId,
 } from "@/lib/auth/guest-session";
+import type { StorefrontOwner } from "@/types/storefront-owner";
+import { isUserOwner } from "@/types/storefront-owner";
 
 /**
- * Storefront identity resolved once per request.
- * Auth user wins; otherwise the guest_session_id cookie.
+ * Storefront identity resolved once per request (auth layer).
+ * Same shape as StorefrontOwner — repos should prefer that type.
  */
-export type SessionContext =
-  | { kind: "user"; userId: string }
-  | { kind: "guest"; sessionId: string };
+export type SessionContext = StorefrontOwner;
 
-export function isUserSession(
-  session: SessionContext,
-): session is { kind: "user"; userId: string } {
-  return session.kind === "user";
-}
-
-export function isGuestSession(
-  session: SessionContext,
-): session is { kind: "guest"; sessionId: string } {
-  return session.kind === "guest";
-}
-
-export function userSession(userId: string): SessionContext {
-  return { kind: "user", userId };
-}
-
-export function guestSession(sessionId: string): SessionContext {
-  return { kind: "guest", sessionId };
-}
+export const isUserSession = isUserOwner;
 
 type ResolveStorefrontSessionOptions = {
   /** Mint/set guest_session_id when unauthenticated and cookie missing (ATC, wishlist toggle). */

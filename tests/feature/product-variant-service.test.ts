@@ -8,7 +8,6 @@ const hardDeleteProductVariant = vi.fn();
 const getProductVariantById = vi.fn();
 const getProductVariantsByProductId = vi.fn();
 const getVariantOrderedQuantity = vi.fn();
-const getVariantCartReservedQuantity = vi.fn();
 
 vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: (...args: unknown[]) => requireAdmin(...args),
@@ -25,8 +24,7 @@ vi.mock("@/repositories/product_variant.repository", () => ({
   getProductVariantsByProductIds: vi.fn(),
   getVariantOrderedQuantity: (...args: unknown[]) =>
     getVariantOrderedQuantity(...args),
-  getVariantCartReservedQuantity: (...args: unknown[]) =>
-    getVariantCartReservedQuantity(...args),
+  getVariantCartReservedQuantity: vi.fn(),
 }));
 
 const productId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
@@ -67,37 +65,25 @@ describe("product_variant.service", () => {
     });
   });
 
-  it("updateProductVariantService blocks stock decrease when orders exist", async () => {
+  it("updateProductVariantService allows stock decrease even with order history", async () => {
     requireAdmin.mockResolvedValue(adminProfile);
     getProductVariantById.mockResolvedValue({
       id: variantId,
       quantity_stock: 10,
     });
-    getVariantOrderedQuantity.mockResolvedValue(2);
-    getVariantCartReservedQuantity.mockResolvedValue(0);
+    updateProductVariant.mockResolvedValue({
+      id: variantId,
+      quantity_stock: 5,
+    });
     const { updateProductVariantService } = await import(
       "@/services/product_variant.service"
     );
     await expect(
       updateProductVariantService(variantId, { quantity_stock: 5 }),
-    ).rejects.toThrow("Cannot reduce stock");
-    expect(updateProductVariant).not.toHaveBeenCalled();
-  });
-
-  it("updateProductVariantService blocks stock below cart reserved qty", async () => {
-    requireAdmin.mockResolvedValue(adminProfile);
-    getProductVariantById.mockResolvedValue({
-      id: variantId,
-      quantity_stock: 10,
+    ).resolves.toMatchObject({ quantity_stock: 5 });
+    expect(updateProductVariant).toHaveBeenCalledWith(variantId, {
+      quantity_stock: 5,
     });
-    getVariantOrderedQuantity.mockResolvedValue(0);
-    getVariantCartReservedQuantity.mockResolvedValue(4);
-    const { updateProductVariantService } = await import(
-      "@/services/product_variant.service"
-    );
-    await expect(
-      updateProductVariantService(variantId, { quantity_stock: 2 }),
-    ).rejects.toThrow("currently in customer carts");
   });
 
   it("deleteProductVariantService refuses when order history exists", async () => {

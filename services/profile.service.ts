@@ -18,6 +18,7 @@ import { getCurrentAuthUserFromComponent } from "@/repositories/auth.repository"
 import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   ADMIN_CANNOT_SHOP_MESSAGE,
+  INACTIVE_ACCOUNT_MESSAGE,
   canAccessAdmin,
 } from "@/lib/auth/permissions";
 
@@ -56,13 +57,18 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
 /**
  * If this auth user id is an admin, return the storefront shop-block message.
+ * Also blocks inactive customer accounts from commerce.
  */
 export async function getAdminShopBlockForUserId(
   userId: string,
 ): Promise<string | null> {
   const profile = await getProfileByUserIdAdmin(userId);
-  if (profile && canAccessAdmin(profile.role)) {
+  if (!profile) return null;
+  if (canAccessAdmin(profile.role)) {
     return ADMIN_CANNOT_SHOP_MESSAGE;
+  }
+  if (profile.is_active !== true) {
+    return INACTIVE_ACCOUNT_MESSAGE;
   }
   return null;
 }

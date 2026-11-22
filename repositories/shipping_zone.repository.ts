@@ -1,4 +1,5 @@
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Shipping zone with optional fee for admin list/detail. */
 export interface ShippingZoneWithFee {
@@ -68,42 +69,35 @@ export async function getAllShippingZonesWithFee(): Promise<ShippingZoneWithFee[
 }
 
 /**
- * Create a shipping zone and one shipping_fee row.
- * Uses session client + admin RLS.
+ * Create a shipping zone and fee row in one DB transaction.
  */
 export async function createShippingZoneWithFee(
   input: CreateShippingZoneInput,
 ): Promise<ShippingZoneWithFee | null> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
-    const { data: zone, error: zoneError } = await (supabase as any)
-      .from("shipping_zones")
-      .insert({
-        name: input.name.trim(),
-        estimated_time: input.estimated_time?.trim() || null,
-      })
-      .select("id, name, estimated_time, created_at")
-      .single();
+    const { data, error } = await supabase.rpc("create_shipping_zone_with_fee", {
+      p_name: input.name.trim(),
+      p_estimated_time: input.estimated_time?.trim() || null,
+      p_fee: input.fee,
+    });
 
-    if (zoneError || !zone) {
-      console.error("Failed to create shipping zone:", zoneError);
+    if (error) {
+      console.error("Failed to create shipping zone:", error);
       return null;
     }
 
-    const { error: feeError } = await (supabase as any)
-      .from("shipping_fees")
-      .insert({
-        zone_id: zone.id,
-        fee: input.fee,
-      });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
 
-    if (feeError) {
-      console.error("Failed to create shipping fee:", feeError);
-      return { ...zone, fee: null };
-    }
-
-    return { ...zone, fee: input.fee };
+    return {
+      id: row.id,
+      name: row.name,
+      estimated_time: row.estimated_time,
+      created_at: row.created_at,
+      fee: row.fee,
+    };
   } catch (error) {
     console.error("Unexpected error in createShippingZoneWithFee:", error);
     return null;
@@ -111,49 +105,36 @@ export async function createShippingZoneWithFee(
 }
 
 /**
- * Update a shipping zone and its first fee row.
- * Uses session client + admin RLS.
+ * Update a shipping zone and its fee row in one DB transaction.
  */
 export async function updateShippingZoneWithFee(
   input: UpdateShippingZoneInput,
 ): Promise<ShippingZoneWithFee | null> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
-    const { data: zone, error: zoneError } = await (supabase as any)
-      .from("shipping_zones")
-      .update({
-        name: input.name.trim(),
-        estimated_time: input.estimated_time?.trim() || null,
-      })
-      .eq("id", input.id)
-      .select("id, name, estimated_time, created_at")
-      .single();
+    const { data, error } = await supabase.rpc("update_shipping_zone_with_fee", {
+      p_id: input.id,
+      p_name: input.name.trim(),
+      p_estimated_time: input.estimated_time?.trim() || null,
+      p_fee: input.fee,
+    });
 
-    if (zoneError || !zone) {
-      console.error("Failed to update shipping zone:", zoneError);
+    if (error) {
+      console.error("Failed to update shipping zone:", error);
       return null;
     }
 
-    const { data: existingFee } = await (supabase as any)
-      .from("shipping_fees")
-      .select("id")
-      .eq("zone_id", input.id)
-      .limit(1)
-      .maybeSingle();
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
 
-    if (existingFee?.id) {
-      await (supabase as any)
-        .from("shipping_fees")
-        .update({ fee: input.fee })
-        .eq("id", existingFee.id);
-    } else {
-      await (supabase as any)
-        .from("shipping_fees")
-        .insert({ zone_id: input.id, fee: input.fee });
-    }
-
-    return { ...zone, fee: input.fee };
+    return {
+      id: row.id,
+      name: row.name,
+      estimated_time: row.estimated_time,
+      created_at: row.created_at,
+      fee: row.fee,
+    };
   } catch (error) {
     console.error("Unexpected error in updateShippingZoneWithFee:", error);
     return null;

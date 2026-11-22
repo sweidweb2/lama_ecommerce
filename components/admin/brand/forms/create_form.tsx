@@ -1,183 +1,138 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
-import {
-  createBrandSchema,
-  type CreateBrandInput,
-} from "@/lib/validators/brand"
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AdminFormDialog } from "@/components/admin/shared/admin-form-dialog";
+import { createBrandSchema } from "@/lib/validators/brand";
 import {
   MAX_SERVER_ACTION_UPLOAD_BYTES,
   MAX_SERVER_ACTION_UPLOAD_LABEL,
-} from "@/lib/constants/uploads"
-import { toast } from "sonner"
+} from "@/lib/constants/uploads";
+
+type CreateValues = {
+  name: string;
+  slug: string;
+  logoFile: File | null;
+};
 
 interface CreateBrandDialogProps {
-  action: (formData: FormData) => void | Promise<void>
+  action: (formData: FormData) => void | Promise<void>;
 }
 
+const INITIAL: CreateValues = {
+  name: "",
+  slug: "",
+  logoFile: null,
+};
+
 export function CreateBrandDialog({ action }: CreateBrandDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof CreateBrandInput, string>>
-  >({})
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    const formData = new FormData(form)
-
-    const parsed = createBrandSchema.safeParse({
-      name: name.trim(),
-      slug: slug.trim() || null,
-    })
-
-    if (!parsed.success) {
-      const fieldErrors: Partial<Record<keyof CreateBrandInput, string>> = {}
-      for (const issue of parsed.error.issues) {
-        const pathKey = issue.path[0] as keyof CreateBrandInput
-        if (pathKey && !fieldErrors[pathKey]) {
-          fieldErrors[pathKey] = issue.message
-        }
-      }
-      setErrors(fieldErrors)
-      return
-    }
-
-    setErrors({})
-
-    const logoInput = form.elements.namedItem("logo_file")
-    if (logoInput instanceof HTMLInputElement && logoInput.files?.[0]) {
-      if (logoInput.files[0].size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
-        toast.error(
-          `Logo must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
-        )
-        return
-      }
-    }
-
-    formData.set("name", parsed.data.name)
-    formData.set("slug", parsed.data.slug ?? "")
-
-    setIsSubmitting(true)
-    try {
-      await action(formData)
-      setName("")
-      setSlug("")
-      setOpen(false)
-    } catch (error) {
-      console.error("Failed to create brand:", error)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setName("")
-    setSlug("")
-    setErrors({})
-    setOpen(false)
-  }
-
   return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />
-        Add Brand
-      </Button>
+    <AdminFormDialog<CreateValues>
+      mode="create"
+      title="Create Brand"
+      triggerLabel="Add Brand"
+      contentClassName="max-w-xl"
+      initialValues={INITIAL}
+      submitLabel="Create Brand"
+      toastMessages={{
+        errorTitle: "Failed to create brand",
+      }}
+      onSubmit={async (values) => {
+        const parsed = createBrandSchema.safeParse({
+          name: values.name.trim(),
+          slug: values.slug.trim() || null,
+        });
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Create Brand</DialogTitle>
-          </DialogHeader>
+        if (!parsed.success) {
+          return {
+            success: false,
+            error:
+              parsed.error.issues[0]?.message ?? "Please fix the form errors",
+          };
+        }
 
-          <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="brand-name">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="brand-name"
-                name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={100}
-                placeholder="e.g., Northline"
-                required
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name}</p>
-              )}
-            </div>
+        if (
+          values.logoFile &&
+          values.logoFile.size > MAX_SERVER_ACTION_UPLOAD_BYTES
+        ) {
+          return {
+            success: false,
+            error: `Logo must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+          };
+        }
 
-            <div className="space-y-2">
-              <Label htmlFor="brand-slug">Slug</Label>
-              <Input
-                id="brand-slug"
-                name="slug"
-                value={slug}
-                onChange={(e) =>
-                  setSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, "")
-                      .slice(0, 50),
-                  )
-                }
-                maxLength={50}
-                placeholder="e.g., northline"
-              />
-              <p className="text-xs text-muted-foreground">
-                URL-friendly identifier. Leave empty to generate later.
-              </p>
-              {errors.slug && (
-                <p className="text-xs text-destructive">{errors.slug}</p>
-              )}
-            </div>
+        const formData = new FormData();
+        formData.set("name", parsed.data.name);
+        formData.set("slug", parsed.data.slug ?? "");
+        if (values.logoFile) {
+          formData.set("logo_file", values.logoFile);
+        }
 
-            <div className="space-y-2">
-              <Label htmlFor="brand-logo-file">Logo Image</Label>
-              <Input
-                id="brand-logo-file"
-                name="logo_file"
-                type="file"
-                accept="image/*"
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload a logo image for this brand. Max{" "}
-                {MAX_SERVER_ACTION_UPLOAD_LABEL}.
-              </p>
-            </div>
+        await action(formData);
+        return { success: true };
+      }}
+    >
+      {({ values, setValues }) => (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="brand-name">
+              Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="brand-name"
+              value={values.name}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, name: e.target.value }))
+              }
+              maxLength={100}
+              placeholder="e.g., Northline"
+              required
+            />
+          </div>
 
-            <DialogFooter className="mt-4 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={isSubmitting}>
-                Create Brand
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+          <div className="space-y-2">
+            <Label htmlFor="brand-slug">Slug</Label>
+            <Input
+              id="brand-slug"
+              value={values.slug}
+              onChange={(e) =>
+                setValues((prev) => ({
+                  ...prev,
+                  slug: e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]/g, "")
+                    .slice(0, 50),
+                }))
+              }
+              maxLength={50}
+              placeholder="e.g., northline"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL-friendly identifier. Leave empty to generate later.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="brand-logo-file">Logo Image</Label>
+            <Input
+              id="brand-logo-file"
+              key={values.logoFile?.name ?? "no-logo"}
+              type="file"
+              accept="image/*"
+              onChange={(e) =>
+                setValues((prev) => ({
+                  ...prev,
+                  logoFile: e.target.files?.[0] ?? null,
+                }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Upload a logo image for this brand. Max{" "}
+              {MAX_SERVER_ACTION_UPLOAD_LABEL}.
+            </p>
+          </div>
+        </>
+      )}
+    </AdminFormDialog>
+  );
 }

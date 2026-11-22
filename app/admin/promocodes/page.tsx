@@ -95,10 +95,8 @@ export default function PromoCodesPage() {
 
   const handlePromoCodeDeleted = async (promoCodeId: string) => {
     const result = await deletePromoCodeAction(promoCodeId)
-    if (!result.success) {
-      toast.error(result.error)
-      throw new Error(result.error)
-    }
+    // Dialog toasts the error from the thrown message
+    if (!result.success) throw new Error(result.error)
     setPromoCodes((prev) => prev.filter((pc) => pc.id !== promoCodeId))
     toast.success("Promo code deleted")
   }

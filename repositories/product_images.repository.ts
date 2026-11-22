@@ -1,4 +1,5 @@
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ProductImage } from "@/types/product";
 
 export interface CreateProductImageInput {
@@ -149,37 +150,22 @@ export async function hasPrimaryImage(
 }
 
 /**
- * Set a specific image as primary for a product.
- * This first clears existing primaries, then marks the target image as primary.
+ * Set a specific image as primary for a product (atomic RPC).
  */
 export async function setPrimaryProductImage(
   productId: string,
   imageId: string,
 ): Promise<boolean> {
   try {
-    const supabase = await createSupabaseServerActionClient();
+    const supabase = createSupabaseAdminClient();
 
-    // Clear existing primary flags for this product
-    const { error: clearError } = await supabase
-      .from("product_images")
-      .update({ is_primary: false })
-      .eq("product_id", productId)
-      .eq("is_primary", true);
+    const { error } = await supabase.rpc("set_primary_product_image", {
+      p_product_id: productId,
+      p_image_id: imageId,
+    });
 
-    if (clearError) {
-      console.error("Error clearing primary product images:", clearError);
-      return false;
-    }
-
-    // Set the requested image as primary
-    const { error: setError } = await supabase
-      .from("product_images")
-      .update({ is_primary: true })
-      .eq("product_id", productId)
-      .eq("id", imageId);
-
-    if (setError) {
-      console.error("Error setting primary product image:", setError);
+    if (error) {
+      console.error("Error in set_primary_product_image RPC:", error);
       return false;
     }
 

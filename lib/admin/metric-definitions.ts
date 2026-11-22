@@ -7,7 +7,10 @@ export const LOW_STOCK_MIN = 1;
 export const LOW_STOCK_MAX = 10;
 
 /** Order statuses excluded from revenue / order-count KPIs. */
-export const REVENUE_EXCLUDED_STATUSES = ["cancelled"] as const;
+export const REVENUE_EXCLUDED_STATUSES = ["cancelled", "returned"] as const;
+
+/** Payment statuses that count toward recognised revenue. */
+export const REVENUE_PAYMENT_STATUSES = ["paid"] as const;
 
 export type RevenueExcludedStatus = (typeof REVENUE_EXCLUDED_STATUSES)[number];
 

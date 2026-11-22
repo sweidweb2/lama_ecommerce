@@ -57,19 +57,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         const wantsPasswordChange =
           values.password.length > 0 || values.confirmPassword.length > 0;
 
-        if (wantsPasswordChange) {
-          const pwResult = await resetUserPasswordAction(user.id, {
-            password: values.password,
-            confirmPassword: values.confirmPassword,
-          });
-          if (!pwResult?.success) {
-            return {
-              success: false,
-              error: pwResult?.error ?? "Password update failed",
-            };
-          }
-        }
-
+        // Profile first so a failed profile update never leaves a changed password.
         const result = await updateProfileAction(user.id, {
           full_name: values.name || undefined,
           role: values.role === "Admin" ? "admin" : "user",
@@ -81,6 +69,19 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
             success: false,
             error: result?.error ?? "Update failed",
           };
+        }
+
+        if (wantsPasswordChange) {
+          const pwResult = await resetUserPasswordAction(user.id, {
+            password: values.password,
+            confirmPassword: values.confirmPassword,
+          });
+          if (!pwResult?.success) {
+            return {
+              success: false,
+              error: pwResult?.error ?? "Password update failed",
+            };
+          }
         }
 
         return { success: true };

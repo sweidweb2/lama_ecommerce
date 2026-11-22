@@ -1,229 +1,182 @@
-'use client'
+"use client";
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import type { Category } from "@/types/product"
+} from "@/components/ui/select";
+import { AdminFormDialog } from "@/components/admin/shared/admin-form-dialog";
+import type { Category } from "@/types/product";
+
+type CreateValues = {
+  name: string;
+  slug: string;
+  parentId: string | "none";
+  isActive: boolean;
+};
 
 interface CreateCategoryDialogProps {
-  parentOptions: Category[]
-  action: (formData: FormData) => void | Promise<void>
+  parentOptions: Category[];
+  action: (formData: FormData) => void | Promise<void>;
+}
+
+const INITIAL: CreateValues = {
+  name: "",
+  slug: "",
+  parentId: "none",
+  isActive: true,
+};
+
+function validateCategoryFields(values: {
+  name: string;
+  slug: string;
+}): string | null {
+  const trimmedName = values.name.trim();
+  const trimmedSlug = values.slug.trim();
+
+  if (!trimmedName) return "Name is required.";
+  if (trimmedName.length > 40) return "Name must be at most 40 characters.";
+
+  if (!trimmedSlug) return "Slug is required.";
+  if (trimmedSlug.length > 20) return "Slug must be at most 20 characters.";
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+    return "Slug can only contain lowercase letters, numbers, and hyphens.";
+  }
+
+  return null;
 }
 
 export function CreateCategoryDialog({
   parentOptions,
   action,
 }: CreateCategoryDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [parentId, setParentId] = useState<string | "none">("none")
-  const [isActive, setIsActive] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({})
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    const trimmedName = name.trim()
-    const trimmedSlug = slug.trim()
-
-    const nextErrors: typeof errors = {}
-
-    if (!trimmedName) {
-      nextErrors.name = "Name is required."
-    } else if (trimmedName.length > 40) {
-      nextErrors.name = "Name must be at most 40 characters."
-    }
-
-    if (!trimmedSlug) {
-      nextErrors.slug = "Slug is required."
-    } else if (trimmedSlug.length > 20) {
-      nextErrors.slug = "Slug must be at most 20 characters."
-    } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
-      nextErrors.slug =
-        "Slug can only contain lowercase letters, numbers, and hyphens."
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
-      return
-    }
-
-    setErrors({})
-
-    const form = e.currentTarget
-    const formData = new FormData(form)
-
-    formData.set("name", trimmedName)
-    formData.set("slug", trimmedSlug)
-    formData.set("parent_id", parentId === "none" ? "" : parentId)
-    formData.set("is_active", isActive ? "true" : "false")
-
-    setIsSubmitting(true)
-    try {
-      await action(formData)
-
-      setName("")
-      setSlug("")
-      setParentId("none")
-      setIsActive(true)
-      setOpen(false)
-    } catch (error) {
-      console.error("Error creating category:", error)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setName("")
-    setSlug("")
-    setParentId("none")
-    setIsActive(true)
-    setOpen(false)
-  }
-
   return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        Add Category
-      </Button>
+    <AdminFormDialog<CreateValues>
+      mode="create"
+      title="Create Category"
+      triggerLabel="Add Category"
+      contentClassName="max-w-xl"
+      initialValues={INITIAL}
+      submitLabel="Create Category"
+      toastMessages={{
+        errorTitle: "Failed to create category",
+      }}
+      onSubmit={async (values) => {
+        const validationError = validateCategoryFields(values);
+        if (validationError) {
+          return { success: false, error: validationError };
+        }
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
-          </DialogHeader>
+        const formData = new FormData();
+        formData.set("name", values.name.trim());
+        formData.set("slug", values.slug.trim());
+        formData.set(
+          "parent_id",
+          values.parentId === "none" ? "" : values.parentId,
+        );
+        formData.set("is_active", values.isActive ? "true" : "false");
 
-          <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="category-name">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="category-name"
-                name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={40}
-                placeholder="e.g., Electronics"
-                required
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name}</p>
-              )}
-            </div>
+        await action(formData);
+        return { success: true };
+      }}
+    >
+      {({ values, setValues }) => (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="category-name">
+              Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="category-name"
+              value={values.name}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, name: e.target.value }))
+              }
+              maxLength={40}
+              placeholder="e.g., Electronics"
+              required
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category-slug">Slug</Label>
-              <Input
-                id="category-slug"
-                name="slug"
-                value={slug}
+          <div className="space-y-2">
+            <Label htmlFor="category-slug">Slug</Label>
+            <Input
+              id="category-slug"
+              value={values.slug}
+              onChange={(e) =>
+                setValues((prev) => ({
+                  ...prev,
+                  slug: e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]/g, "")
+                    .slice(0, 20),
+                }))
+              }
+              maxLength={20}
+              placeholder="e.g., electronics"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              URL-friendly identifier used in user pages category filters.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Parent Category</Label>
+            <Select
+              value={values.parentId}
+              onValueChange={(value) =>
+                setValues((prev) => ({
+                  ...prev,
+                  parentId: value as string | "none",
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select parent (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No parent (root)</SelectItem>
+                {parentOptions.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.is_active ? cat.name : `${cat.name} (inactive)`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Optional. Use this to build nested category trees.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="category-is-active"
+                checked={values.isActive}
                 onChange={(e) =>
-                  setSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, "")
-                      .slice(0, 20),
-                  )
+                  setValues((prev) => ({
+                    ...prev,
+                    isActive: e.target.checked,
+                  }))
                 }
-                maxLength={20}
-                placeholder="e.g., electronics"
-                required
+                className="h-4 w-4 rounded border-input"
               />
-              <p className="text-xs text-muted-foreground">
-                URL-friendly identifier used in user pages category filters.
-              </p>
-              {errors.slug && (
-                <p className="text-xs text-destructive">{errors.slug}</p>
-              )}
+              <Label htmlFor="category-is-active" className="cursor-pointer">
+                Active
+              </Label>
             </div>
-
-            <div className="space-y-2">
-              <Label>Parent Category</Label>
-              <Select
-                value={parentId}
-                onValueChange={(value) => setParentId(value as string | "none")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select parent (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No parent (root)</SelectItem>
-                  {parentOptions.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.is_active ? cat.name : `${cat.name} (inactive)`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Optional. Use this to build nested category trees.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="category-is-active"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <Label htmlFor="category-is-active" className="cursor-pointer">
-                  Active
-                </Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Inactive categories will not be shown in the user pages.
-              </p>
-            </div>
-
-            <input
-              type="hidden"
-              name="parent_id"
-              value={parentId === "none" ? "" : parentId}
-            />
-            <input
-              type="hidden"
-              name="is_active"
-              value={isActive ? "true" : "false"}
-            />
-
-            <DialogFooter className="mt-4 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={isSubmitting}>
-                Create Category
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+            <p className="text-xs text-muted-foreground">
+              Inactive categories will not be shown in the user pages.
+            </p>
+          </div>
+        </>
+      )}
+    </AdminFormDialog>
+  );
 }
-

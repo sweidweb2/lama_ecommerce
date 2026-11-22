@@ -7,7 +7,7 @@ import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
 import type { Database } from "@/types/supabase";
-import type { SessionContext } from "@/lib/auth/session-context";
+import type { StorefrontOwner } from "@/types/storefront-owner";
 
 /**
  * Create a new cart.
@@ -174,8 +174,8 @@ export async function getCartByIdForAdmin(
  * - user: Server Component client (RLS)
  * - guest: service-role client (guest rows are not readable via anon RLS)
  */
-async function getCartReadClient(session: SessionContext) {
-  return session.kind === "guest"
+async function getCartReadClient(owner: StorefrontOwner) {
+  return owner.kind === "guest"
     ? createSupabaseAdminClient()
     : await createSupabaseServerComponentClient();
 }
@@ -184,13 +184,13 @@ async function getCartReadClient(session: SessionContext) {
  * Select the most recent cart for the session owner:
  * users by `user_id`, guests by `session_id` with `user_id IS NULL`.
  */
-async function selectLatestCartForSession(session: SessionContext) {
-  const supabase = await getCartReadClient(session);
+async function selectLatestCartForSession(owner: StorefrontOwner) {
+  const supabase = await getCartReadClient(owner);
   const base = supabase.from("carts").select("*");
   const scoped =
-    session.kind === "user"
-      ? base.eq("user_id", session.userId)
-      : base.eq("session_id", session.sessionId).is("user_id", null);
+    owner.kind === "user"
+      ? base.eq("user_id", owner.userId)
+      : base.eq("session_id", owner.sessionId).is("user_id", null);
   return scoped
     .order("created_at", { ascending: false })
     .limit(1)
@@ -203,14 +203,14 @@ async function selectLatestCartForSession(session: SessionContext) {
  * Guests use the service-role client, always filtering by session_id + user_id IS NULL.
  */
 export async function hasActiveCartForSession(
-  session: SessionContext,
+  owner: StorefrontOwner,
 ): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
   try {
-    const { data, error } = await selectLatestCartForSession(session);
+    const { data, error } = await selectLatestCartForSession(owner);
 
     if (error) {
       console.error(
-        session.kind === "user"
+        owner.kind === "user"
           ? "Error checking active cart:"
           : "Error checking active cart by session:",
         error,
@@ -243,14 +243,14 @@ export async function hasActiveCartForSession(
  * Guests use the service-role client, always filtering by session_id + user_id IS NULL.
  */
 export async function getCartForSession(
-  session: SessionContext,
+  owner: StorefrontOwner,
 ): Promise<{ success: boolean; error?: string; data?: Cart }> {
   try {
-    const { data, error } = await selectLatestCartForSession(session);
+    const { data, error } = await selectLatestCartForSession(owner);
 
     if (error) {
       console.error(
-        session.kind === "user"
+        owner.kind === "user"
           ? "Error fetching user cart:"
           : "Error fetching session cart:",
         error,
@@ -273,46 +273,6 @@ export async function getCartForSession(
         error instanceof Error ? error.message : "Unexpected error occurred",
     };
   }
-}
-
-/**
- * Check if a user has an active cart.
- * Returns true if the user has at least one cart, false otherwise.
- */
-export async function hasActiveCart(
-  userId: string,
-): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
-  return hasActiveCartForSession({ kind: "user", userId });
-}
-
-/**
- * Get a cart for an authenticated user.
- * Returns the most recent cart for the user.
- */
-export async function getCartByUserId(
-  userId: string,
-): Promise<{ success: boolean; error?: string; data?: Cart }> {
-  return getCartForSession({ kind: "user", userId });
-}
-
-/**
- * Check if a guest session has an active cart.
- * Uses service-role client; always filters by session_id + user_id IS NULL.
- */
-export async function hasActiveCartBySessionId(
-  sessionId: string,
-): Promise<{ success: boolean; hasActiveCart: boolean; data?: Cart; error?: string }> {
-  return hasActiveCartForSession({ kind: "guest", sessionId });
-}
-
-/**
- * Get a cart for a guest by session_id.
- * Uses service-role client; returns the most recent guest cart for the session.
- */
-export async function getCartBySessionId(
-  sessionId: string,
-): Promise<{ success: boolean; error?: string; data?: Cart }> {
-  return getCartForSession({ kind: "guest", sessionId });
 }
 
 /**
@@ -768,6 +728,64 @@ export async function deleteCartAdmin(
       success: false,
       error:
         error instanceof Error ? error.message : "Unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Atomically merge a guest session cart into the user's cart.
+ * Creates the user cart if needed, merges/clamps quantities with stock checks,
+ * and deletes the guest cart — all in one DB transaction.
+ */
+export async function mergeGuestCartToUser(
+  userId: string,
+  sessionId: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  movedCount: number;
+  merged?: boolean;
+  errors?: string[];
+}> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data, error } = await supabase.rpc("merge_guest_cart_to_user", {
+      p_user_id: userId,
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      console.error("Error in merge_guest_cart_to_user RPC:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to merge guest cart",
+        movedCount: 0,
+        merged: false,
+      };
+    }
+
+    const payload = data as {
+      moved_count?: number;
+      merged?: boolean;
+      errors?: string[];
+    } | null;
+
+    const movedCount = payload?.moved_count ?? 0;
+    const merged = payload?.merged ?? movedCount > 0;
+    const errors = payload?.errors?.filter(Boolean) ?? [];
+
+    return errors.length > 0
+      ? { success: true, movedCount, merged, errors }
+      : { success: true, movedCount, merged };
+  } catch (error) {
+    console.error("Unexpected error in mergeGuestCartToUser:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unexpected error occurred",
+      movedCount: 0,
+      merged: false,
     };
   }
 }

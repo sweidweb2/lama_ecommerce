@@ -30,22 +30,22 @@ describe("guest cart session scoping", () => {
     resetCartChain();
   });
 
-  it("hasActiveCartBySessionId filters by session_id and null user_id", async () => {
-    const { hasActiveCartBySessionId } = await import(
+  it("hasActiveCartForSession (guest) filters by session_id and null user_id", async () => {
+    const { hasActiveCartForSession } = await import(
       "@/repositories/cart.repository"
     );
-    await hasActiveCartBySessionId("guest-session-abc");
+    await hasActiveCartForSession({ kind: "guest", sessionId: "guest-session-abc" });
 
     expect(from).toHaveBeenCalledWith("carts");
     expect(eq).toHaveBeenCalledWith("session_id", "guest-session-abc");
     expect(is).toHaveBeenCalledWith("user_id", null);
   });
 
-  it("getCartBySessionId filters by session_id and null user_id", async () => {
-    const { getCartBySessionId } = await import(
+  it("getCartForSession (guest) filters by session_id and null user_id", async () => {
+    const { getCartForSession } = await import(
       "@/repositories/cart.repository"
     );
-    await getCartBySessionId("guest-session-def");
+    await getCartForSession({ kind: "guest", sessionId: "guest-session-def" });
 
     expect(from).toHaveBeenCalledWith("carts");
     expect(eq).toHaveBeenCalledWith("session_id", "guest-session-def");
@@ -58,17 +58,17 @@ describe("guest wishlist session scoping", () => {
     vi.clearAllMocks();
   });
 
-  it("getWishlistItemsBySessionId filters by session_id and null user_id", async () => {
+  it("getWishlistItemsForSession (guest) filters by session_id and null user_id", async () => {
     const isUser = vi.fn().mockResolvedValue({ data: [], error: null });
     const eqSession = vi.fn(() => ({ is: isUser }));
     const selectWish = vi.fn(() => ({ eq: eqSession }));
     const fromWish = vi.fn(() => ({ select: selectWish }));
     createSupabaseAdminClient.mockReturnValue({ from: fromWish });
 
-    const { getWishlistItemsBySessionId } = await import(
+    const { getWishlistItemsForSession } = await import(
       "@/repositories/wishlist.repository"
     );
-    await getWishlistItemsBySessionId("guest-session-xyz");
+    await getWishlistItemsForSession({ kind: "guest", sessionId: "guest-session-xyz" });
 
     expect(fromWish).toHaveBeenCalledWith("wishlists");
     expect(eqSession).toHaveBeenCalledWith("session_id", "guest-session-xyz");

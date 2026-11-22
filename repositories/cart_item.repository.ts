@@ -9,7 +9,7 @@ import type { UpdateCartItemInput } from "@/lib/validators/cart-item/update";
 import type { ProductWithRelations } from "@/types/product";
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SessionContext } from "@/lib/auth/session-context";
+import type { StorefrontOwner } from "@/types/storefront-owner";
 
 /**
  * Create or update a cart item (UPSERT) - Double-click safe.
@@ -442,7 +442,10 @@ async function assertCartItemQuantityWithinStock(
   cartItemId: string,
   quantity: number,
   customisedProductIdOverride?: string,
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<
+  | { success: true }
+  | { success: false; error: string; availableStock?: number }
+> {
   if (quantity < 1) {
     return { success: false, error: "Quantity must be at least 1" };
   }
@@ -485,13 +488,18 @@ async function assertCartItemQuantityWithinStock(
   }
 
   if (variant.quantity_stock <= 0) {
-    return { success: false, error: "This product variant is out of stock" };
+    return {
+      success: false,
+      error: "This product variant is out of stock",
+      availableStock: 0,
+    };
   }
 
   if (quantity > variant.quantity_stock) {
     return {
       success: false,
       error: `Insufficient stock. Available: ${variant.quantity_stock}, Requested: ${quantity}`,
+      availableStock: variant.quantity_stock,
     };
   }
 
@@ -721,7 +729,7 @@ async function assertCartItemOwnedByGuestSession(
 /**
  * Update a guest cart item quantity, scoped to guest session_id.
  */
-export async function updateCartItemForGuest(
+async function updateCartItemForGuest(
   sessionId: string,
   cartItemId: string,
   input: UpdateCartItemInput,
@@ -746,7 +754,7 @@ export async function updateCartItemForGuest(
 /**
  * Hard-delete a guest cart item, scoped to guest session_id.
  */
-export async function hardDeleteCartItemForGuest(
+async function hardDeleteCartItemForGuest(
   sessionId: string,
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -787,10 +795,10 @@ export async function hardDeleteCartItemForGuest(
  * Admin panel callers must keep using `createCartItemAsAdmin` directly.
  */
 export async function createCartItemForSession(
-  session: SessionContext,
+  owner: StorefrontOwner,
   input: CreateCartItemInput & { cart_id: string },
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
-  return session.kind === "user"
+  return owner.kind === "user"
     ? createCartItem(input)
     : createCartItemAsAdmin(input);
 }
@@ -800,13 +808,13 @@ export async function createCartItemForSession(
  * Users: RLS-scoped update. Guests: service-role update scoped by session_id ownership check.
  */
 export async function updateCartItemForSession(
-  session: SessionContext,
+  owner: StorefrontOwner,
   cartItemId: string,
   input: UpdateCartItemInput,
 ): Promise<{ success: boolean; error?: string; data?: CartItem }> {
-  return session.kind === "user"
+  return owner.kind === "user"
     ? updateCartItem(cartItemId, input)
-    : updateCartItemForGuest(session.sessionId, cartItemId, input);
+    : updateCartItemForGuest(owner.sessionId, cartItemId, input);
 }
 
 /**
@@ -814,13 +822,21 @@ export async function updateCartItemForSession(
  * Users: RLS-scoped delete. Guests: service-role delete scoped by session_id ownership check.
  */
 export async function hardDeleteCartItemForSession(
-  session: SessionContext,
+  owner: StorefrontOwner,
   cartItemId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  return session.kind === "user"
+  return owner.kind === "user"
     ? hardDeleteCartItem(cartItemId)
-    : hardDeleteCartItemForGuest(session.sessionId, cartItemId);
+    : hardDeleteCartItemForGuest(owner.sessionId, cartItemId);
 }
+
+export type MoveCartItemsResult = {
+  success: boolean;
+  error?: string;
+  movedCount: number;
+  /** Per-line skip/clamp messages (partial success). */
+  errors?: string[];
+};
 
 /**
  * Move all cart items from one cart to another, merging duplicates.
@@ -830,13 +846,17 @@ export async function hardDeleteCartItemForSession(
  * - If the destination cart already has the same customised_product_id → add quantities, then hard-delete the source item.
  * - Otherwise → update the item's cart_id to the destination cart.
  *
- * On stock failure: abort immediately; leave remaining source rows in the guest cart.
+ * On stock failure for a line: clamp to available stock when some stock exists
+ * (never above stock), otherwise skip that line. Remaining lines still move; the
+ * skipped/clamped lines are reported in `errors` and the overall result stays
+ * `success: true` (partial success). Only infrastructure failures (DB read/write
+ * errors) abort the whole move.
  * Uses admin client to bypass RLS since this crosses cart ownership boundaries.
  */
 export async function moveCartItemsToCart(
   fromCartId: string,
   toCartId: string,
-): Promise<{ success: boolean; error?: string; movedCount: number }> {
+): Promise<MoveCartItemsResult> {
   try {
     const supabase = createSupabaseAdminClient();
 
@@ -876,6 +896,7 @@ export async function moveCartItemsToCart(
     });
 
     let movedCount = 0;
+    const errors: string[] = [];
 
     // 3. Process each source item
     for (const srcItem of sourceItems as {
@@ -884,7 +905,7 @@ export async function moveCartItemsToCart(
       quantity: number;
     }[]) {
       const existing = destMap.get(srcItem.customised_product_id);
-      const destinationQty = (existing?.quantity ?? 0) + srcItem.quantity;
+      let destinationQty = (existing?.quantity ?? 0) + srcItem.quantity;
 
       const stockCheck = await assertCartItemQuantityWithinStock(
         supabase,
@@ -893,11 +914,28 @@ export async function moveCartItemsToCart(
         srcItem.customised_product_id,
       );
       if (!stockCheck.success) {
-        return {
-          success: false,
-          error: stockCheck.error,
-          movedCount,
-        };
+        const available = stockCheck.availableStock ?? 0;
+        const label = `Item ${srcItem.customised_product_id}`;
+
+        if (available <= 0) {
+          // Out of stock / unavailable: skip this line, continue with the rest
+          errors.push(`${label}: ${stockCheck.error} (skipped)`);
+          continue;
+        }
+
+        // Clamp to what is actually available
+        if (existing && existing.quantity >= available) {
+          // Destination already holds all available stock; drop the guest line.
+          await supabase.from("cart_items").delete().eq("id", srcItem.id);
+          errors.push(
+            `${label}: ${stockCheck.error} (kept existing quantity ${existing.quantity})`,
+          );
+          continue;
+        }
+        destinationQty = available;
+        errors.push(
+          `${label}: ${stockCheck.error} (quantity reduced to ${available})`,
+        );
       }
 
       if (existing) {
@@ -927,7 +965,7 @@ export async function moveCartItemsToCart(
         // No duplicate: move item to destination cart
         const { error: moveErr } = await supabase
           .from("cart_items")
-          .update({ cart_id: toCartId })
+          .update({ cart_id: toCartId, quantity: destinationQty })
           .eq("id", srcItem.id);
 
         if (moveErr) {
@@ -941,14 +979,16 @@ export async function moveCartItemsToCart(
 
         destMap.set(srcItem.customised_product_id, {
           id: srcItem.id,
-          quantity: srcItem.quantity,
+          quantity: destinationQty,
         });
       }
 
       movedCount++;
     }
 
-    return { success: true, movedCount };
+    return errors.length > 0
+      ? { success: true, movedCount, errors }
+      : { success: true, movedCount };
   } catch (error) {
     console.error("Unexpected error in moveCartItemsToCart:", error);
     return {

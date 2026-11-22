@@ -37,6 +37,22 @@ export function assertCanShopAsCustomer(
   }
 }
 
+/** Stable message when an inactive customer tries storefront commerce. */
+export const INACTIVE_ACCOUNT_MESSAGE =
+  "Your account is inactive. Contact support if you need help.";
+
+/**
+ * True when a logged-in customer may shop (active user role).
+ * Guests have no profile — callers should skip this check for guests.
+ */
+export function canShopAsActiveCustomer(profile: {
+  role: RoleValue | null | undefined;
+  is_active: boolean | null | undefined;
+} | null | undefined): boolean {
+  if (!profile) return false;
+  return canShopAsCustomer(profile.role) && profile.is_active === true;
+}
+
 /**
  * Check if a user can edit a specific profile.
  * Users can only edit their own profile.

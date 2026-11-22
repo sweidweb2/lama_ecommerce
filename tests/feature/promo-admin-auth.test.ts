@@ -53,12 +53,14 @@ describe("promo actions admin gates", () => {
 
     await expect(createPromoCodeAction(validPayload)).resolves.toMatchObject({
       success: false,
+      error: "Unauthorized",
     });
     await expect(
       updatePromoCodeAction({ ...validPayload, id: "00000000-0000-4000-8000-000000000001" }),
-    ).resolves.toMatchObject({ success: false });
+    ).resolves.toMatchObject({ success: false, error: "Unauthorized" });
     await expect(deletePromoCodeAction("1")).resolves.toMatchObject({
       success: false,
+      error: "Unauthorized",
     });
 
     expect(createPromoCode).not.toHaveBeenCalled();
@@ -71,6 +73,30 @@ describe("promo actions admin gates", () => {
     getAllPromoCodes.mockResolvedValue([{ id: "p1" }]);
     const { getPromoCodesAction } = await import("@/actions/promo");
     await expect(getPromoCodesAction()).resolves.toEqual([{ id: "p1" }]);
+  });
+
+  it("returns distinct errors when the repo fails for an admin", async () => {
+    getCurrentUserProfile.mockResolvedValue(adminProfile);
+    createPromoCode.mockResolvedValue(null);
+    updatePromoCode.mockResolvedValue(null);
+    deletePromoCodeById.mockResolvedValue(false);
+    const {
+      createPromoCodeAction,
+      updatePromoCodeAction,
+      deletePromoCodeAction,
+    } = await import("@/actions/promo");
+
+    await expect(createPromoCodeAction(validPayload)).resolves.toEqual({
+      success: false,
+      error: "Create failed",
+    });
+    await expect(
+      updatePromoCodeAction({ ...validPayload, id: "00000000-0000-4000-8000-000000000001" }),
+    ).resolves.toEqual({ success: false, error: "Update failed" });
+    await expect(deletePromoCodeAction("1")).resolves.toEqual({
+      success: false,
+      error: "Delete failed",
+    });
   });
 
   it("deletePromoCodeAction succeeds for admin", async () => {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { isAdminCaller } from "@/lib/auth/require-admin-soft";
 import {
   getAllPromoCodes,
   createPromoCode,
@@ -11,15 +11,7 @@ import {
 import { createPromoCodeSchema } from "@/lib/validators/promo/create";
 import { updatePromoCodeFullSchema } from "@/lib/validators/promo/update";
 
-/** Soft admin check: callers get empty/null/false instead of a thrown error. */
-async function isAdminCaller(): Promise<boolean> {
-  try {
-    await requireAdmin();
-    return true;
-  } catch {
-    return false;
-  }
-}
+const UNAUTHORIZED = { success: false as const, error: "Unauthorized" };
 
 /**
  * Get all promo codes for admin. Returns empty array if not admin.
@@ -42,6 +34,8 @@ export type CreatePromoCodePayload = {
  * Create a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
   const parsed = createPromoCodeSchema.safeParse({
     ...payload,
     discount_value: payload.discount_value ?? 0,
@@ -56,19 +50,17 @@ export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const created = (await isAdminCaller())
-    ? await createPromoCode({
-        code: parsed.data.code,
-        discount_type: parsed.data.discount_type,
-        discount_value: parsed.data.discount_value,
-        expires_at: parsed.data.expires_at ?? null,
-        max_uses: parsed.data.max_uses ?? null,
-        is_active: parsed.data.is_active ?? true,
-      })
-    : null;
+  const created = await createPromoCode({
+    code: parsed.data.code,
+    discount_type: parsed.data.discount_type,
+    discount_value: parsed.data.discount_value,
+    expires_at: parsed.data.expires_at ?? null,
+    max_uses: parsed.data.max_uses ?? null,
+    is_active: parsed.data.is_active ?? true,
+  });
 
   if (!created) {
-    return { success: false as const, error: "Forbidden or create failed" };
+    return { success: false as const, error: "Create failed" };
   }
 
   revalidatePath("/admin/promocodes");
@@ -89,6 +81,8 @@ export type UpdatePromoCodePayload = {
  * Update a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
   const parsed = updatePromoCodeFullSchema.safeParse({
     ...payload,
     discount_value: payload.discount_value ?? 0,
@@ -104,20 +98,18 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const updated = (await isAdminCaller())
-    ? await updatePromoCode({
-        id: parsed.data.id,
-        code: parsed.data.code,
-        discount_type: parsed.data.discount_type,
-        discount_value: parsed.data.discount_value,
-        expires_at: parsed.data.expires_at ?? null,
-        max_uses: parsed.data.max_uses ?? null,
-        is_active: parsed.data.is_active ?? true,
-      })
-    : null;
+  const updated = await updatePromoCode({
+    id: parsed.data.id,
+    code: parsed.data.code,
+    discount_type: parsed.data.discount_type,
+    discount_value: parsed.data.discount_value,
+    expires_at: parsed.data.expires_at ?? null,
+    max_uses: parsed.data.max_uses ?? null,
+    is_active: parsed.data.is_active ?? true,
+  });
 
   if (!updated) {
-    return { success: false as const, error: "Forbidden or update failed" };
+    return { success: false as const, error: "Update failed" };
   }
 
   revalidatePath("/admin/promocodes");
@@ -128,9 +120,11 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
  * Delete a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function deletePromoCodeAction(id: string) {
-  const ok = (await isAdminCaller()) ? await deletePromoCodeById(id) : false;
+  if (!(await isAdminCaller())) return UNAUTHORIZED;
+
+  const ok = await deletePromoCodeById(id);
   if (!ok) {
-    return { success: false as const, error: "Forbidden or delete failed" };
+    return { success: false as const, error: "Delete failed" };
   }
   revalidatePath("/admin/promocodes");
   return { success: true as const };

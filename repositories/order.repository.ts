@@ -601,15 +601,14 @@ export interface UpsertPaymentForOrderInput {
 }
 
 /**
- * Insert or update the latest payment for an order, then sync orders.payment_status.
- * Uses admin client (payments writes are not open to storefront users).
+ * Insert or update the payment for an order and sync orders.payment_status
+ * in one DB transaction (upsert_payment_for_order RPC).
  */
 export async function upsertPaymentForOrder(
   input: UpsertPaymentForOrderInput,
 ): Promise<{ success: boolean; error?: string; data?: Payment }> {
   try {
     const supabase = createSupabaseAdminClient();
-    const existing = await getPaymentByOrderIdForAdmin(input.order_id);
 
     const paidAt =
       input.paid_at !== undefined
@@ -618,68 +617,27 @@ export async function upsertPaymentForOrder(
           ? new Date().toISOString()
           : null;
 
-    const payload = {
-      status: input.status,
-      currency: input.currency?.trim() || "USD",
-      transaction_id: input.transaction_id?.trim() || null,
-      paid_at: paidAt,
-      gateway: input.gateway?.trim() || null,
-      payment_method: input.payment_method?.trim() || null,
-      payment_url: input.payment_url?.trim() || null,
-      ...(input.amount !== undefined ? { amount: input.amount } : {}),
-    };
+    const { data, error } = await supabase.rpc("upsert_payment_for_order", {
+      p_order_id: input.order_id,
+      p_status: input.status,
+      p_amount: input.amount !== undefined ? input.amount : null,
+      p_currency: input.currency?.trim() || "USD",
+      p_transaction_id: input.transaction_id?.trim() || null,
+      p_paid_at: paidAt,
+      p_gateway: input.gateway?.trim() || null,
+      p_payment_method: input.payment_method?.trim() || null,
+      p_payment_url: input.payment_url?.trim() || null,
+    });
 
-    let payment: Payment | null = null;
-
-    if (existing) {
-      const { data, error } = await supabase
-        .from("payments")
-        .update(payload)
-        .eq("id", existing.id)
-        .select()
-        .single();
-      if (error) {
-        console.error("Error updating payment:", error);
-        return { success: false, error: error.message || "Failed to update payment" };
-      }
-      payment = data as Payment;
-    } else {
-      const { data, error } = await supabase
-        .from("payments")
-        .insert({
-          order_id: input.order_id,
-          status: payload.status,
-          currency: payload.currency,
-          transaction_id: payload.transaction_id,
-          paid_at: payload.paid_at,
-          gateway: payload.gateway,
-          payment_method: payload.payment_method,
-          payment_url: payload.payment_url,
-          ...(input.amount !== undefined ? { amount: input.amount } : {}),
-        })
-        .select()
-        .single();
-      if (error) {
-        console.error("Error inserting payment:", error);
-        return { success: false, error: error.message || "Failed to create payment" };
-      }
-      payment = data as Payment;
-    }
-
-    const { error: orderError } = await supabase
-      .from("orders")
-      .update({ payment_status: input.status })
-      .eq("id", input.order_id);
-
-    if (orderError) {
-      console.error("Error syncing order payment_status:", orderError);
+    if (error) {
+      console.error("Error in upsert_payment_for_order RPC:", error);
       return {
         success: false,
-        error: orderError.message || "Payment saved but order status sync failed",
+        error: error.message || "Failed to save payment",
       };
     }
 
-    return { success: true, data: payment ?? undefined };
+    return { success: true, data: data as Payment };
   } catch (error) {
     console.error("Unexpected error in upsertPaymentForOrder:", error);
     return {
@@ -690,76 +648,69 @@ export async function upsertPaymentForOrder(
   }
 }
 
+export interface UpdateOrderInput {
+  user_id?: string | null;
+  status?: Order["status"];
+  payment_status?: Order["payment_status"];
+  subtotal?: number | null;
+  shipping_fee?: number | null;
+  discount?: number | null;
+  total?: number | null;
+  phone?: string | null;
+  email?: string | null;
+  /** Required when transitioning to shipped and no shipment exists yet. */
+  carrier_name?: string;
+  tracking_number?: string;
+}
+
 /**
- * Update an order by ID (admin use).
- * Uses admin client to bypass RLS for admin operations.
- * When payment_status is set, also upserts/syncs the payments row.
+ * Update an order by ID (admin use) via admin_update_order RPC.
+ * Atomically syncs payment row and creates shipment when marking shipped.
  */
 export async function updateOrder(
   orderId: string,
-  input: {
-    user_id?: string | null;
-    status?: Order["status"];
-    payment_status?: Order["payment_status"];
-    subtotal?: number | null;
-    shipping_fee?: number | null;
-    discount?: number | null;
-    total?: number | null;
-    phone?: string | null;
-    email?: string | null;
-  },
+  input: UpdateOrderInput,
 ): Promise<{ success: boolean; error?: string; data?: Order }> {
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Build update payload with only provided fields
-    const updatePayload: Database["public"]["Tables"]["orders"]["Update"] = {};
-    if (input.user_id !== undefined) updatePayload.user_id = input.user_id;
-    if (input.status !== undefined) updatePayload.status = input.status;
-    if (input.payment_status !== undefined) updatePayload.payment_status = input.payment_status;
-    if (input.subtotal !== undefined) updatePayload.subtotal = input.subtotal;
-    if (input.shipping_fee !== undefined) updatePayload.shipping_fee = input.shipping_fee;
-    if (input.discount !== undefined) updatePayload.discount = input.discount;
-    if (input.total !== undefined) updatePayload.total = input.total;
-    if (input.phone !== undefined) updatePayload.phone = input.phone?.trim() || null;
-    if (input.email !== undefined) updatePayload.email = input.email?.trim() || null;
+    const patch: Record<string, unknown> = {};
+    if (input.user_id !== undefined) patch.user_id = input.user_id;
+    if (input.status !== undefined) patch.status = input.status;
+    if (input.payment_status !== undefined) {
+      patch.payment_status = input.payment_status;
+    }
+    if (input.subtotal !== undefined) patch.subtotal = input.subtotal;
+    if (input.shipping_fee !== undefined) patch.shipping_fee = input.shipping_fee;
+    if (input.discount !== undefined) patch.discount = input.discount;
+    if (input.total !== undefined) patch.total = input.total;
+    if (input.phone !== undefined) patch.phone = input.phone?.trim() || null;
+    if (input.email !== undefined) patch.email = input.email?.trim() || null;
 
-    // If no fields to update, return early
-    if (Object.keys(updatePayload).length === 0) {
+    if (Object.keys(patch).length === 0) {
       return {
         success: false,
         error: "No fields to update",
       };
     }
 
-    const { data, error } = await supabase
-      .from("orders")
-      .update(updatePayload)
-      .eq("id", orderId)
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("admin_update_order", {
+      p_order_id: orderId,
+      p_patch: patch as unknown as import("@/types/supabase").JSON,
+      p_carrier_name: input.carrier_name?.trim() || null,
+      p_tracking_number: input.tracking_number?.trim() || null,
+    });
 
     if (error) {
-      console.error("Error updating order:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to update order",
-      };
-    }
-
-    if (input.payment_status !== undefined) {
-      const sync = await upsertPaymentForOrder({
-        order_id: orderId,
-        status: input.payment_status,
-        amount: (data as Order).total ?? null,
-      });
-      if (!sync.success) {
-        return {
-          success: false,
-          error: sync.error || "Order updated but payment sync failed",
-          data: data as Order,
-        };
+      console.error("Error in admin_update_order RPC:", error);
+      let errorMessage = error.message || "Failed to update order";
+      if (errorMessage.includes("Carrier and tracking")) {
+        errorMessage =
+          "Carrier and tracking number are required to mark as shipped";
+      } else if (errorMessage.includes("Order not found")) {
+        errorMessage = "Order not found";
       }
+      return { success: false, error: errorMessage };
     }
 
     return {

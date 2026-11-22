@@ -18,7 +18,6 @@ import {
   countShipmentsByOrderId,
   type UpsertPaymentForOrderInput,
 } from "@/repositories/order.repository";
-import { createShipment } from "@/repositories/shipment.repository";
 import { getPromoCodeByIdAdmin } from "@/repositories/promo_code.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
@@ -304,7 +303,9 @@ export async function updateOrderService(
       };
     }
 
-    let needsShipment = false;
+    let carrierName: string | undefined;
+    let trackingNumber: string | undefined;
+
     if (input.status === "shipped") {
       const shipmentCount = await countShipmentsByOrderId(orderId);
       if (!shipmentCount.success) {
@@ -313,60 +314,31 @@ export async function updateOrderService(
           error: shipmentCount.error ?? "Failed to check shipments",
         };
       }
-      needsShipment = shipmentCount.count === 0;
+      if (shipmentCount.count === 0) {
+        const shipmentParsed = createShipmentSchema.safeParse({
+          order_id: orderId,
+          carrier_name: input.carrier_name ?? "",
+          tracking_number: input.tracking_number ?? "",
+        });
+        if (!shipmentParsed.success) {
+          const fieldErrors = shipmentParsed.error.flatten().fieldErrors;
+          const firstKey = Object.keys(fieldErrors)[0] as
+            | keyof typeof fieldErrors
+            | undefined;
+          const firstError = firstKey ? fieldErrors[firstKey]?.[0] : undefined;
+          return {
+            success: false,
+            error:
+              firstError ??
+              "Carrier and tracking number are required to mark as shipped",
+          };
+        }
+        carrierName = shipmentParsed.data.carrier_name;
+        trackingNumber = shipmentParsed.data.tracking_number;
+      }
     }
 
-    if (needsShipment) {
-      const shipmentParsed = createShipmentSchema.safeParse({
-        order_id: orderId,
-        carrier_name: input.carrier_name ?? "",
-        tracking_number: input.tracking_number ?? "",
-      });
-      if (!shipmentParsed.success) {
-        const fieldErrors = shipmentParsed.error.flatten().fieldErrors;
-        const firstKey = Object.keys(fieldErrors)[0] as
-          | keyof typeof fieldErrors
-          | undefined;
-        const firstError = firstKey ? fieldErrors[firstKey]?.[0] : undefined;
-        return {
-          success: false,
-          error: firstError ?? "Carrier and tracking number are required to mark as shipped",
-        };
-      }
-
-      const statusResult = await updateOrder(orderId, {
-        user_id: input.user_id,
-        status: input.status,
-        payment_status: input.payment_status,
-        subtotal: input.subtotal,
-        shipping_fee: input.shipping_fee,
-        discount: input.discount,
-        total: input.total,
-      });
-
-      if (!statusResult.success) {
-        return statusResult;
-      }
-
-      const shipmentResult = await createShipment({
-        order_id: orderId,
-        carrier_name: shipmentParsed.data.carrier_name,
-        tracking_number: shipmentParsed.data.tracking_number,
-      });
-
-      if (!shipmentResult.success) {
-        // Roll back status so we never leave shipped without a shipment row
-        await updateOrder(orderId, { status: existing.status });
-        return {
-          success: false,
-          error: shipmentResult.error ?? "Failed to create shipment",
-        };
-      }
-
-      return statusResult;
-    }
-
-    // Call repository to update the order (phone/email intentionally omitted)
+    // Single RPC: order patch + optional payment sync + optional shipment insert
     return await updateOrder(orderId, {
       user_id: input.user_id,
       status: input.status,
@@ -375,6 +347,10 @@ export async function updateOrderService(
       shipping_fee: input.shipping_fee,
       discount: input.discount,
       total: input.total,
+      ...(carrierName !== undefined ? { carrier_name: carrierName } : {}),
+      ...(trackingNumber !== undefined
+        ? { tracking_number: trackingNumber }
+        : {}),
     });
   } catch (error) {
     console.error("Error in updateOrderService:", error);
@@ -412,7 +388,9 @@ export async function upsertOrderPaymentAdmin(
 /**
  * Delete an order (admin use) — hard delete.
  * Payments, shipments, and order items cascade with the order.
- * If stock was never restored, cancel first so the restock trigger runs.
+ * If stock was never restored and cancel is a valid transition, cancel first
+ * so the restock trigger runs. Fulfilled orders (shipped/delivered/returned)
+ * cannot be deleted this way — cancel is not allowed from those statuses.
  */
 export async function deleteOrderService(
   orderId: string,
@@ -437,6 +415,13 @@ export async function deleteOrderService(
     }
 
     if (!order.stock_restored) {
+      if (!canTransitionOrderStatus(order.status, "cancelled")) {
+        return {
+          success: false,
+          error: `Cannot delete order in status "${order.status}". Cancel is not allowed from this status.`,
+        };
+      }
+
       const cancelResult = await updateOrder(orderId, { status: "cancelled" });
       if (!cancelResult.success) {
         return {

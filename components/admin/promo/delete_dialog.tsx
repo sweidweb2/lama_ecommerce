@@ -17,7 +17,6 @@ export function DeletePromoCodeDialog({ promoCode, onDelete, showText = false }:
       ariaLabel={`Delete promo code ${promoCode.code}`}
       confirmLabel="Delete Promo Code"
       showText={showText}
-      suppressErrorToast
       description={
         <>
           <p>
@@ -28,7 +27,15 @@ export function DeletePromoCodeDialog({ promoCode, onDelete, showText = false }:
         </>
       }
       onConfirm={async () => {
-        await onDelete?.(promoCode.id)
+        try {
+          await onDelete?.(promoCode.id)
+          return { success: true as const }
+        } catch (e) {
+          return {
+            success: false as const,
+            error: e instanceof Error ? e.message : "Delete failed",
+          }
+        }
       }}
     />
   )

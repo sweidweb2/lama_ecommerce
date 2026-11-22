@@ -62,12 +62,17 @@ describe("analytics aggregates", () => {
     vi.clearAllMocks();
   });
 
-  it("getAnalyticsStats applies cancelled exclude via neq on orders count query", async () => {
+  it("getAnalyticsStats excludes non-revenue statuses and requires paid", async () => {
     const neq = vi.fn();
+    const eq = vi.fn();
     const makeOrdersChain = () => {
       const api = chainable({ count: 2, data: null, error: null });
       api.neq = (...args: unknown[]) => {
         neq(...args);
+        return api;
+      };
+      api.eq = (...args: unknown[]) => {
+        eq(...args);
         return api;
       };
       return api;
@@ -93,6 +98,7 @@ describe("analytics aggregates", () => {
     for (const status of REVENUE_EXCLUDED_STATUSES) {
       expect(neq).toHaveBeenCalledWith("status", status);
     }
+    expect(eq).toHaveBeenCalledWith("payment_status", "paid");
   });
 
   it("getTopProductsByRevenue calls admin_top_products_by_revenue RPC", async () => {

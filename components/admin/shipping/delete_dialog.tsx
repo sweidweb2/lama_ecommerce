@@ -17,7 +17,6 @@ export function DeleteShippingZoneDialog({ zone, onDelete, showText = false }: D
       ariaLabel={`Delete shipping zone ${zone.name}`}
       confirmLabel="Delete Zone"
       showText={showText}
-      suppressErrorToast
       description={
         <>
           <p>
@@ -28,7 +27,15 @@ export function DeleteShippingZoneDialog({ zone, onDelete, showText = false }: D
         </>
       }
       onConfirm={async () => {
-        await onDelete?.(zone.id)
+        try {
+          await onDelete?.(zone.id)
+          return { success: true as const }
+        } catch (e) {
+          return {
+            success: false as const,
+            error: e instanceof Error ? e.message : "Delete failed",
+          }
+        }
       }}
     />
   )

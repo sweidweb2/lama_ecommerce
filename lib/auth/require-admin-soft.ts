@@ -1,11 +1,14 @@
-import { ROLES } from "@/lib/constants/roles";
-import { getCurrentUserProfile } from "@/services/profile.service";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 /**
  * Soft admin check for list/CRUD actions that return empty/null instead of throwing.
- * Matches historical promo/shipping behavior (role === ADMIN only, no is_active gate).
+ * Same gate as `requireAdmin` (role + is_active); catches Unauthorized as false.
  */
 export async function isAdminCaller(): Promise<boolean> {
-  const profile = await getCurrentUserProfile();
-  return !!profile && profile.role === ROLES.ADMIN;
+  try {
+    await requireAdmin();
+    return true;
+  } catch {
+    return false;
+  }
 }
