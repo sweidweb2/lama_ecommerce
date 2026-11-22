@@ -39,7 +39,7 @@ describe("category.service", () => {
     } = await import("@/services/category.service");
 
     await expect(
-      createCategoryService({ name: "Shirts", slug: "shirts" }),
+      createCategoryService({ name: "Shirts", slug: "shirts", is_active: true }),
     ).rejects.toThrow("Unauthorized");
     await expect(
       updateCategoryService("c1", { name: "Shirts", slug: "shirts" }),
@@ -53,7 +53,7 @@ describe("category.service", () => {
     createCategory.mockResolvedValue({ id: "c1", name: "Shirts", slug: "shirts" });
     const { createCategoryService } = await import("@/services/category.service");
     await expect(
-      createCategoryService({ name: "Shirts", slug: "shirts" }),
+      createCategoryService({ name: "Shirts", slug: "shirts", is_active: true }),
     ).resolves.toMatchObject({ id: "c1" });
   });
 

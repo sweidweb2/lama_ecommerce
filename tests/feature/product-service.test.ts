@@ -53,6 +53,9 @@ const productInput = {
   name: "Linen Shirt",
   slug: "linen-shirt",
   price: 29.99,
+  is_featured: false,
+  is_trending: false,
+  is_active: true,
 };
 
 describe("product.service", () => {
