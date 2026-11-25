@@ -25,6 +25,37 @@ interface ProductMediaGalleryProps {
   isTrending?: boolean
 }
 
+function resolvePreferredIndex(
+  sortedImages: ProductImageType[],
+  selectedVariantId: string | null | undefined,
+  selectedColor: string | null | undefined,
+  variantById: Map<string, ProductVariant>,
+): number {
+  if (sortedImages.length === 0) return 0
+
+  let nextIndex = -1
+
+  if (selectedVariantId) {
+    nextIndex = sortedImages.findIndex(
+      (img) => img.customised_product_id === selectedVariantId,
+    )
+  }
+
+  if (nextIndex < 0 && selectedColor) {
+    nextIndex = sortedImages.findIndex((img) => {
+      if (!img.customised_product_id) return false
+      const linked = variantById.get(img.customised_product_id)
+      return linked?.color === selectedColor
+    })
+  }
+
+  if (nextIndex < 0) {
+    nextIndex = sortedImages.findIndex((img) => img.is_primary)
+  }
+
+  return nextIndex < 0 ? 0 : nextIndex
+}
+
 /**
  * Product media gallery with thumbnail strip and full-screen lightbox viewer.
  * Swaps to a variant-assigned image when color / variant selection changes.
@@ -37,7 +68,7 @@ export function ProductMediaGallery({
   isTrending,
 }: ProductMediaGalleryProps) {
   const { selectedVariantId, selectedColor } = useProductVariant()
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [manualIndex, setManualIndex] = useState<number | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
 
   const sortedImages = useMemo(() => {
@@ -54,45 +85,39 @@ export function ProductMediaGallery({
     return new Map(variants.map((v) => [v.id, v]))
   }, [variants])
 
-  useEffect(() => {
-    if (sortedImages.length === 0) return
+  const selectionKey = `${selectedVariantId ?? ''}\0${selectedColor ?? ''}`
+  const [seenSelectionKey, setSeenSelectionKey] = useState(selectionKey)
 
-    let nextIndex = -1
+  // Clear manual thumbnail picks when variant/color selection changes (derived state).
+  if (selectionKey !== seenSelectionKey) {
+    setSeenSelectionKey(selectionKey)
+    setManualIndex(null)
+  }
 
-    if (selectedVariantId) {
-      nextIndex = sortedImages.findIndex(
-        (img) => img.customised_product_id === selectedVariantId,
-      )
-    }
+  const preferredIndex = useMemo(
+    () =>
+      resolvePreferredIndex(
+        sortedImages,
+        selectedVariantId,
+        selectedColor,
+        variantById,
+      ),
+    [sortedImages, selectedVariantId, selectedColor, variantById],
+  )
 
-    if (nextIndex < 0 && selectedColor) {
-      nextIndex = sortedImages.findIndex((img) => {
-        if (!img.customised_product_id) return false
-        const linked = variantById.get(img.customised_product_id)
-        return linked?.color === selectedColor
-      })
-    }
-
-    if (nextIndex < 0) {
-      nextIndex = sortedImages.findIndex((img) => img.is_primary)
-    }
-
-    if (nextIndex < 0) {
-      nextIndex = 0
-    }
-
-    setSelectedIndex(nextIndex)
-  }, [selectedVariantId, selectedColor, sortedImages, variantById])
+  const imageCount = sortedImages.length
+  const rawIndex = manualIndex ?? preferredIndex
+  const selectedIndex =
+    imageCount === 0 ? 0 : Math.min(Math.max(rawIndex, 0), imageCount - 1)
 
   const currentImage = sortedImages[selectedIndex] || sortedImages[0]
   const hasImage = Boolean(currentImage?.url_image)
-  const imageCount = sortedImages.length
   const canNavigate = imageCount > 1
 
   const goTo = useCallback(
     (index: number) => {
       if (imageCount === 0) return
-      setSelectedIndex(((index % imageCount) + imageCount) % imageCount)
+      setManualIndex(((index % imageCount) + imageCount) % imageCount)
     },
     [imageCount],
   )
@@ -164,7 +189,7 @@ export function ProductMediaGallery({
                 <button
                   key={image.id}
                   type="button"
-                  onClick={() => setSelectedIndex(index)}
+                  onClick={() => setManualIndex(index)}
                   className={cn(
                     'relative aspect-square h-24 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-all',
                     isSelected
@@ -270,7 +295,7 @@ export function ProductMediaGallery({
                     <button
                       key={image.id}
                       type="button"
-                      onClick={() => setSelectedIndex(index)}
+                      onClick={() => setManualIndex(index)}
                       className={cn(
                         'relative h-14 w-14 shrink-0 overflow-hidden rounded-md transition-all sm:h-16 sm:w-16',
                         isSelected
