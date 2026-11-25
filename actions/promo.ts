@@ -1,24 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAdminCaller } from "@/lib/auth/require-admin-soft";
 import {
-  getAllPromoCodes,
-  createPromoCode,
-  updatePromoCode,
-  deletePromoCodeById,
-} from "@/repositories/promo_code.repository";
+  getPromoCodesForAdmin,
+  createPromoCodeAdmin,
+  updatePromoCodeAdmin,
+  deletePromoCodeAdmin,
+} from "@/services/promo_code.service";
 import { createPromoCodeSchema } from "@/lib/validators/promo/create";
 import { updatePromoCodeFullSchema } from "@/lib/validators/promo/update";
-
-const UNAUTHORIZED = { success: false as const, error: "Unauthorized" };
 
 /**
  * Get all promo codes for admin. Returns empty array if not admin.
  */
 export async function getPromoCodesAction() {
-  if (!(await isAdminCaller())) return [];
-  return await getAllPromoCodes();
+  return await getPromoCodesForAdmin();
 }
 
 export type CreatePromoCodePayload = {
@@ -34,8 +30,6 @@ export type CreatePromoCodePayload = {
  * Create a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
   const parsed = createPromoCodeSchema.safeParse({
     ...payload,
     discount_value: payload.discount_value ?? 0,
@@ -50,7 +44,7 @@ export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const created = await createPromoCode({
+  const result = await createPromoCodeAdmin({
     code: parsed.data.code,
     discount_type: parsed.data.discount_type,
     discount_value: parsed.data.discount_value,
@@ -59,12 +53,12 @@ export async function createPromoCodeAction(payload: CreatePromoCodePayload) {
     is_active: parsed.data.is_active ?? true,
   });
 
-  if (!created) {
-    return { success: false as const, error: "Create failed" };
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
 
   revalidatePath("/admin/promocodes");
-  return { success: true as const, data: created };
+  return { success: true as const, data: result.data };
 }
 
 export type UpdatePromoCodePayload = {
@@ -81,8 +75,6 @@ export type UpdatePromoCodePayload = {
  * Update a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
   const parsed = updatePromoCodeFullSchema.safeParse({
     ...payload,
     discount_value: payload.discount_value ?? 0,
@@ -98,7 +90,7 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
     return { success: false as const, error: msg };
   }
 
-  const updated = await updatePromoCode({
+  const result = await updatePromoCodeAdmin({
     id: parsed.data.id,
     code: parsed.data.code,
     discount_type: parsed.data.discount_type,
@@ -108,23 +100,21 @@ export async function updatePromoCodeAction(payload: UpdatePromoCodePayload) {
     is_active: parsed.data.is_active ?? true,
   });
 
-  if (!updated) {
-    return { success: false as const, error: "Update failed" };
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
 
   revalidatePath("/admin/promocodes");
-  return { success: true as const, data: updated };
+  return { success: true as const, data: result.data };
 }
 
 /**
  * Delete a promo code as admin. Revalidates /admin/promocodes on success.
  */
 export async function deletePromoCodeAction(id: string) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
-  const ok = await deletePromoCodeById(id);
-  if (!ok) {
-    return { success: false as const, error: "Delete failed" };
+  const result = await deletePromoCodeAdmin(id);
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
   revalidatePath("/admin/promocodes");
   return { success: true as const };

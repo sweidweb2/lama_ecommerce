@@ -7,7 +7,7 @@ import {
   getAdminReviewStatsService,
   type AdminReviewStats,
 } from "@/services/review.service"
-import { getAdminProductsService } from "@/services/product.service"
+import { getAdminProductOptionsService } from "@/services/product.service"
 import { getProfilesForAdmin } from "@/services/profile.service"
 import {
   ADMIN_REVIEWS_PAGE_SIZE,
@@ -44,7 +44,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
       await Promise.all([
         listReviewsForAdminService(listParams),
         getAdminReviewStatsService(),
-        getAdminProductsService(),
+        getAdminProductOptionsService(),
         getProfilesForAdmin(),
       ])
 
@@ -62,7 +62,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
     }))
     totalCount = listResult.total
     stats = statsResult
-    products = productsData.map((p) => ({ id: p.id, name: p.name }))
+    products = productsData
     profiles = profilesData
       .filter((pr) => Boolean(pr.user_id))
       .map((pr) => ({

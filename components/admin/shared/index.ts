@@ -7,6 +7,7 @@ export {
   AdminPagination,
   type AdminClientPaginationProps,
 } from "@/components/admin/shared/AdminPagination";
+export { AdminUrlPagination } from "@/components/admin/shared/AdminUrlPagination";
 export { AdminFormDialog } from "@/components/admin/shared/admin-form-dialog";
 export {
   AdminFilterBar,

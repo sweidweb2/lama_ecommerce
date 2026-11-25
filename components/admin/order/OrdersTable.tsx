@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
@@ -28,7 +27,6 @@ import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
 } from "@/lib/constants/order-status"
-import type { OrderStatus } from "@/types/order"
 
 const MAX_CHARS = {
   id: 10,
@@ -41,13 +39,12 @@ type AdminOrderRow = AdminOrder & { encryptedId?: string }
 
 interface OrdersTableProps {
   orders: AdminOrderRow[]
+  totalCount: number
+  page: number
+  pageSize: number
+  statusFilter: string
+  paymentStatusFilter: string
 }
-
-const ORDERS_PER_PAGE = 20
-const MAX_PAGES = 100
-
-const FULFILLMENT_STATUSES: OrderStatus[] = ['processing', 'packed', 'shipped']
-const VALID_STATUS_FILTERS = new Set<string>(['all', 'fulfillment', ...ORDER_STATUSES])
 
 const getStatusVariant = (status: string) => {
   switch (status) {
@@ -71,23 +68,16 @@ const getStatusVariant = (status: string) => {
   }
 }
 
-function matchesStatusFilter(orderStatus: string, statusFilter: string): boolean {
-  if (statusFilter === "all") return true
-  if (statusFilter === "fulfillment") {
-    return FULFILLMENT_STATUSES.includes(orderStatus as OrderStatus)
-  }
-  return orderStatus === statusFilter
-}
-
-export function OrdersTable({ orders }: OrdersTableProps) {
+export function OrdersTable({
+  orders,
+  totalCount,
+  page,
+  pageSize,
+  statusFilter,
+  paymentStatusFilter,
+}: OrdersTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialStatus = searchParams.get("status") || "all"
-  const [statusFilter, setStatusFilter] = useState<string>(
-    VALID_STATUS_FILTERS.has(initialStatus) ? initialStatus : "all",
-  )
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all")
-  const [currentPage, setCurrentPage] = useState(1)
 
   const getOrderHref = (order: AdminOrderRow) =>
     `/admin/orders/${order.encryptedId || order.id}`
@@ -96,70 +86,50 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     router.push(getOrderHref(order))
   }
 
-  const syncStatusToUrl = (value: string) => {
+  const pushQuery = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (value === "all") {
-      params.delete("status")
-    } else {
-      params.set("status", value)
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value || value === "all" || (key === "page" && value === "1")) {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
     }
     const query = params.toString()
     router.push(query ? `/admin/orders?${query}` : "/admin/orders")
   }
 
-  // Filter orders (on full orders data)
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const matchesStatus = matchesStatusFilter(order.status, statusFilter)
-      const matchesPaymentStatus = paymentStatusFilter === "all" || order.payment_status === paymentStatusFilter
-      
-      return matchesStatus && matchesPaymentStatus
-    })
-  }, [orders, statusFilter, paymentStatusFilter])
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // Calculate pagination
-  const maxOrdersToShow = MAX_PAGES * ORDERS_PER_PAGE
-  const limitedFilteredOrders = useMemo(() => {
-    return filteredOrders.slice(0, maxOrdersToShow)
-  }, [filteredOrders, maxOrdersToShow])
-
-  const totalPages = useMemo(() => {
-    return Math.min(
-      Math.max(1, Math.ceil(limitedFilteredOrders.length / ORDERS_PER_PAGE)),
-      MAX_PAGES
-    )
-  }, [limitedFilteredOrders.length])
-
-  // Paginate the filtered results
-  const paginatedOrders = useMemo(() => {
-    const startIndex = (currentPage - 1) * ORDERS_PER_PAGE
-    const endIndex = startIndex + ORDERS_PER_PAGE
-    return limitedFilteredOrders.slice(startIndex, endIndex)
-  }, [limitedFilteredOrders, currentPage])
-
-  const handleFilterChange = (value: string, type: "status" | "paymentStatus") => {
+  const handleFilterChange = (
+    value: string,
+    type: "status" | "paymentStatus",
+  ) => {
     if (type === "status") {
-      setStatusFilter(value)
-      syncStatusToUrl(value)
+      pushQuery({ status: value, paymentStatus: paymentStatusFilter, page: "1" })
     } else {
-      setPaymentStatusFilter(value)
+      pushQuery({
+        status: statusFilter,
+        paymentStatus: value,
+        page: "1",
+      })
     }
-    // Reset to page 1 when filters change
-    setCurrentPage(1)
   }
 
-  const hasActiveFilters = statusFilter !== "all" || paymentStatusFilter !== "all"
+  const hasActiveFilters =
+    statusFilter !== "all" || paymentStatusFilter !== "all"
 
   const clearFilters = () => {
-    setStatusFilter("all")
-    setPaymentStatusFilter("all")
-    setCurrentPage(1)
-    syncStatusToUrl("all")
+    pushQuery({ status: null, paymentStatus: null, page: null })
   }
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  const handlePageChange = (nextPage: number) => {
+    pushQuery({
+      status: statusFilter,
+      paymentStatus: paymentStatusFilter,
+      page: String(nextPage),
+    })
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   return (
@@ -228,8 +198,8 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 1}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -238,17 +208,17 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               let pageNum: number
               if (totalPages <= 10) {
                 pageNum = i + 1
-              } else if (currentPage <= 5) {
+              } else if (page <= 5) {
                 pageNum = i + 1
-              } else if (currentPage >= totalPages - 4) {
+              } else if (page >= totalPages - 4) {
                 pageNum = totalPages - 9 + i
               } else {
-                pageNum = currentPage - 5 + i
+                pageNum = page - 5 + i
               }
               return (
                 <Button
                   key={pageNum}
-                  variant={currentPage === pageNum ? "default" : "outline"}
+                  variant={page === pageNum ? "default" : "outline"}
                   size="sm"
                   onClick={() => handlePageChange(pageNum)}
                   className="w-10"
@@ -261,8 +231,8 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -283,14 +253,14 @@ export function OrdersTable({ orders }: OrdersTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedOrders.length === 0 ? (
+            {orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No orders found
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedOrders.map((order) => {
+              orders.map((order) => {
                 const href = getOrderHref(order)
                 const userLabel =
                   order.userName ||
@@ -372,8 +342,8 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 1}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -382,17 +352,17 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               let pageNum: number
               if (totalPages <= 10) {
                 pageNum = i + 1
-              } else if (currentPage <= 5) {
+              } else if (page <= 5) {
                 pageNum = i + 1
-              } else if (currentPage >= totalPages - 4) {
+              } else if (page >= totalPages - 4) {
                 pageNum = totalPages - 9 + i
               } else {
-                pageNum = currentPage - 5 + i
+                pageNum = page - 5 + i
               }
               return (
                 <Button
                   key={pageNum}
-                  variant={currentPage === pageNum ? "default" : "outline"}
+                  variant={page === pageNum ? "default" : "outline"}
                   size="sm"
                   onClick={() => handlePageChange(pageNum)}
                   className="w-10"
@@ -405,8 +375,8 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

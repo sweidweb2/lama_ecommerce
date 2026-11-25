@@ -1,25 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAdminCaller } from "@/lib/auth/require-admin-soft";
-import { getPublicShippingZones } from "@/services/shipping_zone.service";
 import {
-  getAllShippingZonesWithFee,
-  createShippingZoneWithFee,
-  updateShippingZoneWithFee,
-  deleteShippingZoneById,
-} from "@/repositories/shipping_zone.repository";
+  getPublicShippingZones,
+  getShippingZonesForAdmin,
+  createShippingZoneAdmin,
+  updateShippingZoneAdmin,
+  deleteShippingZoneAdmin,
+} from "@/services/shipping_zone.service";
 import { createShippingZoneSchema } from "@/lib/validators/shipping_zone/create";
 import { updateShippingZoneSchema } from "@/lib/validators/shipping_zone/update";
-
-const UNAUTHORIZED = { success: false as const, error: "Unauthorized" };
 
 /**
  * Get all shipping zones for admin. Returns empty array if not admin.
  */
 export async function getShippingZonesAction() {
-  if (!(await isAdminCaller())) return [];
-  return await getAllShippingZonesWithFee();
+  return await getShippingZonesForAdmin();
 }
 
 /**
@@ -46,8 +42,6 @@ export type CreateShippingZonePayload = {
  * Create a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function createShippingZoneAction(payload: CreateShippingZonePayload) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
   const parsed = createShippingZoneSchema.safeParse(payload);
   if (!parsed.success) {
     const flat = parsed.error.flatten().fieldErrors;
@@ -55,18 +49,18 @@ export async function createShippingZoneAction(payload: CreateShippingZonePayloa
     return { success: false as const, error: msg };
   }
 
-  const created = await createShippingZoneWithFee({
+  const result = await createShippingZoneAdmin({
     name: parsed.data.name,
     estimated_time: parsed.data.estimated_time ?? null,
     fee: parsed.data.fee ?? null,
   });
 
-  if (!created) {
-    return { success: false as const, error: "Create failed" };
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
 
   revalidatePath("/admin/shippings");
-  return { success: true as const, data: created };
+  return { success: true as const, data: result.data };
 }
 
 export type UpdateShippingZonePayload = {
@@ -80,8 +74,6 @@ export type UpdateShippingZonePayload = {
  * Update a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function updateShippingZoneAction(payload: UpdateShippingZonePayload) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
   const parsed = updateShippingZoneSchema.safeParse(payload);
   if (!parsed.success) {
     const flat = parsed.error.flatten().fieldErrors;
@@ -89,30 +81,28 @@ export async function updateShippingZoneAction(payload: UpdateShippingZonePayloa
     return { success: false as const, error: msg };
   }
 
-  const updated = await updateShippingZoneWithFee({
+  const result = await updateShippingZoneAdmin({
     id: parsed.data.id,
     name: parsed.data.name,
     estimated_time: parsed.data.estimated_time ?? null,
     fee: parsed.data.fee ?? null,
   });
 
-  if (!updated) {
-    return { success: false as const, error: "Update failed" };
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
 
   revalidatePath("/admin/shippings");
-  return { success: true as const, data: updated };
+  return { success: true as const, data: result.data };
 }
 
 /**
  * Delete a shipping zone as admin. Revalidates /admin/shippings on success.
  */
 export async function deleteShippingZoneAction(zoneId: string) {
-  if (!(await isAdminCaller())) return UNAUTHORIZED;
-
-  const ok = await deleteShippingZoneById(zoneId);
-  if (!ok) {
-    return { success: false as const, error: "Delete failed" };
+  const result = await deleteShippingZoneAdmin(zoneId);
+  if (!result.success) {
+    return { success: false as const, error: result.error };
   }
   revalidatePath("/admin/shippings");
   return { success: true as const };

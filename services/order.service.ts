@@ -12,14 +12,21 @@ import {
   getShipmentByOrderId,
   getShipmentByOrderIdForAdmin,
   getAllOrdersForAdmin,
+  listOrdersForAdmin,
   updateOrder,
   upsertPaymentForOrder,
   deleteOrderAdmin,
   countShipmentsByOrderId,
   type UpsertPaymentForOrderInput,
+  type ListOrdersForAdminParams,
+  type ListOrdersForAdminResult,
 } from "@/repositories/order.repository";
 import { getPromoCodeByIdAdmin } from "@/repositories/promo_code.repository";
 import type { AdminOrderRow } from "@/repositories/order.repository";
+import {
+  getOrderStatusBreakdown,
+  getAnalyticsStats,
+} from "@/repositories/analytics.repository";
 import type { Order, OrderItem, Payment, Shipment } from "@/types/order";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
 import { requireAdmin } from "@/lib/auth/require-admin";
@@ -43,6 +50,30 @@ async function resolvePromoCode(
   if (!promoCodeId) return null;
   const promo = await getPromoCodeByIdAdmin(promoCodeId);
   return promo?.code ?? null;
+}
+
+/** Shared order detail hydration (user RLS vs admin/service-role readers). */
+async function hydrateOrderDetails(
+  order: Order,
+  mode: "user" | "admin",
+): Promise<OrderDetails> {
+  const orderId = order.id;
+  const [items, payment, shipment, promo_code] =
+    mode === "user"
+      ? await Promise.all([
+          getOrderItemsByOrderId(orderId),
+          getPaymentByOrderId(orderId),
+          getShipmentByOrderId(orderId),
+          resolvePromoCode(order.promo_code_id),
+        ])
+      : await Promise.all([
+          getOrderItemsByOrderIdForAdmin(orderId),
+          getPaymentByOrderIdForAdmin(orderId),
+          getShipmentByOrderIdForAdmin(orderId),
+          resolvePromoCode(order.promo_code_id),
+        ]);
+
+  return { order, items, payment, shipment, promo_code };
 }
 
 /**
@@ -132,6 +163,7 @@ export async function getUserOrderCount(userId: string): Promise<number> {
 
 /**
  * Get all orders for the admin panel (newest first) with user names.
+ * @deprecated Prefer listAdminOrdersService for paginated UI.
  */
 export async function getAdminOrders(): Promise<AdminOrderRow[]> {
   try {
@@ -140,6 +172,59 @@ export async function getAdminOrders(): Promise<AdminOrderRow[]> {
     return [];
   }
   return getAllOrdersForAdmin();
+}
+
+/**
+ * Paginated admin orders with filters.
+ */
+export async function listAdminOrdersService(
+  params: ListOrdersForAdminParams = {},
+): Promise<ListOrdersForAdminResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 20, 1), 100);
+  try {
+    await requireAdmin();
+  } catch {
+    return { items: [], total: 0, page: 1, pageSize };
+  }
+  return listOrdersForAdmin(params);
+}
+
+export type AdminOrdersPageStats = {
+  totalOrders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  totalRevenue: number;
+};
+
+/**
+ * KPI counts for the admin orders page (RPC-backed, not full-table scans).
+ */
+export async function getAdminOrdersPageStatsService(): Promise<AdminOrdersPageStats> {
+  try {
+    await requireAdmin();
+  } catch {
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+      totalRevenue: 0,
+    };
+  }
+
+  const [statusBreakdown, analytics] = await Promise.all([
+    getOrderStatusBreakdown(),
+    getAnalyticsStats(),
+  ]);
+
+  const countFor = (label: string) =>
+    statusBreakdown.find((s) => s.status.toLowerCase() === label)?.count ?? 0;
+
+  return {
+    totalOrders: analytics.totalOrders,
+    pendingOrders: countFor("pending"),
+    deliveredOrders: countFor("delivered"),
+    totalRevenue: analytics.totalRevenue,
+  };
 }
 
 /**
@@ -159,14 +244,7 @@ export async function getOrderDetails(
   if (userId) {
     const order = await getOrderById(orderId);
     if (order && order.user_id === userId) {
-      const [items, payment, shipment, promo_code] = await Promise.all([
-        getOrderItemsByOrderId(orderId),
-        getPaymentByOrderId(orderId),
-        getShipmentByOrderId(orderId),
-        resolvePromoCode(order.promo_code_id),
-      ]);
-
-      return { order, items, payment, shipment, promo_code };
+      return hydrateOrderDetails(order, "user");
     }
     // Fall through to guest session / token when auth ownership misses
   }
@@ -175,14 +253,7 @@ export async function getOrderDetails(
     // Guest orders are not readable via anon RLS — use admin + ownership check
     const order = await getOrderByIdForAdmin(orderId);
     if (order && order.user_id === null && order.session_id === sessionId) {
-      const [items, payment, shipment, promo_code] = await Promise.all([
-        getOrderItemsByOrderIdForAdmin(orderId),
-        getPaymentByOrderIdForAdmin(orderId),
-        getShipmentByOrderIdForAdmin(orderId),
-        resolvePromoCode(order.promo_code_id),
-      ]);
-
-      return { order, items, payment, shipment, promo_code };
+      return hydrateOrderDetails(order, "admin");
     }
     // Fall through to signed token when session ownership misses
   }
@@ -190,15 +261,7 @@ export async function getOrderDetails(
   if (accessToken && verifyOrderAccessToken(accessToken, orderId)) {
     const order = await getOrderByIdForAdmin(orderId);
     if (!order) return null;
-
-    const [items, payment, shipment, promo_code] = await Promise.all([
-      getOrderItemsByOrderIdForAdmin(orderId),
-      getPaymentByOrderIdForAdmin(orderId),
-      getShipmentByOrderIdForAdmin(orderId),
-      resolvePromoCode(order.promo_code_id),
-    ]);
-
-    return { order, items, payment, shipment, promo_code };
+    return hydrateOrderDetails(order, "admin");
   }
 
   return null;
@@ -221,14 +284,7 @@ export async function getAdminOrderDetails(
   const order = await getOrderByIdForAdmin(orderId);
   if (!order) return null;
 
-  const [items, payment, shipment, promo_code] = await Promise.all([
-    getOrderItemsByOrderIdForAdmin(orderId),
-    getPaymentByOrderIdForAdmin(orderId),
-    getShipmentByOrderIdForAdmin(orderId),
-    resolvePromoCode(order.promo_code_id),
-  ]);
-
-  return { order, items, payment, shipment, promo_code };
+  return hydrateOrderDetails(order, "admin");
 }
 
 /**

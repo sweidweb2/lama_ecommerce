@@ -24,6 +24,46 @@ export interface UpdateShippingZoneInput {
 }
 
 /**
+ * Fetch a single shipping zone with its fee by id.
+ * Used for checkout validation without loading every zone.
+ */
+export async function getShippingZoneWithFeeById(
+  zoneId: string,
+): Promise<ShippingZoneWithFee | null> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+    const { data: zone, error: zoneError } = await (supabase as any)
+      .from("shipping_zones")
+      .select("id, name, estimated_time, created_at")
+      .eq("id", zoneId)
+      .maybeSingle();
+
+    if (zoneError) {
+      console.error("Failed to fetch shipping zone by id:", zoneError);
+      return null;
+    }
+    if (!zone) return null;
+
+    const { data: feeRow, error: feeError } = await (supabase as any)
+      .from("shipping_fees")
+      .select("fee")
+      .eq("zone_id", zoneId)
+      .limit(1)
+      .maybeSingle();
+
+    if (feeError) {
+      console.error("Failed to fetch shipping fee by zone id:", feeError);
+      return { ...zone, fee: null };
+    }
+
+    return { ...zone, fee: feeRow?.fee ?? null };
+  } catch (error) {
+    console.error("Unexpected error in getShippingZoneWithFeeById:", error);
+    return null;
+  }
+}
+
+/**
  * Fetch all shipping zones with their fee (first shipping_fee row per zone).
  * Uses session client + admin RLS (service gates with requireAdmin).
  */

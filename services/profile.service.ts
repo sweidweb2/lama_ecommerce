@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Profile, ProfileRole } from "@/types/user";
 import {
   getProfileByUserId,
@@ -30,30 +31,33 @@ export type { ListProfilesForAdminParams, ListProfilesForAdminResult };
  * - Uses the auth repository to get the current user (Server Component context).
  * - If no user is authenticated, returns `null`.
  * - Otherwise loads the profile for `user.id` from the profile repository.
+ * - Cached per request so repeated admin gates share one auth+profile load.
  */
-export async function getCurrentUserProfile(): Promise<Profile | null> {
-  try {
-    const user = await getCurrentAuthUserFromComponent();
-    if (!user) return null;
+export const getCurrentUserProfile = cache(
+  async (): Promise<Profile | null> => {
+    try {
+      const user = await getCurrentAuthUserFromComponent();
+      if (!user) return null;
 
-    const profile = await getProfileByUserId(user.id);
-    if (!profile) return null;
+      const profile = await getProfileByUserId(user.id);
+      if (!profile) return null;
 
-    const role = profile.role as ProfileRole;
-    return { ...profile, role };
-  } catch (error) {
-    const isDynamicRenderingError =
-      error instanceof Error &&
-      (error.message.includes("Dynamic server usage") ||
-        error.message.includes("couldn't be rendered statically") ||
-        error.message.includes("used `cookies`") ||
-        (error as any).digest === "DYNAMIC_SERVER_USAGE");
+      const role = profile.role as ProfileRole;
+      return { ...profile, role };
+    } catch (error) {
+      const isDynamicRenderingError =
+        error instanceof Error &&
+        (error.message.includes("Dynamic server usage") ||
+          error.message.includes("couldn't be rendered statically") ||
+          error.message.includes("used `cookies`") ||
+          (error as any).digest === "DYNAMIC_SERVER_USAGE");
 
-    if (isDynamicRenderingError) return null;
-    console.error("Unexpected error in getCurrentUserProfile:", error);
-    return null;
-  }
-}
+      if (isDynamicRenderingError) return null;
+      console.error("Unexpected error in getCurrentUserProfile:", error);
+      return null;
+    }
+  },
+);
 
 /**
  * If this auth user id is an admin, return the storefront shop-block message.

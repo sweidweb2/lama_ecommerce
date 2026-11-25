@@ -37,7 +37,7 @@ function getVisiblePages(currentPage: number, pageCount: number): number[] {
 /**
  * Shared admin pagination for client-side (state-driven) lists.
  * URL-driven pagination for server-rendered tables lives in
- * `components/admin/product/AdminUrlPagination.tsx`.
+ * `components/admin/shared/AdminUrlPagination.tsx`.
  */
 export function AdminPagination({
   currentPage,

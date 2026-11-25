@@ -6,7 +6,7 @@ import { ProductsTable } from "@/components/admin/product/ProductsTable";
 import { ProductsViewToggle } from "@/components/admin/product/ProductsViewToggle";
 import { ProductsFilters } from "@/components/admin/product/ProductsFilters";
 import { AdminProductGrid } from "@/components/admin/product/AdminProductGrid";
-import { AdminUrlPagination } from "@/components/admin/product/AdminUrlPagination";
+import { AdminUrlPagination } from "@/components/admin/shared/AdminUrlPagination";
 import type { AdminProduct } from "@/components/admin/product/edit_form";
 import type { AdminProductsView } from "@/lib/admin/products-list-params";
 import type { Brand, Category, ProductVariant, ProductWithRelations } from "@/types/product";

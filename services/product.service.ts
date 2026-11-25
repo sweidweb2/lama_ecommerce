@@ -8,9 +8,11 @@ import {
 import {
   createProduct,
   getAdminProducts,
+  getAdminProductOptions,
   getAdminProductsPage,
   getAdminProductCatalogStats,
   getAdminProductStockFlags,
+  type AdminProductOption,
   type AdminProductStockFlags,
   type AdminProductsPageResult,
   type AdminProductCatalogStats,
@@ -88,7 +90,7 @@ export async function updateProductService(
 }
 
 /**
- * Get all products for admin listing.
+ * Get all products for admin listing (full relations). Prefer options/page helpers.
  */
 export async function getAdminProductsService(): Promise<ProductWithRelations[]> {
   try {
@@ -97,6 +99,20 @@ export async function getAdminProductsService(): Promise<ProductWithRelations[]>
     return [];
   }
   return getAdminProducts();
+}
+
+/**
+ * Lightweight product options for admin dropdowns.
+ */
+export async function getAdminProductOptionsService(): Promise<
+  AdminProductOption[]
+> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
+  return getAdminProductOptions();
 }
 
 /**

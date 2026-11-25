@@ -18,6 +18,7 @@ vi.mock("@/services/profile.service", () => ({
 vi.mock("@/repositories/shipping_zone.repository", () => ({
   getAllShippingZonesWithFee: (...args: unknown[]) =>
     getAllShippingZonesWithFee(...args),
+  getShippingZoneWithFeeById: vi.fn(),
   createShippingZoneWithFee: (...args: unknown[]) =>
     createShippingZoneWithFee(...args),
   updateShippingZoneWithFee: (...args: unknown[]) =>

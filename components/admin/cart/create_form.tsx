@@ -35,7 +35,6 @@ export function CreateCartDialog() {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoadingUsers(true);
     getUsersWithoutActiveCartsAction()
       .then((fetchedUsers) => {
         if (!cancelled) setUsers(fetchedUsers || []);

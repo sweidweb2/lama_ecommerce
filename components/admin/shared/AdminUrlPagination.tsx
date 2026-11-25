@@ -22,7 +22,7 @@ function visiblePages(current: number, total: number): number[] {
   return [...pages].sort((a, b) => a - b)
 }
 
-/** URL-driven admin pagination (`?page=`). Client-state lists use `components/admin/shared/AdminPagination`. */
+/** URL-driven admin pagination (`?page=`). Client-state lists use `AdminPagination`. */
 export function AdminUrlPagination({
   totalPages,
   basePath = '/admin/products',

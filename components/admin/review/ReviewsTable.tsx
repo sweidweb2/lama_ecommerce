@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { TableWrapper } from '@/components/admin/table-wrapper'
 import { EditReviewDialog } from '@/components/admin/review/edit_form'
 import { DeleteReviewDialog } from '@/components/admin/review/delete_dialog'
-import { AdminUrlPagination } from '@/components/admin/product/AdminUrlPagination'
+import { AdminUrlPagination } from '@/components/admin/shared/AdminUrlPagination'
 import type { AdminReview } from '@/components/admin/review/create_form'
 import { Star, X } from 'lucide-react'
 

@@ -1,7 +1,10 @@
-import { createSupabaseServerComponentClient } from "@/lib/supabase/server";
-import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveCartUnitPrice } from "@/repositories/cart_item.repository";
+import {
+  getStorefrontClient,
+  ownerInsertColumns,
+  scopeQueryToOwner,
+} from "@/lib/repositories/storefront-owner-query";
 import type { StorefrontOwner } from "@/types/storefront-owner";
 
 const WISHLIST_SELECT = `
@@ -137,38 +140,6 @@ function wishlistLogContext(owner: WishlistOwner) {
     : { kind: "guest" as const, sessionId: owner.sessionId };
 }
 
-/**
- * Supabase client per ownership:
- * - user: session client (RLS) — Server Component for reads, Server Action for writes
- * - guest: service-role client (guest rows are not reachable via anon RLS)
- */
-async function getWishlistClient(
-  owner: WishlistOwner,
-  context: "component" | "action",
-) {
-  if (owner.kind === "guest") return createSupabaseAdminClient();
-  return context === "component"
-    ? await createSupabaseServerComponentClient()
-    : await createSupabaseServerActionClient();
-}
-
-/**
- * Scope a wishlist query to its owner:
- * users by `user_id`, guests by `session_id` with `user_id IS NULL`.
- */
-function scopeToOwner(query: any, owner: WishlistOwner) {
-  return owner.kind === "user"
-    ? query.eq("user_id", owner.userId)
-    : query.eq("session_id", owner.sessionId).is("user_id", null);
-}
-
-/** Ownership columns for inserts (exactly one owner column is set). */
-function ownerInsertColumns(owner: WishlistOwner) {
-  return owner.kind === "user"
-    ? { user_id: owner.userId, session_id: null }
-    : { session_id: owner.sessionId, user_id: null };
-}
-
 function unexpectedErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error";
 }
@@ -182,9 +153,9 @@ export async function getWishlistItemsForSession(
   owner: WishlistOwner,
 ): Promise<WishlistListResult> {
   try {
-    const supabase = await getWishlistClient(owner, "component");
-    const { data, error } = await scopeToOwner(
-      (supabase as any).from("wishlists").select(WISHLIST_SELECT),
+    const supabase = await getStorefrontClient(owner, "component");
+    const { data, error } = await scopeQueryToOwner(
+      supabase.from("wishlists").select(WISHLIST_SELECT),
       owner,
     );
 
@@ -222,9 +193,9 @@ export async function countWishlistItemsForSession(
   owner: WishlistOwner,
 ): Promise<number> {
   try {
-    const supabase = await getWishlistClient(owner, "component");
-    const { count, error } = await scopeToOwner(
-      (supabase as any)
+    const supabase = await getStorefrontClient(owner, "component");
+    const { count, error } = await scopeQueryToOwner(
+      supabase
         .from("wishlists")
         .select("id", { count: "exact", head: true }),
       owner,
@@ -249,16 +220,24 @@ export async function countWishlistItemsForSession(
  * Add an item to the session's wishlist (Server Action context).
  * Users: session client + RLS. Guests: service role scoped by session_id.
  */
+export type WishlistRow = {
+  id: string;
+  user_id: string | null;
+  session_id: string | null;
+  customised_product_id: string;
+  created_at?: string;
+};
+
 export async function addWishlistItemForSession(
   owner: WishlistOwner,
   customisedProductId: string,
-): Promise<{ success: boolean; error?: string; data?: any }> {
+): Promise<{ success: boolean; error?: string; data?: WishlistRow }> {
   try {
-    const supabase = await getWishlistClient(owner, "action");
+    const supabase = await getStorefrontClient(owner, "action");
 
     // Check if item already exists
-    const { data: existing } = await scopeToOwner(
-      (supabase as any).from("wishlists").select("id"),
+    const { data: existing } = await scopeQueryToOwner(
+      supabase.from("wishlists").select("id"),
       owner,
     )
       .eq("customised_product_id", customisedProductId)
@@ -268,25 +247,46 @@ export async function addWishlistItemForSession(
       return { success: false, error: "Item already in wishlist" };
     }
 
-    const { data, error } = await (supabase as any)
+    return insertWishlistItemForSession(owner, customisedProductId);
+  } catch (error) {
+    console.error("Unexpected error in addWishlistItemForSession:", error);
+    return { success: false, error: unexpectedErrorMessage(error) };
+  }
+}
+
+/**
+ * Insert a wishlist row without a prior existence select.
+ * Caller must have already decided the item is absent (e.g. toggle path).
+ */
+export async function insertWishlistItemForSession(
+  owner: WishlistOwner,
+  customisedProductId: string,
+): Promise<{ success: boolean; error?: string; data?: WishlistRow }> {
+  try {
+    const supabase = await getStorefrontClient(owner, "action");
+    const { data, error } = await supabase
       .from("wishlists")
       .insert({
         ...ownerInsertColumns(owner),
         customised_product_id: customisedProductId,
       })
-      .select()
+      .select("id, user_id, session_id, customised_product_id, created_at")
       .single();
 
     if (error) {
-      console.error("Error adding to wishlist:", {
+      // Unique violation → treat as already present
+      if (error.code === "23505") {
+        return { success: false, error: "Item already in wishlist" };
+      }
+      console.error("Error inserting wishlist item:", {
         ...wishlistLogContext(owner),
         error,
       });
       return { success: false, error: error.message };
     }
-    return { success: true, data };
+    return { success: true, data: data as WishlistRow };
   } catch (error) {
-    console.error("Unexpected error in addWishlistItemForSession:", error);
+    console.error("Unexpected error in insertWishlistItemForSession:", error);
     return { success: false, error: unexpectedErrorMessage(error) };
   }
 }
@@ -299,9 +299,9 @@ export async function removeWishlistItemByIdForSession(
   wishlistId: string,
 ): Promise<WishlistMutationResult> {
   try {
-    const supabase = await getWishlistClient(owner, "action");
-    const { data, error } = await scopeToOwner(
-      (supabase as any).from("wishlists").delete().eq("id", wishlistId),
+    const supabase = await getStorefrontClient(owner, "action");
+    const { data, error } = await scopeQueryToOwner(
+      supabase.from("wishlists").delete().eq("id", wishlistId),
       owner,
     ).select("id");
 
@@ -334,9 +334,9 @@ export async function removeWishlistItemByVariantForSession(
   customisedProductId: string,
 ): Promise<WishlistMutationResult> {
   try {
-    const supabase = await getWishlistClient(owner, "action");
-    const { data, error } = await scopeToOwner(
-      (supabase as any).from("wishlists").delete(),
+    const supabase = await getStorefrontClient(owner, "action");
+    const { data, error } = await scopeQueryToOwner(
+      supabase.from("wishlists").delete(),
       owner,
     )
       .eq("customised_product_id", customisedProductId)
@@ -370,9 +370,9 @@ export async function isInWishlistForSession(
   customisedProductId: string,
 ): Promise<boolean> {
   try {
-    const supabase = await getWishlistClient(owner, "action");
-    const { data, error } = await scopeToOwner(
-      (supabase as any).from("wishlists").select("id"),
+    const supabase = await getStorefrontClient(owner, "action");
+    const { data, error } = await scopeQueryToOwner(
+      supabase.from("wishlists").select("id"),
       owner,
     )
       .eq("customised_product_id", customisedProductId)

@@ -2,6 +2,7 @@ import {
   getWishlistItemsForSession as getWishlistItemsForSessionRepo,
   countWishlistItemsForSession,
   addWishlistItemForSession,
+  insertWishlistItemForSession,
   removeWishlistItemByIdForSession,
   removeWishlistItemByVariantForSession,
   isInWishlistForSession,
@@ -174,6 +175,7 @@ export async function checkIfInWishlistForSession(
 
 /**
  * Toggle a variant on the session's wishlist.
+ * One existence check, then either delete or insert (no second select on add).
  */
 export async function toggleWishlistForSession(
   session: StorefrontOwner,
@@ -181,10 +183,16 @@ export async function toggleWishlistForSession(
 ) {
   const sessionGate = gateSession(session);
   if (!sessionGate.success) return sessionGate;
+  const owner = trimSession(session);
   const variantId = customisedProductId;
-  const inWishlist = await checkIfInWishlistForSession(session, variantId);
+
+  const inWishlist = await isInWishlistForSession(owner, variantId);
   if (inWishlist) {
-    return removeFromWishlistByVariantForSession(session, variantId);
+    return removeWishlistItemByVariantForSession(owner, variantId);
   }
-  return addToWishlistForSession(session, variantId);
+
+  const gate = await assertWishlistVariantActive(variantId);
+  if (!gate.success) return gate;
+
+  return insertWishlistItemForSession(owner, variantId);
 }

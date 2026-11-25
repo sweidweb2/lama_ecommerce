@@ -43,7 +43,7 @@ Migrations live in [`supabase/migrations/`](supabase/migrations/).
 
 ```bash
 supabase link --project-ref <your-project-ref>
-supabase db push
+npm run db:migrate:remote
 ```
 
 **Local stack**

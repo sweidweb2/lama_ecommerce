@@ -7,15 +7,7 @@ import {
   adminDateRangeHref,
   parseAdminDateRange,
 } from "@/lib/admin/date-range"
-import {
-  getSalesAndOrdersByMonthService,
-  getUserGrowthByMonthService,
-  getOrderStatusBreakdownService,
-  getPaymentStatusBreakdownService,
-  getAnalyticsStatsService,
-  getTopProductsByRevenueService,
-  type AnalyticsResult,
-} from "@/services/analytics.service"
+import { getAnalyticsDashboardService } from "@/services/analytics.service"
 import { ROUTES } from "@/lib/constants/routes"
 
 interface AnalyticsPageProps {
@@ -26,50 +18,23 @@ interface AnalyticsPageProps {
   }>
 }
 
-function unwrapOrEmpty<T>(result: AnalyticsResult<T>, empty: T): T {
-  return result.ok ? result.data : empty
-}
-
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const params = await searchParams
   const range = parseAdminDateRange(params, { defaultPreset: "all" })
   const boundedRange = range.preset === "all" ? undefined : range
   const reloadHref = adminDateRangeHref(ROUTES.ADMIN_HOME, range)
 
-  const [
-    salesResult,
-    userResult,
-    orderStatusResult,
-    paymentStatusResult,
-    statsResult,
-    topProductsResult,
-  ] = await Promise.all([
-    getSalesAndOrdersByMonthService(boundedRange),
-    getUserGrowthByMonthService(boundedRange),
-    getOrderStatusBreakdownService(),
-    getPaymentStatusBreakdownService(),
-    getAnalyticsStatsService(boundedRange),
-    getTopProductsByRevenueService(10, boundedRange),
-  ])
+  const dashboard = await getAnalyticsDashboardService(boundedRange, 10)
+  const hasFetchError = !dashboard.ok
+  const data = dashboard.ok ? dashboard.data : null
 
-  const fetchResults = [
-    { label: "sales", result: salesResult },
-    { label: "user growth", result: userResult },
-    { label: "order status", result: orderStatusResult },
-    { label: "payment status", result: paymentStatusResult },
-    { label: "stats", result: statsResult },
-    { label: "top products", result: topProductsResult },
-  ]
-  const failedFetches = fetchResults.filter(({ result }) => !result.ok)
-  const hasFetchError = failedFetches.length > 0
-
-  const salesData = unwrapOrEmpty(salesResult, [])
-  const userData = unwrapOrEmpty(userResult, [])
-  const orderStatusData = unwrapOrEmpty(orderStatusResult, [])
-  const paymentStatusData = unwrapOrEmpty(paymentStatusResult, [])
-  const topProducts = unwrapOrEmpty(topProductsResult, [])
-  const statsOk = statsResult.ok
-  const stats = statsOk ? statsResult.data : null
+  const salesData = data?.sales ?? []
+  const userData = data?.userGrowth ?? []
+  const orderStatusData = data?.orderStatus ?? []
+  const paymentStatusData = data?.paymentStatus ?? []
+  const topProducts = data?.topProducts ?? []
+  const statsOk = dashboard.ok
+  const stats = data?.stats ?? null
 
   const salesChartData = salesData.map((item) => ({
     name: item.month,
@@ -110,12 +75,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 Some analytics data could not be loaded
               </p>
               <p className="text-muted-foreground mt-0.5">
-                {failedFetches
-                  .map(({ label, result }) =>
-                    !result.ok ? `${label}: ${result.error}` : null,
-                  )
-                  .filter(Boolean)
-                  .join(" · ")}
+                {!dashboard.ok ? dashboard.error : null}
               </p>
             </div>
           </div>
@@ -140,11 +100,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         orderStatusData={orderStatusData}
         paymentStatusData={paymentStatusData}
         topProducts={topProducts}
-        salesError={!salesResult.ok}
-        userError={!userResult.ok}
-        orderStatusError={!orderStatusResult.ok}
-        paymentStatusError={!paymentStatusResult.ok}
-        topProductsError={!topProductsResult.ok}
+        salesError={hasFetchError}
+        userError={hasFetchError}
+        orderStatusError={hasFetchError}
+        paymentStatusError={hasFetchError}
+        topProductsError={hasFetchError}
       />
     </div>
   )

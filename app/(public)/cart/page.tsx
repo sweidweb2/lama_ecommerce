@@ -22,11 +22,19 @@ export const metadata = {
 export default async function CartPage() {
   const session = await resolveStorefrontSessionForComponent();
 
-  // No session at all → show empty cart
-  const cartResult: Awaited<ReturnType<typeof getCartWithItemsForSession>> =
+  // Cart, shipping zones, and addresses are independent after session resolve.
+  const [cartResult, shippingZones, savedAddresses] = await Promise.all([
     session
-      ? await getCartWithItemsForSession(session)
-      : { success: false, error: "No active cart found" };
+      ? getCartWithItemsForSession(session)
+      : Promise.resolve({
+          success: false as const,
+          error: "No active cart found",
+        }),
+    getPublicShippingZones(),
+    session && isUserSession(session)
+      ? getAddressesByUserId(session.userId)
+      : Promise.resolve(null as UserAddress[] | null),
+  ]);
 
   // If no cart or error, show empty state
   if (!cartResult.success || !cartResult.data) {
@@ -61,15 +69,6 @@ export default async function CartPage() {
     0
   );
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  // Fetch shipping zones for the checkout form (fallback to empty array)
-  const shippingZones = (await getPublicShippingZones()) ?? [];
-
-  // Logged-in users: load address book for checkout prefill (null = guest)
-  const savedAddresses: UserAddress[] | null =
-    session && isUserSession(session)
-      ? await getAddressesByUserId(session.userId)
-      : null;
 
   return (
     <div className="container mx-auto px-4 pt-6 lg:pt-8">

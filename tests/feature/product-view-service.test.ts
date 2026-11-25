@@ -7,6 +7,7 @@ const getProductViewsStats = vi.fn();
 const trackProductView = vi.fn();
 const incrementProductViewsCount = vi.fn();
 const getProductVariantById = vi.fn();
+const getProductVariantsByIds = vi.fn();
 const incrementProductAddToCartCount = vi.fn();
 const getOrderItemsByOrderIdForAdmin = vi.fn();
 const incrementProductPurchaseCount = vi.fn();
@@ -33,6 +34,8 @@ vi.mock("@/repositories/product_view.repository", () => ({
 
 vi.mock("@/repositories/product_variant.repository", () => ({
   getProductVariantById: (...args: unknown[]) => getProductVariantById(...args),
+  getProductVariantsByIds: (...args: unknown[]) =>
+    getProductVariantsByIds(...args),
 }));
 
 vi.mock("@/repositories/order.repository", () => ({
@@ -119,10 +122,12 @@ describe("product_view.service", () => {
       { customised_product_id: variantId, quantity: 2 },
       { customised_product_id: variantId, quantity: 1 },
     ]);
-    getProductVariantById.mockResolvedValue({
-      id: variantId,
-      product_id: productId,
-    });
+    getProductVariantsByIds.mockResolvedValue([
+      {
+        id: variantId,
+        product_id: productId,
+      },
+    ]);
     incrementProductPurchaseCount.mockResolvedValue({ success: true });
 
     const { incrementPurchaseCountForOrderService } = await import(
@@ -131,6 +136,7 @@ describe("product_view.service", () => {
     await expect(
       incrementPurchaseCountForOrderService("order-1"),
     ).resolves.toEqual({ success: true });
+    expect(getProductVariantsByIds).toHaveBeenCalledWith([variantId]);
     expect(incrementProductPurchaseCount).toHaveBeenCalledWith(productId, 3);
   });
 

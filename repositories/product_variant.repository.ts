@@ -1,3 +1,4 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
@@ -334,6 +335,35 @@ export async function getProductVariantsByProductIds(
     return (data ?? []) as ProductVariant[];
   } catch (error) {
     console.error("Unexpected error in getProductVariantsByProductIds:", error);
+    return [];
+  }
+}
+
+/**
+ * Batch-load variants by primary key (avoids N× getProductVariantById).
+ * Uses the admin client so post-checkout / service-role callers can resolve ids.
+ */
+export async function getProductVariantsByIds(
+  ids: string[],
+): Promise<ProductVariant[]> {
+  if (ids.length === 0) return [];
+
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data, error } = await supabase
+      .from("customised_products")
+      .select("*")
+      .in("id", ids);
+
+    if (error) {
+      console.error("Error fetching product variants by variant ids:", error);
+      return [];
+    }
+
+    return (data ?? []) as ProductVariant[];
+  } catch (error) {
+    console.error("Unexpected error in getProductVariantsByIds:", error);
     return [];
   }
 }

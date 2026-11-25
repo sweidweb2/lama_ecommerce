@@ -3,9 +3,17 @@ import {
   createSupabaseServerActionClient,
 } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { scopeQueryToGuestSession } from "@/lib/repositories/storefront-owner-query";
+import { fetchProfileNameMap } from "@/lib/repositories/profile-name-map";
 import type { Order, OrderItem, Payment, Shipment, AddressSnapshot } from "@/types/order";
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+  type OrderStatusConstant,
+  type PaymentStatusConstant,
+} from "@/lib/constants/order-status";
 
 type OrderClient = SupabaseClient<Database>;
 
@@ -338,80 +346,148 @@ export async function getShipmentByOrderIdForAdmin(
   return getShipmentByOrderIdWithClient(orderAdminSource, orderId);
 }
 
+const FULFILLMENT_ORDER_STATUSES = [
+  "processing",
+  "packed",
+  "shipped",
+] as const;
+
+export type ListOrdersForAdminParams = {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  paymentStatus?: string;
+};
+
+export type ListOrdersForAdminResult = {
+  items: AdminOrderRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const ORDER_ADMIN_SELECT = `
+  id,
+  user_id,
+  session_id,
+  status,
+  subtotal,
+  shipping_fee,
+  discount,
+  total,
+  payment_status,
+  address_snapshot,
+  phone,
+  email,
+  shipping_zone_id,
+  shipping_zone_name,
+  created_at,
+  updated_at
+`;
+
 /**
- * Get all orders for the admin panel with user information.
- * Uses the admin client to bypass RLS and join profiles for user names.
+ * Paginated admin orders with optional status / payment filters.
  */
-export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
+export async function listOrdersForAdmin(
+  params: ListOrdersForAdminParams = {},
+): Promise<ListOrdersForAdminResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 20, 1), 100);
+  let page = Math.max(params.page ?? 1, 1);
+  const empty: ListOrdersForAdminResult = {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize,
+  };
+
   try {
     const supabase = createSupabaseAdminClient();
 
-    // Fetch all orders
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select(`
-        id,
-        user_id,
-        session_id,
-        status,
-        subtotal,
-        shipping_fee,
-        discount,
-        total,
-        payment_status,
-        address_snapshot,
-        phone,
-        email,
-        shipping_zone_id,
-        shipping_zone_name,
-        created_at,
-        updated_at
-      `)
-      .order("created_at", { ascending: false });
+    const buildQuery = () => {
+      let query = supabase
+        .from("orders")
+        .select(ORDER_ADMIN_SELECT, { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      const status = params.status?.trim();
+      if (status && status !== "all") {
+        if (status === "fulfillment") {
+          query = query.in("status", [...FULFILLMENT_ORDER_STATUSES]);
+        } else if ((ORDER_STATUSES as readonly string[]).includes(status)) {
+          query = query.eq("status", status as OrderStatusConstant);
+        }
+      }
+
+      const paymentStatus = params.paymentStatus?.trim();
+      if (
+        paymentStatus &&
+        paymentStatus !== "all" &&
+        (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus)
+      ) {
+        query = query.eq(
+          "payment_status",
+          paymentStatus as PaymentStatusConstant,
+        );
+      }
+
+      return query;
+    };
+
+    let from = (page - 1) * pageSize;
+    let to = from + pageSize - 1;
+    let { data: orders, error, count } = await buildQuery().range(from, to);
 
     if (error) {
       console.error("Error fetching orders for admin:", error);
-      return [];
+      return empty;
+    }
+
+    const total = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (page > totalPages && total > 0) {
+      page = totalPages;
+      from = (page - 1) * pageSize;
+      to = from + pageSize - 1;
+      ({ data: orders, error, count } = await buildQuery().range(from, to));
+      if (error) {
+        console.error("Error fetching orders for admin:", error);
+        return empty;
+      }
     }
 
     if (!orders || orders.length === 0) {
-      return [];
+      return { items: [], total, page, pageSize };
     }
 
-    // Gather unique user IDs for name lookup
-    const userIds = [
-      ...new Set(
-        orders
-          .map((o) => o.user_id)
-          .filter((id): id is string => Boolean(id)),
-      ),
-    ];
-
-    const { data: profiles } = userIds.length
-      ? await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", userIds)
-      : { data: [] };
-
-    const profileMap = new Map<string, string>();
-    (profiles ?? []).forEach(
-      (p: { user_id: string; full_name: string | null }) => {
-        profileMap.set(p.user_id, p.full_name || "Unknown");
-      },
+    const profileMap = await fetchProfileNameMap(
+      supabase,
+      orders.map((o) => o.user_id),
     );
 
-    // Map raw orders into AdminOrderRow with userName
-    return orders.map((o) => ({
-      ...(o as Order),
-      userName: o.user_id
-        ? profileMap.get(o.user_id) ?? "Unknown"
-        : "Guest",
-    }));
+    return {
+      items: orders.map((o) => ({
+        ...(o as Order),
+        userName: o.user_id
+          ? profileMap.get(o.user_id) ?? "Unknown"
+          : "Guest",
+      })),
+      total: count ?? total,
+      page,
+      pageSize,
+    };
   } catch (error) {
-    console.error("Unexpected error in getAllOrdersForAdmin:", error);
-    return [];
+    console.error("Unexpected error in listOrdersForAdmin:", error);
+    return empty;
   }
+}
+
+/**
+ * @deprecated Prefer listOrdersForAdmin for paginated admin UI.
+ * Kept for tests/callers that expect a flat array (first page, max 100).
+ */
+export async function getAllOrdersForAdmin(): Promise<AdminOrderRow[]> {
+  const result = await listOrdersForAdmin({ page: 1, pageSize: 100 });
+  return result.items;
 }
 
 /**
@@ -424,12 +500,10 @@ export async function getOrdersBySessionId(
 ): Promise<Order[]> {
   try {
     const supabase = createSupabaseAdminClient();
-    let query = supabase
-      .from("orders")
-      .select("*")
-      .eq("session_id", sessionId)
-      .is("user_id", null)
-      .order("created_at", { ascending: false });
+    let query = scopeQueryToGuestSession(
+      supabase.from("orders").select("*"),
+      sessionId,
+    ).order("created_at", { ascending: false });
 
     if (limit) {
       query = query.limit(limit);
@@ -470,11 +544,10 @@ export async function claimOrdersBySessionId(
     }
 
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("orders")
-      .update({ user_id: userId })
-      .eq("session_id", sessionId)
-      .is("user_id", null)
+    const { data, error } = await scopeQueryToGuestSession(
+      supabase.from("orders").update({ user_id: userId }),
+      sessionId,
+    )
       .ilike("email", normalizedEmail)
       .select("id");
 

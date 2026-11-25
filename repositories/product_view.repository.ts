@@ -1,5 +1,6 @@
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { fetchProfileNameMap } from "@/lib/repositories/profile-name-map";
 import type { ProductView, ProductStats } from "@/types/product";
 
 async function incrementProductStatColumn(
@@ -251,30 +252,19 @@ export async function getProductViewsByProductIdForAdmin(
       };
     }
 
-    // Get product name and user names
-    const userIds = [...new Set(views.map((v: any) => v.user_id).filter(Boolean))];
-
-    // Fetch product and profiles in parallel
-    const [{ data: products }, { data: profiles }] = await Promise.all([
+    const [{ data: products }, profileMap] = await Promise.all([
       (supabase as any)
         .from("products")
         .select("id, name")
         .eq("id", productId)
         .maybeSingle(),
-      userIds.length
-        ? (supabase as any)
-            .from("profiles")
-            .select("user_id, full_name")
-            .in("user_id", userIds)
-        : { data: [] },
+      fetchProfileNameMap(
+        supabase as any,
+        views.map((v: { user_id: string | null }) => v.user_id),
+      ),
     ]);
 
-    // Create maps for quick lookup
     const productName = products?.name || "Unknown Product";
-    const profileMap = new Map<string, string>();
-    (profiles || []).forEach((p: { user_id: string; full_name: string | null }) => {
-      profileMap.set(p.user_id, p.full_name || "Unknown");
-    });
 
     // Map views to AdminProductViewRow format
     const mappedViews: AdminProductViewRow[] = views.map((view: any) => ({
@@ -376,35 +366,26 @@ export async function getAllProductViewsForAdmin(
       };
     }
 
-    // Get unique product IDs and user IDs
-    const productIds = [...new Set(views.map((v: any) => v.product_id).filter(Boolean))];
-    const userIds = [...new Set(views.map((v: any) => v.user_id).filter(Boolean))];
+    const productIds = [
+      ...new Set(views.map((v: any) => v.product_id).filter(Boolean)),
+    ];
 
-    // Fetch products and profiles in parallel
-    const [{ data: products }, { data: profiles }] = await Promise.all([
+    const [{ data: products }, profileMap] = await Promise.all([
       productIds.length
         ? (supabase as any)
             .from("products")
             .select("id, name")
             .in("id", productIds)
         : { data: [] },
-      userIds.length
-        ? (supabase as any)
-            .from("profiles")
-            .select("user_id, full_name")
-            .in("user_id", userIds)
-        : { data: [] },
+      fetchProfileNameMap(
+        supabase as any,
+        views.map((v: { user_id: string | null }) => v.user_id),
+      ),
     ]);
 
-    // Create maps for quick lookup
     const productMap = new Map<string, string>();
     (products || []).forEach((p: { id: string; name: string }) => {
       productMap.set(p.id, p.name);
-    });
-
-    const profileMap = new Map<string, string>();
-    (profiles || []).forEach((p: { user_id: string; full_name: string | null }) => {
-      profileMap.set(p.user_id, p.full_name || "Unknown");
     });
 
     // Map views to AdminProductViewRow format
@@ -450,94 +431,43 @@ export interface ProductViewsStats {
 }
 
 /**
- * Get product views statistics
+ * Get product views statistics (SQL distinct counts via RPC).
  */
 export async function getProductViewsStats(): Promise<ProductViewsStats> {
+  const empty: ProductViewsStats = {
+    totalViews: 0,
+    uniqueProducts: 0,
+    uniqueUsers: 0,
+    viewsToday: 0,
+    viewsThisWeek: 0,
+    viewsThisMonth: 0,
+  };
+
   try {
     const supabase = createSupabaseAdminClient();
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const { data, error } = await (supabase as any).rpc(
+      "admin_product_views_stats",
+    );
 
-    // Fetch all counts in parallel
-    const [
-      { count: totalViews },
-      { data: uniqueProductsData },
-      { data: uniqueUsersData },
-      { count: viewsToday },
-      { count: viewsThisWeek },
-      { count: viewsThisMonth },
-    ] = await Promise.all([
-      // Total views
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true }),
-      
-      // Unique products
-      (supabase as any)
-        .from("product_views")
-        .select("product_id")
-        .limit(10000), // Reasonable limit for distinct count
-      
-      // Unique users
-      (supabase as any)
-        .from("product_views")
-        .select("user_id")
-        .not("user_id", "is", null)
-        .limit(10000),
-      
-      // Views today
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .gte("viewed_at", startOfToday.toISOString()),
-      
-      // Views this week
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .gte("viewed_at", startOfWeek.toISOString()),
-      
-      // Views this month
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .gte("viewed_at", startOfMonth.toISOString()),
-    ]);
+    if (error) {
+      console.error("Error fetching product views stats:", error);
+      return empty;
+    }
 
-    // Calculate unique counts
-    const uniqueProducts = new Set(
-      (uniqueProductsData || []).map((v: any) => v.product_id)
-    ).size;
-    
-    const uniqueUsers = new Set(
-      (uniqueUsersData || []).map((v: any) => v.user_id).filter(Boolean)
-    ).size;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return empty;
 
     return {
-      totalViews: totalViews || 0,
-      uniqueProducts,
-      uniqueUsers,
-      viewsToday: viewsToday || 0,
-      viewsThisWeek: viewsThisWeek || 0,
-      viewsThisMonth: viewsThisMonth || 0,
+      totalViews: Number(row.total_views) || 0,
+      uniqueProducts: Number(row.unique_products) || 0,
+      uniqueUsers: Number(row.unique_users) || 0,
+      viewsToday: Number(row.views_today) || 0,
+      viewsThisWeek: Number(row.views_this_week) || 0,
+      viewsThisMonth: Number(row.views_this_month) || 0,
     };
   } catch (error) {
     console.error("Error fetching product views stats:", error);
-    return {
-      totalViews: 0,
-      uniqueProducts: 0,
-      uniqueUsers: 0,
-      viewsToday: 0,
-      viewsThisWeek: 0,
-      viewsThisMonth: 0,
-    };
+    return empty;
   }
 }
 
@@ -563,79 +493,33 @@ const EMPTY_PRODUCT_SCOPED_VIEWS_STATS: ProductScopedViewsStats = {
 };
 
 /**
- * Get product views statistics for a single product
+ * Get product views statistics for a single product (SQL via RPC).
  */
 export async function getProductViewsStatsByProductId(
   productId: string,
 ): Promise<ProductScopedViewsStats> {
   try {
     const supabase = createSupabaseAdminClient();
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
+    const { data, error } = await (supabase as any).rpc(
+      "admin_product_views_stats_by_product",
+      { p_product_id: productId },
+    );
 
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    if (error) {
+      console.error("Error fetching product-scoped views stats:", error);
+      return EMPTY_PRODUCT_SCOPED_VIEWS_STATS;
+    }
 
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const [
-      { count: totalViews },
-      { data: uniqueUsersData },
-      { count: guestViews },
-      { count: viewsToday },
-      { count: viewsThisWeek },
-      { count: viewsThisMonth },
-    ] = await Promise.all([
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", productId),
-
-      (supabase as any)
-        .from("product_views")
-        .select("user_id")
-        .eq("product_id", productId)
-        .not("user_id", "is", null)
-        .limit(10000),
-
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", productId)
-        .is("user_id", null),
-
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", productId)
-        .gte("viewed_at", startOfToday.toISOString()),
-
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", productId)
-        .gte("viewed_at", startOfWeek.toISOString()),
-
-      (supabase as any)
-        .from("product_views")
-        .select("*", { count: "exact", head: true })
-        .eq("product_id", productId)
-        .gte("viewed_at", startOfMonth.toISOString()),
-    ]);
-
-    const uniqueUsers = new Set(
-      (uniqueUsersData || []).map((v: any) => v.user_id).filter(Boolean),
-    ).size;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return EMPTY_PRODUCT_SCOPED_VIEWS_STATS;
 
     return {
-      totalViews: totalViews || 0,
-      uniqueUsers,
-      guestViews: guestViews || 0,
-      viewsToday: viewsToday || 0,
-      viewsThisWeek: viewsThisWeek || 0,
-      viewsThisMonth: viewsThisMonth || 0,
+      totalViews: Number(row.total_views) || 0,
+      uniqueUsers: Number(row.unique_users) || 0,
+      guestViews: Number(row.guest_views) || 0,
+      viewsToday: Number(row.views_today) || 0,
+      viewsThisWeek: Number(row.views_this_week) || 0,
+      viewsThisMonth: Number(row.views_this_month) || 0,
     };
   } catch (error) {
     console.error("Error fetching product-scoped views stats:", error);

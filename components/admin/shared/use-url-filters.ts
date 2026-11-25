@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export type UseUrlFiltersOptions = {
@@ -16,6 +10,11 @@ export type UseUrlFiltersOptions = {
   preserveParams?: readonly string[];
   /** Delay before typed changes are pushed to the URL. */
   debounceMs?: number;
+  /**
+   * Override URL writes (e.g. soft-nav with transition).
+   * Defaults to `router.replace` with `scroll: false`.
+   */
+  navigate?: (href: string) => void;
 };
 
 export type UseUrlFiltersResult = {
@@ -47,6 +46,7 @@ export function useUrlFilters({
   keys,
   preserveParams = [],
   debounceMs = 300,
+  navigate,
 }: UseUrlFiltersOptions): UseUrlFiltersResult {
   const router = useRouter();
   const pathname = usePathname();
@@ -65,26 +65,48 @@ export function useUrlFilters({
   const [seenUrlSignature, setSeenUrlSignature] = useState(urlSignature);
   const [pushedSignature, setPushedSignature] = useState<string | null>(null);
 
+  const pushCtxRef = useRef({
+    keys,
+    preserveParams,
+    pathname,
+    searchParams,
+    navigate,
+    router,
+    setPushedSignature,
+  });
+  pushCtxRef.current = {
+    keys,
+    preserveParams,
+    pathname,
+    searchParams,
+    navigate,
+    router,
+    setPushedSignature,
+  };
+
   // Adopt URL changes we did not cause ourselves (derived state, no effect).
   if (urlSignature !== seenUrlSignature) {
     setSeenUrlSignature(urlSignature);
     if (urlSignature !== pushedSignature) setLocalValues(urlValues);
   }
 
-  const pushUrl = useEffectEvent((next: Record<string, string>) => {
+  const pushUrl = (next: Record<string, string>) => {
+    const ctx = pushCtxRef.current;
     const params = new URLSearchParams();
-    for (const key of preserveParams) {
-      const existing = searchParams.get(key);
+    for (const key of ctx.preserveParams) {
+      const existing = ctx.searchParams.get(key);
       if (existing) params.set(key, existing);
     }
-    for (const key of keys) {
+    for (const key of ctx.keys) {
       const value = next[key]?.trim();
       if (value) params.set(key, value);
     }
     const qs = params.toString();
-    setPushedSignature(signature(readValues(params, keys), keys));
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  });
+    const href = qs ? `${ctx.pathname}?${qs}` : ctx.pathname;
+    ctx.setPushedSignature(signature(readValues(params, ctx.keys), ctx.keys));
+    if (ctx.navigate) ctx.navigate(href);
+    else ctx.router.replace(href, { scroll: false });
+  };
 
   useEffect(() => {
     return () => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "@/components/ui/link"
 import {
@@ -13,13 +13,6 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { DeleteCartDialog } from "@/components/admin/cart/delete_dialog"
 import { SubmitCartButton } from "@/components/admin/cart/submit_cart_button"
@@ -41,10 +34,11 @@ export type AdminCartListItem = {
 
 interface CartsTableProps {
   carts: AdminCartListItem[]
+  totalCount: number
+  page: number
+  pageSize: number
+  query: string
 }
-
-const CARTS_PER_PAGE = 20
-const MAX_PAGES = 100
 
 const MAX_CHARS = {
   id: 10,
@@ -52,111 +46,87 @@ const MAX_CHARS = {
   session: 18,
 } as const
 
-export function CartsTable({ carts }: CartsTableProps) {
+export function CartsTable({
+  carts,
+  totalCount,
+  page,
+  pageSize,
+  query,
+}: CartsTableProps) {
   const router = useRouter()
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [query, setQuery] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
+  const [draftQuery, setDraftQuery] = useState(query)
+  const [isPending, startTransition] = useTransition()
 
-  const statuses = useMemo(() => {
-    return Array.from(new Set(carts.map((c) => c.status).filter(Boolean))).sort()
-  }, [carts])
+  useEffect(() => {
+    setDraftQuery(query)
+  }, [query])
 
-  const filteredCarts = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return carts.filter((cart) => {
-      const matchesStatus = statusFilter === "all" || cart.status === statusFilter
-      if (!matchesStatus) return false
-      if (!q) return true
-      const haystack = [
-        cart.id,
-        cart.userName,
-        cart.user_id,
-        cart.session_id,
-        cart.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return haystack.includes(q)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  const pushQuery = (updates: { page?: number; q?: string | null }) => {
+    const params = new URLSearchParams()
+    const nextQ = updates.q === undefined ? query : updates.q
+    const nextPage = updates.page ?? page
+    if (nextQ && nextQ.trim()) params.set("q", nextQ.trim())
+    if (nextPage > 1) params.set("page", String(nextPage))
+    const qs = params.toString()
+    startTransition(() => {
+      router.push(qs ? `/admin/carts?${qs}` : "/admin/carts")
     })
-  }, [carts, statusFilter, query])
-
-  const maxToShow = MAX_PAGES * CARTS_PER_PAGE
-  const limited = useMemo(
-    () => filteredCarts.slice(0, maxToShow),
-    [filteredCarts, maxToShow],
-  )
-
-  const totalPages = Math.min(
-    Math.max(1, Math.ceil(limited.length / CARTS_PER_PAGE)),
-    MAX_PAGES,
-  )
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * CARTS_PER_PAGE
-    return limited.slice(start, start + CARTS_PER_PAGE)
-  }, [limited, currentPage])
-
-  const hasActiveFilters = statusFilter !== "all" || query.trim() !== ""
-
-  const clearFilters = () => {
-    setStatusFilter("all")
-    setQuery("")
-    setCurrentPage(1)
   }
 
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return
-    setCurrentPage(page)
+  const clearFilters = () => {
+    setDraftQuery("")
+    pushQuery({ q: null, page: 1 })
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > totalPages) return
+    pushQuery({ page: nextPage })
   }
 
   const openCart = (encryptedId: string) => {
     router.push(`/admin/carts/${encryptedId}`)
   }
 
+  const hasActiveFilters = Boolean(query.trim())
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <form
+        className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+        onSubmit={(e) => {
+          e.preventDefault()
+          pushQuery({ q: draftQuery, page: 1 })
+        }}
+      >
         <Input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setCurrentPage(1)
-          }}
-          placeholder="Search user, session, or ID…"
+          value={draftQuery}
+          onChange={(e) => setDraftQuery(e.target.value)}
+          placeholder="Search cart or session ID…"
           className="max-w-sm"
+          disabled={isPending}
         />
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => {
-            setStatusFilter(value)
-            setCurrentPage(1)
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {statuses.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Button type="submit" variant="secondary" disabled={isPending}>
+          Search
+        </Button>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            disabled={isPending}
+          >
             <X className="mr-2 h-4 w-4" />
             Clear
           </Button>
         )}
-      </div>
+      </form>
 
       {totalPages > 1 && (
         <PaginationBar
-          currentPage={currentPage}
+          currentPage={page}
           totalPages={totalPages}
           onPageChange={handlePageChange}
         />
@@ -176,7 +146,7 @@ export function CartsTable({ carts }: CartsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.length === 0 ? (
+            {carts.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -186,7 +156,7 @@ export function CartsTable({ carts }: CartsTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((cart) => {
+              carts.map((cart) => {
                 const href = `/admin/carts/${cart.encryptedId}`
                 return (
                   <TableRow
@@ -276,7 +246,7 @@ export function CartsTable({ carts }: CartsTableProps) {
 
       {totalPages > 1 && (
         <PaginationBar
-          currentPage={currentPage}
+          currentPage={page}
           totalPages={totalPages}
           onPageChange={handlePageChange}
         />

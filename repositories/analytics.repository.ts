@@ -307,11 +307,11 @@ export async function getAnalyticsStats(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("is_active", true),
     supabase
       .from("products")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("is_active", true),
     ordersCountQuery,
     supabase.rpc("admin_orders_revenue_sum", {

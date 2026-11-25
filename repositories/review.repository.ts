@@ -2,6 +2,7 @@ import {
   createSupabaseServerActionClient,
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
+import { fetchProfileNameMap } from "@/lib/repositories/profile-name-map";
 import type { Review } from "@/types/product";
 
 /**
@@ -53,33 +54,21 @@ async function enrichAdminReviewRows(
   const productIds = [
     ...new Set(reviews.map((r) => r.product_id).filter(Boolean)),
   ];
-  const userIds = [
-    ...new Set(reviews.map((r) => r.user_id).filter(Boolean)),
-  ];
 
-  const [{ data: products }, { data: profiles }] = await Promise.all([
+  const [{ data: products }, profileMap] = await Promise.all([
     productIds.length
       ? supabase.from("products").select("id, name").in("id", productIds)
       : { data: [] },
-    userIds.length
-      ? supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", userIds)
-      : { data: [] },
+    fetchProfileNameMap(
+      supabase,
+      reviews.map((r) => r.user_id),
+    ),
   ]);
 
   const productMap = new Map<string, string>();
   (products ?? []).forEach((p: { id: string; name: string }) => {
     productMap.set(p.id, p.name);
   });
-
-  const profileMap = new Map<string, string>();
-  (profiles ?? []).forEach(
-    (p: { user_id: string; full_name: string | null }) => {
-      profileMap.set(p.user_id, p.full_name || "Unknown");
-    },
-  );
 
   return reviews.map((review) => ({
     id: review.id,

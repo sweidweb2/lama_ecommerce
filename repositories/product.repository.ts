@@ -58,10 +58,22 @@ export interface ProductVariantFacets {
   sizes: string[];
 }
 
-// Common select used for product detail / listing where we only need
-// the core product data plus brand, category, images, and public stats.
-const PRODUCT_SELECT =
+/** Full graph for product detail and rich admin/catalog rows. */
+const PRODUCT_DETAIL_SELECT =
   "*, brand:brands(*), category:categories(*), images:product_images(*), stats:product_stats(*)";
+
+/**
+ * Leaner list shape: core product columns + nested relations needed for cards.
+ * Prefer this over PRODUCT_DETAIL_SELECT for paginated catalogs.
+ */
+const PRODUCT_LIST_SELECT =
+  "id, name, slug, description, price, sku, brand_id, category_id, is_active, is_featured, is_trending, created_at, updated_at, brand:brands(id, name, slug), category:categories(id, name, slug), images:product_images(id, url_image, is_primary), stats:product_stats(views_count, add_to_cart_count, purchase_count)";
+
+/** Minimal options for admin dropdowns (reviews, Q&A, etc.). */
+const PRODUCT_OPTION_SELECT = "id, name";
+
+/** @deprecated Prefer PRODUCT_LIST_SELECT / PRODUCT_DETAIL_SELECT */
+const PRODUCT_SELECT = PRODUCT_DETAIL_SELECT;
 
 function expandCaseVariants(values: string[]): string[] {
   const set = new Set<string>();
@@ -114,6 +126,7 @@ export interface UpdateProductRepoInput {
 
 /**
  * Fetch all products for admin (no `is_active` filter), including images and relations.
+ * Prefer getAdminProductOptions / getAdminProductsPage for list UIs.
  */
 export async function getAdminProducts(): Promise<ProductWithRelations[]> {
   try {
@@ -121,7 +134,7 @@ export async function getAdminProducts(): Promise<ProductWithRelations[]> {
 
     const { data, error } = await supabase
       .from("products")
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_DETAIL_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -132,6 +145,32 @@ export async function getAdminProducts(): Promise<ProductWithRelations[]> {
     return (data ?? []) as ProductWithRelations[];
   } catch (error) {
     console.error("Unexpected error in getAdminProducts:", error);
+    return [];
+  }
+}
+
+export type AdminProductOption = { id: string; name: string };
+
+/**
+ * Lightweight product id/name list for admin selects (reviews, Q&A, etc.).
+ */
+export async function getAdminProductOptions(): Promise<AdminProductOption[]> {
+  try {
+    const supabase = await createSupabaseServerComponentClient();
+
+    const { data, error } = await supabase
+      .from("products")
+      .select(PRODUCT_OPTION_SELECT)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching admin product options:", error);
+      return [];
+    }
+
+    return (data ?? []) as AdminProductOption[];
+  } catch (error) {
+    console.error("Unexpected error in getAdminProductOptions:", error);
     return [];
   }
 }
@@ -196,7 +235,7 @@ export async function getAdminProductsPage(
     const buildQuery = () => {
       let query = supabase
         .from("products")
-        .select(PRODUCT_SELECT, { count: "exact" })
+        .select(PRODUCT_LIST_SELECT, { count: "exact" })
         .order("created_at", { ascending: false });
 
       if (params.categoryId) {
@@ -367,7 +406,7 @@ export async function getProducts(
 
     let query = supabase
       .from("products")
-      .select(PRODUCT_SELECT, { count: "exact" })
+      .select(PRODUCT_LIST_SELECT, { count: "exact" })
       .eq("is_active", true);
 
     if (matchingProductIds) {
@@ -768,7 +807,7 @@ export async function getProductBySlug(
     const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await supabase
       .from("products")
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_DETAIL_SELECT)
       .eq("slug", slug)
       .eq("is_active", true)
       .single();
@@ -795,7 +834,7 @@ export async function getProductById(
     const supabase = await createSupabaseServerComponentClient();
     const { data, error } = await supabase
       .from("products")
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_DETAIL_SELECT)
       .eq("id", id)
       .single();
 

@@ -14,13 +14,13 @@ This creates a new migration file in `supabase/migrations/` with a timestamp pre
 
 After creating the migration, edit the SQL file in `supabase/migrations/` directory.
 
-## Apply Migrations
+## Apply Migrations (remote)
 
 ```bash
-npx supabase db push
+npm run db:migrate:remote
 ```
 
-Pushes all pending migrations to your Supabase project.
+Same as `npx supabase db push`. Pushes all pending migrations to your linked remote Supabase project (`supabase link` required once).
 
 ## View Database
 
@@ -42,6 +42,6 @@ npx supabase gen types typescript \
 
 1. Create migration: `npx supabase migration new migration_name`
 2. Edit SQL file in `supabase/migrations/`
-3. Apply migration: `npx supabase db push`
+3. Apply migration: `npm run db:migrate:remote`
 4. Generate types: `npx supabase gen types typescript --project-id YOUR_PROJECT_ID > types/supabase.ts`
 5. Verify in Supabase dashboard

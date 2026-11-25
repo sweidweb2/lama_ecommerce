@@ -4,6 +4,7 @@ import type { SessionContext } from "@/lib/auth/session-context";
 const getAdminShopBlockForUserId = vi.fn();
 const getVariantWithParentActive = vi.fn();
 const addWishlistItemForSession = vi.fn();
+const insertWishlistItemForSession = vi.fn();
 const removeWishlistItemByVariantForSession = vi.fn();
 const isInWishlistForSession = vi.fn();
 const claimWishlistBySessionId = vi.fn();
@@ -23,6 +24,8 @@ vi.mock("@/repositories/wishlist.repository", () => ({
   countWishlistItemsForSession: vi.fn(),
   addWishlistItemForSession: (...args: unknown[]) =>
     addWishlistItemForSession(...args),
+  insertWishlistItemForSession: (...args: unknown[]) =>
+    insertWishlistItemForSession(...args),
   removeWishlistItemByIdForSession: vi.fn(),
   removeWishlistItemByVariantForSession: (...args: unknown[]) =>
     removeWishlistItemByVariantForSession(...args),
@@ -125,17 +128,18 @@ describe("wishlist.service", () => {
 
   it("toggleWishlistForSession adds when missing", async () => {
     isInWishlistForSession.mockResolvedValue(false);
-    addWishlistItemForSession.mockResolvedValue({ success: true });
+    insertWishlistItemForSession.mockResolvedValue({ success: true });
     const { toggleWishlistForSession } = await import(
       "@/services/wishlist.service"
     );
     await expect(
       toggleWishlistForSession(guestSession, variantId),
     ).resolves.toEqual({ success: true });
-    expect(addWishlistItemForSession).toHaveBeenCalledWith(
+    expect(insertWishlistItemForSession).toHaveBeenCalledWith(
       guestSession,
       variantId,
     );
+    expect(addWishlistItemForSession).not.toHaveBeenCalled();
     expect(removeWishlistItemByVariantForSession).not.toHaveBeenCalled();
   });
 

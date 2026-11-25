@@ -19,7 +19,7 @@ import {
 import { TableWrapper } from "@/components/admin/table-wrapper"
 import { EditProductDialog, type AdminProduct } from "./edit_form"
 import { DeleteProductDialog } from "./delete_dialog"
-import { AdminUrlPagination } from "./AdminUrlPagination"
+import { AdminUrlPagination } from "@/components/admin/shared/AdminUrlPagination"
 import { ChevronRight, Eye } from "lucide-react"
 import Link from "@/components/ui/link"
 import { cn, formatPrice } from "@/lib/utils"

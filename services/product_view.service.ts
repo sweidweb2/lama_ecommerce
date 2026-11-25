@@ -13,7 +13,10 @@ import {
   type ProductScopedViewsStats,
 } from "@/repositories/product_view.repository";
 import type { ProductStats } from "@/types/product";
-import { getProductVariantById } from "@/repositories/product_variant.repository";
+import {
+  getProductVariantById,
+  getProductVariantsByIds,
+} from "@/repositories/product_variant.repository";
 import { getOrderItemsByOrderIdForAdmin } from "@/repositories/order.repository";
 import { requireAdmin } from "@/lib/auth/require-admin";
 
@@ -233,18 +236,12 @@ export async function incrementPurchaseCountForOrderService(
       return { success: true }; // No product IDs to process
     }
 
-    // Get all variants to extract product_ids
-    const variants = await Promise.all(
-      customisedProductIds.map((id) => getProductVariantById(id))
-    );
-
-    // Create a map of customised_product_id -> product_id
+    // Batch-load variants (one IN query) to extract product_ids
+    const variants = await getProductVariantsByIds(customisedProductIds);
     const productIdMap = new Map<string, string>();
-    variants.forEach((variant, index) => {
-      if (variant) {
-        productIdMap.set(customisedProductIds[index], variant.product_id);
-      }
-    });
+    for (const variant of variants) {
+      productIdMap.set(variant.id, variant.product_id);
+    }
 
     // Group order items by product_id and sum quantities
     const productQuantities = new Map<string, number>();

@@ -1,35 +1,71 @@
 import { OrdersTable } from "@/components/admin/order/OrdersTable"
-import { getAdminOrders } from "@/services/order.service"
+import {
+  listAdminOrdersService,
+  getAdminOrdersPageStatsService,
+} from "@/services/order.service"
 import { encryptOrderId } from "@/lib/utils/encryption"
-import { 
-  ShoppingCart, 
-  Clock, 
-  CheckCircle, 
-  DollarSign, 
+import {
+  ShoppingCart,
+  Clock,
+  CheckCircle,
+  DollarSign,
 } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+} from "@/lib/constants/order-status"
 
-export default async function OrdersPage() {
-  const orders = await getAdminOrders()
-  
-  // Encrypt order IDs on the server side
-  const ordersWithEncryptedIds = orders.map(order => ({
+const ORDERS_PAGE_SIZE = 20
+
+interface OrdersPageProps {
+  searchParams: Promise<{
+    page?: string
+    status?: string
+    paymentStatus?: string
+  }>
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const n = Number.parseInt(value ?? "", 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  const params = await searchParams
+  const statusRaw = params.status?.trim() || "all"
+  const paymentRaw = params.paymentStatus?.trim() || "all"
+  const status =
+    statusRaw === "all" ||
+    statusRaw === "fulfillment" ||
+    (ORDER_STATUSES as readonly string[]).includes(statusRaw)
+      ? statusRaw
+      : "all"
+  const paymentStatus =
+    paymentRaw === "all" ||
+    (PAYMENT_STATUSES as readonly string[]).includes(paymentRaw)
+      ? paymentRaw
+      : "all"
+
+  const [listResult, pageStats] = await Promise.all([
+    listAdminOrdersService({
+      page: parsePositiveInt(params.page, 1),
+      pageSize: ORDERS_PAGE_SIZE,
+      status,
+      paymentStatus,
+    }),
+    getAdminOrdersPageStatsService(),
+  ])
+
+  const ordersWithEncryptedIds = listResult.items.map((order) => ({
     ...order,
     encryptedId: encryptOrderId(order.id),
   }))
 
-  // Calculate statistics
-  const totalOrders = orders.length
-  const pendingOrders = orders.filter(order => order.status === 'pending').length
-  const deliveredOrders = orders.filter(order => order.status === 'delivered').length
-  const totalRevenue = orders
-    .filter(order => order.payment_status === 'paid' && order.total)
-    .reduce((sum, order) => sum + (order.total || 0), 0)
-
   const stats = [
     {
       title: "Total Orders",
-      value: totalOrders.toLocaleString(),
+      value: pageStats.totalOrders.toLocaleString(),
       description: "All orders",
       icon: ShoppingCart,
       borderColor: "border-l-blue-500",
@@ -38,7 +74,7 @@ export default async function OrdersPage() {
     },
     {
       title: "Pending Orders",
-      value: pendingOrders.toLocaleString(),
+      value: pageStats.pendingOrders.toLocaleString(),
       description: "Awaiting processing",
       icon: Clock,
       borderColor: "border-l-yellow-500",
@@ -47,7 +83,7 @@ export default async function OrdersPage() {
     },
     {
       title: "Delivered",
-      value: deliveredOrders.toLocaleString(),
+      value: pageStats.deliveredOrders.toLocaleString(),
       description: "Completed orders",
       icon: CheckCircle,
       borderColor: "border-l-green-500",
@@ -56,7 +92,7 @@ export default async function OrdersPage() {
     },
     {
       title: "Total Revenue",
-      value: formatPrice(totalRevenue),
+      value: formatPrice(pageStats.totalRevenue),
       description: "From paid orders",
       icon: DollarSign,
       borderColor: "border-l-emerald-500",
@@ -74,7 +110,6 @@ export default async function OrdersPage() {
         </p>
       </div>
 
-      {/* Statistics Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon
@@ -85,10 +120,14 @@ export default async function OrdersPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </p>
                   <p className="text-2xl font-bold">{stat.value}</p>
                   {stat.description && (
-                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </p>
                   )}
                 </div>
                 <div className={`rounded-full p-3 ${stat.iconBg}`}>
@@ -100,7 +139,14 @@ export default async function OrdersPage() {
         })}
       </div>
 
-      <OrdersTable orders={ordersWithEncryptedIds} />
+      <OrdersTable
+        orders={ordersWithEncryptedIds}
+        totalCount={listResult.total}
+        page={listResult.page}
+        pageSize={listResult.pageSize}
+        statusFilter={status}
+        paymentStatusFilter={paymentStatus}
+      />
     </div>
   )
 }

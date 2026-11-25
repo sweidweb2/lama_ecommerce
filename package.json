@@ -17,7 +17,8 @@
     "test:e2e:headed": "node scripts/e2e-run.mjs --headed",
     "test:e2e:raw": "playwright test",
     "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
-    "seed:products": "tsx --env-file=.env.local scripts/seed-tshirt-products.ts"
+    "seed:products": "tsx --env-file=.env.local scripts/seed-tshirt-products.ts",
+    "db:migrate:remote": "npx supabase db push"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

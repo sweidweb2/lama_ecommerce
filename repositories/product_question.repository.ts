@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerActionClient } from "@/lib/supabase/server";
+import { fetchProfileNameMap } from "@/lib/repositories/profile-name-map";
 
 /** Admin list item: question with product name, user name, and latest answer text. */
 export interface AdminQuestionRow {
@@ -44,15 +45,15 @@ export async function getAdminQuestions(): Promise<AdminQuestionRow[]> {
     }
 
     const productIds = [...new Set(questions.map((q: any) => q.product_id))];
-    const userIds = [...new Set(questions.map((q: any) => q.user_id).filter(Boolean))];
 
-    const [{ data: products }, { data: profiles }, { data: answers }] = await Promise.all([
+    const [{ data: products }, profileMap, { data: answers }] = await Promise.all([
       productIds.length
         ? (supabase as any).from("products").select("id, name").in("id", productIds)
         : { data: [] },
-      userIds.length
-        ? (supabase as any).from("profiles").select("user_id, full_name").in("user_id", userIds)
-        : { data: [] },
+      fetchProfileNameMap(
+        supabase as any,
+        questions.map((q: { user_id: string | null }) => q.user_id),
+      ),
       (supabase as any)
         .from("product_answers")
         .select("product_question_id, answer")
@@ -62,10 +63,6 @@ export async function getAdminQuestions(): Promise<AdminQuestionRow[]> {
 
     const productMap = new Map<string, string>();
     (products ?? []).forEach((p: { id: string; name: string }) => productMap.set(p.id, p.name));
-    const profileMap = new Map<string, string>();
-    (profiles ?? []).forEach((p: { user_id: string; full_name: string | null }) =>
-      profileMap.set(p.user_id, p.full_name ?? "Unknown")
-    );
     const latestAnswerByQuestion = new Map<string, string>();
     (answers ?? []).forEach((a: { product_question_id: string; answer: string }) => {
       if (!latestAnswerByQuestion.has(a.product_question_id)) {

@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getAllShippingZonesWithFee = vi.fn();
+const getShippingZoneById = vi.fn();
 const processCheckout = vi.fn();
 const incrementPurchaseCountForOrderService = vi.fn();
 const createAddressForUser = vi.fn();
 const updateAddressForUser = vi.fn();
 const getAddressesByUserId = vi.fn();
 
-vi.mock("@/repositories/shipping_zone.repository", () => ({
-  getAllShippingZonesWithFee: (...args: unknown[]) =>
-    getAllShippingZonesWithFee(...args),
+vi.mock("@/services/shipping_zone.service", () => ({
+  getShippingZoneById: (...args: unknown[]) => getShippingZoneById(...args),
 }));
 
 vi.mock("@/repositories/order.repository", () => ({
@@ -56,9 +55,11 @@ describe("checkoutService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     incrementPurchaseCountForOrderService.mockResolvedValue(undefined);
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Amman", fee: 4.5 },
-    ]);
+    getShippingZoneById.mockResolvedValue({
+      id: baseInput.shipping_zone_id,
+      name: "Amman",
+      fee: 4.5,
+    });
     processCheckout.mockResolvedValue({
       success: true,
       orderId: "order-1",
@@ -72,7 +73,7 @@ describe("checkoutService", () => {
   });
 
   it("rejects unknown shipping zone", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([]);
+    getShippingZoneById.mockResolvedValue(null);
     const { checkoutService } = await import("@/services/checkout.service");
     await expect(checkoutService(baseInput)).resolves.toEqual({
       success: false,
@@ -103,9 +104,11 @@ describe("checkoutService", () => {
   });
 
   it("passes guest session_id through without inventing a user_id", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Amman", fee: 2 },
-    ]);
+    getShippingZoneById.mockResolvedValue({
+      id: baseInput.shipping_zone_id,
+      name: "Amman",
+      fee: 2,
+    });
     processCheckout.mockResolvedValue({ success: true, orderId: "order-guest" });
 
     const guestInput = {
@@ -155,9 +158,11 @@ describe("checkoutService", () => {
   });
 
   it("allows checkout when zone fee is null (SQL treats as 0)", async () => {
-    getAllShippingZonesWithFee.mockResolvedValue([
-      { id: baseInput.shipping_zone_id, name: "Free", fee: null },
-    ]);
+    getShippingZoneById.mockResolvedValue({
+      id: baseInput.shipping_zone_id,
+      name: "Free",
+      fee: null,
+    });
     processCheckout.mockResolvedValue({ success: true, orderId: "order-2" });
 
     const { checkoutService } = await import("@/services/checkout.service");

@@ -4,11 +4,14 @@ import {
   hasActiveCartForSession,
   getCartForSession,
   getAllCartsForAdmin,
+  listCartsForAdmin,
   getCartByIdForAdmin,
   deleteCart,
   hardDeleteCart,
   mergeGuestCartToUser,
   type AdminCartRow,
+  type ListCartsForAdminParams,
+  type ListCartsForAdminResult,
 } from "@/repositories/cart.repository";
 import {
   createCartItemAsAdmin,
@@ -253,7 +256,7 @@ export async function deleteCartItemService(
 
 /**
  * Get all carts for admin panel.
- * Returns carts with user information, item counts, and totals.
+ * @deprecated Prefer listCartsForAdminService for paginated UI.
  */
 export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
   try {
@@ -262,6 +265,21 @@ export async function getAllCartsForAdminService(): Promise<AdminCartRow[]> {
     return [];
   }
   return await getAllCartsForAdmin();
+}
+
+/**
+ * Paginated admin carts.
+ */
+export async function listCartsForAdminService(
+  params: ListCartsForAdminParams = {},
+): Promise<ListCartsForAdminResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 20, 1), 100);
+  try {
+    await requireAdmin();
+  } catch {
+    return { items: [], total: 0, page: 1, pageSize };
+  }
+  return listCartsForAdmin(params);
 }
 
 /**

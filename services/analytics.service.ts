@@ -16,6 +16,20 @@ export type AnalyticsResult<T> =
 
 export type { AnalyticsStats };
 
+export type AnalyticsDashboardData = {
+  sales: Array<{ month: string; sales: number; orders: number }>;
+  userGrowth: Array<{ month: string; users: number }>;
+  orderStatus: Array<{ status: string; count: number }>;
+  paymentStatus: Array<{ status: string; count: number }>;
+  stats: AnalyticsStats;
+  topProducts: Array<{
+    product_id: string;
+    product_name: string;
+    revenue: number;
+    orders: number;
+  }>;
+};
+
 async function withAdminResult<T>(
   load: () => Promise<T>,
 ): Promise<AnalyticsResult<T>> {
@@ -34,6 +48,42 @@ async function withAdminResult<T>(
     console.error("Analytics service error:", error);
     return { ok: false, error: message };
   }
+}
+
+/**
+ * Load the analytics dashboard in one auth gate + parallel repository calls.
+ * Prefer this over calling the individual services from the page (avoids 6× requireAdmin).
+ */
+export async function getAnalyticsDashboardService(
+  range?: AdminDateRange,
+  topLimit: number = 10,
+): Promise<AnalyticsResult<AnalyticsDashboardData>> {
+  return withAdminResult(async () => {
+    const [
+      sales,
+      userGrowth,
+      orderStatus,
+      paymentStatus,
+      stats,
+      topProducts,
+    ] = await Promise.all([
+      getSalesAndOrdersByMonth(range),
+      getUserGrowthByMonth(range),
+      getOrderStatusBreakdown(),
+      getPaymentStatusBreakdown(),
+      getAnalyticsStats(range),
+      getTopProductsByRevenue(topLimit, range),
+    ]);
+
+    return {
+      sales,
+      userGrowth,
+      orderStatus,
+      paymentStatus,
+      stats,
+      topProducts,
+    };
+  });
 }
 
 /**

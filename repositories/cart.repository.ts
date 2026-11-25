@@ -3,6 +3,11 @@ import {
   createSupabaseServerComponentClient,
 } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  getStorefrontClient,
+  scopeQueryToOwner,
+} from "@/lib/repositories/storefront-owner-query";
+import { fetchProfileNameMap } from "@/lib/repositories/profile-name-map";
 import type { Cart } from "@/types/order";
 import type { CreateCartInput } from "@/lib/validators/cart/create";
 import type { UpdateCartInput } from "@/lib/validators/cart/update";
@@ -170,28 +175,12 @@ export async function getCartByIdForAdmin(
 }
 
 /**
- * Supabase client for storefront cart reads:
- * - user: Server Component client (RLS)
- * - guest: service-role client (guest rows are not readable via anon RLS)
- */
-async function getCartReadClient(owner: StorefrontOwner) {
-  return owner.kind === "guest"
-    ? createSupabaseAdminClient()
-    : await createSupabaseServerComponentClient();
-}
-
-/**
  * Select the most recent cart for the session owner:
  * users by `user_id`, guests by `session_id` with `user_id IS NULL`.
  */
 async function selectLatestCartForSession(owner: StorefrontOwner) {
-  const supabase = await getCartReadClient(owner);
-  const base = supabase.from("carts").select("*");
-  const scoped =
-    owner.kind === "user"
-      ? base.eq("user_id", owner.userId)
-      : base.eq("session_id", owner.sessionId).is("user_id", null);
-  return scoped
+  const supabase = await getStorefrontClient(owner, "component");
+  return scopeQueryToOwner(supabase.from("carts").select("*"), owner)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -447,51 +436,106 @@ export interface AdminCartRow {
  * Get all carts for admin panel with user information, item counts, and totals.
  * Uses admin client to bypass RLS for full access.
  */
-export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
+export type ListCartsForAdminParams = {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+};
+
+export type ListCartsForAdminResult = {
+  items: AdminCartRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * Paginated admin carts with batched item totals (no N+1).
+ */
+export async function listCartsForAdmin(
+  params: ListCartsForAdminParams = {},
+): Promise<ListCartsForAdminResult> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 20, 1), 100);
+  let page = Math.max(params.page ?? 1, 1);
+  const empty: ListCartsForAdminResult = {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize,
+  };
+
   try {
     const supabase = createSupabaseAdminClient();
+    const q = params.q?.trim() ?? "";
 
-    // Fetch all carts
-    const { data: carts, error: cartsError } = await supabase
-      .from("carts")
-      .select(`
-        id,
-        user_id,
-        session_id,
-        created_at,
-        updated_at
-      `)
-      .order("created_at", { ascending: false });
+    const buildQuery = () => {
+      let query = supabase
+        .from("carts")
+        .select(
+          `
+          id,
+          user_id,
+          session_id,
+          created_at,
+          updated_at
+        `,
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false });
+
+      if (q) {
+        const safe = q.replace(/[%_,.()\\]/g, "").slice(0, 64);
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            safe,
+          );
+        if (isUuid) {
+          query = query.or(`id.eq.${safe},session_id.eq.${safe}`);
+        } else if (safe) {
+          query = query.ilike("session_id", `%${safe}%`);
+        }
+      }
+
+      return query;
+    };
+
+    let from = (page - 1) * pageSize;
+    let to = from + pageSize - 1;
+    let { data: carts, error: cartsError, count } = await buildQuery().range(
+      from,
+      to,
+    );
 
     if (cartsError) {
       console.error("Error fetching carts for admin:", cartsError);
-      return [];
+      return empty;
+    }
+
+    const total = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (page > totalPages && total > 0) {
+      page = totalPages;
+      from = (page - 1) * pageSize;
+      to = from + pageSize - 1;
+      ({ data: carts, error: cartsError, count } = await buildQuery().range(
+        from,
+        to,
+      ));
+      if (cartsError) {
+        console.error("Error fetching carts for admin:", cartsError);
+        return empty;
+      }
     }
 
     if (!carts || carts.length === 0) {
-      return [];
+      return { items: [], total, page, pageSize };
     }
 
-    // Get unique user IDs
-    const userIds = [
-      ...new Set(carts.map((c: any) => c.user_id).filter(Boolean)),
-    ];
+    const profileMap = await fetchProfileNameMap(
+      supabase,
+      carts.map((c: { user_id: string | null }) => c.user_id),
+    );
 
-    // Fetch profiles for user names
-    const { data: profiles } = userIds.length
-      ? await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", userIds)
-      : { data: [] };
-
-    // Create map for quick lookup
-    const profileMap = new Map<string, string>();
-    (profiles ?? []).forEach((p: { user_id: string; full_name: string | null }) => {
-      profileMap.set(p.user_id, p.full_name || "Unknown");
-    });
-
-    // Batch-fetch cart item quantities + prices for all carts (no N+1)
     const cartIds = carts.map((c: { id: string }) => c.id);
     const totalsByCartId = new Map<string, { items: number; total: number }>();
 
@@ -541,12 +585,11 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
       }
     }
 
-    const adminCarts: AdminCartRow[] = carts.map((cart: any) => {
+    const items: AdminCartRow[] = carts.map((cart: any) => {
       const aggregates = totalsByCartId.get(cart.id) ?? {
         items: 0,
         total: 0,
       };
-      const status = "Active";
       const userName = cart.user_id
         ? profileMap.get(cart.user_id) || `User ${cart.user_id}`
         : "Guest";
@@ -560,15 +603,23 @@ export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
         userName,
         items: aggregates.items,
         total: aggregates.total,
-        status,
+        status: "Active",
       };
     });
 
-    return adminCarts;
+    return { items, total: count ?? total, page, pageSize };
   } catch (error) {
-    console.error("Unexpected error in getAllCartsForAdmin:", error);
-    return [];
+    console.error("Unexpected error in listCartsForAdmin:", error);
+    return empty;
   }
+}
+
+/**
+ * @deprecated Prefer listCartsForAdmin. Returns first page (max 100).
+ */
+export async function getAllCartsForAdmin(): Promise<AdminCartRow[]> {
+  const result = await listCartsForAdmin({ page: 1, pageSize: 100 });
+  return result.items;
 }
 
 /**

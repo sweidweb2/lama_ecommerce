@@ -4,12 +4,12 @@ import {
   processCheckout,
   type ProcessCheckoutInput,
 } from "@/repositories/order.repository";
-import { getAllShippingZonesWithFee } from "@/repositories/shipping_zone.repository";
 import {
   createAddressForUser,
   getAddressesByUserId,
   updateAddressForUser,
 } from "@/services/address.service";
+import { getShippingZoneById } from "@/services/shipping_zone.service";
 import { sendOrderConfirmationEmailService } from "@/services/order_email.service";
 import { incrementPurchaseCountForOrderService } from "@/services/product_view.service";
 import { getAdminShopBlockForUserId } from "@/services/profile.service";
@@ -63,8 +63,7 @@ export async function checkoutService(
     }
 
     // 1. Cheap zone existence check (RPC is source of truth for fee + zone snapshot)
-    const zones = await getAllShippingZonesWithFee();
-    const selectedZone = zones.find((z) => z.id === input.shipping_zone_id);
+    const selectedZone = await getShippingZoneById(input.shipping_zone_id);
 
     if (!selectedZone) {
       return { success: false, error: "Invalid shipping zone selected." };
