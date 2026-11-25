@@ -9,11 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
+import Image from "next/image"
 import { createProductVariantAction } from "@/actions/product"
 import { z } from "zod"
 import { createProductVariantSchema } from "@/lib/validators/product_variant/create"
 import { COLOR_PALETTE } from "@/lib/constants/color-palette"
 import { ChromePicker } from "react-color"
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads"
+import { toast } from "sonner"
 
 interface CreateVariantFormProps {
   productId: string
@@ -39,7 +45,30 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
   const [quantityStock, setQuantityStock] = useState("")
   const [skuVariant, setSkuVariant] = useState("")
   const [priceOverride, setPriceOverride] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<keyof z.input<typeof createProductVariantSchema>, string>>>({})
+
+  const clearImage = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl)
+    }
+    setImageFile(null)
+    setImagePreviewUrl(null)
+  }
+
+  const resetForm = () => {
+    setColorHex("")
+    setCustomColorHex("")
+    setSize("")
+    setCustomSize("")
+    setMaterial("")
+    setQuantityStock("")
+    setSkuVariant("")
+    setPriceOverride("")
+    clearImage()
+    setErrors({})
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,6 +106,11 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
       return
     }
 
+    if (imageFile && imageFile.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+      toast.error(`Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`)
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const formData = new FormData()
@@ -87,26 +121,21 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
       formData.set("quantity_stock", parsed.data.quantity_stock.toString())
       formData.set("sku_variant", parsed.data.sku_variant ?? "")
       formData.set("price_override", parsed.data.price_override?.toString() ?? "")
+      if (imageFile && imageFile.size > 0) {
+        formData.set("image", imageFile)
+      }
 
       const result = await createProductVariantAction(formData)
 
       if (!result.success) {
         setErrors({ quantity_stock: result.error })
+        toast.error(result.error)
         return
       }
 
-      // Reset form
-      setColorHex("")
-      setCustomColorHex("")
-      setSize("")
-      setCustomSize("")
-      setMaterial("")
-      setQuantityStock("")
-      setSkuVariant("")
-      setPriceOverride("")
+      resetForm()
       setIsOpen(false)
-
-      // Refresh to show new variant
+      toast.success("Variant created")
       router.refresh()
 
       if (onVariantCreated) {
@@ -121,15 +150,7 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
   }
 
   const handleCancel = () => {
-    setColorHex("")
-    setCustomColorHex("")
-    setSize("")
-    setCustomSize("")
-    setMaterial("")
-    setQuantityStock("")
-    setSkuVariant("")
-    setPriceOverride("")
-    setErrors({})
+    resetForm()
     setIsOpen(false)
   }
 
@@ -447,6 +468,52 @@ export function CreateVariantForm({ productId, productPrice, onVariantCreated }:
             </p>
             {errors.price_override && (
               <p className="text-xs text-destructive">{errors.price_override}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="variant-image">Variant image</Label>
+            <Input
+              id="variant-image"
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                if (imagePreviewUrl) {
+                  URL.revokeObjectURL(imagePreviewUrl)
+                }
+                if (file && file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+                  e.target.value = ""
+                  setImageFile(null)
+                  setImagePreviewUrl(null)
+                  toast.error(
+                    `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+                  )
+                  return
+                }
+                setImageFile(file)
+                setImagePreviewUrl(file ? URL.createObjectURL(file) : null)
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional. Assigned to this variant in the product gallery. Max{" "}
+              {MAX_SERVER_ACTION_UPLOAD_LABEL}.
+            </p>
+            {imagePreviewUrl && (
+              <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-muted">
+                <Image
+                  src={imagePreviewUrl}
+                  alt="Variant preview"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            )}
+            {imageFile && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearImage}>
+                Clear image
+              </Button>
             )}
           </div>
 

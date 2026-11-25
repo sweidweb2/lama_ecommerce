@@ -92,7 +92,8 @@ export function ProductCustomization({
   productId,
   variants,
 }: ProductCustomizationProps) {
-  const { setSelectedVariantId } = useProductVariant()
+  const { setSelectedVariantId, setSelectedColor: setContextSelectedColor } =
+    useProductVariant()
   const { role } = useAuth()
   const isAdmin = role === ROLES.ADMIN
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
@@ -168,8 +169,10 @@ export function ProductCustomization({
     // If clicking the same color, allow deselecting (toggle)
     if (selectedColor === color) {
       setSelectedColor(null)
+      setContextSelectedColor(null)
     } else {
       setSelectedColor(color)
+      setContextSelectedColor(color)
     }
     setQuantity(1) // Reset quantity when color changes
     setShowColorAlert(false) // Clear alert when color is selected

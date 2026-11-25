@@ -1,11 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Plus, Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads";
 
 export type VariantDraftRow = {
   key: string;
@@ -15,6 +21,8 @@ export type VariantDraftRow = {
   quantity_stock: string;
   sku_variant: string;
   price_override: string;
+  imageFile: File | null;
+  imagePreviewUrl: string | null;
 };
 
 export type VariantFieldErrors = Partial<
@@ -50,6 +58,8 @@ function emptyVariant(): VariantDraftRow {
     quantity_stock: "0",
     sku_variant: "",
     price_override: "",
+    imageFile: null,
+    imagePreviewUrl: null,
   };
 }
 
@@ -79,7 +89,24 @@ export function ProductVariantsRepeater({
 
   const removeRow = (index: number) => {
     if (disabled || variants.length <= 1) return;
+    const removed = variants[index];
+    if (removed?.imagePreviewUrl) {
+      URL.revokeObjectURL(removed.imagePreviewUrl);
+    }
     onChange(variants.filter((_, i) => i !== index));
+  };
+
+  const setRowImage = (index: number, file: File | null) => {
+    if (disabled) return;
+    const current = variants[index];
+    if (!current) return;
+    if (current.imagePreviewUrl) {
+      URL.revokeObjectURL(current.imagePreviewUrl);
+    }
+    updateRow(index, {
+      imageFile: file,
+      imagePreviewUrl: file ? URL.createObjectURL(file) : null,
+    });
   };
 
   return (
@@ -244,6 +271,58 @@ export function ProductVariantsRepeater({
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`variant-image-${row.key}`}>
+                  Variant image
+                </Label>
+                <Input
+                  id={`variant-image-${row.key}`}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (file && file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+                      e.target.value = "";
+                      setRowImage(index, null);
+                      toast.error(
+                        `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+                      );
+                      return;
+                    }
+                    setRowImage(index, file);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional. Assigned to this variant and added to the product
+                  gallery. Max {MAX_SERVER_ACTION_UPLOAD_LABEL} each; all images
+                  in this form together must also stay under{" "}
+                  {MAX_SERVER_ACTION_UPLOAD_LABEL}.
+                </p>
+                {row.imagePreviewUrl && (
+                  <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-muted">
+                    <Image
+                      src={row.imagePreviewUrl}
+                      alt={`Variant ${index + 1} preview`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
+                {row.imageFile && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => setRowImage(index, null)}
+                  >
+                    Clear image
+                  </Button>
+                )}
               </div>
             </div>
           );

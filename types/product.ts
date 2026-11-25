@@ -53,6 +53,8 @@ export interface ProductImage {
   product_id: UUID;
   url_image: string;
   is_primary: boolean;
+  /** Optional link to a variant; image still belongs to the product gallery. */
+  customised_product_id: UUID | null;
   created_at: string;
 }
 

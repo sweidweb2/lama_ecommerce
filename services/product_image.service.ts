@@ -8,6 +8,7 @@ import {
   setPrimaryProductImage,
   type CreateProductImageInput,
 } from "@/repositories/product_images.repository";
+import { getProductVariantById } from "@/repositories/product_variant.repository";
 import {
   extractStorageObjectPath,
   getPublicUrl,
@@ -19,23 +20,35 @@ import { assertServerActionUploadSize } from "@/lib/constants/uploads";
 /**
  * Add a product image for a given product.
  * Automatically sets is_primary to true if no primary image exists, otherwise false.
+ * Optional customised_product_id assigns the image to a variant of the same product.
  */
 export async function addProductImageService(
   productId: string,
   urlImage: string,
+  customisedProductId?: string | null,
 ): Promise<boolean> {
   await requireAdmin();
-  try {
-    // Check if product already has a primary image
-    const hasPrimary = await hasPrimaryImage(productId);
 
-    // Set is_primary to true only if no primary image exists
+  const variantId: string | null = customisedProductId ?? null;
+  if (variantId) {
+    const variant = await getProductVariantById(variantId);
+    if (!variant) {
+      throw new Error("Variant not found");
+    }
+    if (variant.product_id !== productId) {
+      throw new Error("Variant does not belong to this product");
+    }
+  }
+
+  try {
+    const hasPrimary = await hasPrimaryImage(productId);
     const isPrimary = !hasPrimary;
 
     const input: CreateProductImageInput = {
       product_id: productId,
       url_image: urlImage,
       is_primary: isPrimary,
+      customised_product_id: variantId,
     };
 
     const created = await createProductImage(input);
@@ -53,10 +66,24 @@ export async function addProductImageService(
 export async function uploadAndAddProductImageService(
   productId: string,
   imageFile: File,
+  customisedProductId?: string | null,
 ): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
   try {
     assertServerActionUploadSize(imageFile, "Image");
+
+    if (customisedProductId) {
+      const variant = await getProductVariantById(customisedProductId);
+      if (!variant) {
+        return { success: false, error: "Variant not found" };
+      }
+      if (variant.product_id !== productId) {
+        return {
+          success: false,
+          error: "Variant does not belong to this product",
+        };
+      }
+    }
 
     const name = imageFile.name || "";
     const nameExt = name.includes(".")
@@ -95,9 +122,14 @@ export async function uploadAndAddProductImageService(
       return { success: false, error: "Failed to resolve public image URL" };
     }
 
-    const created = await addProductImageService(productId, publicUrl);
+    const hasPrimary = await hasPrimaryImage(productId);
+    const created = await createProductImage({
+      product_id: productId,
+      url_image: publicUrl,
+      is_primary: !hasPrimary,
+      customised_product_id: customisedProductId ?? null,
+    });
     if (!created) {
-      // Compensating cleanup: storage object has no FK to roll back with the DB row
       await removeFiles("products", [filePath]);
       return {
         success: false,
@@ -143,7 +175,6 @@ export async function deleteProductImageService(
     const image = await getProductImageById(imageId);
 
     if (!image) {
-      // Already deleted
       return true;
     }
 
@@ -155,7 +186,6 @@ export async function deleteProductImageService(
           "Error deleting product image from storage:",
           removed.error,
         );
-        // Continue with DB deletion even if storage delete fails
       }
     }
 

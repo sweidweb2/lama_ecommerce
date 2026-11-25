@@ -14,15 +14,39 @@ interface ProductImage {
   id: string
   url_image: string
   is_primary?: boolean
+  customised_product_id?: string | null
+}
+
+interface VariantLabel {
+  id: string
+  color: string | null
+  size: string | null
 }
 
 interface ProductImageGalleryProps {
   productId: string
   productName: string
   images: ProductImage[]
+  variants?: VariantLabel[]
 }
 
-export function ProductImageGallery({ productId, productName, images }: ProductImageGalleryProps) {
+function variantAssignmentLabel(
+  image: ProductImage,
+  variants: VariantLabel[],
+): string | null {
+  if (!image.customised_product_id) return null
+  const variant = variants.find((v) => v.id === image.customised_product_id)
+  if (!variant) return "Variant"
+  const parts = [variant.color, variant.size].filter(Boolean)
+  return parts.length > 0 ? parts.join(" / ") : "Variant"
+}
+
+export function ProductImageGallery({
+  productId,
+  productName,
+  images,
+  variants = [],
+}: ProductImageGalleryProps) {
   const router = useRouter()
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -99,12 +123,20 @@ export function ProductImageGallery({ productId, productName, images }: ProductI
             </div>
           )}
 
-          {isCurrentPrimary && (
-            <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-2 py-0.5 text-[10px] font-semibold shadow-sm">
-              <Star className="h-3 w-3 fill-primary-foreground" />
-              <span>Primary</span>
-            </div>
-          )}
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {isCurrentPrimary && (
+              <div className="flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground px-2 py-0.5 text-[10px] font-semibold shadow-sm">
+                <Star className="h-3 w-3 fill-primary-foreground" />
+                <span>Primary</span>
+              </div>
+            )}
+            {currentImage &&
+              variantAssignmentLabel(currentImage, variants) && (
+                <div className="rounded-full bg-background/90 text-foreground px-2 py-0.5 text-[10px] font-medium shadow-sm border">
+                  {variantAssignmentLabel(currentImage, variants)}
+                </div>
+              )}
+          </div>
 
           {currentImage && (
             <Button

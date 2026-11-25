@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,10 @@ import { COLOR_PALETTE } from "@/lib/constants/color-palette"
 import { ChromePicker } from "react-color"
 import { toast } from "sonner"
 import type { ProductVariant } from "./VariantsTable"
+import {
+  MAX_SERVER_ACTION_UPLOAD_BYTES,
+  MAX_SERVER_ACTION_UPLOAD_LABEL,
+} from "@/lib/constants/uploads"
 
 interface EditVariantDialogProps {
   variant: ProductVariant
@@ -39,12 +44,27 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
   const [quantityStock, setQuantityStock] = useState("")
   const [skuVariant, setSkuVariant] = useState("")
   const [priceOverride, setPriceOverride] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<keyof z.input<typeof updateProductVariantSchema>, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
+
+  const clearImage = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl)
+    }
+    setImageFile(null)
+    setImagePreviewUrl(null)
+  }
 
   // Initialize form with variant data
   useEffect(() => {
     if (open) {
+      setImageFile(null)
+      setImagePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
       const paletteMatch = COLOR_PALETTE.find(
         (c) =>
           c.hex.toUpperCase() === variant.color?.toUpperCase() ||
@@ -117,6 +137,11 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
       return
     }
 
+    if (imageFile && imageFile.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+      toast.error(`Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`)
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const formData = new FormData()
@@ -134,6 +159,9 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
         "price_override",
         parsed.data.price_override?.toString() ?? "",
       )
+      if (imageFile && imageFile.size > 0) {
+        formData.set("image", imageFile)
+      }
 
       const result = await updateProductVariantAction(formData)
 
@@ -464,6 +492,57 @@ export function EditVariantDialog({ variant, productPrice }: EditVariantDialogPr
               </p>
               {errors.price_override && (
                 <p className="text-xs text-destructive">{errors.price_override}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-variant-image">Add variant image</Label>
+              <Input
+                id="edit-variant-image"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null
+                  if (imagePreviewUrl) {
+                    URL.revokeObjectURL(imagePreviewUrl)
+                  }
+                  if (file && file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+                    e.target.value = ""
+                    setImageFile(null)
+                    setImagePreviewUrl(null)
+                    toast.error(
+                      `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+                    )
+                    return
+                  }
+                  setImageFile(file)
+                  setImagePreviewUrl(file ? URL.createObjectURL(file) : null)
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional. Adds a new gallery image assigned to this variant. Max{" "}
+                {MAX_SERVER_ACTION_UPLOAD_LABEL}.
+              </p>
+              {imagePreviewUrl && (
+                <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-muted">
+                  <Image
+                    src={imagePreviewUrl}
+                    alt="New variant image preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              )}
+              {imageFile && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearImage}
+                >
+                  Clear image
+                </Button>
               )}
             </div>
 

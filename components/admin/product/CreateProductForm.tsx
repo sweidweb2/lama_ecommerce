@@ -30,6 +30,7 @@ import {
 import {
   MAX_SERVER_ACTION_UPLOAD_BYTES,
   MAX_SERVER_ACTION_UPLOAD_LABEL,
+  getServerActionTotalUploadError,
 } from "@/lib/constants/uploads";
 
 const NONE_VALUE = "__none__";
@@ -145,14 +146,35 @@ export function CreateProductForm({
 
     const form = e.currentTarget;
     const imageInput = form.elements.namedItem("images");
-    if (imageInput instanceof HTMLInputElement && imageInput.files?.[0]) {
-      const file = imageInput.files[0];
-      if (file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+    const productImage =
+      imageInput instanceof HTMLInputElement && imageInput.files?.[0]
+        ? imageInput.files[0]
+        : null;
+
+    if (productImage && productImage.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
+      toast.error(
+        `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+      );
+      return;
+    }
+
+    for (let i = 0; i < variants.length; i += 1) {
+      const file = variants[i]?.imageFile;
+      if (file && file.size > MAX_SERVER_ACTION_UPLOAD_BYTES) {
         toast.error(
-          `Image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
+          `Variant ${i + 1} image must be ${MAX_SERVER_ACTION_UPLOAD_LABEL} or smaller`,
         );
         return;
       }
+    }
+
+    const totalUploadError = getServerActionTotalUploadError([
+      productImage,
+      ...variants.map((row) => row.imageFile),
+    ]);
+    if (totalUploadError) {
+      toast.error(totalUploadError);
+      return;
     }
 
     setIsSubmitting(true);
@@ -170,6 +192,13 @@ export function CreateProductForm({
       formData.set("is_trending", parsed.data.is_trending ? "true" : "false");
       formData.set("is_active", parsed.data.is_active ? "true" : "false");
       formData.set("variants", JSON.stringify(parsed.data.variants));
+
+      for (let i = 0; i < variants.length; i += 1) {
+        const file = variants[i]?.imageFile;
+        if (file && file.size > 0) {
+          formData.set(`variant_image_${i}`, file);
+        }
+      }
 
       const result = await action(formData);
 
@@ -350,7 +379,9 @@ export function CreateProductForm({
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">
-              Optional. Max {MAX_SERVER_ACTION_UPLOAD_LABEL}. You can add more
+              Optional. Max {MAX_SERVER_ACTION_UPLOAD_LABEL} each; combined with
+              variant images must stay under {MAX_SERVER_ACTION_UPLOAD_LABEL}.
+              You can add more
               images later from the product details page.
             </p>
           </div>

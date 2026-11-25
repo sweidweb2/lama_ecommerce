@@ -119,19 +119,20 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 lg:pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 xl:gap-16">
-          {/* Left Column: Media Gallery */}
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <ProductMediaGallery 
-              productName={product.name}
-              images={images}
-              isFeatured={product.is_featured}
-              isTrending={product.is_trending}
-            />
-          </div>
+        <ProductVariantProvider>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 xl:gap-16">
+            {/* Left Column: Media Gallery */}
+            <div className="lg:sticky lg:top-24 lg:self-start">
+              <ProductMediaGallery
+                productName={product.name}
+                images={images}
+                variants={variants}
+                isFeatured={product.is_featured}
+                isTrending={product.is_trending}
+              />
+            </div>
 
-          {/* Right Column: Product Information */}
-          <ProductVariantProvider>
+            {/* Right Column: Product Information */}
             <div className="space-y-6">
               {/* Core Information */}
               <ProductCoreInfo
@@ -167,8 +168,8 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                 slug={product.slug}
               />
             </div>
-          </ProductVariantProvider>
-        </div>
+          </div>
+        </ProductVariantProvider>
 
         {/* Reviews Section */}
         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">

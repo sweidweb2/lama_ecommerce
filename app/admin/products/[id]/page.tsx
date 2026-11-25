@@ -227,7 +227,16 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                 <CardTitle>Product Image</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ProductImageGallery productId={product.id} productName={product.name} images={productImages} />
+                <ProductImageGallery
+                  productId={product.id}
+                  productName={product.name}
+                  images={productImages}
+                  variants={variants.map((v) => ({
+                    id: v.id,
+                    color: v.color,
+                    size: v.size,
+                  }))}
+                />
                 <AddImageForm productId={product.id} />
                 <ChangePrimaryImageDialog productId={product.id} images={productImages} />
               </CardContent>

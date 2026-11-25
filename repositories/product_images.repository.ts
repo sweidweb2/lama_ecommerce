@@ -6,6 +6,7 @@ export interface CreateProductImageInput {
   product_id: string;
   url_image: string;
   is_primary?: boolean;
+  customised_product_id?: string | null;
 }
 
 /**
@@ -24,6 +25,7 @@ export async function createProductImage(
           product_id: input.product_id,
           url_image: input.url_image,
           is_primary: input.is_primary ?? false,
+          customised_product_id: input.customised_product_id ?? null,
         },
       ])
       .select("*")
@@ -116,6 +118,32 @@ export async function getProductImagesByProductId(
     return (data ?? []) as ProductImage[];
   } catch (error) {
     console.error("Unexpected error in getProductImagesByProductId:", error);
+    return [];
+  }
+}
+
+/**
+ * Get product images assigned to a specific variant.
+ */
+export async function getProductImagesByVariantId(
+  variantId: string,
+): Promise<ProductImage[]> {
+  try {
+    const supabase = await createSupabaseServerActionClient();
+
+    const { data, error } = await supabase
+      .from("product_images")
+      .select("*")
+      .eq("customised_product_id", variantId);
+
+    if (error) {
+      console.error("Error fetching product images by variant:", error);
+      return [];
+    }
+
+    return (data ?? []) as ProductImage[];
+  } catch (error) {
+    console.error("Unexpected error in getProductImagesByVariantId:", error);
     return [];
   }
 }

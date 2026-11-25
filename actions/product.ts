@@ -35,6 +35,10 @@ import { updateProductVariantSchema } from "@/lib/validators/product_variant/upd
 import type { ProductWithRelations } from "@/types/product";
 import type { ProductVariant } from "@/types/product";
 import { encryptOrderId } from "@/lib/utils/encryption";
+import {
+  collectFormDataFiles,
+  getServerActionTotalUploadError,
+} from "@/lib/constants/uploads";
 
 const idSchema = z.string().uuid();
 
@@ -69,6 +73,13 @@ export async function createProductAction(
 ): Promise<CreateProductActionResult> {
   try {
     const profile = await requireAdmin();
+
+    const totalUploadError = getServerActionTotalUploadError(
+      collectFormDataFiles(formData),
+    );
+    if (totalUploadError) {
+      return { success: false, error: totalUploadError };
+    }
 
     let variantsRaw: unknown = [];
     const variantsJson = formData.get("variants")?.toString();
@@ -109,7 +120,8 @@ export async function createProductAction(
     let variantError: string | undefined;
     let variantsCreated = 0;
 
-    for (const variant of variants) {
+    for (let index = 0; index < variants.length; index += 1) {
+      const variant = variants[index];
       try {
         const createdVariant = await createProductVariantService({
           product_id: created.id,
@@ -126,6 +138,27 @@ export async function createProductAction(
           break;
         }
         variantsCreated += 1;
+
+        const variantImage = formData.get(`variant_image_${index}`);
+        if (
+          variantImage &&
+          variantImage instanceof File &&
+          variantImage.size > 0
+        ) {
+          const uploaded = await uploadAndAddProductImageService(
+            created.id,
+            variantImage,
+            createdVariant.id,
+          );
+          if (!uploaded.success) {
+            console.error(
+              "Error uploading variant image on create:",
+              uploaded.error,
+            );
+            imageUploadFailed = true;
+            imageError = uploaded.error;
+          }
+        }
       } catch (error) {
         console.error("Error creating product variant on create:", error);
         variantCreateFailed = true;
@@ -253,6 +286,7 @@ export async function addProductImageAction(formData: FormData): Promise<void> {
 
     const productIdRaw = formData.get("product_id")?.toString();
     const imageFile = formData.get("image");
+    const variantIdRaw = formData.get("customised_product_id")?.toString();
 
     if (!productIdRaw) {
       throw new Error("Product ID is required");
@@ -262,11 +296,17 @@ export async function addProductImageAction(formData: FormData): Promise<void> {
       throw new Error("Image file is required");
     }
 
-    // Validate product_id
-    const parsed = addProductImageSchema.parse({ product_id: productIdRaw });
+    const parsed = addProductImageSchema.parse({
+      product_id: productIdRaw,
+      customised_product_id: variantIdRaw?.trim() ? variantIdRaw.trim() : null,
+    });
     const productId = parsed.product_id;
 
-    const result = await uploadAndAddProductImageService(productId, imageFile);
+    const result = await uploadAndAddProductImageService(
+      productId,
+      imageFile,
+      parsed.customised_product_id ?? null,
+    );
     if (!result.success) {
       throw new Error(
         result.error
@@ -275,7 +315,6 @@ export async function addProductImageAction(formData: FormData): Promise<void> {
       );
     }
 
-    // Revalidate the products list and the specific product details page
     revalidatePath("/admin/products");
     revalidatePath(`/admin/products/${productId}`);
   } catch (error) {
@@ -384,6 +423,24 @@ export async function createProductVariantAction(
       return { success: false, error: "Failed to create product variant" };
     }
 
+    const imageFile = formData.get("image");
+    if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+      const uploaded = await uploadAndAddProductImageService(
+        created.product_id,
+        imageFile,
+        created.id,
+      );
+      if (!uploaded.success) {
+        revalidatePath("/admin/products", "layout");
+        return {
+          success: false,
+          error: uploaded.error
+            ? `Variant created but image upload failed: ${uploaded.error}`
+            : "Variant created but image upload failed",
+        };
+      }
+    }
+
     revalidatePath("/admin/products", "layout");
     return { success: true };
   } catch (error) {
@@ -460,7 +517,28 @@ export async function updateProductVariantAction(
       return { success: false, error: first };
     }
 
-    await updateProductVariantService(variantIdParsed.data, parsed.data);
+    const updated = await updateProductVariantService(
+      variantIdParsed.data,
+      parsed.data,
+    );
+
+    const imageFile = formData.get("image");
+    if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+      const uploaded = await uploadAndAddProductImageService(
+        updated.product_id,
+        imageFile,
+        updated.id,
+      );
+      if (!uploaded.success) {
+        revalidatePath("/admin/products", "layout");
+        return {
+          success: false,
+          error: uploaded.error
+            ? `Variant updated but image upload failed: ${uploaded.error}`
+            : "Variant updated but image upload failed",
+        };
+      }
+    }
 
     revalidatePath("/admin/products", "layout");
     return { success: true };

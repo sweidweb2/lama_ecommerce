@@ -165,6 +165,7 @@ export type Database = {
           product_id: string
           url_image: string
           is_primary: boolean
+          customised_product_id: string | null
           created_at: string
         }
         Insert: {
@@ -172,6 +173,7 @@ export type Database = {
           product_id: string
           url_image: string
           is_primary?: boolean
+          customised_product_id?: string | null
           created_at?: string
         }
         Update: {
@@ -179,6 +181,7 @@ export type Database = {
           product_id?: string
           url_image?: string
           is_primary?: boolean
+          customised_product_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -187,6 +190,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_images_customised_product_id_fkey"
+            columns: ["customised_product_id"]
+            isOneToOne: false
+            referencedRelation: "customised_products"
             referencedColumns: ["id"]
           },
         ]

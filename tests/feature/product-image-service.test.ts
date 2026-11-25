@@ -8,8 +8,11 @@ const setPrimaryProductImage = vi.fn();
 const getProductImageById = vi.fn();
 const deleteProductImageById = vi.fn();
 const getProductImagesByProductId = vi.fn();
+const getProductVariantById = vi.fn();
 const extractStorageObjectPath = vi.fn();
 const removeFiles = vi.fn();
+const getPublicUrl = vi.fn();
+const uploadPublicFile = vi.fn();
 
 vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: (...args: unknown[]) => requireAdmin(...args),
@@ -27,16 +30,22 @@ vi.mock("@/repositories/product_images.repository", () => ({
     getProductImagesByProductId(...args),
 }));
 
+vi.mock("@/repositories/product_variant.repository", () => ({
+  getProductVariantById: (...args: unknown[]) => getProductVariantById(...args),
+}));
+
 vi.mock("@/repositories/storage.repository", () => ({
   extractStorageObjectPath: (...args: unknown[]) =>
     extractStorageObjectPath(...args),
   removeFiles: (...args: unknown[]) => removeFiles(...args),
-  getPublicUrl: vi.fn(),
-  uploadPublicFile: vi.fn(),
+  getPublicUrl: (...args: unknown[]) => getPublicUrl(...args),
+  uploadPublicFile: (...args: unknown[]) => uploadPublicFile(...args),
 }));
 
 const productId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+const otherProductId = "c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33";
 const imageId = "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
+const variantId = "d3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44";
 
 describe("product_image.service", () => {
   beforeEach(() => {
@@ -67,6 +76,7 @@ describe("product_image.service", () => {
       product_id: productId,
       url_image: "https://cdn.example/a.png",
       is_primary: true,
+      customised_product_id: null,
     });
   });
 
@@ -83,6 +93,98 @@ describe("product_image.service", () => {
     expect(createProductImage).toHaveBeenCalledWith(
       expect.objectContaining({ is_primary: false }),
     );
+  });
+
+  it("assigns image to a variant of the same product", async () => {
+    requireAdmin.mockResolvedValue(adminProfile);
+    hasPrimaryImage.mockResolvedValue(true);
+    getProductVariantById.mockResolvedValue({
+      id: variantId,
+      product_id: productId,
+    });
+    createProductImage.mockResolvedValue({ id: imageId });
+    const { addProductImageService } = await import(
+      "@/services/product_image.service"
+    );
+    await expect(
+      addProductImageService(
+        productId,
+        "https://cdn.example/variant.png",
+        variantId,
+      ),
+    ).resolves.toBe(true);
+    expect(createProductImage).toHaveBeenCalledWith({
+      product_id: productId,
+      url_image: "https://cdn.example/variant.png",
+      is_primary: false,
+      customised_product_id: variantId,
+    });
+  });
+
+  it("rejects variant that belongs to another product", async () => {
+    requireAdmin.mockResolvedValue(adminProfile);
+    getProductVariantById.mockResolvedValue({
+      id: variantId,
+      product_id: otherProductId,
+    });
+    const { addProductImageService } = await import(
+      "@/services/product_image.service"
+    );
+    await expect(
+      addProductImageService(
+        productId,
+        "https://cdn.example/variant.png",
+        variantId,
+      ),
+    ).rejects.toThrow("Variant does not belong to this product");
+    expect(createProductImage).not.toHaveBeenCalled();
+  });
+
+  it("uploadAndAddProductImageService assigns variant and inserts row", async () => {
+    requireAdmin.mockResolvedValue(adminProfile);
+    getProductVariantById.mockResolvedValue({
+      id: variantId,
+      product_id: productId,
+    });
+    uploadPublicFile.mockResolvedValue({ success: true });
+    getPublicUrl.mockResolvedValue("https://cdn.example/products/x.png");
+    hasPrimaryImage.mockResolvedValue(false);
+    createProductImage.mockResolvedValue({ id: imageId });
+
+    const { uploadAndAddProductImageService } = await import(
+      "@/services/product_image.service"
+    );
+    const file = new File(["img"], "x.png", { type: "image/png" });
+    await expect(
+      uploadAndAddProductImageService(productId, file, variantId),
+    ).resolves.toEqual({ success: true });
+    expect(createProductImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        product_id: productId,
+        customised_product_id: variantId,
+        is_primary: true,
+      }),
+    );
+  });
+
+  it("uploadAndAddProductImageService rejects foreign variant", async () => {
+    requireAdmin.mockResolvedValue(adminProfile);
+    getProductVariantById.mockResolvedValue({
+      id: variantId,
+      product_id: otherProductId,
+    });
+
+    const { uploadAndAddProductImageService } = await import(
+      "@/services/product_image.service"
+    );
+    const file = new File(["img"], "x.png", { type: "image/png" });
+    await expect(
+      uploadAndAddProductImageService(productId, file, variantId),
+    ).resolves.toEqual({
+      success: false,
+      error: "Variant does not belong to this product",
+    });
+    expect(uploadPublicFile).not.toHaveBeenCalled();
   });
 
   it("deleteProductImageService removes storage and promotes next primary", async () => {

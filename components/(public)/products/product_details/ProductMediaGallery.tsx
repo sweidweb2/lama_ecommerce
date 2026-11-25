@@ -11,24 +11,32 @@ import {
 } from '@/components/ui/dialog'
 import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ProductImage as ProductImageType } from '@/types/product'
+import type {
+  ProductImage as ProductImageType,
+  ProductVariant,
+} from '@/types/product'
+import { useProductVariant } from './ProductVariantProvider'
 
 interface ProductMediaGalleryProps {
   productName: string
   images: ProductImageType[]
+  variants?: ProductVariant[]
   isFeatured?: boolean
   isTrending?: boolean
 }
 
 /**
  * Product media gallery with thumbnail strip and full-screen lightbox viewer.
+ * Swaps to a variant-assigned image when color / variant selection changes.
  */
 export function ProductMediaGallery({
   productName,
   images,
+  variants = [],
   isFeatured,
   isTrending,
 }: ProductMediaGalleryProps) {
+  const { selectedVariantId, selectedColor } = useProductVariant()
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [viewerOpen, setViewerOpen] = useState(false)
 
@@ -41,6 +49,40 @@ export function ProductMediaGallery({
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       })
   }, [images])
+
+  const variantById = useMemo(() => {
+    return new Map(variants.map((v) => [v.id, v]))
+  }, [variants])
+
+  useEffect(() => {
+    if (sortedImages.length === 0) return
+
+    let nextIndex = -1
+
+    if (selectedVariantId) {
+      nextIndex = sortedImages.findIndex(
+        (img) => img.customised_product_id === selectedVariantId,
+      )
+    }
+
+    if (nextIndex < 0 && selectedColor) {
+      nextIndex = sortedImages.findIndex((img) => {
+        if (!img.customised_product_id) return false
+        const linked = variantById.get(img.customised_product_id)
+        return linked?.color === selectedColor
+      })
+    }
+
+    if (nextIndex < 0) {
+      nextIndex = sortedImages.findIndex((img) => img.is_primary)
+    }
+
+    if (nextIndex < 0) {
+      nextIndex = 0
+    }
+
+    setSelectedIndex(nextIndex)
+  }, [selectedVariantId, selectedColor, sortedImages, variantById])
 
   const currentImage = sortedImages[selectedIndex] || sortedImages[0]
   const hasImage = Boolean(currentImage?.url_image)
